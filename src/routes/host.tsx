@@ -203,6 +203,16 @@ function HostPage() {
     });
   }
 
+  useRevealAutoAdvance(room?.roomCode ?? "", room?.hostSessionId ?? "", roomPhase);
+
+  if (room && roomPhase !== "lobby") {
+    return (
+      <main className="relative min-h-screen">
+        <HostGameStage room={room} />
+      </main>
+    );
+  }
+
   return (
     <main className="relative min-h-screen">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 p-6 lg:p-10">
