@@ -26,6 +26,21 @@ async function getRoomByHost(roomCode: string, hostSessionId: string) {
   return data;
 }
 
+function wildcardForRound(round: number): "saboteur" | "glitch" | "roast" | null {
+  if (round === 5) return "saboteur";
+  if (round === 10) return "glitch";
+  if (round === 14) return "roast";
+  return null;
+}
+
+const ROAST_PROMPTS = [
+  "Who would survive a zombie apocalypse?",
+  "Who is most likely to start a cult?",
+  "Who would win a hot-dog eating contest?",
+  "Who would forget their own birthday?",
+  "Who is secretly a time traveller?",
+];
+
 export const nextQuestion = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
@@ -35,8 +50,55 @@ export const nextQuestion = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const room = await getRoomByHost(data.roomCode, data.hostSessionId);
+    const nextRound = (room.round_number ?? 0) + 1;
+    const wildcard = wildcardForRound(nextRound);
 
-    // Pick a random unused question (filter by current_category if set)
+    await supabaseAdmin
+      .from("players")
+      .update({
+        current_answer: null,
+        current_answer_locked_at: null,
+        current_round_score: 0,
+        current_round_fastest: false,
+        last_answer_correct: null,
+      })
+      .eq("room_id", room.id);
+
+    // ROAST: top 4 players become "answers"; tally votes, no DB question
+    if (wildcard === "roast") {
+      const { data: topPlayers } = await supabaseAdmin
+        .from("players")
+        .select("id, session_id, nickname")
+        .eq("room_id", room.id)
+        .eq("is_audience", false)
+        .order("score", { ascending: false })
+        .limit(4);
+      const candidates = [...(topPlayers ?? [])];
+      while (candidates.length < 4) candidates.push({ id: "", session_id: "", nickname: "—" });
+      const prompt = ROAST_PROMPTS[Math.floor(Math.random() * ROAST_PROMPTS.length)];
+      const { error } = await supabaseAdmin
+        .from("rooms")
+        .update({
+          status: "playing",
+          phase: "question",
+          current_question_id: null,
+          current_question_text: prompt,
+          current_answers: candidates.map((c) => c.nickname),
+          current_correct_index: null,
+          question_started_at: new Date().toISOString(),
+          question_duration_ms: 15000,
+          dropped_indexes: [],
+          round_number: nextRound,
+          wildcard: "roast",
+          roast_candidates: candidates as unknown as object,
+          saboteur_session_id: null,
+          glitch_active_until: null,
+        })
+        .eq("id", room.id);
+      if (error) throw new Error(error.message);
+      return { ok: true, questionId: null, wildcard };
+    }
+
     const { data: used } = await supabaseAdmin
       .from("room_questions")
       .select("question_id")
@@ -60,17 +122,18 @@ export const nextQuestion = createServerFn({ method: "POST" })
       question_id: q.id,
     });
 
-    // Reset all player round state
-    await supabaseAdmin
-      .from("players")
-      .update({
-        current_answer: null,
-        current_answer_locked_at: null,
-        current_round_score: 0,
-        current_round_fastest: false,
-        last_answer_correct: null,
-      })
-      .eq("room_id", room.id);
+    let saboteurSessionId: string | null = null;
+    if (wildcard === "saboteur") {
+      const { data: ps } = await supabaseAdmin
+        .from("players")
+        .select("session_id")
+        .eq("room_id", room.id)
+        .eq("is_audience", false);
+      const pool = ps ?? [];
+      if (pool.length > 0) {
+        saboteurSessionId = pool[Math.floor(Math.random() * pool.length)].session_id;
+      }
+    }
 
     const { error } = await supabaseAdmin
       .from("rooms")
@@ -84,12 +147,16 @@ export const nextQuestion = createServerFn({ method: "POST" })
         question_started_at: new Date().toISOString(),
         question_duration_ms: 15000,
         dropped_indexes: [],
-        round_number: (room.round_number ?? 0) + 1,
+        round_number: nextRound,
+        wildcard: wildcard,
+        saboteur_session_id: saboteurSessionId,
+        glitch_active_until: null,
+        roast_candidates: null,
       })
       .eq("id", room.id);
     if (error) throw new Error(error.message);
 
-    return { ok: true, questionId: q.id };
+    return { ok: true, questionId: q.id, wildcard };
   });
 
 export const dropWrongAnswer = createServerFn({ method: "POST" })
