@@ -100,6 +100,14 @@ function HostPage() {
           void loadPlayers(room.id).then(setPlayers);
         },
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "rooms", filter: `id=eq.${room.id}` },
+        (payload) => {
+          const next = payload.new as { phase?: string } | undefined;
+          if (next?.phase) setRoomPhase(next.phase);
+        },
+      )
       .subscribe();
 
     const interval = setInterval(() => {
