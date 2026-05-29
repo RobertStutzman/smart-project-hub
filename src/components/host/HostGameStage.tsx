@@ -3,12 +3,14 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import {
   dropWrongAnswer,
+  endGame,
   endQuestion,
   nextQuestion,
   setPhase,
 } from "@/lib/game.functions";
 import { QuestionStage } from "./QuestionStage";
 import { Leaderboard } from "./Leaderboard";
+import { ShatteredFaces } from "./ShatteredFaces";
 import { play, startMusic, stopMusic } from "@/lib/sound-engine";
 
 type RoomState = {
