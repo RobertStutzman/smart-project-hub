@@ -1,87 +1,52 @@
-# Phase 1 — Beat the Drop Trivia: Core Setup, Database & Connections
+## Phase 2 Plan — Host Lobby, Theming & AI Admin
 
-## Goal
-Stand up the foundation: enable Lovable Cloud, create the schema, wire host/mobile views to a shared room over Realtime, and harden the connection (persistence, wake lock, host migration). No gameplay logic yet — that's Phase 2+.
+### 1. Host Lobby Polish (`/host`)
+- Replace the manual QR `<img>` with `qrcode.react` (`bun add qrcode.react`) for a crisp, themeable QR.
+- True split-screen layout: left = brand mark, instructions ("Join at …/join → enter code"), QR + room code; right = animated player roster (Framer Motion enter/exit, avatar gradient) + host controls.
+- **Host Controls** card with toggles:
+  - **Allow Late Joiners** (writes `rooms.allow_late_joiners`).
+  - **Mute Audio** (local-only, persisted to `localStorage`, used by future sound FX).
+  - **Theme picker** (Fellowship / Synthwave / Sanctuary) — feeds into the global theme system below.
+- **Spacebar pause shortcut**: hidden `keydown` listener calls existing `pauseRoom` server fn; visible "Paused" overlay on host until pressed again.
+- Fix current SSR hydration mismatch by deriving `window.location.host` inside `useEffect` (not during render).
 
-## 1. Backend: Enable Lovable Cloud
-- Enable Lovable Cloud (Supabase under the hood) for Postgres, Auth, Realtime, and scheduled jobs.
-- Anonymous sign-in for players (no email required to join a room).
+### 2. Dynamic Theming + Particle Effects
+- Add `data-theme="fellowship|synthwave|sanctuary"` on `<html>`, persisted in `localStorage` and shared host↔mobile via `rooms.theme` (broadcast on host change).
+- Extend `src/styles.css` with three full token sets (background, foreground, primary, accent, border, font families, shadow, gradient) scoped under each `[data-theme="…"]` block — no hard-coded colors in components.
+- Load theme fonts via `<link>` in `__root.tsx` head: serif (Cormorant) for Fellowship, mono display (Press Start 2P / VT323) for Synthwave, elegant serif (Cinzel) for Sanctuary.
+- New `<ThemeParticles />` component (Canvas-based, `requestAnimationFrame`, pauses when tab hidden):
+  - **Fellowship**: floating embers + dust motes drifting upward.
+  - **Synthwave**: scrolling perspective grid + faint VHS scanline overlay (CSS).
+  - **Sanctuary**: slow diagonal light rays (radial gradients animating opacity/position).
+- Mount in `__root.tsx` behind all routes so theme is global. Respect `prefers-reduced-motion`.
 
-## 2. Database Schema (migration)
+### 3. Admin Portal (`/admin`) — Auth + CRUD + AI
+- **Auth**: enable Supabase email/password + Google sign-in. New `/login` route. Admin gating via a separate `user_roles` table (`app_role` enum + `has_role()` security-definer fn — per security guidelines, never store role on profile).
+- **Route**: `src/routes/_authenticated/admin.tsx` protected by `_authenticated` layout (`beforeLoad` redirect) plus child gate that calls a `requireAdmin` server fn (throws redirect if `has_role(uid,'admin')` is false).
+- **Questions CRUD dashboard**:
+  - Table view with category filter, search, edit/delete inline.
+  - Create/edit modal (question, 4 answers, category, subcategory, is_premium, optional media url/type).
+  - All writes via `createServerFn` + `requireSupabaseAuth` + admin role check, using `supabaseAdmin`.
+- **Drag-and-drop CSV uploader**:
+  - Accept CSV with headers `category,subcategory,question_text,correct_answer,wrong_1,wrong_2,wrong_3,media_url,media_type,is_premium`.
+  - Parse client-side with `papaparse` (`bun add papaparse`), preview first 10 rows, then bulk-insert via server fn.
+- **AI Question Generator**:
+  - Prompt input ("10 hard 80s rock questions") + category dropdown + premium toggle.
+  - Server fn calls **Lovable AI Gateway** (`google/gemini-3-flash-preview`) with tool-calling for strict JSON schema `{questions: [{question_text, correct_answer, wrong_1..3}]}`.
+  - Preview generated rows, admin clicks "Insert all" to persist.
+  - Handle 429/402 with friendly toasts.
 
-**`rooms`**
-- `id` uuid PK, `room_code` text unique (4 uppercase letters), `status` text (`lobby` | `playing` | `paused` | `ended`)
-- `current_category` text, `is_paused` boolean default false
-- `host_session_id` text (for host migration detection)
-- `created_at` timestamptz default now()
+### 4. Database Migration
+- `ALTER TABLE rooms ADD COLUMN allow_late_joiners boolean DEFAULT true, ADD COLUMN theme text DEFAULT 'fellowship';`
+- Create `app_role` enum, `user_roles` table (+ GRANTs, RLS, `has_role` SECURITY DEFINER fn).
+- Insert-admin helper: SQL snippet the user runs once to grant themselves `admin` after signing up.
+- Server-fn-only RLS for `questions` writes (policies: select public; insert/update/delete require `has_role(auth.uid(),'admin')`), plus matching GRANTs.
 
-**`players`**
-- `id` uuid PK, `room_id` uuid FK → rooms(id) on delete cascade
-- `nickname` text, `session_id` text (matches localStorage), `avatar_url` text
-- `score` int default 0, `is_audience` boolean default false, `streak_count` int default 0
-- `last_seen_at` timestamptz, `created_at` timestamptz default now()
-- Unique (`room_id`, `session_id`)
+### 5. Technical notes
+- New deps: `qrcode.react`, `papaparse`, `framer-motion` (if not yet), `@types/papaparse`.
+- Lovable AI key (`LOVABLE_API_KEY`) is already provisioned — no secret prompt needed.
+- All theme tokens defined as semantic CSS variables; components keep using `bg-background`, `text-foreground`, `border-border`, etc.
+- Out of scope (Phase 3+): actual gameplay/timers/scoring, paywall checkout, audio playback, media question rendering.
 
-**`questions`**
-- `id` uuid PK, `category` text, `subcategory` text
-- `question_text` text, `correct_answer` text, `wrong_1/2/3` text
-- `media_url` text, `media_type` text (`image` | `audio` | `video` | null)
-- `is_premium` boolean default false
-
-**RLS & GRANTs**
-- Enable RLS on all tables. GRANT select/insert/update to `authenticated` and `anon` (rooms/players are public-by-code; questions are read-only public except premium gating in app logic).
-- Policies: anyone can read rooms/players/questions; players can update/insert their own row by `session_id`; host can update its own room.
-- Realtime publication enabled for `rooms` and `players`.
-
-**Auto-cleanup**
-- Enable `pg_cron` + `pg_net` extensions.
-- Schedule hourly job: `DELETE FROM rooms WHERE created_at < now() - interval '24 hours'` (cascade removes players).
-
-## 3. Frontend Routes (TanStack Start)
-- `/` — landing: "Host a Game" (→ `/host`) and "Join a Game" (→ `/join`).
-- `/host` — Host TV view: creates a room, displays 4-letter code + QR, player list.
-- `/join` — Mobile entry: room code + nickname form.
-- `/play` — Mobile Controller: shows current state, "Host disconnected" overlay when `is_paused`.
-
-All four pages get unique `head()` metadata.
-
-## 4. Persistence & Reconnect
-- On join, generate `session_id` (uuid) and store `{ session_id, room_code, nickname }` in `localStorage` under `btd:player`.
-- On `/play` mount: if localStorage entry exists, upsert into `players` by (`room_id`, `session_id`) and resume score/streak.
-- Heartbeat: update `last_seen_at` every 15s via a server function.
-
-## 5. Realtime Wiring
-- Host subscribes to `players` (room scope) for live roster; subscribes to `rooms` for state.
-- Mobile subscribes to `rooms` for category/pause changes.
-- Single root `onAuthStateChange` listener invalidates queries on auth changes.
-
-## 6. Wake Lock (Mobile Controller only)
-- Native `navigator.wakeLock.request('screen')` on `/play` mount; re-acquire on `visibilitychange`. Fallback: `NoSleep.js` via `bun add nosleep.js` if API unavailable (older iOS).
-
-## 7. Host Migration / Disconnect Detection
-- Host emits heartbeat every 5s updating `rooms.host_last_seen_at`.
-- Mobile clients watch: if `now - host_last_seen_at > 15s` OR `is_paused = true`, show full-screen "Host disconnected — waiting to resume…" overlay.
-- A server function called from any returning host with the same `host_session_id` flips `is_paused` back to false.
-
-## 8. Freemium Flag (scaffolding only)
-- Add `profiles` table: `user_id` PK FK auth.users, `is_premium` boolean default false, `premium_until` timestamptz null.
-- Auto-create profile via trigger on signup.
-- Helper `useIsPremium()` hook reading current user profile.
-- Category picker on `/host` shows lock icon on premium categories; clicking opens a placeholder paywall modal ("Coming in Phase 3"). No payment provider wired yet.
-
-## 9. Seed Data
-- Seed ~20 free questions across 2–3 general categories (Music, Movies, General Knowledge) so Phase 2 has data to play with. Premium categories left empty for now.
-
-## Technical Notes
-- Server functions in `src/lib/*.functions.ts`: `createRoom`, `joinRoom`, `heartbeatPlayer`, `heartbeatHost`, `resumeAsHost`.
-- Use `requireSupabaseAuth` middleware; anonymous sessions still produce a `userId`.
-- All Supabase writes happen server-side; clients only read via Realtime + initial query.
-- Verify build after migration; confirm Realtime delivers a player insert end-to-end before closing Phase 1.
-
-## Out of scope (later phases)
-- Question playback, timers, scoring math, audience mode UX, leaderboards.
-- Actual paywall/Stripe integration.
-- Sound/video drop mechanics.
-
-## Open question
-Anonymous auth for players is the simplest path (no email required, just type a nickname). Confirm that's the desired flow, or do you want players to optionally sign in with Google to keep stats across rooms?
+### Open question
+Do you want me to wire Google sign-in alongside email/password for admin login (recommended), or email/password only?
