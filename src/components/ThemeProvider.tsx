@@ -5,7 +5,7 @@ type Ctx = { theme: ThemeName; setTheme: (t: ThemeName) => void };
 const ThemeCtx = createContext<Ctx | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeName>("fellowship");
+  const [theme, setThemeState] = useState<ThemeName>("synthwave");
 
   useEffect(() => {
     const t = loadTheme();

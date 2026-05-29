@@ -8,11 +8,12 @@ export const THEME_META: Record<ThemeName, { label: string; description: string 
 };
 
 const KEY = "btd:theme";
+const DEFAULT_THEME: ThemeName = "synthwave";
 
 export function loadTheme(): ThemeName {
-  if (typeof window === "undefined") return "fellowship";
+  if (typeof window === "undefined") return DEFAULT_THEME;
   const v = window.localStorage.getItem(KEY);
-  return (THEMES as readonly string[]).includes(v ?? "") ? (v as ThemeName) : "fellowship";
+  return (THEMES as readonly string[]).includes(v ?? "") ? (v as ThemeName) : DEFAULT_THEME;
 }
 
 export function saveTheme(name: ThemeName) {
