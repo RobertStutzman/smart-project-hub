@@ -90,7 +90,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
           dropped_indexes: [],
           round_number: nextRound,
           wildcard: "roast",
-          roast_candidates: candidates as unknown as object,
+          roast_candidates: JSON.parse(JSON.stringify(candidates)),
           saboteur_session_id: null,
           glitch_active_until: null,
         })
