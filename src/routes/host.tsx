@@ -16,6 +16,7 @@ import { CATEGORIES, type Category } from "@/lib/categories";
 import { THEMES, THEME_META, type ThemeName } from "@/lib/theme";
 import { useTheme } from "@/components/ThemeProvider";
 import { play, setMuted as setSoundMuted, startMusic, stopMusic, type Sfx } from "@/lib/sound-engine";
+import { HostGameStage, useRevealAutoAdvance } from "@/components/host/HostGameStage";
 
 export const Route = createFileRoute("/host")({
   head: () => ({
