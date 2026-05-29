@@ -8,7 +8,7 @@ export const THEME_META: Record<ThemeName, { label: string; description: string 
 };
 
 const KEY = "btd:theme";
-const DEFAULT_THEME: ThemeName = "synthwave";
+const DEFAULT_THEME: ThemeName = "fellowship";
 
 export function loadTheme(): ThemeName {
   if (typeof window === "undefined") return DEFAULT_THEME;
