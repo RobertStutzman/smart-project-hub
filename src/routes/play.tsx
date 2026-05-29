@@ -123,6 +123,23 @@ function PlayPage() {
 
     void fetchAll();
 
+    const loadAllPlayers = async () => {
+      const { data: r2 } = await supabase
+        .from("rooms")
+        .select("id")
+        .eq("room_code", session.roomCode)
+        .maybeSingle();
+      if (!r2) return;
+      const { data: rows } = await supabase
+        .from("players")
+        .select("session_id, score")
+        .eq("room_id", r2.id)
+        .eq("is_audience", false)
+        .order("score", { ascending: true });
+      if (!cancelled && rows) setAllPlayers(rows);
+    };
+    void loadAllPlayers();
+
     const channel = supabase
       .channel(`play-${session.roomCode}`)
       .on(
@@ -134,10 +151,11 @@ function PlayPage() {
       )
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "players" },
+        { event: "*", schema: "public", table: "players" },
         (payload) => {
           const next = payload.new as Me & { session_id: string };
-          if (next.session_id === session.sessionId) setMe(next);
+          if (next?.session_id === session.sessionId) setMe(next);
+          void loadAllPlayers();
         },
       )
       .subscribe();
