@@ -231,7 +231,19 @@ function PlayPage() {
     ? Math.max(0, room.question_duration_ms / 1000 - (now - startMs) / 1000)
     : null;
 
-  async function toggleAudience() {
+  // Wildcard derived state
+  const iAmSaboteur =
+    room.wildcard === "saboteur" &&
+    !!room.saboteur_session_id &&
+    session?.sessionId === room.saboteur_session_id;
+  const rankedAsc = allPlayers; // ascending by score
+  const myRankFromBottom = rankedAsc.findIndex((p) => p.session_id === session?.sessionId);
+  const iAmLast = myRankFromBottom === 0 && rankedAsc.length > 1;
+  const leaderSessionId = rankedAsc.length ? rankedAsc[rankedAsc.length - 1].session_id : null;
+  const iAmLeader = leaderSessionId === session?.sessionId;
+  const glitchActive =
+    !!room.glitch_active_until && new Date(room.glitch_active_until).getTime() > now;
+  const buttonsScrambled = iAmLeader && glitchActive;
     if (!session) return;
     Haptics.tap();
     try {
