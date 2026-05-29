@@ -214,6 +214,13 @@ export function HostGameStage({ room }: Props) {
             {state.wildcard === "roast" && "🔥 Roast vote"}
           </div>
         )}
+        <div className="absolute right-4 top-4 z-30 w-72">
+          <TwitchPanel
+            questionKey={state.question_started_at ?? state.current_question_text ?? ""}
+            answers={state.current_answers ?? ["", "", "", ""]}
+            droppedIndexes={state.dropped_indexes ?? []}
+          />
+        </div>
         <QuestionStage
           questionText={state.current_question_text ?? ""}
           answers={state.current_answers ?? ["", "", "", ""]}
