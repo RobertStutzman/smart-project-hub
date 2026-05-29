@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Lock, Pause, Play } from "lucide-react";
 import { toast } from "sonner";
 import { createRoom, heartbeatHost, setCategory, setRoomConfig } from "@/lib/rooms.functions";
+import { nextQuestion } from "@/lib/game.functions";
 import {
   loadHostSession,
   saveHostSession,
@@ -46,6 +47,7 @@ function HostPage() {
   const heartbeatFn = useServerFn(heartbeatHost);
   const setCategoryFn = useServerFn(setCategory);
   const setConfigFn = useServerFn(setRoomConfig);
+  const nextQuestionFn = useServerFn(nextQuestion);
 
   const [room, setRoom] = useState<{ id: string; roomCode: string; hostSessionId: string } | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -375,6 +377,26 @@ function HostPage() {
                 })}
               </div>
             </div>
+
+            <button
+              onClick={() => {
+                if (!room || !activeCategory || players.length === 0) return;
+                play("whoosh");
+                nextQuestionFn({
+                  data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+                }).catch((e) => setError((e as Error).message));
+              }}
+              disabled={!room || !activeCategory || players.length === 0}
+              className="rounded-2xl bg-primary px-6 py-5 text-xl font-bold text-primary-foreground shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              ▶ Start game
+            </button>
+            {(!activeCategory || players.length === 0) && (
+              <div className="text-center text-xs text-muted-foreground">
+                {players.length === 0 && "Waiting for at least one player. "}
+                {!activeCategory && "Pick a category to begin."}
+              </div>
+            )}
           </div>
         </section>
       </div>
