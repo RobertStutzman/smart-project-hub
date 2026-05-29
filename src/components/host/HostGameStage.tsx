@@ -247,6 +247,7 @@ export function HostGameStage({ room }: Props) {
           <div className="mt-6 text-sm text-muted-foreground">
             Players can tap "Export to socials" on their phones.
           </div>
+          <AIRoast roomCode={room.roomCode} hostSessionId={room.hostSessionId} />
         </div>
       </div>
     );
