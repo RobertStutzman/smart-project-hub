@@ -37,11 +37,17 @@ type RoomState = {
   dropped_indexes: number[];
   is_paused: boolean;
   host_last_seen_at: string;
+  wildcard: string | null;
+  saboteur_session_id: string | null;
+  glitch_active_until: string | null;
+  glitch_used: boolean;
+  round_number: number;
 };
 
 type Me = {
   id: string;
   nickname: string;
+  avatar_url: string | null;
   score: number;
   streak_count: number;
   is_audience: boolean;
@@ -50,6 +56,12 @@ type Me = {
   last_answer_correct: boolean | null;
   used_2x: boolean;
   pending_2x: boolean;
+  correct_count: number;
+  wrong_count: number;
+  fastest_count: number;
+  best_streak: number;
+  total_response_ms: number;
+  answered_count: number;
 };
 
 function PlayPage() {
