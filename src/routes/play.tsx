@@ -304,8 +304,9 @@ function PlayPage() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,oklch(0.45_0.25_295/0.3),transparent_60%)]" />
 
       <div className="relative mx-auto flex h-screen max-w-md flex-col gap-4 p-4">
-        <header className="flex items-center justify-between text-xs uppercase tracking-[0.25em] text-muted-foreground">
+        <header className="flex items-center justify-between gap-2 text-xs uppercase tracking-[0.25em] text-muted-foreground">
           <span>Room {session.roomCode}</span>
+          <AccessibilityToggle />
           <button
             onClick={() => {
               stopMusic();
@@ -314,7 +315,7 @@ function PlayPage() {
             }}
             className="hover:text-foreground"
           >
-            Leave
+            {t("leave")}
           </button>
         </header>
 
