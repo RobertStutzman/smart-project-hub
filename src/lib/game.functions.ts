@@ -514,3 +514,72 @@ export const activate2x = createServerFn({ method: "POST" })
       .eq("id", p.id);
     return { ok: true };
   });
+
+// ============================================================
+// AI Host Roast — Phase 6: generates a 2-sentence PG-13 summary
+// ============================================================
+export const generateRoast = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      hostSessionId: z.string().min(8).max(128),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const room = await getRoomByHost(data.roomCode, data.hostSessionId);
+    const { data: players } = await supabaseAdmin
+      .from("players")
+      .select("nickname, score, correct_count, wrong_count, best_streak, fastest_count")
+      .eq("room_id", room.id)
+      .eq("is_audience", false)
+      .order("score", { ascending: false });
+
+    if (!players || players.length === 0) {
+      return { roast: "Nobody showed up — even the questions feel embarrassed." };
+    }
+
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) {
+      return {
+        roast: `${players[0].nickname} took the crown while everyone else watched in awe (or denial).`,
+      };
+    }
+
+    const stats = players
+      .map(
+        (p, i) =>
+          `${i + 1}. ${p.nickname}: ${p.score} pts, ${p.correct_count}✓/${p.wrong_count}✗, best streak ${p.best_streak}, fastest ${p.fastest_count}×`,
+      )
+      .join("\n");
+
+    try {
+      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are a witty PG-13 trivia game show host. Given final stats, write a 2-sentence roast summarizing the game. Name-drop the winner and the funniest stat. Punchy. No emojis. No quotes.",
+            },
+            { role: "user", content: `Final standings:\n${stats}` },
+          ],
+        }),
+      });
+      if (!resp.ok) throw new Error(`AI gateway ${resp.status}`);
+      const json = await resp.json();
+      const roast: string =
+        json?.choices?.[0]?.message?.content?.trim() ??
+        `${players[0].nickname} wins; everyone else gets participation trophies.`;
+      return { roast };
+    } catch {
+      return {
+        roast: `${players[0].nickname} stole the show — the rest of you were the show's blooper reel.`,
+      };
+    }
+  });
