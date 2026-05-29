@@ -355,9 +355,74 @@ function PlayPage() {
 
         {isAudience ? (
           <AudienceSoundboard roomCode={session.roomCode} />
+        ) : room.phase === "ended" ? (
+          <div className="flex flex-1 items-center justify-center overflow-auto py-2">
+            {me && (
+              <MemeScorecard
+                stats={{
+                  nickname: me.nickname,
+                  avatar_url: me.avatar_url,
+                  score: me.score,
+                  rank:
+                    rankedAsc.length > 0
+                      ? rankedAsc.length - rankedAsc.findIndex((p) => p.session_id === session.sessionId)
+                      : 1,
+                  totalPlayers: rankedAsc.length || 1,
+                  correct: me.correct_count,
+                  wrong: me.wrong_count,
+                  bestStreak: me.best_streak,
+                  fastestCount: me.fastest_count,
+                  avgResponseMs:
+                    me.answered_count > 0 ? Math.round(me.total_response_ms / me.answered_count) : 0,
+                  badge: computeBadge({
+                    rank:
+                      rankedAsc.length > 0
+                        ? rankedAsc.length - rankedAsc.findIndex((p) => p.session_id === session.sessionId)
+                        : 1,
+                    fastestCount: me.fastest_count,
+                    wrong: me.wrong_count,
+                    correct: me.correct_count,
+                    bestStreak: me.best_streak,
+                  }),
+                  roomCode: session.roomCode,
+                }}
+              />
+            )}
+          </div>
         ) : (
           <>
-            {/* 2x power-up shown only between rounds (lobby / leaderboard / reveal) */}
+            {/* Saboteur secret hint */}
+            {iAmSaboteur &&
+              room.phase === "question" &&
+              room.current_correct_index !== null &&
+              room.current_answers && (
+                <div className="rounded-2xl border-2 border-amber-300/80 bg-amber-300/15 p-3 text-center">
+                  <div className="text-[10px] uppercase tracking-[0.3em] text-amber-200">
+                    🕵 You are the Saboteur
+                  </div>
+                  <div className="mt-1 text-sm text-amber-100">
+                    Trick the room! Earn double points for every wrong answer your friends pick.
+                  </div>
+                  <div className="mt-2 font-mono text-base font-black text-amber-300">
+                    ✓ {room.current_answers[room.current_correct_index]}
+                  </div>
+                </div>
+              )}
+
+            {/* Glitch button — last place, round 10 */}
+            {room.wildcard === "glitch" &&
+              room.phase === "question" &&
+              iAmLast &&
+              !room.glitch_used && (
+                <button
+                  onClick={() => void glitchLeader()}
+                  className="rounded-2xl border-2 border-fuchsia-400/70 bg-fuchsia-500/25 px-4 py-3 text-sm font-black uppercase tracking-widest text-fuchsia-100 active:scale-[0.98]"
+                >
+                  ⚡ Glitch the leader (5s)
+                </button>
+              )}
+
+            {/* 2x power-up shown only between rounds */}
             {!me?.used_2x &&
               !me?.pending_2x &&
               (room.phase === "lobby" ||
@@ -375,7 +440,7 @@ function PlayPage() {
               <>
                 <div className="rounded-2xl border border-border bg-card/30 p-3 text-center backdrop-blur">
                   <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                    Question
+                    {room.wildcard === "roast" ? "Roast vote" : "Question"}
                   </div>
                   <div className="line-clamp-2 text-sm font-semibold">
                     {room.current_question_text}
@@ -386,7 +451,16 @@ function PlayPage() {
                     </div>
                   )}
                 </div>
-                <div className="min-h-0 flex-1">
+                <div
+                  className={`min-h-0 flex-1 transition ${
+                    buttonsScrambled ? "rotate-1 scale-[1.02] blur-sm" : ""
+                  }`}
+                  style={
+                    buttonsScrambled
+                      ? { filter: "blur(8px) hue-rotate(80deg)" }
+                      : undefined
+                  }
+                >
                   <AnswerGrid
                     disabled={room.phase !== "question"}
                     labels={
@@ -402,6 +476,11 @@ function PlayPage() {
                     onPick={(i) => void pick(i)}
                   />
                 </div>
+                {buttonsScrambled && (
+                  <div className="absolute inset-x-0 top-1/2 z-30 -translate-y-1/2 text-center font-display text-3xl font-black tracking-widest text-fuchsia-300 drop-shadow">
+                    G̷L̷I̷T̷C̷H̷E̷D̷
+                  </div>
+                )}
               </>
             ) : (
               <div className="grid flex-1 place-items-center rounded-2xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
