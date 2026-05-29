@@ -121,12 +121,15 @@ function JoinPage() {
                 </label>
                 <input
                   value={code}
-                  onChange={(e) =>
-                    setCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4))
+                  onChange={(e) => setCode(sanitizeCode(e.target.value))}
+                  onInput={(e) =>
+                    setCode(sanitizeCode((e.target as HTMLInputElement).value))
                   }
                   inputMode="text"
                   autoCapitalize="characters"
                   autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                   placeholder="ABCD"
                   className="w-full rounded-2xl border border-border bg-card px-5 py-5 text-center font-mono text-4xl font-black tracking-[0.4em] outline-none focus:border-foreground"
                 />
@@ -138,10 +141,32 @@ function JoinPage() {
                 <input
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value.slice(0, 20))}
+                  onInput={(e) =>
+                    setNickname((e.target as HTMLInputElement).value.slice(0, 20))
+                  }
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                   placeholder="Your name"
                   className="w-full rounded-2xl border border-border bg-card px-5 py-4 text-lg outline-none focus:border-foreground"
                 />
               </div>
+
+              <div
+                className={`flex items-center justify-between rounded-xl border px-4 py-3 text-xs font-mono transition ${
+                  flash && !canSubmit
+                    ? "animate-pulse border-destructive bg-destructive/10"
+                    : "border-border bg-card/40"
+                }`}
+              >
+                <span className={codeOk ? "text-emerald-500" : "text-muted-foreground"}>
+                  Code: {code.length}/4 {codeOk ? "✓" : ""}
+                </span>
+                <span className={nickOk ? "text-emerald-500" : "text-muted-foreground"}>
+                  Nickname: {trimmedNickname.length}/20 {nickOk ? "✓" : ""}
+                </span>
+              </div>
+
               {error && (
                 <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">
                   {error}
@@ -149,11 +174,16 @@ function JoinPage() {
               )}
               <button
                 type="submit"
-                disabled={submitting || code.length !== 4 || !nickname.trim()}
-                className="rounded-full bg-foreground px-6 py-4 text-base font-semibold text-background disabled:opacity-40"
+                disabled={submitting}
+                className={`rounded-full px-6 py-4 text-base font-semibold transition ${
+                  canSubmit
+                    ? "bg-foreground text-background"
+                    : "bg-foreground/40 text-background"
+                }`}
               >
-                {submitting ? "Joining…" : "Next"}
+                {submitting ? "Joining…" : canSubmit ? "Next" : "Fill both fields"}
               </button>
+
             </form>
           </div>
         ) : (
