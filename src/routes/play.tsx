@@ -244,6 +244,8 @@ function PlayPage() {
   const glitchActive =
     !!room.glitch_active_until && new Date(room.glitch_active_until).getTime() > now;
   const buttonsScrambled = iAmLeader && glitchActive;
+
+  async function toggleAudience() {
     if (!session) return;
     Haptics.tap();
     try {
@@ -253,6 +255,18 @@ function PlayPage() {
           sessionId: session.sessionId,
           isAudience: !isAudience,
         },
+      });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function glitchLeader() {
+    if (!session) return;
+    Haptics.wrong();
+    try {
+      await triggerGlitchFn({
+        data: { roomCode: session.roomCode, sessionId: session.sessionId },
       });
     } catch {
       /* ignore */
