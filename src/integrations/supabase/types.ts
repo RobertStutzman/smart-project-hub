@@ -14,7 +14,152 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      players: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          id: string
+          is_audience: boolean
+          last_seen_at: string
+          nickname: string
+          room_id: string
+          score: number
+          session_id: string
+          streak_count: number
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          is_audience?: boolean
+          last_seen_at?: string
+          nickname: string
+          room_id: string
+          score?: number
+          session_id: string
+          streak_count?: number
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          is_audience?: boolean
+          last_seen_at?: string
+          nickname?: string
+          room_id?: string
+          score?: number
+          session_id?: string
+          streak_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "players_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          is_premium: boolean
+          premium_until: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          is_premium?: boolean
+          premium_until?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          is_premium?: boolean
+          premium_until?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      questions: {
+        Row: {
+          category: string
+          correct_answer: string
+          created_at: string
+          id: string
+          is_premium: boolean
+          media_type: string | null
+          media_url: string | null
+          question_text: string
+          subcategory: string | null
+          wrong_1: string
+          wrong_2: string
+          wrong_3: string
+        }
+        Insert: {
+          category: string
+          correct_answer: string
+          created_at?: string
+          id?: string
+          is_premium?: boolean
+          media_type?: string | null
+          media_url?: string | null
+          question_text: string
+          subcategory?: string | null
+          wrong_1: string
+          wrong_2: string
+          wrong_3: string
+        }
+        Update: {
+          category?: string
+          correct_answer?: string
+          created_at?: string
+          id?: string
+          is_premium?: boolean
+          media_type?: string | null
+          media_url?: string | null
+          question_text?: string
+          subcategory?: string | null
+          wrong_1?: string
+          wrong_2?: string
+          wrong_3?: string
+        }
+        Relationships: []
+      }
+      rooms: {
+        Row: {
+          created_at: string
+          current_category: string | null
+          host_last_seen_at: string
+          host_session_id: string
+          id: string
+          is_paused: boolean
+          room_code: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          current_category?: string | null
+          host_last_seen_at?: string
+          host_session_id: string
+          id?: string
+          is_paused?: boolean
+          room_code: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          current_category?: string | null
+          host_last_seen_at?: string
+          host_session_id?: string
+          id?: string
+          is_paused?: boolean
+          room_code?: string
+          status?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
