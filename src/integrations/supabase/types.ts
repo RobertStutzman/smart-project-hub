@@ -16,12 +16,16 @@ export type Database = {
     Tables: {
       players: {
         Row: {
+          answered_count: number
           avatar_url: string | null
+          best_streak: number
+          correct_count: number
           created_at: string
           current_answer: number | null
           current_answer_locked_at: string | null
           current_round_fastest: boolean
           current_round_score: number
+          fastest_count: number
           id: string
           is_audience: boolean
           last_answer_correct: boolean | null
@@ -32,15 +36,21 @@ export type Database = {
           score: number
           session_id: string
           streak_count: number
+          total_response_ms: number
           used_2x: boolean
+          wrong_count: number
         }
         Insert: {
+          answered_count?: number
           avatar_url?: string | null
+          best_streak?: number
+          correct_count?: number
           created_at?: string
           current_answer?: number | null
           current_answer_locked_at?: string | null
           current_round_fastest?: boolean
           current_round_score?: number
+          fastest_count?: number
           id?: string
           is_audience?: boolean
           last_answer_correct?: boolean | null
@@ -51,15 +61,21 @@ export type Database = {
           score?: number
           session_id: string
           streak_count?: number
+          total_response_ms?: number
           used_2x?: boolean
+          wrong_count?: number
         }
         Update: {
+          answered_count?: number
           avatar_url?: string | null
+          best_streak?: number
+          correct_count?: number
           created_at?: string
           current_answer?: number | null
           current_answer_locked_at?: string | null
           current_round_fastest?: boolean
           current_round_score?: number
+          fastest_count?: number
           id?: string
           is_audience?: boolean
           last_answer_correct?: boolean | null
@@ -70,7 +86,9 @@ export type Database = {
           score?: number
           session_id?: string
           streak_count?: number
+          total_response_ms?: number
           used_2x?: boolean
+          wrong_count?: number
         }
         Relationships: [
           {
@@ -176,6 +194,8 @@ export type Database = {
           current_question_id: string | null
           current_question_text: string | null
           dropped_indexes: number[]
+          glitch_active_until: string | null
+          glitch_used: boolean
           host_last_seen_at: string
           host_session_id: string
           id: string
@@ -183,10 +203,13 @@ export type Database = {
           phase: string
           question_duration_ms: number
           question_started_at: string | null
+          roast_candidates: Json | null
           room_code: string
           round_number: number
+          saboteur_session_id: string | null
           status: string
           theme: string
+          wildcard: string | null
         }
         Insert: {
           allow_late_joiners?: boolean
@@ -197,6 +220,8 @@ export type Database = {
           current_question_id?: string | null
           current_question_text?: string | null
           dropped_indexes?: number[]
+          glitch_active_until?: string | null
+          glitch_used?: boolean
           host_last_seen_at?: string
           host_session_id: string
           id?: string
@@ -204,10 +229,13 @@ export type Database = {
           phase?: string
           question_duration_ms?: number
           question_started_at?: string | null
+          roast_candidates?: Json | null
           room_code: string
           round_number?: number
+          saboteur_session_id?: string | null
           status?: string
           theme?: string
+          wildcard?: string | null
         }
         Update: {
           allow_late_joiners?: boolean
@@ -218,6 +246,8 @@ export type Database = {
           current_question_id?: string | null
           current_question_text?: string | null
           dropped_indexes?: number[]
+          glitch_active_until?: string | null
+          glitch_used?: boolean
           host_last_seen_at?: string
           host_session_id?: string
           id?: string
@@ -225,10 +255,13 @@ export type Database = {
           phase?: string
           question_duration_ms?: number
           question_started_at?: string | null
+          roast_candidates?: Json | null
           room_code?: string
           round_number?: number
+          saboteur_session_id?: string | null
           status?: string
           theme?: string
+          wildcard?: string | null
         }
         Relationships: []
       }
