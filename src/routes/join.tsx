@@ -37,26 +37,38 @@ function JoinPage() {
   const updateAvatarFn = useServerFn(updatePlayerAvatar);
 
   const existing = typeof window !== "undefined" ? loadPlayerSession() : null;
+  const sanitizeCode = (v: string) =>
+    v.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
   const [code, setCode] = useState(
-    (search.code ?? existing?.roomCode ?? "").toUpperCase().slice(0, 4),
+    sanitizeCode(search.code ?? existing?.roomCode ?? ""),
   );
   const [nickname, setNickname] = useState(existing?.nickname ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("form");
   const [sessionId, setSessionId] = useState<string>("");
+  const [flash, setFlash] = useState(false);
+
+  const trimmedNickname = nickname.trim();
+  const codeOk = code.length === 4;
+  const nickOk = trimmedNickname.length >= 1;
+  const canSubmit = codeOk && nickOk && !submitting;
 
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (code.length !== 4 || !nickname.trim()) return;
+    if (!canSubmit) {
+      setFlash(true);
+      window.setTimeout(() => setFlash(false), 1500);
+      return;
+    }
     setSubmitting(true);
     try {
       const sid = getOrCreateSessionId();
       await joinFn({
-        data: { roomCode: code, nickname: nickname.trim(), sessionId: sid },
+        data: { roomCode: code, nickname: trimmedNickname, sessionId: sid },
       });
-      savePlayerSession({ sessionId: sid, roomCode: code, nickname: nickname.trim() });
+      savePlayerSession({ sessionId: sid, roomCode: code, nickname: trimmedNickname });
       setSessionId(sid);
       setStep("selfie");
     } catch (err) {
@@ -65,6 +77,7 @@ function JoinPage() {
       setSubmitting(false);
     }
   }
+
 
   async function handleSelfie(blob: Blob) {
     try {
