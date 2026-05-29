@@ -304,6 +304,7 @@ export const endQuestion = createServerFn({ method: "POST" })
         const remaining = Math.max(0, durationMs - ((lockedMs ?? startMs + durationMs) - startMs)) / 1000;
         let base = Math.round((remaining / (durationMs / 1000)) * MAX_POINTS);
         if (nextStreak >= 3) base = Math.round(base * STREAK_BONUS);
+        if (rubberIds.has(p.id)) base = Math.round(base * 1.25); // rubber-banding (hidden)
         if (pending2x) {
           base *= 2;
           used2x = true;
