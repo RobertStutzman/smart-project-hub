@@ -195,3 +195,51 @@ export const setRoomConfig = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+export const updatePlayerAvatar = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      sessionId: z.string().min(8).max(128),
+      avatarUrl: z.string().url().max(500),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const { data: room } = await supabaseAdmin
+      .from("rooms")
+      .select("id")
+      .eq("room_code", data.roomCode)
+      .maybeSingle();
+    if (!room) throw new Error("Room not found");
+    const { error } = await supabaseAdmin
+      .from("players")
+      .update({ avatar_url: data.avatarUrl })
+      .eq("room_id", room.id)
+      .eq("session_id", data.sessionId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const setAudienceMode = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      sessionId: z.string().min(8).max(128),
+      isAudience: z.boolean(),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const { data: room } = await supabaseAdmin
+      .from("rooms")
+      .select("id")
+      .eq("room_code", data.roomCode)
+      .maybeSingle();
+    if (!room) throw new Error("Room not found");
+    const { error } = await supabaseAdmin
+      .from("players")
+      .update({ is_audience: data.isAudience })
+      .eq("room_id", room.id)
+      .eq("session_id", data.sessionId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });

@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CATEGORIES, type Category } from "@/lib/categories";
 import { THEMES, THEME_META, type ThemeName } from "@/lib/theme";
 import { useTheme } from "@/components/ThemeProvider";
+import { play, setMuted as setSoundMuted, startMusic, stopMusic, type Sfx } from "@/lib/sound-engine";
 
 export const Route = createFileRoute("/host")({
   head: () => ({
@@ -151,6 +152,32 @@ function HostPage() {
       },
     }).catch(() => {});
   }, [theme, allowLate, room, setConfigFn]);
+
+  // Apply mute to sound engine + drive lobby music on host TV
+  useEffect(() => {
+    setSoundMuted(muted);
+  }, [muted]);
+
+  useEffect(() => {
+    if (!room) return;
+    startMusic("lobby", 600);
+    return () => stopMusic();
+  }, [room?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Subscribe to audience soundboard broadcasts → play SFX from TV speakers
+  useEffect(() => {
+    if (!room) return;
+    const channel = supabase
+      .channel(`sfx-${room.roomCode}`)
+      .on("broadcast", { event: "sfx" }, (msg) => {
+        const sfx = (msg.payload as { sfx?: Sfx } | undefined)?.sfx;
+        if (sfx) play(sfx);
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [room]);
 
   const joinUrl = useMemo(() => {
     if (!origin || !room) return "";
