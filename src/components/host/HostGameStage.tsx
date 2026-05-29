@@ -11,6 +11,8 @@ import {
 import { QuestionStage } from "./QuestionStage";
 import { Leaderboard } from "./Leaderboard";
 import { ShatteredFaces } from "./ShatteredFaces";
+import { TwitchPanel } from "./TwitchPanel";
+import { AIRoast } from "./AIRoast";
 import { play, startMusic, stopMusic } from "@/lib/sound-engine";
 
 type RoomState = {
