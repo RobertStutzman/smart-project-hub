@@ -178,7 +178,11 @@ export const setRoomConfig = createServerFn({ method: "POST" })
     }).parse,
   )
   .handler(async ({ data }) => {
-    const patch: Record<string, unknown> = {};
+    const patch: {
+      theme?: string;
+      allow_late_joiners?: boolean;
+      is_paused?: boolean;
+    } = {};
     if (data.theme !== undefined) patch.theme = data.theme;
     if (data.allowLateJoiners !== undefined) patch.allow_late_joiners = data.allowLateJoiners;
     if (data.isPaused !== undefined) patch.is_paused = data.isPaused;
