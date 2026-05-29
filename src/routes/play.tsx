@@ -70,6 +70,8 @@ function PlayPage() {
   const setAudienceFn = useServerFn(setAudienceMode);
   const lockFn = useServerFn(lockAnswer);
   const activate2xFn = useServerFn(activate2x);
+  const triggerGlitchFn = useServerFn(triggerGlitch);
+  const [allPlayers, setAllPlayers] = useState<{ session_id: string; score: number }[]>([]);
   useWakeLock(true);
 
   const [session, setSession] = useState<ReturnType<typeof loadPlayerSession>>(null);
