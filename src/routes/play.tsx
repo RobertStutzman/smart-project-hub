@@ -110,7 +110,7 @@ function PlayPage() {
       const { data: p } = await supabase
         .from("players")
         .select(
-          "id, nickname, score, streak_count, is_audience, current_answer, current_round_score, last_answer_correct, used_2x, pending_2x",
+          "id, nickname, avatar_url, score, streak_count, is_audience, current_answer, current_round_score, last_answer_correct, used_2x, pending_2x, correct_count, wrong_count, fastest_count, best_streak, total_response_ms, answered_count",
         )
         .eq("room_id", r.id)
         .eq("session_id", session.sessionId)
