@@ -26,6 +26,21 @@ async function getRoomByHost(roomCode: string, hostSessionId: string) {
   return data;
 }
 
+function wildcardForRound(round: number): "saboteur" | "glitch" | "roast" | null {
+  if (round === 5) return "saboteur";
+  if (round === 10) return "glitch";
+  if (round === 14) return "roast";
+  return null;
+}
+
+const ROAST_PROMPTS = [
+  "Who would survive a zombie apocalypse?",
+  "Who is most likely to start a cult?",
+  "Who would win a hot-dog eating contest?",
+  "Who would forget their own birthday?",
+  "Who is secretly a time traveller?",
+];
+
 export const nextQuestion = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
@@ -35,8 +50,55 @@ export const nextQuestion = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const room = await getRoomByHost(data.roomCode, data.hostSessionId);
+    const nextRound = (room.round_number ?? 0) + 1;
+    const wildcard = wildcardForRound(nextRound);
 
-    // Pick a random unused question (filter by current_category if set)
+    await supabaseAdmin
+      .from("players")
+      .update({
+        current_answer: null,
+        current_answer_locked_at: null,
+        current_round_score: 0,
+        current_round_fastest: false,
+        last_answer_correct: null,
+      })
+      .eq("room_id", room.id);
+
+    // ROAST: top 4 players become "answers"; tally votes, no DB question
+    if (wildcard === "roast") {
+      const { data: topPlayers } = await supabaseAdmin
+        .from("players")
+        .select("id, session_id, nickname")
+        .eq("room_id", room.id)
+        .eq("is_audience", false)
+        .order("score", { ascending: false })
+        .limit(4);
+      const candidates = [...(topPlayers ?? [])];
+      while (candidates.length < 4) candidates.push({ id: "", session_id: "", nickname: "—" });
+      const prompt = ROAST_PROMPTS[Math.floor(Math.random() * ROAST_PROMPTS.length)];
+      const { error } = await supabaseAdmin
+        .from("rooms")
+        .update({
+          status: "playing",
+          phase: "question",
+          current_question_id: null,
+          current_question_text: prompt,
+          current_answers: candidates.map((c) => c.nickname),
+          current_correct_index: null,
+          question_started_at: new Date().toISOString(),
+          question_duration_ms: 15000,
+          dropped_indexes: [],
+          round_number: nextRound,
+          wildcard: "roast",
+          roast_candidates: JSON.parse(JSON.stringify(candidates)),
+          saboteur_session_id: null,
+          glitch_active_until: null,
+        })
+        .eq("id", room.id);
+      if (error) throw new Error(error.message);
+      return { ok: true, questionId: null, wildcard };
+    }
+
     const { data: used } = await supabaseAdmin
       .from("room_questions")
       .select("question_id")
@@ -60,17 +122,18 @@ export const nextQuestion = createServerFn({ method: "POST" })
       question_id: q.id,
     });
 
-    // Reset all player round state
-    await supabaseAdmin
-      .from("players")
-      .update({
-        current_answer: null,
-        current_answer_locked_at: null,
-        current_round_score: 0,
-        current_round_fastest: false,
-        last_answer_correct: null,
-      })
-      .eq("room_id", room.id);
+    let saboteurSessionId: string | null = null;
+    if (wildcard === "saboteur") {
+      const { data: ps } = await supabaseAdmin
+        .from("players")
+        .select("session_id")
+        .eq("room_id", room.id)
+        .eq("is_audience", false);
+      const pool = ps ?? [];
+      if (pool.length > 0) {
+        saboteurSessionId = pool[Math.floor(Math.random() * pool.length)].session_id;
+      }
+    }
 
     const { error } = await supabaseAdmin
       .from("rooms")
@@ -84,12 +147,16 @@ export const nextQuestion = createServerFn({ method: "POST" })
         question_started_at: new Date().toISOString(),
         question_duration_ms: 15000,
         dropped_indexes: [],
-        round_number: (room.round_number ?? 0) + 1,
+        round_number: nextRound,
+        wildcard: wildcard,
+        saboteur_session_id: saboteurSessionId,
+        glitch_active_until: null,
+        roast_candidates: null,
       })
       .eq("id", room.id);
     if (error) throw new Error(error.message);
 
-    return { ok: true, questionId: q.id };
+    return { ok: true, questionId: q.id, wildcard };
   });
 
 export const dropWrongAnswer = createServerFn({ method: "POST" })
@@ -127,9 +194,15 @@ export const endQuestion = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const room = await getRoomByHost(data.roomCode, data.hostSessionId);
-    if (room.current_correct_index === null || !room.question_started_at) {
-      return { ok: false };
-    }
+    if (!room.question_started_at) return { ok: false };
+
+    const isRoast = room.wildcard === "roast";
+    const isSaboteur = room.wildcard === "saboteur";
+    const saboteurSessionId = room.saboteur_session_id ?? null;
+    const roastCandidates =
+      (room.roast_candidates as { session_id: string; nickname: string }[] | null) ?? null;
+
+    if (!isRoast && room.current_correct_index === null) return { ok: false };
 
     const { data: players } = await supabaseAdmin
       .from("players")
@@ -150,11 +223,36 @@ export const endQuestion = createServerFn({ method: "POST" })
       used_2x: boolean;
       pending_2x: boolean;
       current_round_fastest: boolean;
+      correct_count: number;
+      wrong_count: number;
+      best_streak: number;
+      total_response_ms: number;
+      answered_count: number;
     };
 
     const updates: Update[] = [];
     let fastestPlayerId: string | null = null;
     let fastestLockedAt = Number.POSITIVE_INFINITY;
+
+    // Tally roast votes
+    let roastWinnerSessionId: string | null = null;
+    if (isRoast && roastCandidates) {
+      const tally = [0, 0, 0, 0];
+      for (const p of players ?? []) {
+        if (typeof p.current_answer === "number" && p.current_answer >= 0 && p.current_answer < 4) {
+          tally[p.current_answer]++;
+        }
+      }
+      let max = -1;
+      let winIdx = -1;
+      tally.forEach((v, i) => {
+        if (v > max && roastCandidates[i]?.session_id) {
+          max = v;
+          winIdx = i;
+        }
+      });
+      if (winIdx >= 0) roastWinnerSessionId = roastCandidates[winIdx].session_id;
+    }
 
     for (const p of players ?? []) {
       const picked = p.current_answer;
@@ -163,17 +261,42 @@ export const endQuestion = createServerFn({ method: "POST" })
       let nextStreak = p.streak_count ?? 0;
       let used2x = p.used_2x ?? false;
       const pending2x = p.pending_2x ?? false;
+      let correctCount = p.correct_count ?? 0;
+      let wrongCount = p.wrong_count ?? 0;
+      let bestStreak = p.best_streak ?? 0;
+      let totalMs = p.total_response_ms ?? 0;
+      let answered = p.answered_count ?? 0;
 
-      if (picked === null || picked === undefined) {
+      const lockedMs = p.current_answer_locked_at
+        ? new Date(p.current_answer_locked_at).getTime()
+        : null;
+
+      if (isRoast) {
+        // Roast: winner +500, no penalties, no streak changes
+        correct = null;
+        if (roastWinnerSessionId && p.session_id === roastWinnerSessionId) {
+          roundScore = 500;
+        }
+      } else if (isSaboteur && p.session_id === saboteurSessionId) {
+        // Saboteur: doubled points if they "tricked" — i.e., if any OTHER player picked wrong
+        const others = (players ?? []).filter((x) => x.session_id !== saboteurSessionId);
+        const trickedCount = others.filter(
+          (x) => typeof x.current_answer === "number" && x.current_answer !== correctIdx,
+        ).length;
+        if (trickedCount > 0) {
+          roundScore = trickedCount * 200;
+        }
+        correct = null;
+      } else if (picked === null || picked === undefined) {
         correct = null;
         nextStreak = 0;
         roundScore = 0;
       } else if (picked === correctIdx) {
         correct = true;
-        const lockedMs = p.current_answer_locked_at
-          ? new Date(p.current_answer_locked_at).getTime()
-          : startMs + durationMs;
-        const remaining = Math.max(0, durationMs - (lockedMs - startMs)) / 1000;
+        answered += 1;
+        correctCount += 1;
+        if (lockedMs) totalMs += lockedMs - startMs;
+        const remaining = Math.max(0, durationMs - ((lockedMs ?? startMs + durationMs) - startMs)) / 1000;
         let base = Math.round((remaining / (durationMs / 1000)) * MAX_POINTS);
         if (nextStreak >= 3) base = Math.round(base * STREAK_BONUS);
         if (pending2x) {
@@ -182,12 +305,16 @@ export const endQuestion = createServerFn({ method: "POST" })
         }
         roundScore = base;
         nextStreak += 1;
-        if (lockedMs < fastestLockedAt) {
+        if (nextStreak > bestStreak) bestStreak = nextStreak;
+        if (lockedMs && lockedMs < fastestLockedAt) {
           fastestLockedAt = lockedMs;
           fastestPlayerId = p.id;
         }
       } else {
         correct = false;
+        answered += 1;
+        wrongCount += 1;
+        if (lockedMs) totalMs += lockedMs - startMs;
         const penalty = pending2x ? -200 : 0;
         if (pending2x) used2x = true;
         roundScore = penalty;
@@ -203,6 +330,11 @@ export const endQuestion = createServerFn({ method: "POST" })
         used_2x: used2x,
         pending_2x: false,
         current_round_fastest: false,
+        correct_count: correctCount,
+        wrong_count: wrongCount,
+        best_streak: bestStreak,
+        total_response_ms: totalMs,
+        answered_count: answered,
       });
     }
 
@@ -212,6 +344,9 @@ export const endQuestion = createServerFn({ method: "POST" })
     }
 
     for (const u of updates) {
+      const orig = (players ?? []).find((x) => x.id === u.id);
+      const fastestCount =
+        (orig?.fastest_count ?? 0) + (u.current_round_fastest ? 1 : 0);
       await supabaseAdmin
         .from("players")
         .update({
@@ -222,6 +357,12 @@ export const endQuestion = createServerFn({ method: "POST" })
           used_2x: u.used_2x,
           pending_2x: u.pending_2x,
           current_round_fastest: u.current_round_fastest,
+          correct_count: u.correct_count,
+          wrong_count: u.wrong_count,
+          best_streak: u.best_streak,
+          total_response_ms: u.total_response_ms,
+          answered_count: u.answered_count,
+          fastest_count: fastestCount,
         })
         .eq("id", u.id);
     }
@@ -231,6 +372,56 @@ export const endQuestion = createServerFn({ method: "POST" })
       .update({ phase: "reveal" })
       .eq("id", room.id);
 
+    return { ok: true };
+  });
+
+export const triggerGlitch = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      sessionId: z.string().min(8).max(128),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const { data: room } = await supabaseAdmin
+      .from("rooms")
+      .select("id, glitch_used, phase")
+      .eq("room_code", data.roomCode)
+      .maybeSingle();
+    if (!room) throw new Error("Room not found");
+    if (room.glitch_used) throw new Error("Glitch already used");
+    if (room.phase !== "question") throw new Error("Not in a question");
+    // Verify caller is the last-place non-audience player
+    const { data: ranked } = await supabaseAdmin
+      .from("players")
+      .select("session_id, score")
+      .eq("room_id", room.id)
+      .eq("is_audience", false)
+      .order("score", { ascending: true });
+    if (!ranked || ranked[0]?.session_id !== data.sessionId) {
+      throw new Error("Only the last-place player can glitch");
+    }
+    const until = new Date(Date.now() + 5000).toISOString();
+    await supabaseAdmin
+      .from("rooms")
+      .update({ glitch_active_until: until, glitch_used: true })
+      .eq("id", room.id);
+    return { ok: true, until };
+  });
+
+export const endGame = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      hostSessionId: z.string().min(8).max(128),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const room = await getRoomByHost(data.roomCode, data.hostSessionId);
+    await supabaseAdmin
+      .from("rooms")
+      .update({ phase: "ended", status: "ended" })
+      .eq("id", room.id);
     return { ok: true };
   });
 

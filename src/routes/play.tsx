@@ -2,13 +2,14 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { heartbeatPlayer, setAudienceMode } from "@/lib/rooms.functions";
-import { lockAnswer, activate2x } from "@/lib/game.functions";
+import { lockAnswer, activate2x, triggerGlitch } from "@/lib/game.functions";
 import { loadPlayerSession, clearPlayerSession } from "@/lib/player-session";
 import { supabase } from "@/integrations/supabase/client";
 import { useWakeLock } from "@/hooks/use-wake-lock";
 import { AnswerGrid } from "@/components/AnswerGrid";
 import { HeartbeatBackground } from "@/components/HeartbeatBackground";
 import { AudienceSoundboard } from "@/components/AudienceSoundboard";
+import { MemeScorecard, computeBadge } from "@/components/MemeScorecard";
 import { Haptics } from "@/hooks/use-haptics";
 import { play, startMusic, stopMusic } from "@/lib/sound-engine";
 
@@ -36,11 +37,17 @@ type RoomState = {
   dropped_indexes: number[];
   is_paused: boolean;
   host_last_seen_at: string;
+  wildcard: string | null;
+  saboteur_session_id: string | null;
+  glitch_active_until: string | null;
+  glitch_used: boolean;
+  round_number: number;
 };
 
 type Me = {
   id: string;
   nickname: string;
+  avatar_url: string | null;
   score: number;
   streak_count: number;
   is_audience: boolean;
@@ -49,6 +56,12 @@ type Me = {
   last_answer_correct: boolean | null;
   used_2x: boolean;
   pending_2x: boolean;
+  correct_count: number;
+  wrong_count: number;
+  fastest_count: number;
+  best_streak: number;
+  total_response_ms: number;
+  answered_count: number;
 };
 
 function PlayPage() {
@@ -57,6 +70,8 @@ function PlayPage() {
   const setAudienceFn = useServerFn(setAudienceMode);
   const lockFn = useServerFn(lockAnswer);
   const activate2xFn = useServerFn(activate2x);
+  const triggerGlitchFn = useServerFn(triggerGlitch);
+  const [allPlayers, setAllPlayers] = useState<{ session_id: string; score: number }[]>([]);
   useWakeLock(true);
 
   const [session, setSession] = useState<ReturnType<typeof loadPlayerSession>>(null);
@@ -83,7 +98,7 @@ function PlayPage() {
       const { data: r } = await supabase
         .from("rooms")
         .select(
-          "id, status, phase, current_category, current_question_text, current_answers, current_correct_index, question_started_at, question_duration_ms, dropped_indexes, is_paused, host_last_seen_at",
+          "id, status, phase, current_category, current_question_text, current_answers, current_correct_index, question_started_at, question_duration_ms, dropped_indexes, is_paused, host_last_seen_at, wildcard, saboteur_session_id, glitch_active_until, glitch_used, round_number",
         )
         .eq("room_code", session.roomCode)
         .maybeSingle();
@@ -97,7 +112,7 @@ function PlayPage() {
       const { data: p } = await supabase
         .from("players")
         .select(
-          "id, nickname, score, streak_count, is_audience, current_answer, current_round_score, last_answer_correct, used_2x, pending_2x",
+          "id, nickname, avatar_url, score, streak_count, is_audience, current_answer, current_round_score, last_answer_correct, used_2x, pending_2x, correct_count, wrong_count, fastest_count, best_streak, total_response_ms, answered_count",
         )
         .eq("room_id", r.id)
         .eq("session_id", session.sessionId)
@@ -107,6 +122,23 @@ function PlayPage() {
     };
 
     void fetchAll();
+
+    const loadAllPlayers = async () => {
+      const { data: r2 } = await supabase
+        .from("rooms")
+        .select("id")
+        .eq("room_code", session.roomCode)
+        .maybeSingle();
+      if (!r2) return;
+      const { data: rows } = await supabase
+        .from("players")
+        .select("session_id, score")
+        .eq("room_id", r2.id)
+        .eq("is_audience", false)
+        .order("score", { ascending: true });
+      if (!cancelled && rows) setAllPlayers(rows);
+    };
+    void loadAllPlayers();
 
     const channel = supabase
       .channel(`play-${session.roomCode}`)
@@ -119,10 +151,11 @@ function PlayPage() {
       )
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "players" },
+        { event: "*", schema: "public", table: "players" },
         (payload) => {
           const next = payload.new as Me & { session_id: string };
-          if (next.session_id === session.sessionId) setMe(next);
+          if (next?.session_id === session.sessionId) setMe(next);
+          void loadAllPlayers();
         },
       )
       .subscribe();
@@ -198,6 +231,20 @@ function PlayPage() {
     ? Math.max(0, room.question_duration_ms / 1000 - (now - startMs) / 1000)
     : null;
 
+  // Wildcard derived state
+  const iAmSaboteur =
+    room.wildcard === "saboteur" &&
+    !!room.saboteur_session_id &&
+    session?.sessionId === room.saboteur_session_id;
+  const rankedAsc = allPlayers; // ascending by score
+  const myRankFromBottom = rankedAsc.findIndex((p) => p.session_id === session?.sessionId);
+  const iAmLast = myRankFromBottom === 0 && rankedAsc.length > 1;
+  const leaderSessionId = rankedAsc.length ? rankedAsc[rankedAsc.length - 1].session_id : null;
+  const iAmLeader = leaderSessionId === session?.sessionId;
+  const glitchActive =
+    !!room.glitch_active_until && new Date(room.glitch_active_until).getTime() > now;
+  const buttonsScrambled = iAmLeader && glitchActive;
+
   async function toggleAudience() {
     if (!session) return;
     Haptics.tap();
@@ -208,6 +255,18 @@ function PlayPage() {
           sessionId: session.sessionId,
           isAudience: !isAudience,
         },
+      });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function glitchLeader() {
+    if (!session) return;
+    Haptics.wrong();
+    try {
+      await triggerGlitchFn({
+        data: { roomCode: session.roomCode, sessionId: session.sessionId },
       });
     } catch {
       /* ignore */
@@ -296,9 +355,74 @@ function PlayPage() {
 
         {isAudience ? (
           <AudienceSoundboard roomCode={session.roomCode} />
+        ) : room.phase === "ended" ? (
+          <div className="flex flex-1 items-center justify-center overflow-auto py-2">
+            {me && (
+              <MemeScorecard
+                stats={{
+                  nickname: me.nickname,
+                  avatar_url: me.avatar_url,
+                  score: me.score,
+                  rank:
+                    rankedAsc.length > 0
+                      ? rankedAsc.length - rankedAsc.findIndex((p) => p.session_id === session.sessionId)
+                      : 1,
+                  totalPlayers: rankedAsc.length || 1,
+                  correct: me.correct_count,
+                  wrong: me.wrong_count,
+                  bestStreak: me.best_streak,
+                  fastestCount: me.fastest_count,
+                  avgResponseMs:
+                    me.answered_count > 0 ? Math.round(me.total_response_ms / me.answered_count) : 0,
+                  badge: computeBadge({
+                    rank:
+                      rankedAsc.length > 0
+                        ? rankedAsc.length - rankedAsc.findIndex((p) => p.session_id === session.sessionId)
+                        : 1,
+                    fastestCount: me.fastest_count,
+                    wrong: me.wrong_count,
+                    correct: me.correct_count,
+                    bestStreak: me.best_streak,
+                  }),
+                  roomCode: session.roomCode,
+                }}
+              />
+            )}
+          </div>
         ) : (
           <>
-            {/* 2x power-up shown only between rounds (lobby / leaderboard / reveal) */}
+            {/* Saboteur secret hint */}
+            {iAmSaboteur &&
+              room.phase === "question" &&
+              room.current_correct_index !== null &&
+              room.current_answers && (
+                <div className="rounded-2xl border-2 border-amber-300/80 bg-amber-300/15 p-3 text-center">
+                  <div className="text-[10px] uppercase tracking-[0.3em] text-amber-200">
+                    🕵 You are the Saboteur
+                  </div>
+                  <div className="mt-1 text-sm text-amber-100">
+                    Trick the room! Earn double points for every wrong answer your friends pick.
+                  </div>
+                  <div className="mt-2 font-mono text-base font-black text-amber-300">
+                    ✓ {room.current_answers[room.current_correct_index]}
+                  </div>
+                </div>
+              )}
+
+            {/* Glitch button — last place, round 10 */}
+            {room.wildcard === "glitch" &&
+              room.phase === "question" &&
+              iAmLast &&
+              !room.glitch_used && (
+                <button
+                  onClick={() => void glitchLeader()}
+                  className="rounded-2xl border-2 border-fuchsia-400/70 bg-fuchsia-500/25 px-4 py-3 text-sm font-black uppercase tracking-widest text-fuchsia-100 active:scale-[0.98]"
+                >
+                  ⚡ Glitch the leader (5s)
+                </button>
+              )}
+
+            {/* 2x power-up shown only between rounds */}
             {!me?.used_2x &&
               !me?.pending_2x &&
               (room.phase === "lobby" ||
@@ -316,7 +440,7 @@ function PlayPage() {
               <>
                 <div className="rounded-2xl border border-border bg-card/30 p-3 text-center backdrop-blur">
                   <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                    Question
+                    {room.wildcard === "roast" ? "Roast vote" : "Question"}
                   </div>
                   <div className="line-clamp-2 text-sm font-semibold">
                     {room.current_question_text}
@@ -327,7 +451,16 @@ function PlayPage() {
                     </div>
                   )}
                 </div>
-                <div className="min-h-0 flex-1">
+                <div
+                  className={`min-h-0 flex-1 transition ${
+                    buttonsScrambled ? "rotate-1 scale-[1.02] blur-sm" : ""
+                  }`}
+                  style={
+                    buttonsScrambled
+                      ? { filter: "blur(8px) hue-rotate(80deg)" }
+                      : undefined
+                  }
+                >
                   <AnswerGrid
                     disabled={room.phase !== "question"}
                     labels={
@@ -343,6 +476,11 @@ function PlayPage() {
                     onPick={(i) => void pick(i)}
                   />
                 </div>
+                {buttonsScrambled && (
+                  <div className="absolute inset-x-0 top-1/2 z-30 -translate-y-1/2 text-center font-display text-3xl font-black tracking-widest text-fuchsia-300 drop-shadow">
+                    G̷L̷I̷T̷C̷H̷E̷D̷
+                  </div>
+                )}
               </>
             ) : (
               <div className="grid flex-1 place-items-center rounded-2xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
