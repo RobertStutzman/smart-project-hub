@@ -1,7 +1,6 @@
 import { Haptics } from "@/hooks/use-haptics";
 import { play } from "@/lib/sound-engine";
 
-// Four distinct color + geometric watermark pairs for colorblind support.
 const SLOTS = [
   { key: "A", color: "bg-rose-500", ring: "ring-rose-300", shape: "circle" },
   { key: "B", color: "bg-amber-500", ring: "ring-amber-300", shape: "triangle" },
@@ -32,37 +31,57 @@ function Shape({ kind }: { kind: (typeof SLOTS)[number]["shape"] }) {
 
 type Props = {
   disabled?: boolean;
-  labels?: [string, string, string, string];
+  labels?: [string, string, string, string] | string[];
+  droppedIndexes?: number[];
+  selectedIndex?: number | null;
   onPick: (index: 0 | 1 | 2 | 3) => void;
 };
 
-export function AnswerGrid({ disabled, labels, onPick }: Props) {
+export function AnswerGrid({
+  disabled,
+  labels,
+  droppedIndexes = [],
+  selectedIndex = null,
+  onPick,
+}: Props) {
   return (
     <div className="grid h-full w-full grid-cols-2 grid-rows-2 gap-2">
-      {SLOTS.map((slot, i) => (
-        <button
-          key={slot.key}
-          disabled={disabled}
-          onClick={() => {
-            Haptics.tap();
-            play("tap");
-            onPick(i as 0 | 1 | 2 | 3);
-          }}
-          className={`relative flex flex-col items-center justify-center overflow-hidden rounded-2xl text-primary-foreground transition active:scale-[0.97] disabled:opacity-50 ${slot.color} ring-0 focus:outline-none focus:ring-4 ${slot.ring}`}
-        >
-          <div className="absolute inset-0 grid place-items-center text-white">
-            <Shape kind={slot.shape} />
-          </div>
-          <div className="relative z-10 flex flex-col items-center gap-1 px-3 text-center">
-            <span className="font-display text-4xl font-black drop-shadow">
-              {slot.key}
-            </span>
-            {labels?.[i] && (
-              <span className="line-clamp-2 text-sm font-semibold">{labels[i]}</span>
+      {SLOTS.map((slot, i) => {
+        const dropped = droppedIndexes.includes(i);
+        const selected = selectedIndex === i;
+        const inactive = dropped || disabled;
+        return (
+          <button
+            key={slot.key}
+            disabled={inactive}
+            onClick={() => {
+              Haptics.tap();
+              play("tap");
+              onPick(i as 0 | 1 | 2 | 3);
+            }}
+            className={`relative flex flex-col items-center justify-center overflow-hidden rounded-2xl text-primary-foreground transition active:scale-[0.97] ${slot.color} ring-0 focus:outline-none focus:ring-4 ${slot.ring} ${
+              dropped ? "opacity-30 grayscale" : ""
+            } ${selected ? "ring-4 ring-white" : ""}`}
+          >
+            <div className="absolute inset-0 grid place-items-center text-white">
+              <Shape kind={slot.shape} />
+            </div>
+            <div className="relative z-10 flex flex-col items-center gap-1 px-3 text-center">
+              <span className="font-display text-4xl font-black drop-shadow">
+                {slot.key}
+              </span>
+              {labels?.[i] && (
+                <span className="line-clamp-2 text-sm font-semibold">{labels[i]}</span>
+              )}
+            </div>
+            {dropped && (
+              <div className="absolute inset-0 grid place-items-center bg-black/40 text-6xl">
+                ✕
+              </div>
             )}
-          </div>
-        </button>
-      ))}
+          </button>
+        );
+      })}
     </div>
   );
 }

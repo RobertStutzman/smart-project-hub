@@ -16,6 +16,7 @@ import { CATEGORIES, type Category } from "@/lib/categories";
 import { THEMES, THEME_META, type ThemeName } from "@/lib/theme";
 import { useTheme } from "@/components/ThemeProvider";
 import { play, setMuted as setSoundMuted, startMusic, stopMusic, type Sfx } from "@/lib/sound-engine";
+import { HostGameStage, useRevealAutoAdvance } from "@/components/host/HostGameStage";
 
 export const Route = createFileRoute("/host")({
   head: () => ({
@@ -56,6 +57,7 @@ function HostPage() {
   const [muted, setMuted] = useState(false);
   const [paused, setPaused] = useState(false);
   const [origin, setOrigin] = useState("");
+  const [roomPhase, setRoomPhase] = useState<string>("lobby");
   const initRef = useRef(false);
 
   // Hydration-safe origin + persisted mute pref
@@ -96,6 +98,14 @@ function HostPage() {
         { event: "*", schema: "public", table: "players", filter: `room_id=eq.${room.id}` },
         () => {
           void loadPlayers(room.id).then(setPlayers);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "rooms", filter: `id=eq.${room.id}` },
+        (payload) => {
+          const next = payload.new as { phase?: string } | undefined;
+          if (next?.phase) setRoomPhase(next.phase);
         },
       )
       .subscribe();
@@ -191,6 +201,16 @@ function HostPage() {
       toast.success(next ? "Audio muted" : "Audio enabled");
       return next;
     });
+  }
+
+  useRevealAutoAdvance(room?.roomCode ?? "", room?.hostSessionId ?? "", roomPhase);
+
+  if (room && roomPhase !== "lobby") {
+    return (
+      <main className="relative min-h-screen">
+        <HostGameStage room={room} />
+      </main>
+    );
   }
 
   return (
