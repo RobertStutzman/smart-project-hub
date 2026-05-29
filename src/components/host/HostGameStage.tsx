@@ -204,40 +204,81 @@ export function HostGameStage({ room }: Props) {
 
   if (state.phase === "question" || state.phase === "reveal") {
     return (
-      <QuestionStage
-        questionText={state.current_question_text ?? ""}
-        answers={state.current_answers ?? ["", "", "", ""]}
-        droppedIndexes={state.dropped_indexes ?? []}
-        correctIndex={state.phase === "reveal" ? state.current_correct_index : null}
-        secondsLeft={remainingS}
-        phase={state.phase as "question" | "reveal"}
-        players={players.filter((p) => !p.is_audience)}
-      />
+      <>
+        {state.wildcard && state.phase === "question" && (
+          <div className="pointer-events-none absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full bg-amber-400/95 px-4 py-1 text-xs font-black uppercase tracking-[0.25em] text-amber-950 shadow">
+            {state.wildcard === "saboteur" && "🕵 Saboteur round"}
+            {state.wildcard === "glitch" && "⚡ Glitch round"}
+            {state.wildcard === "roast" && "🔥 Roast vote"}
+          </div>
+        )}
+        <QuestionStage
+          questionText={state.current_question_text ?? ""}
+          answers={state.current_answers ?? ["", "", "", ""]}
+          droppedIndexes={state.dropped_indexes ?? []}
+          correctIndex={state.phase === "reveal" ? state.current_correct_index : null}
+          secondsLeft={remainingS}
+          phase={state.phase as "question" | "reveal"}
+          players={players.filter((p) => !p.is_audience)}
+        />
+        <ShatteredFaces victims={shatterVictims} triggerKey={shatterKey} />
+      </>
     );
   }
 
-  if (state.phase === "leaderboard") {
+  if (state.phase === "ended") {
+    const live = players.filter((p) => !p.is_audience).sort((a, b) => b.score - a.score);
+    const winner = live[0];
     return (
-      <div className="flex h-full flex-col gap-6 p-8">
-        <h2 className="text-center font-display text-4xl font-black">Standings</h2>
-        <Leaderboard players={players.filter((p) => !p.is_audience)} />
-        <div className="mt-auto flex justify-center gap-2">
-          <button
-            onClick={() =>
-              nextQuestionFn({
-                data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
-              }).catch(() => {})
-            }
-            className="rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground"
-          >
-            Next question →
-          </button>
+      <div className="grid h-full place-items-center p-8 text-center">
+        <div>
+          <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Game over</div>
+          <div className="mt-2 font-display text-6xl font-black">🏆 {winner?.nickname ?? "—"}</div>
+          <div className="mt-1 font-mono text-2xl">{winner?.score ?? 0} pts</div>
+          <div className="mt-6 text-sm text-muted-foreground">
+            Players can tap "Export to socials" on their phones.
+          </div>
         </div>
       </div>
     );
   }
 
-  // lobby / ended — show start button overlay
+  if (state.phase === "leaderboard") {
+    const isFinal = (state.round_number ?? 0) >= 15;
+    return (
+      <div className="flex h-full flex-col gap-6 p-8">
+        <h2 className="text-center font-display text-4xl font-black">Standings</h2>
+        <Leaderboard players={players.filter((p) => !p.is_audience)} />
+        <div className="mt-auto flex justify-center gap-2">
+          {isFinal ? (
+            <button
+              onClick={() =>
+                endGameFn({
+                  data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+                }).catch(() => {})
+              }
+              className="rounded-full bg-amber-400 px-6 py-3 font-semibold text-amber-950"
+            >
+              End game 🏁
+            </button>
+          ) : (
+            <button
+              onClick={() =>
+                nextQuestionFn({
+                  data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+                }).catch(() => {})
+              }
+              className="rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground"
+            >
+              Next question →
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // lobby — show start button overlay
   return (
     <div className="grid h-full place-items-center p-8">
       <div className="flex flex-col items-center gap-4">
