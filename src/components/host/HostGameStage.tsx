@@ -56,6 +56,14 @@ export function HostGameStage({ room }: Props) {
   const dropWrongFn = useServerFn(dropWrongAnswer);
   const endQuestionFn = useServerFn(endQuestion);
   const setPhaseFn = useServerFn(setPhase);
+  const endGameFn = useServerFn(endGame);
+
+  // Shatter trigger: increments per drop event so ShatteredFaces re-fires
+  const [shatterKey, setShatterKey] = useState("");
+  const [shatterVictims, setShatterVictims] = useState<
+    { id: string; nickname: string; avatar_url: string | null }[]
+  >([]);
+  const lastDroppedRef = useRef<number[]>([]);
 
   // Fetch room + players, subscribe to realtime
   useEffect(() => {
@@ -64,7 +72,7 @@ export function HostGameStage({ room }: Props) {
       const { data: r } = await supabase
         .from("rooms")
         .select(
-          "id, room_code, phase, current_question_text, current_answers, current_correct_index, question_started_at, question_duration_ms, dropped_indexes",
+          "id, room_code, phase, current_question_text, current_answers, current_correct_index, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number",
         )
         .eq("id", room.id)
         .maybeSingle();
