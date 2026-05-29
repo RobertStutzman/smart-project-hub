@@ -18,38 +18,59 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          current_answer: number | null
+          current_answer_locked_at: string | null
+          current_round_fastest: boolean
+          current_round_score: number
           id: string
           is_audience: boolean
+          last_answer_correct: boolean | null
           last_seen_at: string
           nickname: string
+          pending_2x: boolean
           room_id: string
           score: number
           session_id: string
           streak_count: number
+          used_2x: boolean
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          current_answer?: number | null
+          current_answer_locked_at?: string | null
+          current_round_fastest?: boolean
+          current_round_score?: number
           id?: string
           is_audience?: boolean
+          last_answer_correct?: boolean | null
           last_seen_at?: string
           nickname: string
+          pending_2x?: boolean
           room_id: string
           score?: number
           session_id: string
           streak_count?: number
+          used_2x?: boolean
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
+          current_answer?: number | null
+          current_answer_locked_at?: string | null
+          current_round_fastest?: boolean
+          current_round_score?: number
           id?: string
           is_audience?: boolean
+          last_answer_correct?: boolean | null
           last_seen_at?: string
           nickname?: string
+          pending_2x?: boolean
           room_id?: string
           score?: number
           session_id?: string
           streak_count?: number
+          used_2x?: boolean
         }
         Relationships: [
           {
@@ -127,40 +148,85 @@ export type Database = {
         }
         Relationships: []
       }
+      room_questions: {
+        Row: {
+          asked_at: string
+          question_id: string
+          room_id: string
+        }
+        Insert: {
+          asked_at?: string
+          question_id: string
+          room_id: string
+        }
+        Update: {
+          asked_at?: string
+          question_id?: string
+          room_id?: string
+        }
+        Relationships: []
+      }
       rooms: {
         Row: {
           allow_late_joiners: boolean
           created_at: string
+          current_answers: string[] | null
           current_category: string | null
+          current_correct_index: number | null
+          current_question_id: string | null
+          current_question_text: string | null
+          dropped_indexes: number[]
           host_last_seen_at: string
           host_session_id: string
           id: string
           is_paused: boolean
+          phase: string
+          question_duration_ms: number
+          question_started_at: string | null
           room_code: string
+          round_number: number
           status: string
           theme: string
         }
         Insert: {
           allow_late_joiners?: boolean
           created_at?: string
+          current_answers?: string[] | null
           current_category?: string | null
+          current_correct_index?: number | null
+          current_question_id?: string | null
+          current_question_text?: string | null
+          dropped_indexes?: number[]
           host_last_seen_at?: string
           host_session_id: string
           id?: string
           is_paused?: boolean
+          phase?: string
+          question_duration_ms?: number
+          question_started_at?: string | null
           room_code: string
+          round_number?: number
           status?: string
           theme?: string
         }
         Update: {
           allow_late_joiners?: boolean
           created_at?: string
+          current_answers?: string[] | null
           current_category?: string | null
+          current_correct_index?: number | null
+          current_question_id?: string | null
+          current_question_text?: string | null
+          dropped_indexes?: number[]
           host_last_seen_at?: string
           host_session_id?: string
           id?: string
           is_paused?: boolean
+          phase?: string
+          question_duration_ms?: number
+          question_started_at?: string | null
           room_code?: string
+          round_number?: number
           status?: string
           theme?: string
         }
