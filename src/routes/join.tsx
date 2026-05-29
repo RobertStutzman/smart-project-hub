@@ -2,12 +2,14 @@ import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 import { useState } from "react";
 import { z } from "zod";
 import { useServerFn } from "@tanstack/react-start";
-import { joinRoom } from "@/lib/rooms.functions";
+import { joinRoom, updatePlayerAvatar } from "@/lib/rooms.functions";
 import {
   getOrCreateSessionId,
   loadPlayerSession,
   savePlayerSession,
 } from "@/lib/player-session";
+import { supabase } from "@/integrations/supabase/client";
+import { SelfieCapture } from "@/components/SelfieCapture";
 
 const searchSchema = z.object({
   code: z.string().optional(),
@@ -26,10 +28,13 @@ export const Route = createFileRoute("/join")({
   component: JoinPage,
 });
 
+type Step = "form" | "selfie";
+
 function JoinPage() {
   const navigate = useNavigate();
   const search = useSearch({ from: "/join" });
   const joinFn = useServerFn(joinRoom);
+  const updateAvatarFn = useServerFn(updatePlayerAvatar);
 
   const existing = typeof window !== "undefined" ? loadPlayerSession() : null;
   const [code, setCode] = useState(
@@ -38,6 +43,8 @@ function JoinPage() {
   const [nickname, setNickname] = useState(existing?.nickname ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState<Step>("form");
+  const [sessionId, setSessionId] = useState<string>("");
 
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault();
@@ -45,17 +52,35 @@ function JoinPage() {
     if (code.length !== 4 || !nickname.trim()) return;
     setSubmitting(true);
     try {
-      const sessionId = getOrCreateSessionId();
-      const res = await joinFn({
-        data: { roomCode: code, nickname: nickname.trim(), sessionId },
+      const sid = getOrCreateSessionId();
+      await joinFn({
+        data: { roomCode: code, nickname: nickname.trim(), sessionId: sid },
       });
-      savePlayerSession({ sessionId, roomCode: code, nickname: nickname.trim() });
-      navigate({ to: "/play" });
-      void res;
+      savePlayerSession({ sessionId: sid, roomCode: code, nickname: nickname.trim() });
+      setSessionId(sid);
+      setStep("selfie");
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleSelfie(blob: Blob) {
+    try {
+      const path = `${code}/${sessionId}-${Date.now()}.jpg`;
+      const { error: upErr } = await supabase.storage
+        .from("avatars")
+        .upload(path, blob, { contentType: "image/jpeg", upsert: true });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+      await updateAvatarFn({
+        data: { roomCode: code, sessionId, avatarUrl: data.publicUrl },
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      navigate({ to: "/play" });
     }
   }
 
@@ -68,52 +93,70 @@ function JoinPage() {
         >
           ← Home
         </button>
-        <div className="my-auto">
-          <h1 className="text-4xl font-black tracking-tight">Join the game</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Enter the 4-letter code shown on the TV.
-          </p>
 
-          <form onSubmit={handleJoin} className="mt-8 flex flex-col gap-5">
-            <div>
-              <label className="mb-2 block text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                Room code
-              </label>
-              <input
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4))}
-                inputMode="text"
-                autoCapitalize="characters"
-                autoComplete="off"
-                placeholder="ABCD"
-                className="w-full rounded-2xl border border-border bg-card px-5 py-5 text-center font-mono text-4xl font-black tracking-[0.4em] outline-none focus:border-foreground"
-              />
-            </div>
-            <div>
-              <label className="mb-2 block text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                Nickname
-              </label>
-              <input
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value.slice(0, 20))}
-                placeholder="Your name"
-                className="w-full rounded-2xl border border-border bg-card px-5 py-4 text-lg outline-none focus:border-foreground"
-              />
-            </div>
-            {error && (
-              <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive-foreground">
-                {error}
+        {step === "form" ? (
+          <div className="my-auto">
+            <h1 className="text-4xl font-black tracking-tight">Join the game</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Enter the 4-letter code shown on the TV.
+            </p>
+
+            <form onSubmit={handleJoin} className="mt-8 flex flex-col gap-5">
+              <div>
+                <label className="mb-2 block text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Room code
+                </label>
+                <input
+                  value={code}
+                  onChange={(e) =>
+                    setCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4))
+                  }
+                  inputMode="text"
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  placeholder="ABCD"
+                  className="w-full rounded-2xl border border-border bg-card px-5 py-5 text-center font-mono text-4xl font-black tracking-[0.4em] outline-none focus:border-foreground"
+                />
               </div>
-            )}
-            <button
-              type="submit"
-              disabled={submitting || code.length !== 4 || !nickname.trim()}
-              className="rounded-full bg-foreground px-6 py-4 text-base font-semibold text-background disabled:opacity-40"
-            >
-              {submitting ? "Joining…" : "Join game"}
-            </button>
-          </form>
-        </div>
+              <div>
+                <label className="mb-2 block text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Nickname
+                </label>
+                <input
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value.slice(0, 20))}
+                  placeholder="Your name"
+                  className="w-full rounded-2xl border border-border bg-card px-5 py-4 text-lg outline-none focus:border-foreground"
+                />
+              </div>
+              {error && (
+                <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">
+                  {error}
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={submitting || code.length !== 4 || !nickname.trim()}
+                className="rounded-full bg-foreground px-6 py-4 text-base font-semibold text-background disabled:opacity-40"
+              >
+                {submitting ? "Joining…" : "Next"}
+              </button>
+            </form>
+          </div>
+        ) : (
+          <div className="my-auto">
+            <h1 className="text-3xl font-black tracking-tight">Take a selfie</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Your face shows on the TV next to your score.
+            </p>
+            <div className="mt-8">
+              <SelfieCapture
+                onCapture={(b) => void handleSelfie(b)}
+                onSkip={() => navigate({ to: "/play" })}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
