@@ -166,3 +166,32 @@ export const setCategory = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+export const setRoomConfig = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      hostSessionId: z.string().min(8).max(128),
+      theme: z.string().min(1).max(40).optional(),
+      allowLateJoiners: z.boolean().optional(),
+      isPaused: z.boolean().optional(),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const patch: {
+      theme?: string;
+      allow_late_joiners?: boolean;
+      is_paused?: boolean;
+    } = {};
+    if (data.theme !== undefined) patch.theme = data.theme;
+    if (data.allowLateJoiners !== undefined) patch.allow_late_joiners = data.allowLateJoiners;
+    if (data.isPaused !== undefined) patch.is_paused = data.isPaused;
+    if (Object.keys(patch).length === 0) return { ok: true };
+    const { error } = await supabaseAdmin
+      .from("rooms")
+      .update(patch)
+      .eq("room_code", data.roomCode)
+      .eq("host_session_id", data.hostSessionId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
