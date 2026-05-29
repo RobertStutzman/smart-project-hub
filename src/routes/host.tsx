@@ -153,6 +153,32 @@ function HostPage() {
     }).catch(() => {});
   }, [theme, allowLate, room, setConfigFn]);
 
+  // Apply mute to sound engine + drive lobby music on host TV
+  useEffect(() => {
+    setSoundMuted(muted);
+  }, [muted]);
+
+  useEffect(() => {
+    if (!room) return;
+    startMusic("lobby", 600);
+    return () => stopMusic();
+  }, [room?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Subscribe to audience soundboard broadcasts → play SFX from TV speakers
+  useEffect(() => {
+    if (!room) return;
+    const channel = supabase
+      .channel(`sfx-${room.roomCode}`)
+      .on("broadcast", { event: "sfx" }, (msg) => {
+        const sfx = (msg.payload as { sfx?: Sfx } | undefined)?.sfx;
+        if (sfx) play(sfx);
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [room]);
+
   const joinUrl = useMemo(() => {
     if (!origin || !room) return "";
     return `${window.location.origin}/join?code=${room.roomCode}`;
