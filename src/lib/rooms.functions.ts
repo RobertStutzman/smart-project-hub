@@ -50,7 +50,7 @@ export const joinRoom = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { data: room, error: roomErr } = await supabaseAdmin
       .from("rooms")
-      .select("id, status, is_paused")
+      .select("id, status, is_paused, allow_late_joiners")
       .eq("room_code", data.roomCode)
       .maybeSingle();
     if (roomErr) throw new Error(roomErr.message);
@@ -72,6 +72,11 @@ export const joinRoom = createServerFn({ method: "POST" })
         .eq("id", existing.id);
       return { roomId: room.id, playerId: existing.id, resumed: true };
     }
+
+    if (!room.allow_late_joiners && room.status !== "lobby") {
+      throw new Error("This room is no longer accepting new players.");
+    }
+
 
     const { data: player, error: playerErr } = await supabaseAdmin
       .from("players")
