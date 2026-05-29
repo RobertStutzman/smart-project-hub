@@ -23,6 +23,8 @@ type RoomState = {
   question_started_at: string | null;
   question_duration_ms: number;
   dropped_indexes: number[];
+  wildcard: string | null;
+  round_number: number;
 };
 
 type Player = {
