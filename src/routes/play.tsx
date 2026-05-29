@@ -245,7 +245,7 @@ function PlayPage() {
     !!room.glitch_active_until && new Date(room.glitch_active_until).getTime() > now;
   const buttonsScrambled = iAmLeader && glitchActive;
 
-  async function toggleAudience() {
+  const toggleAudience = async () => {
     if (!session) return;
     Haptics.tap();
     try {
@@ -259,9 +259,9 @@ function PlayPage() {
     } catch {
       /* ignore */
     }
-  }
+  };
 
-  async function glitchLeader() {
+  const glitchLeader = async () => {
     if (!session) return;
     Haptics.wrong();
     try {
@@ -271,9 +271,9 @@ function PlayPage() {
     } catch {
       /* ignore */
     }
-  }
+  };
 
-  async function pick(i: 0 | 1 | 2 | 3) {
+  const pick = async (i: 0 | 1 | 2 | 3) => {
     if (!session) return;
     try {
       await lockFn({
@@ -282,9 +282,9 @@ function PlayPage() {
     } catch {
       /* ignore */
     }
-  }
+  };
 
-  async function activatePowerUp() {
+  const activatePowerUp = async () => {
     if (!session) return;
     Haptics.correct();
     try {
@@ -294,7 +294,7 @@ function PlayPage() {
     } catch {
       /* ignore */
     }
-  }
+  };
 
   return (
     <main className="relative h-screen overflow-hidden bg-background text-foreground">
