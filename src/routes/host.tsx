@@ -47,6 +47,7 @@ function HostPage() {
   const heartbeatFn = useServerFn(heartbeatHost);
   const setCategoryFn = useServerFn(setCategory);
   const setConfigFn = useServerFn(setRoomConfig);
+  const nextQuestionFn = useServerFn(nextQuestion);
 
   const [room, setRoom] = useState<{ id: string; roomCode: string; hostSessionId: string } | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
