@@ -11,6 +11,8 @@ import {
 import { QuestionStage } from "./QuestionStage";
 import { Leaderboard } from "./Leaderboard";
 import { ShatteredFaces } from "./ShatteredFaces";
+import { TwitchPanel } from "./TwitchPanel";
+import { AIRoast } from "./AIRoast";
 import { play, startMusic, stopMusic } from "@/lib/sound-engine";
 
 type RoomState = {
@@ -212,6 +214,13 @@ export function HostGameStage({ room }: Props) {
             {state.wildcard === "roast" && "🔥 Roast vote"}
           </div>
         )}
+        <div className="absolute right-4 top-4 z-30 w-72">
+          <TwitchPanel
+            questionKey={state.question_started_at ?? state.current_question_text ?? ""}
+            answers={state.current_answers ?? ["", "", "", ""]}
+            droppedIndexes={state.dropped_indexes ?? []}
+          />
+        </div>
         <QuestionStage
           questionText={state.current_question_text ?? ""}
           answers={state.current_answers ?? ["", "", "", ""]}
@@ -238,6 +247,7 @@ export function HostGameStage({ room }: Props) {
           <div className="mt-6 text-sm text-muted-foreground">
             Players can tap "Export to socials" on their phones.
           </div>
+          <AIRoast roomCode={room.roomCode} hostSessionId={room.hostSessionId} />
         </div>
       </div>
     );

@@ -12,6 +12,8 @@ import { AudienceSoundboard } from "@/components/AudienceSoundboard";
 import { MemeScorecard, computeBadge } from "@/components/MemeScorecard";
 import { Haptics } from "@/hooks/use-haptics";
 import { play, startMusic, stopMusic } from "@/lib/sound-engine";
+import { AccessibilityToggle } from "@/components/AccessibilityToggle";
+import { t } from "@/lib/i18n";
 
 export const Route = createFileRoute("/play")({
   head: () => ({
@@ -245,7 +247,7 @@ function PlayPage() {
     !!room.glitch_active_until && new Date(room.glitch_active_until).getTime() > now;
   const buttonsScrambled = iAmLeader && glitchActive;
 
-  async function toggleAudience() {
+  const toggleAudience = async () => {
     if (!session) return;
     Haptics.tap();
     try {
@@ -259,9 +261,9 @@ function PlayPage() {
     } catch {
       /* ignore */
     }
-  }
+  };
 
-  async function glitchLeader() {
+  const glitchLeader = async () => {
     if (!session) return;
     Haptics.wrong();
     try {
@@ -271,9 +273,9 @@ function PlayPage() {
     } catch {
       /* ignore */
     }
-  }
+  };
 
-  async function pick(i: 0 | 1 | 2 | 3) {
+  const pick = async (i: 0 | 1 | 2 | 3) => {
     if (!session) return;
     try {
       await lockFn({
@@ -282,9 +284,9 @@ function PlayPage() {
     } catch {
       /* ignore */
     }
-  }
+  };
 
-  async function activatePowerUp() {
+  const activatePowerUp = async () => {
     if (!session) return;
     Haptics.correct();
     try {
@@ -294,7 +296,7 @@ function PlayPage() {
     } catch {
       /* ignore */
     }
-  }
+  };
 
   return (
     <main className="relative h-screen overflow-hidden bg-background text-foreground">
@@ -302,8 +304,9 @@ function PlayPage() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,oklch(0.45_0.25_295/0.3),transparent_60%)]" />
 
       <div className="relative mx-auto flex h-screen max-w-md flex-col gap-4 p-4">
-        <header className="flex items-center justify-between text-xs uppercase tracking-[0.25em] text-muted-foreground">
+        <header className="flex items-center justify-between gap-2 text-xs uppercase tracking-[0.25em] text-muted-foreground">
           <span>Room {session.roomCode}</span>
+          <AccessibilityToggle />
           <button
             onClick={() => {
               stopMusic();
@@ -312,7 +315,7 @@ function PlayPage() {
             }}
             className="hover:text-foreground"
           >
-            Leave
+            {t("leave")}
           </button>
         </header>
 
