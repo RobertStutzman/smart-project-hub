@@ -234,6 +234,11 @@ export const endQuestion = createServerFn({ method: "POST" })
     let fastestPlayerId: string | null = null;
     let fastestLockedAt = Number.POSITIVE_INFINITY;
 
+    // Rubber-band: bottom 25% (by current score, pre-update) get a hidden 1.25× boost on correct answers
+    const rankedAsc = [...(players ?? [])].sort((a, b) => (a.score ?? 0) - (b.score ?? 0));
+    const rubberCutoff = Math.max(1, Math.floor(rankedAsc.length * 0.25));
+    const rubberIds = new Set(rankedAsc.slice(0, rubberCutoff).map((p) => p.id));
+
     // Tally roast votes
     let roastWinnerSessionId: string | null = null;
     if (isRoast && roastCandidates) {
