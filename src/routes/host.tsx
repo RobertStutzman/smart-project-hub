@@ -122,13 +122,16 @@ function HostPage() {
       e.preventDefault();
       setPaused((p) => {
         const next = !p;
-        setConfigFn({
-          data: {
-            roomCode: room.roomCode,
-            hostSessionId: room.hostSessionId,
-            isPaused: next,
-          },
-        }).catch(() => {});
+        const r = room;
+        if (r) {
+          setConfigFn({
+            data: {
+              roomCode: r.roomCode,
+              hostSessionId: r.hostSessionId,
+              isPaused: next,
+            },
+          }).catch(() => {});
+        }
         return next;
       });
     }
