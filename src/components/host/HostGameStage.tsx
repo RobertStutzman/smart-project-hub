@@ -169,6 +169,22 @@ export function HostGameStage({ room }: Props) {
     }
   }, [state, now, players, dropWrongFn, endQuestionFn, room.roomCode, room.hostSessionId]);
 
+  // Detect new drops → fire Shattered Faces overlay
+  useEffect(() => {
+    if (!state) return;
+    const cur = state.dropped_indexes ?? [];
+    const prev = lastDroppedRef.current;
+    const added = cur.filter((i) => !prev.includes(i));
+    lastDroppedRef.current = cur;
+    if (added.length === 0) return;
+    const victims = players
+      .filter((p) => !p.is_audience && p.current_answer !== null && added.includes(p.current_answer))
+      .map((p) => ({ id: p.id, nickname: p.nickname, avatar_url: p.avatar_url }));
+    if (victims.length === 0) return;
+    setShatterVictims(victims);
+    setShatterKey(`${state.question_started_at}-${cur.join(",")}`);
+  }, [state?.dropped_indexes, state?.question_started_at, players]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Tense music during question, lobby during lobby
   useEffect(() => {
     if (!state) return;
