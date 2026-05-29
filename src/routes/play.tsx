@@ -12,6 +12,8 @@ import { AudienceSoundboard } from "@/components/AudienceSoundboard";
 import { MemeScorecard, computeBadge } from "@/components/MemeScorecard";
 import { Haptics } from "@/hooks/use-haptics";
 import { play, startMusic, stopMusic } from "@/lib/sound-engine";
+import { AccessibilityToggle } from "@/components/AccessibilityToggle";
+import { t } from "@/lib/i18n";
 
 export const Route = createFileRoute("/play")({
   head: () => ({
