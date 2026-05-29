@@ -344,26 +344,27 @@ export const endQuestion = createServerFn({ method: "POST" })
     }
 
     for (const u of updates) {
-      const patch: Record<string, unknown> = {
-        score: u.score,
-        current_round_score: u.current_round_score,
-        streak_count: u.streak_count,
-        last_answer_correct: u.last_answer_correct,
-        used_2x: u.used_2x,
-        pending_2x: u.pending_2x,
-        current_round_fastest: u.current_round_fastest,
-        correct_count: u.correct_count,
-        wrong_count: u.wrong_count,
-        best_streak: u.best_streak,
-        total_response_ms: u.total_response_ms,
-        answered_count: u.answered_count,
-      };
-      // Increment fastest_count atomically-ish for the round's fastest player
-      if (u.current_round_fastest) {
-        const orig = (players ?? []).find((x) => x.id === u.id);
-        patch.fastest_count = (orig?.fastest_count ?? 0) + 1;
-      }
-      await supabaseAdmin.from("players").update(patch).eq("id", u.id);
+      const orig = (players ?? []).find((x) => x.id === u.id);
+      const fastestCount =
+        (orig?.fastest_count ?? 0) + (u.current_round_fastest ? 1 : 0);
+      await supabaseAdmin
+        .from("players")
+        .update({
+          score: u.score,
+          current_round_score: u.current_round_score,
+          streak_count: u.streak_count,
+          last_answer_correct: u.last_answer_correct,
+          used_2x: u.used_2x,
+          pending_2x: u.pending_2x,
+          current_round_fastest: u.current_round_fastest,
+          correct_count: u.correct_count,
+          wrong_count: u.wrong_count,
+          best_streak: u.best_streak,
+          total_response_ms: u.total_response_ms,
+          answered_count: u.answered_count,
+          fastest_count: fastestCount,
+        })
+        .eq("id", u.id);
     }
 
     await supabaseAdmin
