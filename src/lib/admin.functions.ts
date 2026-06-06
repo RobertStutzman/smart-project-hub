@@ -265,13 +265,14 @@ export const generateQuestions = createServerFn({ method: "POST" })
     };
     const fallbackDifficulty =
       data.difficulty === "mixed" ? "medium" : data.difficulty;
-    const all = parsed.questions.map((q) => ({
+    const all = parsed.questions.map((q) => sanitizeQuestion({
       ...q,
       difficulty: q.difficulty ?? fallbackDifficulty,
       category: data.category,
       is_premium: data.isPremium,
     }));
     const questions = all.filter(answersAreDistinct);
+
     const skipped = all.length - questions.length;
     return { questions, skipped };
   });
