@@ -5,7 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Lock, Pause, Play } from "lucide-react";
 import { toast } from "sonner";
-import { createRoom, heartbeatHost, setCategory, setRoomConfig } from "@/lib/rooms.functions";
+import { createRoom, endRoom, heartbeatHost, setCategory, setRoomConfig } from "@/lib/rooms.functions";
 import { nextQuestion } from "@/lib/game.functions";
 import {
   loadHostSession,
