@@ -524,10 +524,11 @@ export const repairDuplicateAnswers = createServerFn({ method: "POST" })
       if (!item) continue;
       const candidate = {
         correct_answer: batch[i].correct_answer,
-        wrong_1: (item.wrong_1 ?? "").trim().slice(0, 200),
-        wrong_2: (item.wrong_2 ?? "").trim().slice(0, 200),
-        wrong_3: (item.wrong_3 ?? "").trim().slice(0, 200),
+        wrong_1: sanitizeAnswer((item.wrong_1 ?? "")).slice(0, 200),
+        wrong_2: sanitizeAnswer((item.wrong_2 ?? "")).slice(0, 200),
+        wrong_3: sanitizeAnswer((item.wrong_3 ?? "")).slice(0, 200),
       };
+
       if (!candidate.wrong_1 || !candidate.wrong_2 || !candidate.wrong_3) continue;
       if (!answersAreDistinct(candidate)) continue;
       const { error: upErr } = await supabaseAdmin
