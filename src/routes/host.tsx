@@ -171,6 +171,17 @@ function HostPage() {
     setSoundMuted(muted);
   }, [muted]);
 
+  // Notify parent window (dev playground) of the room code.
+  useEffect(() => {
+    if (!room) return;
+    try {
+      window.parent?.postMessage(
+        { type: "host:room", code: room.roomCode, id: room.id },
+        "*",
+      );
+    } catch {}
+  }, [room?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!room) return;
     startMusic("lobby", 600);
