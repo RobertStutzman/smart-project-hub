@@ -261,10 +261,36 @@ export function HostGameStage({ room }: Props) {
   if (state.phase === "leaderboard") {
     const isFinal = (state.round_number ?? 0) >= 15;
     return (
-      <div className="flex h-full flex-col gap-6 p-8">
-        <h2 className="text-center font-display text-4xl font-black">Standings</h2>
-        <Leaderboard players={players.filter((p) => !p.is_audience)} />
-        <div className="mt-auto flex justify-center gap-2">
+      <div
+        className="relative flex h-full flex-col gap-8 overflow-hidden p-8 text-white"
+        style={{
+          background:
+            "radial-gradient(ellipse 90% 60% at 50% 30%, oklch(0.22 0.04 270 / 0.95), oklch(0.08 0.02 270) 75%)",
+        }}
+      >
+        {/* film grain */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.06] mix-blend-overlay"
+          style={{
+            backgroundImage:
+              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
+          }}
+        />
+        <div className="relative text-center">
+          <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300/80">
+            Round {state.round_number ?? 0} {isFinal ? "— Final" : ""}
+          </div>
+          <h2 className="mt-2 font-display text-5xl font-black text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.6)] sm:text-6xl">
+            Standings
+          </h2>
+          <div className="mx-auto mt-3 h-[2px] w-24 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
+        </div>
+
+        <div className="relative flex-1">
+          <Leaderboard players={players.filter((p) => !p.is_audience)} />
+        </div>
+
+        <div className="relative mt-auto flex justify-center gap-2">
           {isFinal ? (
             <button
               onClick={() =>
@@ -272,7 +298,7 @@ export function HostGameStage({ room }: Props) {
                   data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
                 }).catch(() => {})
               }
-              className="rounded-full bg-amber-400 px-6 py-3 font-semibold text-amber-950"
+              className="rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-8 py-3 font-display font-bold uppercase tracking-wider text-amber-950 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)] transition hover:scale-[1.03]"
             >
               End game 🏁
             </button>
@@ -283,7 +309,7 @@ export function HostGameStage({ room }: Props) {
                   data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
                 }).catch(() => {})
               }
-              className="rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground"
+              className="rounded-full border border-amber-300/50 bg-white/5 px-8 py-3 font-display font-bold uppercase tracking-wider text-amber-200 backdrop-blur transition hover:bg-white/10"
             >
               Next question →
             </button>
