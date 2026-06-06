@@ -82,6 +82,36 @@ const VO_LINES: ScriptLine[] = [
     text: "On fire!",
     audienceVisible: true,
   },
+  {
+    slot: "vo_new_challenger",
+    label: "New challenger",
+    text: "A new challenger appears!",
+    audienceVisible: true,
+  },
+  {
+    slot: "vo_streak_3",
+    label: "Three in a row",
+    text: "Three in a row!",
+    audienceVisible: true,
+  },
+  {
+    slot: "vo_unstoppable",
+    label: "Unstoppable",
+    text: "Unstoppable!",
+    audienceVisible: true,
+  },
+  {
+    slot: "vo_neck_and_neck",
+    label: "Neck and neck",
+    text: "It's neck and neck!",
+    audienceVisible: true,
+  },
+  {
+    slot: "vo_blowout",
+    label: "Blowout",
+    text: "It's not even close.",
+    audienceVisible: true,
+  },
 ];
 
 const LOBBY_MUSIC: {
