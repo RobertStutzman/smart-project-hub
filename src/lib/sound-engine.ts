@@ -1,5 +1,4 @@
-// Web Audio synth-based sound engine — no asset files needed.
-// All sounds are generated programmatically for instant, zero-fetch playback.
+// Web Audio synth-based sound engine — plus uploaded clip overrides per event.
 
 export type Sfx =
   | "tap"
@@ -12,6 +11,16 @@ export type Sfx =
   | "crickets"
   | "boo"
   | "sadTrombone";
+
+export type GameEvent =
+  | "lobby_music"
+  | "round_intro"
+  | "correct"
+  | "wrong"
+  | "reveal"
+  | "leaderboard"
+  | "final"
+  | "victory";
 
 let ctx: AudioContext | null = null;
 let muted = false;
@@ -32,6 +41,7 @@ function ac(): AudioContext | null {
 
 export function setMuted(v: boolean) {
   muted = v;
+  if (v) stopMusic();
 }
 
 function tone(
@@ -128,7 +138,6 @@ export function play(sfx: Sfx) {
       sweep(220, 110, 0.6, "sawtooth", 0.18);
       break;
     case "sadTrombone": {
-      // Wah-wah-wah-waaah
       const notes: Array<[number, number]> = [
         [311, 0.18],
         [277, 0.18],
@@ -139,7 +148,6 @@ export function play(sfx: Sfx) {
       for (const [f, d] of notes) {
         sweep(f * 1.05, f * 0.92, d, "sawtooth", 0.22);
         t += d * 0.9;
-        // schedule next via setTimeout-style using startAt on tone
         tone(f * 0.5, d * 0.8, "triangle", 0.08, t);
       }
       break;
@@ -147,43 +155,51 @@ export function play(sfx: Sfx) {
   }
 }
 
-// Background music — uploaded clip if available, else synthesized arpeggio.
-let loopTimer: number | null = null;
-let currentLoop: "lobby" | "tense" | null = null;
+// ─── Custom clip system ─────────────────────────────────────────────
 
 type CustomClip = { url: string; volume: number; loop: boolean };
-const customClips: Partial<Record<"lobby_loop" | "round_intro", CustomClip>> = {};
-let lobbyAudio: HTMLAudioElement | null = null;
-let stingAudio: HTMLAudioElement | null = null;
+const eventClips: Partial<Record<GameEvent, CustomClip>> = {};
+let loopAudio: HTMLAudioElement | null = null;
+let currentLoopMode: "lobby" | "tense" | null = null;
+let synthLoopTimer: number | null = null;
+const stingPool = new Map<string, HTMLAudioElement>();
 
-export function loadCustomClips(
-  clips: Partial<Record<"lobby_loop" | "round_intro", CustomClip>>,
+export function loadCustomEvents(
+  events: Partial<Record<GameEvent, CustomClip>>,
 ) {
-  Object.assign(customClips, clips);
+  for (const k of Object.keys(eventClips) as GameEvent[]) delete eventClips[k];
+  Object.assign(eventClips, events);
 }
 
-function stopLobbyAudio() {
-  if (lobbyAudio) {
-    lobbyAudio.pause();
-    lobbyAudio.currentTime = 0;
-    lobbyAudio = null;
+function stopLoopAudio() {
+  if (loopAudio) {
+    loopAudio.pause();
+    loopAudio.currentTime = 0;
+    loopAudio = null;
   }
+  if (synthLoopTimer !== null) {
+    window.clearInterval(synthLoopTimer);
+    synthLoopTimer = null;
+  }
+  currentLoopMode = null;
 }
 
+/** Start lobby/tense background music. Uses uploaded clip for lobby_music if assigned. */
 export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
-  stopMusic();
+  stopLoopAudio();
   if (muted) return;
-  currentLoop = mode;
+  currentLoopMode = mode;
 
-  // Custom uploaded lobby loop trumps the synth.
-  if (mode === "lobby" && customClips.lobby_loop) {
-    const clip = customClips.lobby_loop;
-    if (typeof window === "undefined") return;
-    lobbyAudio = new Audio(clip.url);
-    lobbyAudio.loop = clip.loop;
-    lobbyAudio.volume = Math.max(0, Math.min(1, clip.volume));
-    lobbyAudio.play().catch(() => {});
-    return;
+  if (mode === "lobby") {
+    const clip = eventClips.lobby_music;
+    if (clip) {
+      if (typeof window === "undefined") return;
+      loopAudio = new Audio(clip.url);
+      loopAudio.loop = clip.loop;
+      loopAudio.volume = Math.max(0, Math.min(1, clip.volume));
+      loopAudio.play().catch(() => {});
+      return;
+    }
   }
 
   const lobby = [261.63, 329.63, 392, 523.25];
@@ -191,34 +207,70 @@ export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
   const notes = mode === "lobby" ? lobby : tense;
   let i = 0;
   const tick = () => {
-    if (muted || currentLoop !== mode) return;
+    if (muted || currentLoopMode !== mode) return;
     tone(notes[i % notes.length], 0.18, mode === "lobby" ? "triangle" : "square", 0.1);
     i++;
   };
   tick();
-  loopTimer = window.setInterval(tick, tempoMs);
+  synthLoopTimer = window.setInterval(tick, tempoMs);
 }
 
 export function stopMusic() {
-  currentLoop = null;
-  if (loopTimer !== null) {
-    window.clearInterval(loopTimer);
-    loopTimer = null;
-  }
-  stopLobbyAudio();
+  stopLoopAudio();
 }
 
-/** Fire a one-shot sting clip (e.g. round intro). No-op if no clip loaded. */
-export function playSting(slot: "round_intro") {
+/** Fire a one-shot event clip if uploaded; otherwise fall back to a synth SFX. */
+export function playEvent(event: GameEvent) {
   if (muted) return;
-  const clip = customClips[slot];
-  if (!clip) return;
-  if (typeof window === "undefined") return;
-  if (stingAudio) {
-    stingAudio.pause();
-    stingAudio = null;
+  const clip = eventClips[event];
+  if (clip && typeof window !== "undefined") {
+    const audio = new Audio(clip.url);
+    audio.volume = Math.max(0, Math.min(1, clip.volume));
+    audio.play().catch(() => {});
+    return;
   }
-  stingAudio = new Audio(clip.url);
-  stingAudio.volume = Math.max(0, Math.min(1, clip.volume));
-  stingAudio.play().catch(() => {});
+  // Fallback synth tones per event
+  switch (event) {
+    case "round_intro":
+      play("whoosh");
+      break;
+    case "correct":
+      play("correct");
+      break;
+    case "wrong":
+      play("wrong");
+      break;
+    case "reveal":
+      play("whoosh");
+      break;
+    case "leaderboard":
+      tone(523, 0.12, "triangle", 0.2);
+      tone(659, 0.18, "triangle", 0.2, 0.1);
+      break;
+    case "final":
+      sweep(180, 90, 0.8, "sawtooth", 0.28);
+      break;
+    case "victory":
+      tone(523, 0.15, "triangle", 0.25);
+      tone(659, 0.15, "triangle", 0.25, 0.12);
+      tone(784, 0.3, "triangle", 0.25, 0.24);
+      break;
+    case "lobby_music":
+      break;
+  }
+}
+
+/** Play an arbitrary uploaded clip by URL (used by audience soundboard). */
+export function playClipUrl(url: string, volume = 1, cacheKey?: string) {
+  if (muted || typeof window === "undefined") return;
+  let audio: HTMLAudioElement;
+  if (cacheKey && stingPool.has(cacheKey)) {
+    audio = stingPool.get(cacheKey)!;
+    audio.currentTime = 0;
+  } else {
+    audio = new Audio(url);
+    if (cacheKey) stingPool.set(cacheKey, audio);
+  }
+  audio.volume = Math.max(0, Math.min(1, volume));
+  audio.play().catch(() => {});
 }
