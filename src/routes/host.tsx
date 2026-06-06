@@ -221,6 +221,14 @@ function HostPage() {
         if (cancelled) return;
         const { loadCustomEvents } = await import("@/lib/sound-engine");
         loadCustomEvents(res.events as never);
+        // Play a random welcome intro once
+        const welcomes = res.welcomes ?? [];
+        if (welcomes.length > 0) {
+          const pick = welcomes[Math.floor(Math.random() * welcomes.length)];
+          const audio = new Audio(pick.url);
+          audio.volume = pick.volume;
+          audio.play().catch(() => {});
+        }
       } catch {
         /* ignore — fall back to synth */
       } finally {
