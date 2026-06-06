@@ -122,11 +122,28 @@ export const nextQuestion = createServerFn({ method: "POST" })
       .eq("room_id", room.id);
     const usedIds = (used ?? []).map((r) => r.question_id);
 
-    let qQuery = supabaseAdmin.from("questions").select("*");
-    if (room.current_category) qQuery = qQuery.eq("category", room.current_category);
-    if (usedIds.length > 0) qQuery = qQuery.not("id", "in", `(${usedIds.join(",")})`);
-    const { data: candidates } = await qQuery.limit(50);
-    if (!candidates || candidates.length === 0) {
+    // Rotate difficulty evenly across rounds: easy → medium → hard → impossible → repeat.
+    const DIFFICULTY_ROTATION = ["easy", "medium", "hard", "impossible"] as const;
+    const targetDifficulty =
+      DIFFICULTY_ROTATION[(nextRound - 1) % DIFFICULTY_ROTATION.length];
+
+    async function fetchPool(difficulty: string | null, useCategory: boolean) {
+      let qQuery = supabaseAdmin.from("questions").select("*");
+      if (useCategory && room.current_category)
+        qQuery = qQuery.eq("category", room.current_category);
+      if (difficulty) qQuery = qQuery.eq("difficulty", difficulty);
+      if (usedIds.length > 0) qQuery = qQuery.not("id", "in", `(${usedIds.join(",")})`);
+      const { data } = await qQuery.limit(100);
+      return data ?? [];
+    }
+
+    // Try target difficulty in category → any category → any difficulty in category → anything.
+    let candidates = await fetchPool(targetDifficulty, true);
+    if (candidates.length === 0) candidates = await fetchPool(targetDifficulty, false);
+    if (candidates.length === 0) candidates = await fetchPool(null, true);
+    if (candidates.length === 0) candidates = await fetchPool(null, false);
+
+    if (candidates.length === 0) {
       // Out of questions — end the game gracefully instead of getting stuck.
       await supabaseAdmin
         .from("rooms")
