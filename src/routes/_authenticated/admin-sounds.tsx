@@ -200,6 +200,10 @@ function EventsPanel({
         click.
       </p>
 
+      <WelcomePreview />
+
+
+
 
       <div className="mt-5 grid gap-3">
         {EVENTS.map((event) => {
