@@ -204,6 +204,10 @@ function EventsPanel({
 
       <WelcomePreview />
 
+      <QuestionVoiceoversPanel />
+
+
+
 
 
 
