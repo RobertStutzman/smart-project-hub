@@ -125,14 +125,20 @@ export function QuestionStage({
               ? "Live · Eliminate the wrong"
               : "Reveal"}
         </div>
-        {reading ? (
-          <div className="grid h-24 w-24 place-items-center rounded-full border-4 border-amber-300/60 bg-amber-400/10 font-mono text-4xl font-black text-amber-200 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)]">
-            {Math.ceil(readSecondsLeft)}
-          </div>
-        ) : (
-          <TimerRing seconds={secondsLeft} max={15} active={phase === "question"} />
-        )}
+        <div className="flex items-center gap-4">
+          {phase === "question" && !reading && (
+            <PointsTicker secondsLeft={secondsLeft} max={15} />
+          )}
+          {reading ? (
+            <div className="grid h-24 w-24 place-items-center rounded-full border-4 border-amber-300/60 bg-amber-400/10 font-mono text-4xl font-black text-amber-200 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)]">
+              {Math.ceil(readSecondsLeft)}
+            </div>
+          ) : (
+            <TimerRing seconds={secondsLeft} max={15} active={phase === "question"} />
+          )}
+        </div>
       </div>
+
 
       {/* Question */}
       <div className="relative z-10 mx-auto max-w-5xl text-center">
