@@ -18,7 +18,7 @@ type ScriptLine = {
   audienceVisible?: boolean;
 };
 
-const WELCOME_LINES: string[] = [
+export const WELCOME_LINES: string[] = [
   "Welcoooome to BEAT! THE! DROP! The trivia showdown where brains get BROKEN and egos get BRUISED!",
   "Ohhh we got a LIVE one tonight! Strap in nerds, it's BEAT THE DROP, baby!",
   "Ladies, gentlemen, and everyone in between, welcome to BEAT! THE! DROP!",
