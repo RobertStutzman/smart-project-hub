@@ -41,20 +41,41 @@ export const listQuestions = createServerFn({ method: "GET" })
 
 const DIFFICULTY = z.enum(["easy", "medium", "hard", "impossible"]);
 
-const QuestionInput = z.object({
-  category: z.string().min(1).max(60),
-  subcategory: z.string().max(60).optional().nullable(),
-  question_text: z.string().min(3).max(500),
-  correct_answer: z.string().min(1).max(200),
-  wrong_1: z.string().min(1).max(200),
-  wrong_2: z.string().min(1).max(200),
-  wrong_3: z.string().min(1).max(200),
-  explanation: z.string().max(500).optional().nullable(),
-  difficulty: DIFFICULTY.default("medium"),
-  media_url: z.string().url().max(500).optional().nullable(),
-  media_type: z.string().max(20).optional().nullable(),
-  is_premium: z.boolean().default(false),
-});
+function answersAreDistinct(q: {
+  correct_answer: string;
+  wrong_1: string;
+  wrong_2: string;
+  wrong_3: string;
+}) {
+  const norm = (s: string) => s.trim().toLowerCase();
+  const set = new Set([norm(q.correct_answer), norm(q.wrong_1), norm(q.wrong_2), norm(q.wrong_3)]);
+  return set.size === 4;
+}
+
+const QuestionInput = z
+  .object({
+    category: z.string().min(1).max(60),
+    subcategory: z.string().max(60).optional().nullable(),
+    question_text: z.string().min(3).max(500),
+    correct_answer: z.string().min(1).max(200),
+    wrong_1: z.string().min(1).max(200),
+    wrong_2: z.string().min(1).max(200),
+    wrong_3: z.string().min(1).max(200),
+    explanation: z.string().max(500).optional().nullable(),
+    difficulty: DIFFICULTY.default("medium"),
+    media_url: z.string().url().max(500).optional().nullable(),
+    media_type: z.string().max(20).optional().nullable(),
+    is_premium: z.boolean().default(false),
+  })
+  .superRefine((q, ctx) => {
+    if (!answersAreDistinct(q)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "All four answer options must be distinct (case-insensitive).",
+        path: ["correct_answer"],
+      });
+    }
+  });
 
 export const upsertQuestion = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
