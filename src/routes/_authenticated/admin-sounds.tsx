@@ -20,6 +20,7 @@ import {
   type SoundEvent,
   type SoundFolder,
 } from "@/lib/sounds.functions";
+import { generateAnnouncerPack } from "@/lib/announcer.functions";
 
 export const Route = createFileRoute("/_authenticated/admin-sounds")({
   component: SoundsPage,
@@ -132,6 +133,8 @@ function EventsPanel({
   onChange: () => Promise<void>;
 }) {
   const setEventFn = useServerFn(setEventAssignment);
+  const generatePackFn = useServerFn(generateAnnouncerPack);
+  const [generating, setGenerating] = useState(false);
 
   async function handleAssign(event: SoundEvent, clipId: string | null) {
     try {
@@ -143,17 +146,56 @@ function EventsPanel({
     }
   }
 
+  async function handleGenerate() {
+    if (
+      !window.confirm(
+        "Generate the AI announcer pack? This calls ElevenLabs for ~10 voice lines + 1 lobby music loop (~30s) and overwrites any existing announcer clips. Takes ~1-2 minutes.",
+      )
+    )
+      return;
+    setGenerating(true);
+    try {
+      const res = await generatePackFn();
+      if (res.errors.length) {
+        toast.warning(
+          `Generated ${res.generated.length}/${res.total}. Errors: ${res.errors.join("; ")}`,
+        );
+      } else {
+        toast.success(`Generated ${res.generated.length} announcer clips`);
+      }
+      await onChange();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   const byEvent = new Map(events.map((e) => [e.event, e]));
 
   return (
     <section className="rounded-3xl border border-border bg-card/30 p-6">
-      <div className="mb-1 text-xs font-bold uppercase tracking-[0.3em] text-amber-300/80">
-        Event assignments
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-amber-300/80">
+            Event assignments
+          </div>
+          <h2 className="text-2xl font-bold">What plays when</h2>
+        </div>
+        <button
+          onClick={() => void handleGenerate()}
+          disabled={generating}
+          className="rounded-full bg-gradient-to-r from-amber-400 to-pink-500 px-5 py-2 text-sm font-bold text-black shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {generating ? "Generating… (1-2 min)" : "🎙️ Generate AI announcer pack"}
+        </button>
       </div>
-      <h2 className="text-2xl font-bold">What plays when</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Empty events fall back to the built-in synth sounds.
+        Empty events fall back to the built-in synth sounds. The AI pack uses
+        ElevenLabs to create a hype game-show host voice + lobby music in one
+        click.
       </p>
+
 
       <div className="mt-5 grid gap-3">
         {EVENTS.map((event) => {
