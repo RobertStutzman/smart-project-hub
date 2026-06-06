@@ -1,9 +1,14 @@
-# Punch up lobby music
+# Swap announcer to The Elf
 
-Edit `src/lib/announcer.functions.ts` `LOBBY_MUSIC` block:
+## Change
+In `src/lib/announcer.functions.ts`:
 
-- Prompt → "Loud, high-energy TV game show theme, big brass stabs, funky bass, hand claps, retro synth hits, crowd hype, anticipation building, 120 BPM, loopable, instrumental, no vocals, prime-time television production"
-- Volume → 0.7
-- Duration → 45000 ms (pass to `generateMusic` call)
+1. `VOICE_ID` → `"e79twtVS2278lVZZQiAD"` (The Elf)
+2. In `voice_settings`:
+   - `stability`: `0.35` → `0.2` (more unhinged, expressive)
+   - `style`: `0.7` → `0.9` (max cartoon-host energy)
 
-One file, three values. Then click **Generate AI announcer pack** in Admin → Soundboard to rebuild.
+That's it — one file, three values.
+
+## After shipping
+Click **Generate AI announcer pack** in Admin → Soundboard to rebuild all 16 VO clips with the new voice.

@@ -3,7 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 // Brian — deep, energetic hype-man (Jackbox-style host)
-const VOICE_ID = "nPczCjzI2devNBz1zQrb";
+const VOICE_ID = "e79twtVS2278lVZZQiAD";
 const FOLDER = "Announcer";
 
 type ScriptLine = {
