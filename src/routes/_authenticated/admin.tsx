@@ -775,3 +775,89 @@ function AIGenerator({
     </section>
   );
 }
+
+function ExplanationBackfill({ onUpdated }: { onUpdated: () => Promise<void> | void }) {
+  const countFn = useServerFn(countMissingExplanations);
+  const backfillFn = useServerFn(backfillExplanations);
+  const [missing, setMissing] = useState<number | null>(null);
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState({ updated: 0, total: 0 });
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const { missing } = await countFn();
+        setMissing(missing);
+      } catch {
+        /* ignore */
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function refresh() {
+    try {
+      const { missing } = await countFn();
+      setMissing(missing);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function run() {
+    setRunning(true);
+    const initial = missing ?? 0;
+    setProgress({ updated: 0, total: initial });
+    const toastId = toast.loading(`Backfilling explanations… 0 / ${initial}`);
+    let totalUpdated = 0;
+    let safetyCounter = 0;
+    try {
+      while (safetyCounter++ < 200) {
+        const res = await backfillFn({ data: { batchSize: 15 } });
+        totalUpdated += res.updated;
+        setProgress({ updated: totalUpdated, total: initial });
+        toast.loading(
+          `Backfilling explanations… ${totalUpdated} / ${initial}`,
+          { id: toastId },
+        );
+        if (res.done || res.processed === 0) break;
+      }
+      toast.success(`Done! Added ${totalUpdated} explanations.`, { id: toastId });
+    } catch (e) {
+      toast.error((e as Error).message, { id: toastId });
+    } finally {
+      setRunning(false);
+      await refresh();
+      await onUpdated();
+    }
+  }
+
+  return (
+    <section className="rounded-3xl border border-amber-500/30 bg-amber-500/5 p-6 backdrop-blur">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold">💡 "Did you know?" backfill</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {missing === null
+              ? "Checking how many questions still need an explanation…"
+              : missing === 0
+                ? "Every question already has an explanation. New questions auto-generate one."
+                : `${missing} question${missing === 1 ? "" : "s"} still missing an explanation. Run once — explanations are stored in the database, so games never call AI.`}
+          </p>
+          {running && progress.total > 0 && (
+            <div className="mt-2 text-xs text-amber-300">
+              Updated {progress.updated} / {progress.total}…
+            </div>
+          )}
+        </div>
+        <button
+          onClick={run}
+          disabled={running || missing === null || missing === 0}
+          className="rounded-full bg-amber-500 px-5 py-2 text-sm font-semibold text-amber-950 disabled:opacity-50"
+        >
+          {running ? "Generating…" : "Backfill explanations"}
+        </button>
+      </div>
+    </section>
+  );
+}
