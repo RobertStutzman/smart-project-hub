@@ -7,10 +7,12 @@ import {
   backfillExplanations,
   bulkInsertQuestions,
   checkIsAdmin,
+  countDuplicateAnswers,
   countMissingExplanations,
   deleteQuestion,
   generateQuestions,
   listQuestions,
+  repairDuplicateAnswers,
   upsertQuestion,
 } from "@/lib/admin.functions";
 import { supabase } from "@/integrations/supabase/client";
