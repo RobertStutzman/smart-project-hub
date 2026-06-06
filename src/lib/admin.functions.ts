@@ -365,3 +365,149 @@ export const countMissingExplanations = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return { missing: count ?? 0 };
   });
+
+/**
+ * Count of questions with duplicate answer options (case-insensitive).
+ * Scans all rows because PostgREST can't compare two columns directly.
+ */
+export const countDuplicateAnswers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    const { data, error } = await supabaseAdmin
+      .from("questions")
+      .select("id, correct_answer, wrong_1, wrong_2, wrong_3");
+    if (error) throw new Error(error.message);
+    const bad = (data ?? []).filter((q) => !answersAreDistinct(q));
+    return { duplicates: bad.length };
+  });
+
+/**
+ * Repair questions where one of the wrong answers duplicates the correct
+ * answer (or another wrong). Sends the bad rows to the Lovable AI gateway
+ * asking it to rewrite ONLY the three wrong answers so all four are
+ * plausible and distinct. Question, correct answer, category, difficulty,
+ * and explanation are preserved.
+ */
+export const repairDuplicateAnswers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({ batchSize: z.number().int().min(1).max(15).default(10) }).parse,
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("LOVABLE_API_KEY is not configured");
+
+    const { data: all, error } = await supabaseAdmin
+      .from("questions")
+      .select("id, category, question_text, correct_answer, wrong_1, wrong_2, wrong_3");
+    if (error) throw new Error(error.message);
+    const bad = (all ?? []).filter((q) => !answersAreDistinct(q));
+    if (bad.length === 0) {
+      return { processed: 0, updated: 0, remaining: 0, done: true };
+    }
+    const batch = bad.slice(0, data.batchSize);
+
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You repair trivia questions whose wrong answers accidentally duplicate the correct answer or each other. Given the question and correct answer, write THREE plausible wrong answers that are all distinct from the correct answer and from each other (case-insensitive). Keep wrongs the same category/type as the correct answer (year vs year, name vs name, etc.). Crisp and unambiguous.",
+          },
+          {
+            role: "user",
+            content: `Rewrite the three wrong answers for each of these questions. Return them in the SAME order.\n\n${batch
+              .map(
+                (r, i) =>
+                  `${i + 1}. [${r.category}] Q: ${r.question_text}\n   Correct: ${r.correct_answer}`,
+              )
+              .join("\n\n")}`,
+          },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "emit_wrongs",
+              description: "Return three new wrong answers per input question, in order.",
+              parameters: {
+                type: "object",
+                properties: {
+                  items: {
+                    type: "array",
+                    minItems: batch.length,
+                    maxItems: batch.length,
+                    items: {
+                      type: "object",
+                      properties: {
+                        wrong_1: { type: "string" },
+                        wrong_2: { type: "string" },
+                        wrong_3: { type: "string" },
+                      },
+                      required: ["wrong_1", "wrong_2", "wrong_3"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                required: ["items"],
+                additionalProperties: false,
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "emit_wrongs" } },
+      }),
+    });
+
+    if (res.status === 429) throw new Error("Rate limit hit, please slow down.");
+    if (res.status === 402)
+      throw new Error("AI credits exhausted — add funds in Cloud → Usage.");
+    if (!res.ok) throw new Error(`AI gateway error ${res.status}`);
+    const json = await res.json();
+    const args =
+      json?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    if (!args) throw new Error("AI did not return structured output");
+    const parsed = JSON.parse(args) as {
+      items: Array<{ wrong_1: string; wrong_2: string; wrong_3: string }>;
+    };
+
+    let updated = 0;
+    for (let i = 0; i < batch.length; i++) {
+      const item = parsed.items?.[i];
+      if (!item) continue;
+      const candidate = {
+        correct_answer: batch[i].correct_answer,
+        wrong_1: (item.wrong_1 ?? "").trim().slice(0, 200),
+        wrong_2: (item.wrong_2 ?? "").trim().slice(0, 200),
+        wrong_3: (item.wrong_3 ?? "").trim().slice(0, 200),
+      };
+      if (!candidate.wrong_1 || !candidate.wrong_2 || !candidate.wrong_3) continue;
+      if (!answersAreDistinct(candidate)) continue;
+      const { error: upErr } = await supabaseAdmin
+        .from("questions")
+        .update({
+          wrong_1: candidate.wrong_1,
+          wrong_2: candidate.wrong_2,
+          wrong_3: candidate.wrong_3,
+        })
+        .eq("id", batch[i].id);
+      if (!upErr) updated++;
+    }
+
+    const remaining = Math.max(0, bad.length - updated);
+    return {
+      processed: batch.length,
+      updated,
+      remaining,
+      done: remaining === 0,
+    };
+  });
