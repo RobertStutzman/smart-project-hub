@@ -1,25 +1,20 @@
-# Add "New room" reset to dev playground
+# Unlock premium + seed more questions
 
 ## Problem
-The Clear button on `/dev` only empties the local bot list. The host iframe persists its `hostSessionId` in localStorage, so `createRoom` resumes the SAME room every reload — bots from previous runs are still in `players`, and new spawns pile on top.
+- Only 3 categories (Music, Movies, General Knowledge) have questions, 7 each → rounds run dry by question 8.
+- 5 categories (Sports, History, TV Shows, Geography, Science) are flagged `isPremium: true` and hidden behind the paywall.
 
-## Fix
+## Changes
 
-### 1. `src/routes/host.tsx`
-- Listen for a `parent:new-room` postMessage from the dev page. On receipt:
-  - Clear the persisted host session (`localStorage` host-session key via existing helper, or remove directly).
-  - Generate a brand new `hostSessionId`, call `createRoomFn` with it, save it, and `setRoom(...)` with the new room.
-  - Reset `initRef` flow safely (use a dedicated `resetRoom` function instead of toggling the ref).
-- Post the new `host:room` code/id up to the parent (existing effect already does this on room change).
+### 1. `src/lib/categories.ts`
+Flip every category to `isPremium: false` so the host can pick any category without the paywall. (Premium flag stays in the type for later — just no category uses it right now.)
 
-### 2. `src/routes/dev.tsx`
-- Add a "🔄 New room" button next to "Clear" in the toolbar.
-- Handler:
-  - Clear local bots (`setBots([])`, `lastQRef.current = ""`).
-  - Clear current `roomCode`/`roomId` state so the next `host:room` message repopulates them.
-  - `iframeRef.current?.contentWindow?.postMessage({ type: "parent:new-room" }, "*")` — add a `ref` to the existing iframe.
-- Existing "Clear" stays as bot-only clear; the new button is the full room reset.
+### 2. New migration: seed ~20 questions per category
+Insert ~20 trivia questions for each of the 8 categories (Music, Movies, General Knowledge, Sports, History, TV Shows, Geography, Science) into `public.questions`. Each row: `question_text`, `correct_answer`, `wrong_1/2/3`, `category`, `is_premium = false`. That gives ~160 questions total — enough for the full 15-round game in any single category, plus headroom for repeats across sessions.
+
+No schema changes; just data inserts via the migration tool.
 
 ## Out of scope
-- No DB cleanup of orphaned `players` rows from old rooms (they stay tied to the old room_id, which is harmless — old room just goes stale).
-- No backend changes.
+- Real premium gating / billing logic (the `is_premium` column + paywall code stay in place, just inert).
+- Admin UI changes — admins can still add more questions later via `/admin`.
+- Resetting `room_questions` for old rooms — start a new room to see the new pool.
