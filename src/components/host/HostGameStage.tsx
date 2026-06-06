@@ -339,6 +339,178 @@ export function HostGameStage({ room }: Props) {
     );
   }
 
+  // ─── FINAL ROUND PHASES ──────────────────────────────────────────────
+  if (state.phase === "final_intro") {
+    return (
+      <div className="relative grid h-full place-items-center overflow-hidden bg-black text-white">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(0.35_0.18_85/0.35),oklch(0.05_0.02_270)_70%)]" />
+        <div className="absolute inset-0 animate-pulse bg-[radial-gradient(circle_at_50%_50%,oklch(0.85_0.18_85/0.15),transparent_60%)]" />
+        <div className="relative text-center">
+          <div className="animate-fade-in text-xs font-bold uppercase tracking-[0.6em] text-amber-300/90">
+            One question. All on the line.
+          </div>
+          <h1
+            className="mt-4 font-display text-[12vw] font-black uppercase leading-none tracking-tight text-transparent [animation:scale-in_0.6s_ease-out]"
+            style={{
+              backgroundImage:
+                "linear-gradient(180deg, oklch(0.97 0.12 90) 0%, oklch(0.75 0.20 60) 100%)",
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              filter: "drop-shadow(0 8px 40px oklch(0.85 0.20 70 / 0.55))",
+            }}
+          >
+            Final Round
+          </h1>
+          <div className="mx-auto mt-6 h-[3px] w-48 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
+        </div>
+      </div>
+    );
+  }
+
+  if (state.phase === "final_wager") {
+    const live = players.filter((p) => !p.is_audience);
+    const locked = live.filter((p) => !!p.final_locked_at).length;
+    const top3 = [...live].sort((a, b) => b.score - a.score).slice(0, 3);
+    return (
+      <div className="relative grid h-full grid-cols-2 gap-8 overflow-hidden bg-gradient-to-br from-black via-[oklch(0.12_0.05_280)] to-black p-10 text-white">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,oklch(0.85_0.18_85/0.18),transparent_60%)]" />
+        <div className="relative">
+          <div className="text-[10px] font-bold uppercase tracking-[0.5em] text-amber-300/90">
+            Standings
+          </div>
+          <div className="mt-4 space-y-3">
+            {top3.map((p, i) => (
+              <div
+                key={p.id}
+                className="flex items-center justify-between rounded-2xl border border-amber-300/20 bg-white/5 px-4 py-3 backdrop-blur"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="font-display text-2xl font-black text-amber-300">
+                    {["①", "②", "③"][i]}
+                  </span>
+                  <span className="text-lg font-bold">{p.nickname}</span>
+                </div>
+                <span className="font-mono text-xl font-black">{p.score}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="relative flex flex-col items-center justify-center text-center">
+          <div className="text-xs font-bold uppercase tracking-[0.5em] text-amber-300/90">
+            Place your wager
+          </div>
+          <div className="mt-3 font-display text-5xl font-black leading-tight">
+            All players are betting…
+          </div>
+          <div className="mt-8 font-mono text-7xl font-black text-amber-300">
+            {locked}
+            <span className="text-3xl text-amber-300/50"> / {live.length}</span>
+          </div>
+          <div className="mt-2 text-sm uppercase tracking-[0.3em] text-amber-200/70">
+            wagers locked
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (state.phase === "final_question") {
+    return (
+      <div className="relative h-full">
+        <div className="pointer-events-none absolute inset-3 z-20 rounded-3xl ring-4 ring-amber-300/60 shadow-[inset_0_0_80px_oklch(0.85_0.18_85/0.25)]" />
+        <div className="pointer-events-none absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full bg-amber-400/95 px-4 py-1 text-xs font-black uppercase tracking-[0.25em] text-amber-950 shadow">
+          ★ Final question
+        </div>
+        <QuestionStage
+          questionText={state.current_question_text ?? ""}
+          answers={state.current_answers ?? ["", "", "", ""]}
+          droppedIndexes={[]}
+          correctIndex={null}
+          secondsLeft={remainingS}
+          phase="question"
+          players={players.filter((p) => !p.is_audience)}
+        />
+      </div>
+    );
+  }
+
+  if (state.phase === "final_reveal") {
+    const correctIdx = state.current_correct_index;
+    const correctText =
+      correctIdx !== null && state.current_answers
+        ? state.current_answers[correctIdx]
+        : "—";
+    const ranked = [...players]
+      .filter((p) => !p.is_audience)
+      .sort((a, b) => b.score - a.score);
+    return (
+      <div className="relative grid h-full place-items-center overflow-hidden bg-gradient-to-br from-black via-[oklch(0.10_0.05_280)] to-black p-8 text-white">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,oklch(0.85_0.18_85/0.18),transparent_60%)]" />
+        <div className="relative w-full max-w-3xl">
+          <div className="text-center">
+            <div className="text-xs font-bold uppercase tracking-[0.5em] text-amber-300/90">
+              The answer was
+            </div>
+            <div
+              className="mt-3 font-display text-5xl font-black text-transparent"
+              style={{
+                backgroundImage:
+                  "linear-gradient(180deg, oklch(0.97 0.12 90), oklch(0.75 0.20 60))",
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+              }}
+            >
+              {correctText}
+            </div>
+          </div>
+          <div className="mt-8 space-y-2">
+            {ranked.map((p) => {
+              const delta = p.current_round_score ?? 0;
+              const correct = delta > 0;
+              const noBet = (p.final_wager ?? 0) === 0;
+              return (
+                <div
+                  key={p.id}
+                  className={`flex items-center justify-between rounded-2xl border px-4 py-3 backdrop-blur ${
+                    correct
+                      ? "border-emerald-400/40 bg-emerald-400/10"
+                      : noBet
+                        ? "border-white/10 bg-white/5"
+                        : "border-rose-400/40 bg-rose-400/10"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg font-bold">{p.nickname}</span>
+                    <span className="text-xs uppercase tracking-widest text-white/60">
+                      wagered {p.final_wager ?? 0}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span
+                      className={`font-mono text-lg font-black ${
+                        correct
+                          ? "text-emerald-300"
+                          : noBet
+                            ? "text-white/40"
+                            : "text-rose-300"
+                      }`}
+                    >
+                      {delta > 0 ? `+${delta}` : delta}
+                    </span>
+                    <span className="font-mono text-2xl font-black text-amber-300">
+                      {p.score}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
   if (state.phase === "leaderboard") {
     const isFinal = (state.round_number ?? 0) >= 15;
     return (
