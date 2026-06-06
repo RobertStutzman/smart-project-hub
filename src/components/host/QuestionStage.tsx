@@ -275,8 +275,8 @@ export function QuestionStage({
   );
 }
 
-function ShatterOverlay({ letter, label }: { letter: string; label: string }) {
-  // 6 shards exploding outward
+function ShatterOverlay(_props: { letter: string; label: string }) {
+  // 6 shards exploding outward — animate once, then a calm static ✕ stays.
   const shards = [
     { x: -120, y: -90, r: -25 },
     { x: 110, y: -110, r: 30 },
@@ -286,12 +286,7 @@ function ShatterOverlay({ letter, label }: { letter: string; label: string }) {
     { x: 0, y: 140, r: -18 },
   ];
   return (
-    <motion.div
-      initial={{ opacity: 1 }}
-      animate={{ opacity: 0 }}
-      transition={{ duration: 0.7, delay: 0.4 }}
-      className="pointer-events-none absolute inset-0 overflow-visible rounded-2xl"
-    >
+    <div className="pointer-events-none absolute inset-0 overflow-visible rounded-2xl">
       {shards.map((s, idx) => (
         <motion.div
           key={idx}
@@ -306,23 +301,21 @@ function ShatterOverlay({ letter, label }: { letter: string; label: string }) {
           }}
         />
       ))}
-      {/* fading wrong stamp */}
+      {/* persistent wrong stamp — animates in once, then stays */}
       <motion.div
-        initial={{ scale: 1, opacity: 1 }}
-        animate={{ scale: 1.3, opacity: 0 }}
-        transition={{ duration: 0.5 }}
+        initial={{ scale: 1.6, opacity: 0 }}
+        animate={{ scale: 1, opacity: 0.85 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
         className="absolute inset-0 grid place-items-center"
       >
         <div className="font-display text-7xl font-black text-rose-400/80 drop-shadow-[0_0_30px_rgba(244,63,94,0.8)]">
           ✕
         </div>
-        <div className="absolute bottom-4 text-xs font-bold uppercase tracking-widest text-rose-200/80">
-          {letter} · {label}
-        </div>
       </motion.div>
-    </motion.div>
+    </div>
   );
 }
+
 
 function TimerRing({ seconds, max, active }: { seconds: number; max: number; active: boolean }) {
   const pct = Math.max(0, Math.min(1, seconds / max));
