@@ -303,7 +303,7 @@ export const generateAnnouncerPack = createServerFn({ method: "POST" })
 
     // Lobby music
     try {
-      const audio = await generateMusic(LOBBY_MUSIC.prompt, 30000);
+      const audio = await generateMusic(LOBBY_MUSIC.prompt, 45000);
       await upsertClip({
         slot: LOBBY_MUSIC.slot,
         label: LOBBY_MUSIC.label,
