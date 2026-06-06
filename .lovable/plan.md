@@ -1,51 +1,59 @@
-## Goal
+# Premium Announcer + Lobby Music
 
-Make question selection globally fair: a question only comes back after every other question (matching the same category + difficulty) has been used at least once across all games.
+Add a hype, fun host voice and an upbeat lobby loop to make Beat the Drop feel like a Jackbox show. All audio is generated **once** via ElevenLabs, stored in the `question-media` bucket, and replayed for free on every game.
 
-## 1. Schema migration
+## Voice choice
+**Brian** (`nPczCjzI2devNBz1zQrb`) — deep, energetic hype-man. High style (0.7), low stability (0.35) so lines feel theatrical and game-show-y.
 
-Add a usage counter + timestamp to `questions`:
+## Announcer script (pre-generated)
+Saved as `sound_clips` rows with slot keys:
 
-```sql
-ALTER TABLE public.questions
-  ADD COLUMN times_used integer NOT NULL DEFAULT 0,
-  ADD COLUMN last_used_at timestamptz;
+- `vo_welcome` — "Welcome… to BEAT THE DROP! The trivia showdown where only the fastest survive. Let's meet your players!"
+- `vo_round_1` — "Round one. Fingers on buzzers."
+- `vo_round_2` — "Round two. The heat is rising."
+- `vo_round_3` — "Round three. No mercy now."
+- `vo_final` — "This… is the FINAL DROP. Wager it all."
+- `vo_lock_in` — "Lock it in!"
+- `vo_time_up` — "Time's up!"
+- `vo_correct_streak` — "On fire!"
+- `vo_taunt_1` — "Oof. That's gonna leave a mark."
+- `vo_taunt_2` — "Somebody call a doctor, that was painful."
+- `vo_taunt_3` — "Yikes. Maybe trivia isn't your thing."
+- `vo_game_over` — "And that's the drop! Let's see who survived."
 
-CREATE INDEX questions_rotation_idx
-  ON public.questions (category, difficulty, times_used, last_used_at NULLS FIRST);
-```
+## Lobby music
+One ~30s loopable ElevenLabs Music track: *"Upbeat game show intro loop, playful retro synth, claps, anticipation, energetic, loopable, instrumental."* Assigned to the `lobby_music` slot with `loop=true`, `volume=0.5`.
 
-No new grants needed (table is already SELECT-public; writes happen via `supabaseAdmin`).
+## Implementation
 
-## 2. Picker change — `src/lib/game.functions.ts`
+### 1. Server function `generateAnnouncerPack` (admin-only)
+`src/lib/announcer.functions.ts` — one click runs the whole pipeline:
+- For each script line: call ElevenLabs TTS (Brian, style 0.7, stability 0.35, `eleven_multilingual_v2`) → upload MP3 to `question-media/announcer/{slot}.mp3` via `supabaseAdmin` → upsert `sound_clips` row (`is_active=true`, `volume=0.85`, category `announcer`).
+- Call ElevenLabs Music API for the lobby loop → upload to `question-media/announcer/lobby_loop.mp3` → upsert into `lobby_music` slot.
+- Guarded by `requireSupabaseAuth` + `has_role(uid, 'admin')` check.
 
-In the two places that pick a question (`fetchPool` around lines 142 and 579):
+### 2. Admin UI button
+Add "Generate announcer pack" button on the Admin page (in the existing Sounds section). Shows progress, disables while running. Re-runnable if you tweak the script.
 
-- Keep the per-room exclusion (`room_questions` → no repeats inside one game).
-- Replace `ORDER BY random()` (or current ordering) with:
-  ```
-  .order("times_used", { ascending: true })
-  .order("last_used_at", { ascending: true, nullsFirst: true })
-  ```
-- Fetch a small top window (e.g. limit 8) of least-used candidates, then `Math.random()` pick one — so games don't feel mechanically deterministic but still respect the rotation.
+### 3. Trigger playback in game flow
+Wire to existing `sound-engine.ts`:
+- **Lobby music**: already plays via `startMusic("lobby")` — just point the slot at the new file.
+- **`vo_welcome`**: in `src/routes/host.tsx`, play once on first mount of lobby (with lobby music ducked to ~0.2 during VO, restored after).
+- **Round intros**: in game phase transitions, play `vo_round_{N}` when round number increments; `vo_final` on the last round.
+- **`vo_lock_in`**: play when timer hits the last 3 seconds.
+- **`vo_time_up`**: play on reveal phase.
+- **Taunts**: 30% chance to play a random `vo_taunt_*` after reveal when ≥1 player got it wrong.
+- **`vo_game_over`**: play on final scoreboard.
 
-## 3. Mark question as used
+### 4. Ducking helper
+Small addition to `sound-engine.ts`: `playVoiceOver(slot)` that drops music volume to 0.2, plays the VO, restores to original on `ended`.
 
-Right after we insert into `room_questions` and set `current_question_id` (lines ~171 and ~598), also bump the question:
+## Cost
+- One-time generation: ~13 short TTS lines + 1 music track ≈ pennies on your ElevenLabs account (uses the existing connector, not Lovable credits).
+- Per game: $0. Files stream from your Cloud storage.
+- Re-clicking "Generate announcer pack" re-bills the same small amount.
 
-```ts
-await supabaseAdmin
-  .from("questions")
-  .update({ times_used: q.times_used + 1, last_used_at: new Date().toISOString() })
-  .eq("id", q.id);
-```
-
-(Read `times_used` from the selected row; fall back to an RPC if we'd rather do an atomic `times_used + 1` — start with the simple update.)
-
-## Result
-
-- A brand-new question with `times_used = 0` and `last_used_at = NULL` is always preferred.
-- Once every question in the (category, difficulty) pool has `times_used = 1`, the picker moves to the ones with the oldest `last_used_at`.
-- Existing per-room "no repeats within one game" rule is unchanged.
-
-No frontend changes.
+## Files touched
+- New: `src/lib/announcer.functions.ts`, `src/lib/announcer.server.ts` (script constants + ElevenLabs helpers)
+- Edited: `src/routes/admin.tsx` (add button), `src/lib/sound-engine.ts` (add `playVoiceOver` + duck), `src/routes/host.tsx` and game phase code (trigger VO events)
+- DB: no schema changes — uses existing `sound_clips` table
