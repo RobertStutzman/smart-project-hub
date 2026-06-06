@@ -1,39 +1,64 @@
 
-# Make "Did you know?" a hero element on the reveal screen
+# Fix duplicate answer options + prevent it forever
 
-## What you noticed
+## The bug
 
-The fun fact felt like it flashed by because (a) the card is small (`text-base`, tight padding, tucked under the answer grid) and (b) the reveal screen advances when the host clicks Next — there isn't a fixed 2-second timer, but the card is easy to miss while you're still looking at the answers.
+19 of 268 existing questions have a `wrong_*` answer that equals the `correct_answer` (case-insensitive). When the grid renders `[correct, wrong_1, wrong_2, wrong_3]` shuffled, players see the same option twice — which is both a giveaway and a UX bug. The AI generator occasionally produces these, and nothing currently blocks them.
 
-Good news: reveal is already host-paced, so we don't need to add a timer. We just need to make the fact impossible to miss.
+## Fix — three layers
 
-## Changes
+### 1. Database guardrail (prevents future bad rows at the lowest level)
 
-### 1. Host screen — `src/components/host/QuestionStage.tsx`
+New migration adds a CHECK constraint on `public.questions`:
 
-Promote the explanation card from a thin strip below the grid to a hero panel:
+```sql
+ALTER TABLE public.questions
+  ADD CONSTRAINT questions_distinct_answers CHECK (
+    lower(trim(correct_answer)) <> lower(trim(wrong_1))
+    AND lower(trim(correct_answer)) <> lower(trim(wrong_2))
+    AND lower(trim(correct_answer)) <> lower(trim(wrong_3))
+    AND lower(trim(wrong_1)) <> lower(trim(wrong_2))
+    AND lower(trim(wrong_1)) <> lower(trim(wrong_3))
+    AND lower(trim(wrong_2)) <> lower(trim(wrong_3))
+  );
+```
 
-- **Bigger type**: headline jumps from `text-[10px]` → `text-sm` (still small-caps), body from `text-base / sm:text-lg` → `text-2xl / sm:text-3xl md:text-4xl`, leading relaxed.
-- **More breathing room**: padding `px-5 py-3` → `px-8 py-6 sm:px-10 sm:py-8`, rounded-3xl.
-- **Stronger frame**: thicker amber border, deeper gradient, subtle glow shadow so it reads as the focal element of the reveal.
-- **Entrance**: scale-up + fade (currently just fade + 12px slide), ~0.5s with a slight delay after the correct answer pulses, so the eye lands on it.
-- **Same place** (below the grid) — not a new screen, per your pick.
+Existing bad rows are repaired first (step 3) so the constraint adds cleanly. CHECK is safe here — the rule is immutable.
 
-### 2. Player screen — `src/routes/play.tsx` (two spots, lines ~555 and ~613)
+### 2. Server-side validation (catches it before the DB call, gives a clean error)
 
-Mirror the bump on mobile so players also see the fact clearly: larger type (`text-lg → text-xl`), more padding, same amber styling. Two render sites because the layout differs for correct vs. wrong answerers — both get the same treatment.
+In `src/lib/admin.functions.ts`:
 
-### 3. Reading-time guidance (no code change needed)
+- Add a Zod `.superRefine()` on `QuestionInput` that rejects duplicate answers (same rule as the CHECK).
+- In `generateQuestions`: after the AI returns, **filter out** any question whose 4 answers aren't all distinct (case-insensitive). If the requested count isn't met, return what's valid with a `skipped` count so the admin sees "AI returned 10, 1 had duplicates and was dropped" instead of silently inserting a bad row.
+- `upsertQuestion` and `bulkInsertQuestions` inherit the refinement automatically.
 
-Reveal is host-controlled, so the host naturally waits. For reference: a typical 1-2 sentence explanation (~20-30 words) needs ~6-8 seconds. If you later want the host to also see a small "give players ~7s" hint next to the Next button, that's a tiny follow-up.
+### 3. Backfill the 19 existing bad rows
+
+New admin server function `repairDuplicateAnswers({ batchSize: 10 })`, parallel to the explanation backfill:
+
+- Selects up to N rows where any answer is duplicated.
+- Sends them to the Lovable AI Gateway with a tool-call asking it to **rewrite only the wrong answers** (keep question, correct answer, explanation, category, difficulty intact) so all 4 are plausible and distinct.
+- Validates the AI response with the same distinctness rule. Updates rows that pass.
+- Returns `{ processed, updated, remaining, done }` — UI loops until done.
+
+New admin UI panel in `src/routes/_authenticated/admin.tsx` next to the explanation backfill: shows "N questions with duplicate answers" + "Repair duplicates" button with live progress toast. Hidden when 0.
+
+## Order of operations in the migration turn
+
+1. Add `repairDuplicateAnswers` + `countDuplicateAnswers` server functions + admin UI panel.
+2. Run the repair from the UI until 0 remain. (Manual step — you click the button.)
+3. After 0, ship the CHECK constraint migration.
+
+If you'd rather not wait for a manual click, I can also have the migration itself attempt a SQL-level repair (append a numbered suffix to the duplicate wrong answer as a last-resort fallback) so the constraint can apply immediately and the AI repair becomes nice-to-have polish. Let me know which you prefer.
 
 ## Out of scope
 
-- No new screen / route.
-- No auto-advance timer (would conflict with host pacing).
-- No copy or AI changes — the existing explanations just get a louder stage.
+- Reworking the answer-grid rendering (it's correct; it just gets bad data).
+- Detecting semantic near-duplicates (e.g., "Doctor Strange" vs "Dr. Strange") — only exact, case-insensitive, trimmed match.
 
 ## Files
 
-- `src/components/host/QuestionStage.tsx` — explanation card block (~lines 218-237)
-- `src/routes/play.tsx` — two explanation blocks (~lines 555-563 and 613-622)
+- new: `supabase/migrations/<ts>_questions_distinct_answers.sql`
+- `src/lib/admin.functions.ts` — Zod refinement, `generateQuestions` filtering, `repairDuplicateAnswers`, `countDuplicateAnswers`
+- `src/routes/_authenticated/admin.tsx` — new "Repair duplicate answers" panel
