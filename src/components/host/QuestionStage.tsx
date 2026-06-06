@@ -158,6 +158,9 @@ export function QuestionStage({
       {mediaUrl && mediaType === "audio" && phase === "question" && (
         <QuestionAudio src={mediaUrl} autoStart={!reading} />
       )}
+      {mediaUrl && mediaType === "video" && phase === "question" && (
+        <QuestionVideo src={mediaUrl} autoStart={!reading} />
+      )}
 
       {/* Answer panels — fixed 2x2 grid; cells NEVER reflow when shattered */}
       <div
@@ -421,6 +424,35 @@ function QuestionAudio({ src, autoStart }: { src: string; autoStart: boolean }) 
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onEnded={() => setIsPlaying(false)}
+      />
+    </div>
+  );
+}
+
+function QuestionVideo({ src, autoStart }: { src: string; autoStart: boolean }) {
+  const [playedKey, setPlayedKey] = useState<string | null>(null);
+  const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    if (!videoEl || !autoStart) return;
+    if (playedKey === src) return;
+    videoEl.currentTime = 0;
+    videoEl.play().catch(() => {});
+    setPlayedKey(src);
+  }, [videoEl, autoStart, src, playedKey]);
+
+  useEffect(() => {
+    setPlayedKey(null);
+  }, [src]);
+
+  return (
+    <div className="relative z-10 mx-auto flex w-full max-w-3xl justify-center">
+      <video
+        ref={setVideoEl}
+        src={src}
+        controls
+        preload="auto"
+        className="max-h-[40vh] w-auto rounded-2xl border border-white/10 object-contain shadow-[0_20px_80px_-20px_rgba(0,0,0,0.7)]"
       />
     </div>
   );
