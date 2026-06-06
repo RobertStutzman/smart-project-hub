@@ -553,11 +553,11 @@ function PlayPage() {
                   <div className="mt-4 text-xs uppercase tracking-widest text-muted-foreground">Final score</div>
                   <div className="font-mono text-4xl font-black text-amber-200">{me?.score ?? 0}</div>
                   {room.current_explanation && room.current_explanation.trim().length > 0 && (
-                    <div className="mt-5 rounded-2xl border border-amber-300/40 bg-amber-400/10 p-3 text-left">
-                      <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-300">
+                    <div className="mt-5 rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-400/20 to-amber-600/10 p-5 text-left shadow-[0_10px_40px_-15px_rgba(251,191,36,0.5)] animate-scale-in">
+                      <div className="text-xs font-bold uppercase tracking-[0.35em] text-amber-300">
                         💡 Did you know?
                       </div>
-                      <div className="mt-1 text-sm leading-snug text-amber-50">
+                      <div className="mt-2 text-lg font-semibold leading-relaxed text-amber-50">
                         {room.current_explanation}
                       </div>
                     </div>
@@ -612,11 +612,11 @@ function PlayPage() {
                 {room.phase === "reveal" &&
                   room.current_explanation &&
                   room.current_explanation.trim().length > 0 && (
-                    <div className="rounded-2xl border border-amber-300/40 bg-amber-400/10 p-3 text-center">
-                      <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-300">
+                    <div className="rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-400/20 to-amber-600/10 p-5 text-center shadow-[0_10px_40px_-15px_rgba(251,191,36,0.5)] animate-scale-in">
+                      <div className="text-xs font-bold uppercase tracking-[0.35em] text-amber-300">
                         💡 Did you know?
                       </div>
-                      <div className="mt-1 text-sm leading-snug text-amber-50">
+                      <div className="mt-2 text-lg font-semibold leading-relaxed text-amber-50">
                         {room.current_explanation}
                       </div>
                     </div>
