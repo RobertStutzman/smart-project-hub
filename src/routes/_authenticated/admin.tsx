@@ -531,6 +531,7 @@ function AIGenerator({
   const [count, setCount] = useState(10);
   const [isPremium, setIsPremium] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [preview, setPreview] = useState<
     Array<{
       question_text: string;
@@ -543,17 +544,53 @@ function AIGenerator({
     }>
   | null>(null);
 
+  const BATCH = 50;
+
   async function run() {
     setBusy(true);
+    setPreview(null);
     try {
-      const res = await generate({
-        data: { prompt, category, count, isPremium },
-      });
-      setPreview(res.questions);
+      if (count <= BATCH) {
+        const res = await generate({
+          data: { prompt, category, count, isPremium },
+        });
+        setPreview(res.questions);
+      } else {
+        // Batched mode: generate + auto-insert in chunks of BATCH
+        let totalInserted = 0;
+        const total = count;
+        setProgress({ done: 0, total });
+        let remaining = total;
+        while (remaining > 0) {
+          const batchSize = Math.min(BATCH, remaining);
+          const res = await generate({
+            data: { prompt, category, count: batchSize, isPremium },
+          });
+          const rows = res.questions.map((q) => ({
+            category: q.category,
+            subcategory: null,
+            question_text: q.question_text,
+            correct_answer: q.correct_answer,
+            wrong_1: q.wrong_1,
+            wrong_2: q.wrong_2,
+            wrong_3: q.wrong_3,
+            media_url: null,
+            media_type: null,
+            is_premium: q.is_premium,
+          }));
+          const ins = await bulkInsert({ data: { rows } });
+          totalInserted += ins.inserted;
+          remaining -= batchSize;
+          setProgress({ done: total - remaining, total });
+        }
+        toast.success(`Inserted ${totalInserted} AI questions`);
+        await onInserted();
+      }
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
       setBusy(false);
+      setProgress(null);
     }
   }
 
@@ -593,7 +630,7 @@ function AIGenerator({
         <div>
           <h2 className="text-xl font-bold">AI Question Generator</h2>
           <p className="text-sm text-muted-foreground">
-            Describe what you want, review, then insert.
+            Up to 50 = preview & review. More = auto-batched & inserted (max 10,000).
           </p>
         </div>
       </div>
@@ -616,17 +653,21 @@ function AIGenerator({
         <input
           type="number"
           min={1}
-          max={20}
+          max={10000}
           value={count}
-          onChange={(e) => setCount(Number(e.target.value))}
-          className="w-20 rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
+          onChange={(e) => setCount(Math.max(1, Math.min(10000, Number(e.target.value) || 1)))}
+          className="w-24 rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
         />
         <button
           onClick={run}
           disabled={busy}
           className="rounded-full bg-accent px-5 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-50"
         >
-          {busy ? "Generating…" : "Generate"}
+          {busy
+            ? progress
+              ? `Generating ${progress.done}/${progress.total}…`
+              : "Generating…"
+            : "Generate"}
         </button>
       </div>
       <label className="mt-2 inline-flex items-center gap-2 text-xs text-muted-foreground">
