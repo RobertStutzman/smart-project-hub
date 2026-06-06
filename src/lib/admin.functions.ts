@@ -511,3 +511,78 @@ export const repairDuplicateAnswers = createServerFn({ method: "POST" })
       done: remaining === 0,
     };
   });
+
+/**
+ * Generate an image for a question via Lovable AI (gpt-image-2) and upload it
+ * to the private `question-media` bucket. Returns the storage path (stored in
+ * `questions.media_url`) and a short-lived signed URL for admin preview.
+ */
+export const generateQuestionImage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      prompt: z.string().min(3).max(500),
+    }).parse,
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("LOVABLE_API_KEY is not configured");
+
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-image-2",
+        prompt: data.prompt,
+        size: "1024x1024",
+        quality: "low",
+        n: 1,
+      }),
+    });
+
+    if (res.status === 429) throw new Error("Rate limit hit, please slow down.");
+    if (res.status === 402) throw new Error("AI credits exhausted — add funds in Cloud → Usage.");
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      throw new Error(`Image generation failed (${res.status}): ${t.slice(0, 200)}`);
+    }
+    const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
+    const b64 = json?.data?.[0]?.b64_json;
+    if (!b64) throw new Error("Image generation returned no data");
+
+    const bytes = Buffer.from(b64, "base64");
+    const path = `images/${crypto.randomUUID()}.png`;
+    const { error: upErr } = await supabaseAdmin.storage
+      .from("question-media")
+      .upload(path, bytes, { contentType: "image/png", upsert: false });
+    if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+
+    const { data: signed, error: signErr } = await supabaseAdmin.storage
+      .from("question-media")
+      .createSignedUrl(path, 60 * 60);
+    if (signErr) throw new Error(signErr.message);
+
+    return { path, signedUrl: signed.signedUrl };
+  });
+
+/**
+ * Mint a short-lived signed URL for a stored question-media object so the
+ * admin UI can preview existing image/audio without making the bucket public.
+ */
+export const signQuestionMedia = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({ path: z.string().min(1).max(500) }).parse,
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { data: signed, error } = await supabaseAdmin.storage
+      .from("question-media")
+      .createSignedUrl(data.path, 60 * 60);
+    if (error) throw new Error(error.message);
+    return { signedUrl: signed.signedUrl };
+  });
