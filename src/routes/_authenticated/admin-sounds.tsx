@@ -586,3 +586,99 @@ function ClipRow({
     </li>
   );
 }
+
+// ─── Welcome intro preview ────────────────────────────────────────
+
+function WelcomePreview() {
+  const previewFn = useServerFn(previewAnnouncerLine);
+  const [open, setOpen] = useState(false);
+  const [lines, setLines] = useState<string[]>([...WELCOME_LINES]);
+  const [loadingIdx, setLoadingIdx] = useState<number | null>(null);
+
+  async function handlePreview(i: number) {
+    setLoadingIdx(i);
+    try {
+      const res = await previewFn({ data: { text: lines[i] } });
+      const audio = new Audio(`data:audio/mpeg;base64,${res.audioBase64}`);
+      audio.volume = 0.95;
+      await audio.play();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setLoadingIdx(null);
+    }
+  }
+
+  return (
+    <div className="mt-4 rounded-2xl border border-border bg-background/40 p-4">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between text-left"
+      >
+        <div>
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-amber-300/80">
+            Audition
+          </div>
+          <div className="text-sm font-bold">
+            Welcome intros ({lines.length}) — preview before generating
+          </div>
+        </div>
+        <span className="text-xs text-muted-foreground">
+          {open ? "Hide ▲" : "Show ▼"}
+        </span>
+      </button>
+      {open && (
+        <div className="mt-4 space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Tweak any line and hit ▶ to hear it with The Elf voice. Edits here
+            are scratch — to bake the final pool into storage, edit{" "}
+            <code className="rounded bg-muted px-1">WELCOME_LINES</code> in{" "}
+            <code className="rounded bg-muted px-1">
+              src/lib/announcer.functions.ts
+            </code>{" "}
+            then click Generate.
+          </p>
+          {lines.map((text, i) => (
+            <div
+              key={i}
+              className="grid items-start gap-2 sm:grid-cols-[auto_1fr_auto]"
+            >
+              <div className="pt-2 text-xs font-mono text-muted-foreground">
+                {String(i + 1).padStart(2, "0")}
+              </div>
+              <textarea
+                value={text}
+                onChange={(e) =>
+                  setLines((prev) => {
+                    const next = [...prev];
+                    next[i] = e.target.value;
+                    return next;
+                  })
+                }
+                rows={2}
+                className="w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => void handlePreview(i)}
+                disabled={loadingIdx !== null}
+                className="rounded-full bg-amber-400 px-4 py-2 text-xs font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loadingIdx === i ? "…" : "▶ Preview"}
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setLines([...WELCOME_LINES])}
+            className="mt-2 text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground"
+          >
+            Reset to defaults
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
