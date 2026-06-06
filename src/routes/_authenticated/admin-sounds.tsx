@@ -20,6 +20,7 @@ import {
   type SoundEvent,
   type SoundFolder,
 } from "@/lib/sounds.functions";
+import { generateAnnouncerPack } from "@/lib/announcer.functions";
 
 export const Route = createFileRoute("/_authenticated/admin-sounds")({
   component: SoundsPage,
