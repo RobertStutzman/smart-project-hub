@@ -599,6 +599,18 @@ function PlayPage() {
                     G̷L̷I̷T̷C̷H̷E̷D̷
                   </div>
                 )}
+                {room.phase === "reveal" &&
+                  room.current_explanation &&
+                  room.current_explanation.trim().length > 0 && (
+                    <div className="rounded-2xl border border-amber-300/40 bg-amber-400/10 p-3 text-center">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-300">
+                        💡 Did you know?
+                      </div>
+                      <div className="mt-1 text-sm leading-snug text-amber-50">
+                        {room.current_explanation}
+                      </div>
+                    </div>
+                  )}
               </>
             ) : (
               <div className="grid flex-1 place-items-center rounded-2xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
