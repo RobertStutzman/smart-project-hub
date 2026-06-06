@@ -110,7 +110,12 @@ export const nextQuestion = createServerFn({ method: "POST" })
     if (usedIds.length > 0) qQuery = qQuery.not("id", "in", `(${usedIds.join(",")})`);
     const { data: candidates } = await qQuery.limit(50);
     if (!candidates || candidates.length === 0) {
-      throw new Error("No more questions in this category");
+      // Out of questions — end the game gracefully instead of getting stuck.
+      await supabaseAdmin
+        .from("rooms")
+        .update({ phase: "ended", status: "ended" })
+        .eq("id", room.id);
+      return { ok: true, questionId: null, wildcard: null, exhausted: true };
     }
     const q = candidates[Math.floor(Math.random() * candidates.length)];
 
