@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PreviewQuestionRouteImport } from './routes/preview-question'
 import { Route as PlayRouteImport } from './routes/play'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as JoinRouteImport } from './routes/join'
@@ -19,6 +20,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAdminSoundsRouteImport } from './routes/_authenticated/admin.sounds'
 
+const PreviewQuestionRoute = PreviewQuestionRouteImport.update({
+  id: '/preview-question',
+  path: '/preview-question',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlayRoute = PlayRouteImport.update({
   id: '/play',
   path: '/play',
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/play': typeof PlayRoute
+  '/preview-question': typeof PreviewQuestionRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/admin/sounds': typeof AuthenticatedAdminSoundsRoute
 }
@@ -82,6 +89,7 @@ export interface FileRoutesByTo {
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/play': typeof PlayRoute
+  '/preview-question': typeof PreviewQuestionRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/admin/sounds': typeof AuthenticatedAdminSoundsRoute
 }
@@ -94,6 +102,7 @@ export interface FileRoutesById {
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/play': typeof PlayRoute
+  '/preview-question': typeof PreviewQuestionRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/admin/sounds': typeof AuthenticatedAdminSoundsRoute
 }
@@ -106,6 +115,7 @@ export interface FileRouteTypes {
     | '/join'
     | '/login'
     | '/play'
+    | '/preview-question'
     | '/admin'
     | '/admin/sounds'
   fileRoutesByTo: FileRoutesByTo
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/join'
     | '/login'
     | '/play'
+    | '/preview-question'
     | '/admin'
     | '/admin/sounds'
   id:
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/join'
     | '/login'
     | '/play'
+    | '/preview-question'
     | '/_authenticated/admin'
     | '/_authenticated/admin/sounds'
   fileRoutesById: FileRoutesById
@@ -139,10 +151,18 @@ export interface RootRouteChildren {
   JoinRoute: typeof JoinRoute
   LoginRoute: typeof LoginRoute
   PlayRoute: typeof PlayRoute
+  PreviewQuestionRoute: typeof PreviewQuestionRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/preview-question': {
+      id: '/preview-question'
+      path: '/preview-question'
+      fullPath: '/preview-question'
+      preLoaderRoute: typeof PreviewQuestionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/play': {
       id: '/play'
       path: '/play'
@@ -240,6 +260,7 @@ const rootRouteChildren: RootRouteChildren = {
   JoinRoute: JoinRoute,
   LoginRoute: LoginRoute,
   PlayRoute: PlayRoute,
+  PreviewQuestionRoute: PreviewQuestionRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
