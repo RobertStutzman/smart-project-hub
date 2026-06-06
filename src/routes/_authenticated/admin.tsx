@@ -738,10 +738,16 @@ function AIGenerator({
           <ul className="space-y-2 text-sm">
             {preview.map((q, i) => (
               <li key={i} className="rounded-xl border border-border bg-background/40 p-3">
-                <div className="font-medium">{q.question_text}</div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="font-medium">{q.question_text}</div>
+                  <DifficultyBadge value={q.difficulty} />
+                </div>
                 <div className="mt-1 text-xs text-muted-foreground">
                   ✓ {q.correct_answer} &nbsp;·&nbsp; ✗ {q.wrong_1} / {q.wrong_2} / {q.wrong_3}
                 </div>
+                {q.explanation && (
+                  <div className="mt-1 text-xs italic text-amber-300/80">💡 {q.explanation}</div>
+                )}
               </li>
             ))}
           </ul>
