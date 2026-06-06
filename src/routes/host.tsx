@@ -420,9 +420,9 @@ function HostPage() {
               )}
             </div>
 
-            <div className="rounded-3xl border border-border bg-card/40 p-6 backdrop-blur">
-              <h2 className="mb-3 text-lg font-bold">Host controls</h2>
-              <div className="flex flex-col gap-3 text-sm">
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur">
+              <h2 className="mb-3 text-lg font-bold text-white">Host controls</h2>
+              <div className="flex flex-col gap-3 text-sm text-white/80">
                 <Toggle
                   label="Allow late joiners"
                   on={allowLate}
