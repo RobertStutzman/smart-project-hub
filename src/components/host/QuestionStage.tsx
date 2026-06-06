@@ -142,7 +142,11 @@ export function QuestionStage({
       </div>
 
       {/* Answer panels — fixed 2x2 grid; cells NEVER reflow when shattered */}
-      <div className="relative z-10 grid flex-1 grid-cols-2 grid-rows-2 gap-4">
+      <div
+        className={`relative z-10 grid flex-1 grid-cols-2 grid-rows-2 gap-4 transition-all duration-300 ${
+          reading ? "scale-[0.98] opacity-40 blur-[2px]" : ""
+        }`}
+      >
         {answers.map((label, i) => {
           const dropped = droppedIndexes.includes(i);
           const isCorrect = phase === "reveal" && correctIndex === i;
