@@ -24,6 +24,8 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
 });
 
+type Difficulty = "easy" | "medium" | "hard" | "impossible";
+
 type Question = {
   id: string;
   category: string;
@@ -36,6 +38,7 @@ type Question = {
   media_url: string | null;
   media_type: string | null;
   is_premium: boolean;
+  difficulty: Difficulty;
   created_at: string;
 };
 
@@ -52,6 +55,7 @@ const EMPTY_DRAFT: DraftQuestion = {
   media_url: null,
   media_type: null,
   is_premium: false,
+  difficulty: "medium",
 };
 
 function AdminPage() {
@@ -110,6 +114,7 @@ function AdminPage() {
             media_url: q.media_url,
             media_type: q.media_type,
             is_premium: q.is_premium,
+            difficulty: q.difficulty,
           },
         },
       });
