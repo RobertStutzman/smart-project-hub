@@ -7,6 +7,9 @@ import {
   endQuestion,
   nextQuestion,
   setPhase,
+  startFinalRound,
+  startFinalQuestion,
+  scoreFinalRound,
 } from "@/lib/game.functions";
 import { QuestionStage } from "./QuestionStage";
 import { Leaderboard } from "./Leaderboard";
