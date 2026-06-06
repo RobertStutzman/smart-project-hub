@@ -219,7 +219,13 @@ export const updateClip = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
-    const patch: Record<string, unknown> = {};
+    const patch: {
+      label?: string;
+      category?: string;
+      slot?: string;
+      audience_visible?: boolean;
+      volume?: number;
+    } = {};
     if (data.label !== undefined) patch.label = data.label;
     if (data.category !== undefined) {
       patch.category = data.category;
