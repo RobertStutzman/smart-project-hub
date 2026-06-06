@@ -220,7 +220,7 @@ export function HostGameStage({ room }: Props) {
     const r = state.round_number ?? 0;
     if (state.phase === "question" && r > 0 && r !== lastRoundStingRef.current) {
       lastRoundStingRef.current = r;
-      playSting("round_intro");
+      playEvent("round_intro");
     }
   }, [state?.phase, state?.round_number]);
 
