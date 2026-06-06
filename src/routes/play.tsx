@@ -235,8 +235,12 @@ function PlayPage() {
   const startMs = room.question_started_at
     ? new Date(room.question_started_at).getTime()
     : 0;
+  const readSecondsLeft = room.question_started_at
+    ? Math.max(0, (startMs - now) / 1000)
+    : 0;
+  const reading = readSecondsLeft > 0 && room.phase === "question";
   const remainingS = room.question_started_at
-    ? Math.max(0, room.question_duration_ms / 1000 - (now - startMs) / 1000)
+    ? Math.max(0, room.question_duration_ms / 1000 - Math.max(0, (now - startMs) / 1000))
     : null;
 
   // Wildcard derived state
