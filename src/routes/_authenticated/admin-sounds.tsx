@@ -688,3 +688,102 @@ function WelcomePreview() {
   );
 }
 
+
+function QuestionVoiceoversPanel() {
+  const bakeAllFn = useServerFn(bakeAllQuestionTTS);
+  const statsFn = useServerFn(getQuestionTTSStats);
+  const [stats, setStats] = useState<{ total: number; baked: number } | null>(null);
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const s = await statsFn();
+      setStats(s);
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  }, [statsFn]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  async function runBake(force: boolean) {
+    const verb = force ? "Re-bake ALL" : "Bake missing";
+    if (
+      !window.confirm(
+        `${verb} question voiceovers? Calls ElevenLabs once per question (~80 chars each). Runs in batches of 100 — re-click to continue if there are more.`,
+      )
+    )
+      return;
+    setRunning(true);
+    setProgress("Working…");
+    try {
+      const res = await bakeAllFn({ data: { force, limit: 100 } });
+      setProgress(
+        `Baked ${res.baked}, skipped ${res.skipped}, errors ${res.errors.length} (batch of ${res.total}).`,
+      );
+      if (res.errors.length) {
+        toast.warning(`${res.errors.length} error(s): ${res.errors[0].message}`);
+      } else {
+        toast.success(`Baked ${res.baked} voiceover(s)`);
+      }
+      await refresh();
+    } catch (err) {
+      toast.error((err as Error).message);
+      setProgress(null);
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  const pct = stats && stats.total > 0 ? Math.round((stats.baked / stats.total) * 100) : 0;
+
+  return (
+    <div className="mt-6 rounded-2xl border border-border bg-card/30 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-amber-300/80">
+            Question voiceovers
+          </div>
+          <h3 className="text-lg font-bold">The Elf reads every question</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pre-bakes a TTS clip per question. Plays instantly on reveal — buzzer
+            stays unlocked.
+          </p>
+        </div>
+        <div className="text-right">
+          <div className="text-2xl font-black tabular-nums">
+            {stats ? `${stats.baked} / ${stats.total}` : "…"}
+          </div>
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">
+            {pct}% baked
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => void runBake(false)}
+          disabled={running}
+          className="rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 px-4 py-2 text-sm font-bold text-black shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {running ? "Baking…" : "🎤 Bake missing (100 at a time)"}
+        </button>
+        <button
+          type="button"
+          onClick={() => void runBake(true)}
+          disabled={running}
+          className="rounded-full border border-border px-4 py-2 text-sm font-bold transition hover:bg-card disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Re-bake ALL (overwrite)
+        </button>
+      </div>
+      {progress && (
+        <p className="mt-3 text-xs text-muted-foreground">{progress}</p>
+      )}
+    </div>
+  );
+}
