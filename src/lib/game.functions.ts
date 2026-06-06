@@ -111,6 +111,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
           current_correct_index: null,
           current_media_url: null,
           current_media_type: null,
+          current_question_tts_url: null,
           question_started_at: new Date().toISOString(),
           question_duration_ms: 15000,
           dropped_indexes: [],
