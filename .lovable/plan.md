@@ -1,54 +1,63 @@
-# Picture/Audio/Video Trivia — Round 2
+# Premium Polish + Soundboard
 
-Three additions to the question editor and host TV.
+Two changes: a Soundboard admin area you upload clips to, and host TV wiring so the lobby and round intros play them.
 
-## 1. ElevenLabs voice generation (audio)
+## 1. Soundboard storage + admin page
 
-In the admin Media editor, add a "Generate voice" mode next to "Upload audio":
-- Text input for the line to speak (max ~500 chars)
-- Voice picker — small curated list (Roger, Sarah, George, Charlie, Liam, Brian, Jessica, Lily, Santa, Glitch)
-- "Generate" button → calls server, saves MP3 to `question-media/audio/{uuid}.mp3`, sets `media_url` + `media_type='audio'`
-- Inline `<audio controls>` preview, plus a "Regenerate" button
+New table `sound_clips`:
+- `slot` — short code identifying *where* the clip plays. Starts with two slots: `lobby_loop` and `round_intro`. Easy to add more later.
+- `label` — your friendly name (e.g. "Saturday Night Live theme")
+- `storage_path` — file in the existing `question-media` bucket under `sounds/{uuid}.mp3`
+- `is_active` — only one active clip per slot. When you upload a new one, others in that slot flip inactive.
+- `volume` — 0–1, defaults to 0.6 for lobby loop, 1.0 for stings
+- `loop` — bool, defaults true for `lobby_loop`, false for `round_intro`
 
-Connector setup: link the **ElevenLabs** standard connector (no existing link in workspace). Once linked, `ELEVENLABS_API_KEY` becomes available server-side automatically — no manual secret prompt.
+New admin route `/admin/sounds` with two sections (Lobby loop, Round intro), each showing:
+- The active clip (label + inline `<audio controls>` preview)
+- "Upload new" button → file picker → uploads + makes active
+- A list of past uploads for that slot with "Make active" / "Delete" buttons
 
-## 2. Video clip questions
+Server functions (`src/lib/sounds.functions.ts`):
+- `listSoundClips` — admin only, all slots
+- `getActiveSounds` — **public**, returns signed URLs for every active clip keyed by slot. Host TV calls this once on mount.
+- `uploadSoundClip` — admin only, takes path + slot + label, flips others inactive
+- `setActiveClip`, `deleteSoundClip`
 
-- Treat `media_type='video'` as a third option throughout (admin editor, room state, host TV).
-- Admin uploader accepts MP4/WebM/MOV up to **25 MB** (videos run bigger than audio).
-- Files stored in `question-media/video/{uuid}.{ext}`.
-- Host TV renders a `<video>` element above the question text, max-height ~40vh, `object-contain`, **autoplay muted=false, controls hidden, loops off**, fires once when the read window opens (same trigger as audio).
-- Hidden during the reveal phase, same as image/audio.
+## 2. Host TV playback
 
-No DB schema change needed — `current_media_type` already stores a free-form string.
+New hook `useSoundboard()` in `src/lib/useSoundboard.ts`:
+- Fetches `getActiveSounds` once
+- Exposes `play(slot)` and `stop(slot)`
+- For `lobby_loop`: looping `<audio>` element at the slot's volume
+- For `round_intro`: one-shot, fires, auto-stops after natural end
 
-## 3. Bump audio upload cap to 15 MB
+**Lobby screen** (`src/components/host/HostLobby.tsx` — find it):
+- On mount, if `lobby_loop` exists → `play("lobby_loop")`
+- On unmount or when phase changes away from lobby → `stop("lobby_loop")`
+- Small mute toggle bottom-right (TVs sometimes need it killed for the room)
 
-Update the admin uploader's client-side size check from 6 MB → 15 MB. No server change needed.
+**Round intro** (`src/components/host/HostGameStage.tsx`):
+- Detect `round_number` increment in the room state
+- When it goes up AND phase becomes `question`: `stop("lobby_loop")` (cheap insurance) + `play("round_intro")`
+- The existing "Round 3: Movies!" overlay timing already gives the sting ~3s to breathe
 
----
+## 3. Audio unlock
 
-## Technical details
-
-**New server function** in `src/lib/admin.functions.ts`:
-- `generateQuestionVoice({ text, voiceId })` — admin-only. POSTs to `https://api.elevenlabs.io/v1/text-to-speech/{voiceId}?output_format=mp3_44100_128` with `model_id: "eleven_multilingual_v2"`, gets MP3 ArrayBuffer, uploads to `question-media/audio/{uuid}.mp3` via `supabaseAdmin`, returns storage path. Reads `process.env.ELEVENLABS_API_KEY`; throws a clear error if missing.
-
-**Voice ID constants** — small frozen object in admin.tsx so the picker labels stay readable.
-
-**MediaEditor changes** (`src/routes/_authenticated/admin.tsx`):
-- Add `"video"` to the type radio.
-- Audio section gains a "Source: upload | AI voice" sub-toggle. AI voice shows text + voice picker + Generate button.
-- Video section mirrors the audio upload UX (file input, preview, size cap 25 MB).
-
-**Host TV changes** (`src/components/host/QuestionStage.tsx`):
-- Extract current `QuestionAudio` logic into a generic `QuestionMedia` that switches on `media_type`. Video uses the same "play once when read window opens" hook the audio component already has.
-
-**Storage policies** — existing `question-media` bucket policies already cover any path; no migration needed.
-
-**Game wiring** — `resolveMedia` in `src/lib/game.functions.ts` already signs any path regardless of type, so video URLs flow through automatically.
+Browsers block autoplay before any user interaction. The host already clicks "Start game" to get into the lobby, which satisfies it — but to be safe, the host home screen adds a one-time silent unlock on first click (plays + immediately pauses a 1-frame silent buffer).
 
 ## Out of scope
 
-- AI video generation
-- Voice cloning / custom voices beyond the curated list
-- Per-question playback length trim UI (admin trims clips themselves before upload)
+- Question countdown bed / reveal stings — skipped per your selection. Easy to add later by introducing new slots (`countdown_bed`, `correct_sting`, `wrong_sting`) — the schema is generic.
+- Per-room music customization — all rooms share the active clip set.
+- Crossfading between lobby loop and intro sting — hard cut for now.
+- Payments / paid tiers — separate workstream, not in this round.
+
+## Files touched
+
+- `supabase/migrations/...` — new `sound_clips` table + RLS + grants
+- `src/lib/sounds.functions.ts` (new)
+- `src/lib/useSoundboard.ts` (new hook)
+- `src/routes/_authenticated/admin.sounds.tsx` (new admin page)
+- `src/routes/_authenticated/admin.tsx` — add a "Sounds" nav link
+- `src/components/host/HostLobby.tsx` — wire lobby loop + mute toggle
+- `src/components/host/HostGameStage.tsx` — wire round intro on round change

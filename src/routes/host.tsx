@@ -211,8 +211,25 @@ function HostPage() {
 
   useEffect(() => {
     if (!room) return;
-    startMusic("lobby", 600);
-    return () => stopMusic();
+    // Load soundboard clips once, then start lobby music.
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { getActiveSounds } = await import("@/lib/sounds.functions");
+        const res = await getActiveSounds();
+        if (cancelled) return;
+        const { loadCustomClips } = await import("@/lib/sound-engine");
+        loadCustomClips(res.active as never);
+      } catch {
+        /* ignore — fall back to synth */
+      } finally {
+        if (!cancelled) startMusic("lobby", 600);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      stopMusic();
+    };
   }, [room?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Subscribe to audience soundboard broadcasts → play SFX from TV speakers

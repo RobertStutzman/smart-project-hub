@@ -147,14 +147,45 @@ export function play(sfx: Sfx) {
   }
 }
 
-// Background music — simple looping arpeggio per state.
+// Background music — uploaded clip if available, else synthesized arpeggio.
 let loopTimer: number | null = null;
 let currentLoop: "lobby" | "tense" | null = null;
+
+type CustomClip = { url: string; volume: number; loop: boolean };
+const customClips: Partial<Record<"lobby_loop" | "round_intro", CustomClip>> = {};
+let lobbyAudio: HTMLAudioElement | null = null;
+let stingAudio: HTMLAudioElement | null = null;
+
+export function loadCustomClips(
+  clips: Partial<Record<"lobby_loop" | "round_intro", CustomClip>>,
+) {
+  Object.assign(customClips, clips);
+}
+
+function stopLobbyAudio() {
+  if (lobbyAudio) {
+    lobbyAudio.pause();
+    lobbyAudio.currentTime = 0;
+    lobbyAudio = null;
+  }
+}
 
 export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
   stopMusic();
   if (muted) return;
   currentLoop = mode;
+
+  // Custom uploaded lobby loop trumps the synth.
+  if (mode === "lobby" && customClips.lobby_loop) {
+    const clip = customClips.lobby_loop;
+    if (typeof window === "undefined") return;
+    lobbyAudio = new Audio(clip.url);
+    lobbyAudio.loop = clip.loop;
+    lobbyAudio.volume = Math.max(0, Math.min(1, clip.volume));
+    lobbyAudio.play().catch(() => {});
+    return;
+  }
+
   const lobby = [261.63, 329.63, 392, 523.25];
   const tense = [196, 233.08, 261.63, 311.13];
   const notes = mode === "lobby" ? lobby : tense;
@@ -174,4 +205,20 @@ export function stopMusic() {
     window.clearInterval(loopTimer);
     loopTimer = null;
   }
+  stopLobbyAudio();
+}
+
+/** Fire a one-shot sting clip (e.g. round intro). No-op if no clip loaded. */
+export function playSting(slot: "round_intro") {
+  if (muted) return;
+  const clip = customClips[slot];
+  if (!clip) return;
+  if (typeof window === "undefined") return;
+  if (stingAudio) {
+    stingAudio.pause();
+    stingAudio = null;
+  }
+  stingAudio = new Audio(clip.url);
+  stingAudio.volume = Math.max(0, Math.min(1, clip.volume));
+  stingAudio.play().catch(() => {});
 }
