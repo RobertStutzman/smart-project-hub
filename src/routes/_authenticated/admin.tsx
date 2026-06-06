@@ -213,6 +213,8 @@ function AdminPage() {
 
         <ExplanationBackfill onUpdated={reload} />
 
+        <DuplicateAnswersRepair onUpdated={reload} />
+
         <CsvDropzone bulkInsert={bulkFn} onInserted={reload} />
 
         <section className="rounded-3xl border border-border bg-card/40 p-6 backdrop-blur">
