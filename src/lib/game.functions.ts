@@ -642,6 +642,7 @@ export const startFinalRound = createServerFn({ method: "POST" })
       (q as { media_url?: string | null }).media_url,
       (q as { media_type?: string | null }).media_type,
     );
+    const finalTtsUrl = await resolveQuestionTTS((q as { tts_path?: string | null }).tts_path);
 
     const { error } = await supabaseAdmin
       .from("rooms")
@@ -655,6 +656,7 @@ export const startFinalRound = createServerFn({ method: "POST" })
         current_explanation: (q as { explanation?: string | null }).explanation ?? null,
         current_media_url: finalMedia.url,
         current_media_type: finalMedia.type,
+        current_question_tts_url: finalTtsUrl,
         question_started_at: null,
         question_duration_ms: 25000,
         dropped_indexes: [],
