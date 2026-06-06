@@ -64,7 +64,7 @@ const QuestionInput = z
     explanation: z.string().max(500).optional().nullable(),
     difficulty: DIFFICULTY.default("medium"),
     media_url: z.string().max(500).optional().nullable(),
-    media_type: z.enum(["image", "audio"]).optional().nullable(),
+    media_type: z.enum(["image", "audio", "video"]).optional().nullable(),
     is_premium: z.boolean().default(false),
   })
   .superRefine((q, ctx) => {
