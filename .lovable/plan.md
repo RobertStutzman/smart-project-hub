@@ -1,61 +1,45 @@
-## What I verified in the live preview
+# Dev Playground: watch the game play itself
 
-End-to-end smoke test on the running app:
+The current `/dev` page just spawns bot iframes — you can't see the actual host gameplay (questions, reveals, leaderboard, animations). Let's rebuild it into a single screen where the **real host UI** runs on the left and a swarm of bots play along on the right, so you can watch the full game loop end-to-end from your laptop.
 
-1. Opened `/host` → room **KMBU** generated, QR rendered, lobby music started.
-2. Opened `/join?code=KMBU` on a phone-sized viewport → code was pre-filled and sanitized correctly, Next button activated as soon as nickname was typed, `joinRoom` server fn returned `200` with a `playerId`.
-3. Skipped the selfie → routed to `/play` (waiting room). All good.
-4. Navigated back to `/host` → **a brand new room `ZDUG` was generated**, even though the host session ID in localStorage was unchanged. The previously joined player (TestBot) is now stranded in the abandoned room KMBU — host is no longer heartbeating it and will never call `nextQuestion` on it.
+## New layout for `/dev`
 
-This is almost certainly the real "I don't see start" bug on mobile. Any time the host page remounts (HMR after a code change, refresh, theme nav, back/forward), a fresh room is minted and every connected player is silently orphaned.
+```text
+┌───────────────────────────────────────────────────────────────┐
+│  Dev Playground   [Bots: 6 ▾] [Mode: smart ▾] [▶ Start game] │
+├──────────────────────────────────────┬────────────────────────┤
+│                                      │  Bots (6)              │
+│                                      │ ┌────────────────────┐ │
+│         HOST VIEW (iframe /host)     │ │ Bot_01  ✅ A  120 │ │
+│         - QR / lobby                 │ │ Bot_02  ⏳     80 │ │
+│         - Question stage             │ │ Bot_03  ✅ C  140 │ │
+│         - Reveal + leaderboard       │ │ ...                │ │
+│                                      │ └────────────────────┘ │
+│                                      │  [+ Add bot] [⏹ Stop]  │
+└──────────────────────────────────────┴────────────────────────┘
+```
 
-## Root cause
+One screen, no phone, no second tab. You drive the game from the host iframe (Start, Next question, etc.) and watch bots react live on the right.
 
-`src/lib/rooms.functions.ts` → `createRoom` always inserts a new `rooms` row. It never checks whether the same `hostSessionId` already has a non-ended room. The client passes the persisted `hostSessionId`, but the server ignores it for resume purposes.
+## How it works
 
-## Fix
+1. **Host pane (left, ~70% width):** an `<iframe src="/host">` running the real host route. Full lobby → questions → reveals → leaderboard → shattered faces, exactly what a real host sees.
+2. **Auto-wire the room code:** when the host iframe loads, the parent reads the generated room code (via `postMessage` from `/host`, or by polling `localStorage` inside the iframe) so you don't have to copy-paste it.
+3. **Bot rail (right, ~30% width):** instead of one iframe per bot (heavy, 12 React apps), run all bots as plain async functions in the parent page. Each bot:
+   - calls `joinRoom({ roomCode, nickname })` once
+   - subscribes to the `rooms` row via supabase realtime
+   - on `phase === 'question'`, waits `lockDelay` ms then calls `lockAnswer` with smart/random/wrong pick
+   - renders as a compact row (name, current pick, ✅/⏳, score)
+4. **Controls bar (top):** bot count (1–20), answer mode, lock delay, "Add bot", "Stop all". Changing count adds/removes bots live without resetting the room.
 
-### 1. Resume on the server (primary)
+## Files to change
 
-In `createRoom.handler`, before generating a code:
+- **Rewrite `src/routes/dev.tsx`** into the split layout above. Host iframe on the left, bot manager on the right.
+- **Delete `src/routes/dev.bot.tsx`** — no longer needed; bots run in-process in the parent. Removes the per-bot React/iframe overhead and lets us show 12+ bots smoothly.
+- **Tiny addition to `src/routes/host.tsx`:** on mount, `window.parent?.postMessage({ type: 'host:room', code }, '*')` once the room code is known, so the dev page can pick it up automatically. No visual change to `/host`.
 
-- `SELECT id, room_code FROM rooms WHERE host_session_id = $1 AND status != 'ended' ORDER BY created_at DESC LIMIT 1`.
-- If a row exists, return `{ id, roomCode }` — do not insert.
-- Otherwise fall through to the existing insert loop.
+No backend, schema, or game-logic changes — purely a dev-tools refactor of the playground.
 
-This means refresh / HMR / nav-back on `/host` reattaches to the live room and every joined player stays connected. No client changes needed for this.
+## Open question
 
-### 2. Defensive client behavior on `/host`
-
-Tiny follow-up so a player who joined the now-resumed room is visible right away:
-
-- After `createRoomFn` resolves, if the returned `roomCode` differs from `loadHostSession().roomCode`, overwrite localStorage with the server's value (already the case) — keep this.
-- Add a `toast.success("Resumed room {code}")` when the returned room id matches the prior host session, just so it's obvious in dev.
-
-### 3. Join-page contrast polish (secondary, cosmetic)
-
-The headless-browser screenshot of `/join` came back nearly blank. The DOM and text are there (verified via `observe`); it's a low-contrast-on-fallback-serif issue in the Fellowship theme while `Cormorant Garamond` / `EB Garamond` load. Two small changes in `src/routes/join.tsx`:
-
-- Wrap the form inside a `bg-card border border-border rounded-3xl` container so inputs and labels sit on a slightly darker surface (uses existing tokens, no new colors).
-- Bump the heading and helper text to `text-foreground` and `text-muted-foreground` explicitly instead of inheriting body color, and make the heading `font-display` so the visual hierarchy survives the fallback font.
-
-No token edits — strictly presentational classes from the existing design system.
-
-## Files touched
-
-- `src/lib/rooms.functions.ts` — add resume branch in `createRoom`.
-- `src/routes/host.tsx` — small toast on resume (optional).
-- `src/routes/join.tsx` — contrast/container polish.
-
-## Out of scope
-
-- No schema changes (existing `rooms.host_session_id` + `status` columns are sufficient).
-- No realtime / game-engine changes.
-- No new dependencies.
-
-## Verification after build mode
-
-1. Open `/host` → note room code.
-2. Join from a second tab.
-3. Refresh `/host` → assert the same room code is shown and the player is still in the Players list.
-4. Pick Music → Start game → confirm question stage renders on both host and player.
+Want the host iframe to **auto-advance** questions on a timer (e.g. every 8s) so the game truly plays itself while you just watch? Or keep manual "Next question" clicks so you can pause and inspect each stage? I'd default to **manual** — you see more — with an optional "Auto-advance" toggle in the controls bar.

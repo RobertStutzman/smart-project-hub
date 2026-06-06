@@ -16,7 +16,6 @@ import { Route as HostRouteImport } from './routes/host'
 import { Route as DevRouteImport } from './routes/dev'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as DevBotRouteImport } from './routes/dev.bot'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 
 const PlayRoute = PlayRouteImport.update({
@@ -53,11 +52,6 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DevBotRoute = DevBotRouteImport.update({
-  id: '/bot',
-  path: '/bot',
-  getParentRoute: () => DevRoute,
-} as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -66,57 +60,38 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/dev': typeof DevRouteWithChildren
+  '/dev': typeof DevRoute
   '/host': typeof HostRoute
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/play': typeof PlayRoute
   '/admin': typeof AuthenticatedAdminRoute
-  '/dev/bot': typeof DevBotRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/dev': typeof DevRouteWithChildren
+  '/dev': typeof DevRoute
   '/host': typeof HostRoute
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/play': typeof PlayRoute
   '/admin': typeof AuthenticatedAdminRoute
-  '/dev/bot': typeof DevBotRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
-  '/dev': typeof DevRouteWithChildren
+  '/dev': typeof DevRoute
   '/host': typeof HostRoute
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/play': typeof PlayRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
-  '/dev/bot': typeof DevBotRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/dev'
-    | '/host'
-    | '/join'
-    | '/login'
-    | '/play'
-    | '/admin'
-    | '/dev/bot'
+  fullPaths: '/' | '/dev' | '/host' | '/join' | '/login' | '/play' | '/admin'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/dev'
-    | '/host'
-    | '/join'
-    | '/login'
-    | '/play'
-    | '/admin'
-    | '/dev/bot'
+  to: '/' | '/dev' | '/host' | '/join' | '/login' | '/play' | '/admin'
   id:
     | '__root__'
     | '/'
@@ -127,13 +102,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/play'
     | '/_authenticated/admin'
-    | '/dev/bot'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
-  DevRoute: typeof DevRouteWithChildren
+  DevRoute: typeof DevRoute
   HostRoute: typeof HostRoute
   JoinRoute: typeof JoinRoute
   LoginRoute: typeof LoginRoute
@@ -191,13 +165,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dev/bot': {
-      id: '/dev/bot'
-      path: '/bot'
-      fullPath: '/dev/bot'
-      preLoaderRoute: typeof DevBotRouteImport
-      parentRoute: typeof DevRoute
-    }
     '/_authenticated/admin': {
       id: '/_authenticated/admin'
       path: '/admin'
@@ -220,20 +187,10 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
   AuthenticatedRouteChildren,
 )
 
-interface DevRouteChildren {
-  DevBotRoute: typeof DevBotRoute
-}
-
-const DevRouteChildren: DevRouteChildren = {
-  DevBotRoute: DevBotRoute,
-}
-
-const DevRouteWithChildren = DevRoute._addFileChildren(DevRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
-  DevRoute: DevRouteWithChildren,
+  DevRoute: DevRoute,
   HostRoute: HostRoute,
   JoinRoute: JoinRoute,
   LoginRoute: LoginRoute,
