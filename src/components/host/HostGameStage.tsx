@@ -224,6 +224,18 @@ export function HostGameStage({ room }: Props) {
     }
   }, [state?.phase, state?.round_number]);
 
+  // Phase-driven event stings
+  const lastPhaseStingRef = useRef<string>("");
+  useEffect(() => {
+    if (!state) return;
+    const key = `${state.phase}`;
+    if (lastPhaseStingRef.current === key) return;
+    lastPhaseStingRef.current = key;
+    if (state.phase === "leaderboard") playEvent("leaderboard");
+    else if (state.phase === "final_intro") playEvent("final");
+    else if (state.phase === "ended") playEvent("victory");
+  }, [state?.phase]);
+
   // ─── Final round orchestrator ─────────────────────────────────────────
   const finalAdvancedRef = useRef<string>("");
   useEffect(() => {
