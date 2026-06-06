@@ -223,6 +223,7 @@ export type Database = {
           current_media_url: string | null
           current_question_id: string | null
           current_question_text: string | null
+          current_question_tts_url: string | null
           dropped_indexes: number[]
           glitch_active_until: string | null
           glitch_used: boolean
@@ -252,6 +253,7 @@ export type Database = {
           current_media_url?: string | null
           current_question_id?: string | null
           current_question_text?: string | null
+          current_question_tts_url?: string | null
           dropped_indexes?: number[]
           glitch_active_until?: string | null
           glitch_used?: boolean
@@ -281,6 +283,7 @@ export type Database = {
           current_media_url?: string | null
           current_question_id?: string | null
           current_question_text?: string | null
+          current_question_tts_url?: string | null
           dropped_indexes?: number[]
           glitch_active_until?: string | null
           glitch_used?: boolean
