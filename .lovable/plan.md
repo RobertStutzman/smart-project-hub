@@ -1,39 +1,68 @@
-# Longer, game-explaining welcome intros
+# Announcer reads every question (pre-baked TTS)
 
 ## Goal
-Rewrite the 10 Elf welcome lines so each one actually introduces **Beat the Drop** — explains the format in a sentence, hypes the **Final Drop** (the round where no one is eliminated because anyone can wager it all and steal the win), and keeps the unhinged Elf energy.
+Have The Elf read each question's prompt out loud when it appears on the host screen, without slowing the game down. Audio is generated once when the question enters the bank and cached in storage, so reveal-time playback is instant. The buzzer stays unlocked immediately — audio plays over the question text.
 
 ## What changes
-Only one file: `src/lib/announcer.functions.ts` — replace the `WELCOME_LINES` array with 10 longer scripts (~3-5 sentences each, ~25-45 words). Everything else (preview UI, generator, playback on host load) already works and stays as-is.
 
-## Draft of the new lines
-Each line follows roughly: **Welcome hook → what the game is → Final Drop tease → sign-off jab.**
+### 1. DB: cache the TTS audio path on the question
+Add two columns to `public.questions`:
+- `tts_path text` — storage path inside the `question-media` bucket (e.g. `question-tts/<uuid>.mp3`), `NULL` until baked.
+- `tts_text_hash text` — short hash of the read text, so edits trigger a re-bake.
 
-1. "Welcoooome to BEAT! THE! DROP! Trivia, buzzers, and bad decisions — that's the whole show. Survive the rounds, and you'll hit the Final Drop, where NOBODY is safe and ANYONE can wager it all to steal the W. Let's ruin some friendships!"
+No RLS change needed (existing public SELECT is fine; only admins write).
 
-2. "Ohhh strap in, gamers — it's BEAT THE DROP! Answer fast, score big, talk trash. And don't get cocky, because in the Final Drop, even last place can bet the farm and walk out a CHAMPION. Painful, isn't it?"
+### 2. Server: `bakeQuestionTTS({ questionId })` in `src/lib/announcer.functions.ts`
+- Admin-only.
+- Reads `question_text` (+ optional category/answer prefix — see "What gets read" below), hashes it, skips if hash matches existing `tts_text_hash`.
+- Calls ElevenLabs TTS with The Elf voice (same `VOICE_ID` and settings used by the announcer pack, but `stability: 0.4`, `style: 0.6` — slightly calmer than welcome lines so questions stay intelligible).
+- Uploads MP3 to `question-media/question-tts/<questionId>.mp3` (upsert).
+- Updates `questions.tts_path` + `tts_text_hash`.
 
-3. "Ladies, gentlemen, and chaos goblins — welcome to BEAT THE DROP, the trivia bloodsport where speed pays and silence costs. Stick around for the Final Drop: no eliminations, all-in wagers, ONE winner. Try not to cry on camera!"
+Also add `bakeAllQuestionTTS()` — iterates rows with `tts_path IS NULL` or stale hash, bakes sequentially with a small delay (rate-limit friendly), returns `{ baked, skipped, errors }` for the admin UI progress.
 
-4. "Welcome to BEAT THE DROP! Here's the deal: questions drop, you buzz in, points pile up. Easy, right? WRONG — because the Final Drop lets ANYONE bet it ALL and yoink the trophy. Leaders beware. Underdogs… get weird."
+### 3. Server: include TTS URL in the question reveal payload
+In `src/lib/game.functions.ts`, the function that serves the current question to the host (around lines 175–195 and 615–625) already returns the question row. Extend the returned shape with:
+```ts
+tts_url: string | null  // signed URL, 5-min TTL, or null if not yet baked
+```
+Generated via `supabaseAdmin.storage.from("question-media").createSignedUrl(tts_path, 300)`.
 
-5. "It's the show your therapist warned you about — BEAT! THE! DROOOOP! Trivia rounds, leaderboard drama, and a Final Drop where no one's eliminated and everyone can risk EVERYTHING. The smartest player rarely wins. The boldest one does."
+### 4. Host: play TTS on question reveal
+In `src/routes/host.tsx` (or the question-stage component it renders — `src/components/host/QuestionStage.tsx`), when a new question becomes active and `tts_url` is set:
+- Stop any previously playing question-TTS audio.
+- `new Audio(tts_url)` → `play()` with `volume: 0.9`.
+- Duck lobby music briefly if it's still playing (existing sound engine already supports this — reuse the announcer ducking).
+- **Buzzer stays unlocked immediately** (per your choice). Audio just plays over the question; fast readers can buzz before The Elf finishes.
+- If `tts_url` is null (not baked yet), silently skip — game still works.
 
-6. "Welcome contestants — or as I call you, FUTURE LOSERS! Beat the Drop is simple: outscore your friends round after round. Then comes the Final Drop, where every player wagers as much as they DARE. Big brain, big balls, big trophy. Let's go!"
+### 5. Admin UI: bake controls in Admin → Soundboard
+Add a new card "Question voiceovers" next to "Generate AI announcer pack":
+- Stat: "X of Y questions have voiceovers" (count `tts_path IS NOT NULL`).
+- Button **Bake missing question voiceovers** → calls `bakeAllQuestionTTS`, shows live progress (baked/skipped/errors).
+- Button **Re-bake all** (confirms first) — clears `tts_text_hash` then runs the full bake.
 
-7. "Buckle up buttercups, it's BEAT THE DROP! You'll get trivia, you'll get taunts, you'll get a leaderboard that JUDGES you. And in the Final Drop? No safety net — bet small, play safe; bet it all, become a LEGEND. Choose wisely."
+Also add a single-question bake button in the question editor (wherever questions are created/edited) so new questions get audio immediately on save. If the question editor doesn't currently exist as a UI, skip this and rely on the admin bulk bake — confirm before building an editor page from scratch.
 
-8. "Welcome to BEAT THE DROP! Tonight, one of you becomes a legend — the rest become CONTENT. Race through the rounds, then face the Final Drop: nobody's out, anyone can wager it all, and the standings can flip in ONE question. Spicy!"
+### 6. What gets read
+Just the **question_text**. Not the answers (players read those faster than they listen, and reading them aloud would force everyone to wait through 4 options). Example: for *"Which planet has the most moons?"* The Elf says exactly that, then the player reads/picks from the grid.
 
-9. "Heyyyy players! Beat the Drop is the trivia showdown where speed = points and hesitation = pain. Hang on till the Final Drop — that's where the meek inherit NOTHING, because the brave bet it all and steal the crown. Buzzers up!"
-
-10. "Welcome to BEAT THE DROP, where trivia goes to DIE! Three things to know: answer fast, climb the board, and pray you survive to the Final Drop — the round where nobody's eliminated and ANYONE can wager their whole score. May the boldest goblin win!"
+## Cost & latency notes
+- One TTS call per question, ever (unless text is edited). At ~80 chars/question and current ElevenLabs pricing, full bank ≈ pennies per hundred questions.
+- Playback is instant — it's just a signed-URL `<audio>` from your existing bucket, no provider call at game time.
+- Storage cost is negligible (~30 KB per clip).
 
 ## Out of scope
-- Preview UI, generator, and host-side playback are unchanged.
-- No DB/storage migration needed — the slots (`vo_welcome_1`..`vo_welcome_10`) stay the same; re-running **Generate AI announcer pack** in Admin → Soundboard re-bakes the new MP3s into the existing slots.
+- Reading answer choices.
+- Per-host voice selection (everyone gets The Elf for now).
+- Auto-baking on question insert via DB trigger — keep it admin-triggered for cost control. We can add a trigger later if you want it fully hands-off.
+
+## Technical bits
+- Files touched: `src/lib/announcer.functions.ts` (new fns), `src/lib/game.functions.ts` (signed URL in reveal payload), `src/routes/host.tsx` + `src/components/host/QuestionStage.tsx` (playback), `src/routes/_authenticated/admin-sounds.tsx` (bake UI).
+- Migration: add `tts_path`, `tts_text_hash` columns to `questions`.
+- Bucket: existing private `question-media` — signed URLs only.
 
 ## After shipping
-1. Open Admin → Soundboard → **Welcome intros** to preview any line with The Elf.
-2. Tweak inline if a specific one flops.
-3. Click **Generate AI announcer pack** to bake the new versions into storage.
+1. Run migration.
+2. Open Admin → Soundboard → **Bake missing question voiceovers**, wait for the run to finish (a few minutes for a full bank).
+3. Start a host session — every question now has The Elf reading it as it lands on screen, while players can buzz instantly.

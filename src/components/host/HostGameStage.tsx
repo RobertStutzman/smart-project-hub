@@ -22,7 +22,9 @@ type RoomState = {
   id: string;
   room_code: string;
   phase: string;
+  current_question_id: string | null;
   current_question_text: string | null;
+  current_question_tts_url: string | null;
   current_answers: string[] | null;
   current_correct_index: number | null;
   current_explanation: string | null;
@@ -90,7 +92,7 @@ export function HostGameStage({ room }: Props) {
       const { data: r } = await supabase
         .from("rooms")
         .select(
-          "id, room_code, phase, current_question_text, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number",
+          "id, room_code, phase, current_question_id, current_question_text, current_question_tts_url, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number",
         )
         .eq("id", room.id)
         .maybeSingle();
@@ -136,6 +138,52 @@ export function HostGameStage({ room }: Props) {
     droppedRef.current = new Set();
     endedRef.current = false;
   }, [state?.question_started_at]);
+
+  // Play The Elf reading the question whenever a new one lands
+  const questionTtsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const lastPlayedQuestionIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const qid = state?.current_question_id ?? null;
+    const url = state?.current_question_tts_url ?? null;
+    const phase = state?.phase;
+    // Only play during actual question phases, and only once per question
+    if (!qid || !url || (phase !== "question" && phase !== "final_intro" && phase !== "final_question")) {
+      return;
+    }
+    if (lastPlayedQuestionIdRef.current === qid) return;
+    lastPlayedQuestionIdRef.current = qid;
+
+    // Stop any previous question read
+    if (questionTtsAudioRef.current) {
+      try {
+        questionTtsAudioRef.current.pause();
+      } catch {
+        /* ignore */
+      }
+      questionTtsAudioRef.current = null;
+    }
+    const audio = new Audio(url);
+    audio.volume = 0.9;
+    questionTtsAudioRef.current = audio;
+    audio.play().catch(() => {
+      // Autoplay may be blocked before first user gesture; silently ignore.
+    });
+  }, [state?.current_question_id, state?.current_question_tts_url, state?.phase]);
+
+  // Stop any lingering question read when leaving question phases
+  useEffect(() => {
+    return () => {
+      if (questionTtsAudioRef.current) {
+        try {
+          questionTtsAudioRef.current.pause();
+        } catch {
+          /* ignore */
+        }
+        questionTtsAudioRef.current = null;
+      }
+    };
+  }, []);
+
 
   // Orchestrator: schedule drops and end based on elapsed
   useEffect(() => {
