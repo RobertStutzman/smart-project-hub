@@ -150,7 +150,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
         current_answers: answers,
         current_correct_index: correctIndex,
         current_explanation: (q as { explanation?: string | null }).explanation ?? null,
-        question_started_at: new Date().toISOString(),
+        question_started_at: new Date(Date.now() + 5000).toISOString(),
         question_duration_ms: 15000,
         dropped_indexes: [],
         round_number: nextRound,
