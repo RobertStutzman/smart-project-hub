@@ -1,63 +1,27 @@
-# Premium Polish + Soundboard
+# Reset admin password
 
-Two changes: a Soundboard admin area you upload clips to, and host TV wiring so the lobby and round intros play them.
+Your account `robert.stutzman.01@outlook.com` already exists and already has the `admin` role — only the password needs resetting.
 
-## 1. Soundboard storage + admin page
+## What I'll do
 
-New table `sound_clips`:
-- `slot` — short code identifying *where* the clip plays. Starts with two slots: `lobby_loop` and `round_intro`. Easy to add more later.
-- `label` — your friendly name (e.g. "Saturday Night Live theme")
-- `storage_path` — file in the existing `question-media` bucket under `sounds/{uuid}.mp3`
-- `is_active` — only one active clip per slot. When you upload a new one, others in that slot flip inactive.
-- `volume` — 0–1, defaults to 0.6 for lobby loop, 1.0 for stings
-- `loop` — bool, defaults true for `lobby_loop`, false for `round_intro`
+Run one migration that updates the password hash for your account directly in the auth system:
 
-New admin route `/admin/sounds` with two sections (Lobby loop, Round intro), each showing:
-- The active clip (label + inline `<audio controls>` preview)
-- "Upload new" button → file picker → uploads + makes active
-- A list of past uploads for that slot with "Make active" / "Delete" buttons
+```sql
+UPDATE auth.users
+SET encrypted_password = crypt('Bigben0919!', gen_salt('bf')),
+    updated_at = now()
+WHERE email = 'robert.stutzman.01@outlook.com';
+```
 
-Server functions (`src/lib/sounds.functions.ts`):
-- `listSoundClips` — admin only, all slots
-- `getActiveSounds` — **public**, returns signed URLs for every active clip keyed by slot. Host TV calls this once on mount.
-- `uploadSoundClip` — admin only, takes path + slot + label, flips others inactive
-- `setActiveClip`, `deleteSoundClip`
+That's it — no app code changes, no schema changes.
 
-## 2. Host TV playback
+## After approval
 
-New hook `useSoundboard()` in `src/lib/useSoundboard.ts`:
-- Fetches `getActiveSounds` once
-- Exposes `play(slot)` and `stop(slot)`
-- For `lobby_loop`: looping `<audio>` element at the slot's volume
-- For `round_intro`: one-shot, fires, auto-stops after natural end
+1. Go to `/login`
+2. Email: `robert.stutzman.01@outlook.com`
+3. Password: `Bigben0919!`
+4. You'll land on `/admin` (role already granted), then click **Sounds**.
 
-**Lobby screen** (`src/components/host/HostLobby.tsx` — find it):
-- On mount, if `lobby_loop` exists → `play("lobby_loop")`
-- On unmount or when phase changes away from lobby → `stop("lobby_loop")`
-- Small mute toggle bottom-right (TVs sometimes need it killed for the room)
+## Heads-up
 
-**Round intro** (`src/components/host/HostGameStage.tsx`):
-- Detect `round_number` increment in the room state
-- When it goes up AND phase becomes `question`: `stop("lobby_loop")` (cheap insurance) + `play("round_intro")`
-- The existing "Round 3: Movies!" overlay timing already gives the sting ~3s to breathe
-
-## 3. Audio unlock
-
-Browsers block autoplay before any user interaction. The host already clicks "Start game" to get into the lobby, which satisfies it — but to be safe, the host home screen adds a one-time silent unlock on first click (plays + immediately pauses a 1-frame silent buffer).
-
-## Out of scope
-
-- Question countdown bed / reveal stings — skipped per your selection. Easy to add later by introducing new slots (`countdown_bed`, `correct_sting`, `wrong_sting`) — the schema is generic.
-- Per-room music customization — all rooms share the active clip set.
-- Crossfading between lobby loop and intro sting — hard cut for now.
-- Payments / paid tiers — separate workstream, not in this round.
-
-## Files touched
-
-- `supabase/migrations/...` — new `sound_clips` table + RLS + grants
-- `src/lib/sounds.functions.ts` (new)
-- `src/lib/useSoundboard.ts` (new hook)
-- `src/routes/_authenticated/admin.sounds.tsx` (new admin page)
-- `src/routes/_authenticated/admin.tsx` — add a "Sounds" nav link
-- `src/components/host/HostLobby.tsx` — wire lobby loop + mute toggle
-- `src/components/host/HostGameStage.tsx` — wire round intro on round change
+Putting a real password in chat means it lives in the project history. After you sign in, consider changing it to something only you know (we can add a "Change password" UI later, or you can just tell me a new one to rotate to).
