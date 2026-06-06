@@ -289,6 +289,39 @@ export type Database = {
         }
         Relationships: []
       }
+      sound_clips: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+          loop: boolean
+          slot: string
+          storage_path: string
+          volume: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label: string
+          loop?: boolean
+          slot: string
+          storage_path: string
+          volume?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          loop?: boolean
+          slot?: string
+          storage_path?: string
+          volume?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
