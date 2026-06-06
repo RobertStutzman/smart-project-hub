@@ -90,7 +90,7 @@ function PlayPage() {
   const triggerGlitchFn = useServerFn(triggerGlitch);
   const submitWagerFn = useServerFn(submitWager);
   const lockFinalFn = useServerFn(lockFinalAnswer);
-  const [allPlayers, setAllPlayers] = useState<{ session_id: string; score: number }[]>([]);
+  const [allPlayers, setAllPlayers] = useState<LobbyPlayer[]>([]);
   useWakeLock(true);
 
   const [session, setSession] = useState<ReturnType<typeof loadPlayerSession>>(null);
