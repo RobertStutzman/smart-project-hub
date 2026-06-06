@@ -150,7 +150,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
         current_answers: answers,
         current_correct_index: correctIndex,
         current_explanation: (q as { explanation?: string | null }).explanation ?? null,
-        question_started_at: new Date().toISOString(),
+        question_started_at: new Date(Date.now() + 5000).toISOString(),
         question_duration_ms: 15000,
         dropped_indexes: [],
         round_number: nextRound,
@@ -725,9 +725,12 @@ export const lockAnswer = createServerFn({ method: "POST" })
     if ((room.dropped_indexes ?? []).includes(data.answerIndex)) {
       throw new Error("That answer was eliminated");
     }
-    // Reject if past the timer
+    // Reject if outside the answer window (before start = read phase, after = time's up)
     if (room.question_started_at) {
       const elapsed = Date.now() - new Date(room.question_started_at).getTime();
+      if (elapsed < 0) {
+        throw new Error("Read the question first");
+      }
       if (elapsed > (room.question_duration_ms ?? 15000)) {
         throw new Error("Time's up");
       }

@@ -287,8 +287,11 @@ export function HostGameStage({ room }: Props) {
   const startMs = state.question_started_at
     ? new Date(state.question_started_at).getTime()
     : 0;
+  const readSecondsLeft = state.question_started_at
+    ? Math.max(0, (startMs - now) / 1000)
+    : 0;
   const remainingS = state.question_started_at
-    ? Math.max(0, state.question_duration_ms / 1000 - (now - startMs) / 1000)
+    ? Math.max(0, state.question_duration_ms / 1000 - Math.max(0, (now - startMs) / 1000))
     : state.question_duration_ms / 1000;
 
   if (state.phase === "question" || state.phase === "reveal") {
@@ -314,6 +317,7 @@ export function HostGameStage({ room }: Props) {
           droppedIndexes={state.dropped_indexes ?? []}
           correctIndex={state.phase === "reveal" ? state.current_correct_index : null}
           secondsLeft={remainingS}
+          readSecondsLeft={state.phase === "question" ? readSecondsLeft : 0}
           phase={state.phase as "question" | "reveal"}
           players={players.filter((p) => !p.is_audience)}
           explanation={state.phase === "reveal" ? state.current_explanation : null}

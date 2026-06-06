@@ -235,8 +235,12 @@ function PlayPage() {
   const startMs = room.question_started_at
     ? new Date(room.question_started_at).getTime()
     : 0;
+  const readSecondsLeft = room.question_started_at
+    ? Math.max(0, (startMs - now) / 1000)
+    : 0;
+  const reading = readSecondsLeft > 0 && room.phase === "question";
   const remainingS = room.question_started_at
-    ? Math.max(0, room.question_duration_ms / 1000 - (now - startMs) / 1000)
+    ? Math.max(0, room.question_duration_ms / 1000 - Math.max(0, (now - startMs) / 1000))
     : null;
 
   // Wildcard derived state
@@ -573,16 +577,20 @@ function PlayPage() {
                   <div className="line-clamp-2 text-sm font-semibold">
                     {room.current_question_text}
                   </div>
-                  {remainingS !== null && room.phase === "question" && (
+                  {reading ? (
+                    <div className="mt-1 font-mono text-xl font-black text-amber-300">
+                      Read… {Math.ceil(readSecondsLeft)}
+                    </div>
+                  ) : remainingS !== null && room.phase === "question" ? (
                     <div className="mt-1 font-mono text-xl font-black">
                       {Math.ceil(remainingS)}s
                     </div>
-                  )}
+                  ) : null}
                 </div>
                 <div
                   className={`min-h-0 flex-1 transition ${
                     buttonsScrambled ? "rotate-1 scale-[1.02] blur-sm" : ""
-                  }`}
+                  } ${reading ? "pointer-events-none opacity-50" : ""}`}
                   style={
                     buttonsScrambled
                       ? { filter: "blur(8px) hue-rotate(80deg)" }
@@ -590,7 +598,7 @@ function PlayPage() {
                   }
                 >
                   <AnswerGrid
-                    disabled={room.phase !== "question"}
+                    disabled={room.phase !== "question" || reading}
                     labels={
                       (room.current_answers ?? ["", "", "", ""]) as [
                         string,

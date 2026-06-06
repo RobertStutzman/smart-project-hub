@@ -14,6 +14,7 @@ type Props = {
   droppedIndexes: number[];
   correctIndex: number | null; // null until reveal
   secondsLeft: number;
+  readSecondsLeft?: number; // >0 while in the 5-second read window
   players: Player[];
   phase: "question" | "reveal";
   explanation?: string | null;
@@ -27,10 +28,12 @@ export function QuestionStage({
   droppedIndexes,
   correctIndex,
   secondsLeft,
+  readSecondsLeft = 0,
   players,
   phase,
   explanation,
 }: Props) {
+  const reading = readSecondsLeft > 0 && phase === "question";
   // Heartbeat pulse + screen shake on each new drop
   const [pulse, setPulse] = useState(false);
   useEffect(() => {
@@ -112,9 +115,19 @@ export function QuestionStage({
       {/* Header */}
       <div className="relative z-10 flex items-start justify-between gap-4">
         <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300/80">
-          {phase === "question" ? "Live · Eliminate the wrong" : "Reveal"}
+          {reading
+            ? "Read the question…"
+            : phase === "question"
+              ? "Live · Eliminate the wrong"
+              : "Reveal"}
         </div>
-        <TimerRing seconds={secondsLeft} max={15} active={phase === "question"} />
+        {reading ? (
+          <div className="grid h-24 w-24 place-items-center rounded-full border-4 border-amber-300/60 bg-amber-400/10 font-mono text-4xl font-black text-amber-200 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)]">
+            {Math.ceil(readSecondsLeft)}
+          </div>
+        ) : (
+          <TimerRing seconds={secondsLeft} max={15} active={phase === "question"} />
+        )}
       </div>
 
       {/* Question */}
@@ -129,7 +142,11 @@ export function QuestionStage({
       </div>
 
       {/* Answer panels — fixed 2x2 grid; cells NEVER reflow when shattered */}
-      <div className="relative z-10 grid flex-1 grid-cols-2 grid-rows-2 gap-4">
+      <div
+        className={`relative z-10 grid flex-1 grid-cols-2 grid-rows-2 gap-4 transition-all duration-300 ${
+          reading ? "scale-[0.98] opacity-40 blur-[2px]" : ""
+        }`}
+      >
         {answers.map((label, i) => {
           const dropped = droppedIndexes.includes(i);
           const isCorrect = phase === "reveal" && correctIndex === i;
@@ -258,8 +275,8 @@ export function QuestionStage({
   );
 }
 
-function ShatterOverlay({ letter, label }: { letter: string; label: string }) {
-  // 6 shards exploding outward
+function ShatterOverlay(_props: { letter: string; label: string }) {
+  // 6 shards exploding outward — animate once, then a calm static ✕ stays.
   const shards = [
     { x: -120, y: -90, r: -25 },
     { x: 110, y: -110, r: 30 },
@@ -269,12 +286,7 @@ function ShatterOverlay({ letter, label }: { letter: string; label: string }) {
     { x: 0, y: 140, r: -18 },
   ];
   return (
-    <motion.div
-      initial={{ opacity: 1 }}
-      animate={{ opacity: 0 }}
-      transition={{ duration: 0.7, delay: 0.4 }}
-      className="pointer-events-none absolute inset-0 overflow-visible rounded-2xl"
-    >
+    <div className="pointer-events-none absolute inset-0 overflow-visible rounded-2xl">
       {shards.map((s, idx) => (
         <motion.div
           key={idx}
@@ -289,23 +301,21 @@ function ShatterOverlay({ letter, label }: { letter: string; label: string }) {
           }}
         />
       ))}
-      {/* fading wrong stamp */}
+      {/* persistent wrong stamp — animates in once, then stays */}
       <motion.div
-        initial={{ scale: 1, opacity: 1 }}
-        animate={{ scale: 1.3, opacity: 0 }}
-        transition={{ duration: 0.5 }}
+        initial={{ scale: 1.6, opacity: 0 }}
+        animate={{ scale: 1, opacity: 0.85 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
         className="absolute inset-0 grid place-items-center"
       >
         <div className="font-display text-7xl font-black text-rose-400/80 drop-shadow-[0_0_30px_rgba(244,63,94,0.8)]">
           ✕
         </div>
-        <div className="absolute bottom-4 text-xs font-bold uppercase tracking-widest text-rose-200/80">
-          {letter} · {label}
-        </div>
       </motion.div>
-    </motion.div>
+    </div>
   );
 }
+
 
 function TimerRing({ seconds, max, active }: { seconds: number; max: number; active: boolean }) {
   const pct = Math.max(0, Math.min(1, seconds / max));
