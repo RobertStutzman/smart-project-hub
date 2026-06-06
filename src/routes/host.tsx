@@ -370,12 +370,6 @@ function HostPage() {
               {creating || !room ? "····" : room.roomCode}
             </div>
 
-            <div className="mt-5 text-sm text-white/60">
-              Join at{" "}
-              <span className="font-mono font-bold text-white/90">
-                {origin ? `${origin.replace(/^https?:\/\//, "")}/join` : "/join"}
-              </span>
-            </div>
 
             {joinUrl && (
               <div className="mt-6 inline-block rounded-2xl bg-white p-4 shadow-[0_0_50px_oklch(0.85_0.18_85/0.35)] ring-1 ring-white/20">
