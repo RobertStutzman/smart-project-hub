@@ -115,9 +115,19 @@ export function QuestionStage({
       {/* Header */}
       <div className="relative z-10 flex items-start justify-between gap-4">
         <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300/80">
-          {phase === "question" ? "Live · Eliminate the wrong" : "Reveal"}
+          {reading
+            ? "Read the question…"
+            : phase === "question"
+              ? "Live · Eliminate the wrong"
+              : "Reveal"}
         </div>
-        <TimerRing seconds={secondsLeft} max={15} active={phase === "question"} />
+        {reading ? (
+          <div className="grid h-24 w-24 place-items-center rounded-full border-4 border-amber-300/60 bg-amber-400/10 font-mono text-4xl font-black text-amber-200 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)]">
+            {Math.ceil(readSecondsLeft)}
+          </div>
+        ) : (
+          <TimerRing seconds={secondsLeft} max={15} active={phase === "question"} />
+        )}
       </div>
 
       {/* Question */}
