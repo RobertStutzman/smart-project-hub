@@ -76,6 +76,8 @@ function PlayPage() {
   const lockFn = useServerFn(lockAnswer);
   const activate2xFn = useServerFn(activate2x);
   const triggerGlitchFn = useServerFn(triggerGlitch);
+  const submitWagerFn = useServerFn(submitWager);
+  const lockFinalFn = useServerFn(lockFinalAnswer);
   const [allPlayers, setAllPlayers] = useState<{ session_id: string; score: number }[]>([]);
   useWakeLock(true);
 
