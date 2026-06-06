@@ -44,6 +44,7 @@ function HostPage() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const createRoomFn = useServerFn(createRoom);
+  const endRoomFn = useServerFn(endRoom);
   const heartbeatFn = useServerFn(heartbeatHost);
   const setCategoryFn = useServerFn(setCategory);
   const setConfigFn = useServerFn(setRoomConfig);
