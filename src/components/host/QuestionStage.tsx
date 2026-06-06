@@ -373,7 +373,6 @@ function TimerRing({ seconds, max, active }: { seconds: number; max: number; act
 }
 
 function QuestionAudio({ src, autoStart }: { src: string; autoStart: boolean }) {
-  const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
   const [playedKey, setPlayedKey] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
@@ -392,8 +391,6 @@ function QuestionAudio({ src, autoStart }: { src: string; autoStart: boolean }) 
     setPlayedKey(null);
   }, [src]);
 
-  // Suppress unused-var lint on ref tuple's setter.
-  void ref;
 
   return (
     <div className="relative z-10 mx-auto flex w-full max-w-3xl items-center justify-center gap-4 rounded-2xl border border-white/10 bg-white/[0.04] px-6 py-4 backdrop-blur-xl">
