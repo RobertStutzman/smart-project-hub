@@ -14,6 +14,7 @@ type Props = {
   droppedIndexes: number[];
   correctIndex: number | null; // null until reveal
   secondsLeft: number;
+  readSecondsLeft?: number; // >0 while in the 5-second read window
   players: Player[];
   phase: "question" | "reveal";
   explanation?: string | null;
@@ -27,10 +28,12 @@ export function QuestionStage({
   droppedIndexes,
   correctIndex,
   secondsLeft,
+  readSecondsLeft = 0,
   players,
   phase,
   explanation,
 }: Props) {
+  const reading = readSecondsLeft > 0 && phase === "question";
   // Heartbeat pulse + screen shake on each new drop
   const [pulse, setPulse] = useState(false);
   useEffect(() => {
