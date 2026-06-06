@@ -109,7 +109,7 @@ export const generateQuestions = createServerFn({ method: "POST" })
     z.object({
       prompt: z.string().min(3).max(500),
       category: z.string().min(1).max(60),
-      count: z.number().int().min(1).max(20),
+      count: z.number().int().min(1).max(50),
       isPremium: z.boolean().default(false),
     }).parse,
   )
