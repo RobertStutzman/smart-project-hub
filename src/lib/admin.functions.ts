@@ -47,6 +47,7 @@ const QuestionInput = z.object({
   wrong_1: z.string().min(1).max(200),
   wrong_2: z.string().min(1).max(200),
   wrong_3: z.string().min(1).max(200),
+  explanation: z.string().max(500).optional().nullable(),
   media_url: z.string().url().max(500).optional().nullable(),
   media_type: z.string().max(20).optional().nullable(),
   is_premium: z.boolean().default(false),
@@ -130,7 +131,7 @@ export const generateQuestions = createServerFn({ method: "POST" })
           {
             role: "system",
             content:
-              "You write trivia questions for a live multiplayer game. Each question has exactly one correct answer and three plausible wrong answers. Keep wording crisp and unambiguous. Avoid duplicates.",
+              "You write trivia questions for a live multiplayer game. Each question has exactly one correct answer and three plausible wrong answers. Keep wording crisp and unambiguous. Avoid duplicates. For each question, also include a 1-2 sentence 'explanation' — a fun, conversational fact about WHY the correct answer is right (something a host would read aloud after the reveal). Keep it under 200 characters.",
           },
           {
             role: "user",
@@ -156,6 +157,7 @@ export const generateQuestions = createServerFn({ method: "POST" })
                         wrong_1: { type: "string" },
                         wrong_2: { type: "string" },
                         wrong_3: { type: "string" },
+                        explanation: { type: "string" },
                       },
                       required: [
                         "question_text",
@@ -163,6 +165,7 @@ export const generateQuestions = createServerFn({ method: "POST" })
                         "wrong_1",
                         "wrong_2",
                         "wrong_3",
+                        "explanation",
                       ],
                       additionalProperties: false,
                     },
@@ -192,6 +195,7 @@ export const generateQuestions = createServerFn({ method: "POST" })
         wrong_1: string;
         wrong_2: string;
         wrong_3: string;
+        explanation?: string;
       }>;
     };
     return {
