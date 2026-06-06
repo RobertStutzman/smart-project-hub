@@ -247,6 +247,7 @@ function AdminPage() {
                   <th className="px-3 py-2">Category</th>
                   <th className="px-3 py-2">Question</th>
                   <th className="px-3 py-2">Correct</th>
+                  <th className="px-3 py-2">Diff.</th>
                   <th className="px-3 py-2">Premium</th>
                   <th className="px-3 py-2"></th>
                 </tr>
@@ -257,6 +258,9 @@ function AdminPage() {
                     <td className="px-3 py-2 align-top">{q.category}</td>
                     <td className="px-3 py-2 align-top">{q.question_text}</td>
                     <td className="px-3 py-2 align-top font-medium">{q.correct_answer}</td>
+                    <td className="px-3 py-2 align-top">
+                      <DifficultyBadge value={q.difficulty} />
+                    </td>
                     <td className="px-3 py-2 align-top">{q.is_premium ? "★" : ""}</td>
                     <td className="px-3 py-2 align-top">
                       <div className="flex gap-2">
@@ -278,7 +282,7 @@ function AdminPage() {
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-3 py-10 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-3 py-10 text-center text-muted-foreground">
                       No questions match.
                     </td>
                   </tr>
