@@ -126,8 +126,8 @@ export function QuestionStage({
         <div className="mx-auto mt-4 h-[2px] w-24 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
       </div>
 
-      {/* Answer panels */}
-      <div className="relative z-10 grid flex-1 grid-cols-2 gap-4">
+      {/* Answer panels — fixed 2x2 grid; cells NEVER reflow when shattered */}
+      <div className="relative z-10 grid flex-1 grid-cols-2 grid-rows-2 gap-4">
         {answers.map((label, i) => {
           const dropped = droppedIndexes.includes(i);
           const isCorrect = phase === "reveal" && correctIndex === i;
@@ -136,52 +136,48 @@ export function QuestionStage({
           const locks = lockedByIndex[i];
 
           return (
-            <AnimatePresence key={i} mode="wait">
-              {dropped ? (
-                <ShatterPanel key={`shatter-${i}`} letter={LETTERS[i]} label={label} />
-              ) : (
-                <motion.div
-                  key={`a-${i}`}
-                  layout
-                  initial={{ scale: 0.96, opacity: 0, y: 8 }}
-                  animate={{
-                    scale: isCorrect ? 1.04 : 1,
-                    opacity: isWrongReveal ? 0.25 : 1,
-                    y: 0,
-                  }}
-                  transition={{ duration: 0.3 }}
-                  className={`relative flex flex-col justify-between overflow-hidden rounded-2xl border p-6 backdrop-blur-xl ${
-                    isCorrect
+            <div key={i} className="relative min-h-0">
+              {/* Stable card container — always rendered, never repositioned */}
+              <motion.div
+                initial={{ scale: 0.96, opacity: 0, y: 8 }}
+                animate={{
+                  scale: isCorrect ? 1.04 : 1,
+                  opacity: dropped ? 0.15 : isWrongReveal ? 0.25 : 1,
+                  y: 0,
+                }}
+                transition={{ duration: 0.3 }}
+                className={`relative flex h-full w-full flex-col justify-between overflow-hidden rounded-2xl border p-6 backdrop-blur-xl ${
+                  dropped
+                    ? "border-rose-500/30 bg-rose-950/20 grayscale"
+                    : isCorrect
                       ? "border-amber-300/80 bg-gradient-to-br from-amber-400/25 to-amber-600/10 shadow-[0_0_80px_oklch(0.85_0.18_85/0.7)]"
                       : "border-white/10 bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_20px_60px_rgba(0,0,0,0.5)]"
-                  }`}
-                >
-                  {/* top: letter badge */}
-                  <div className="flex items-start justify-between">
-                    <div
-                      className={`grid h-11 w-11 place-items-center rounded-full font-display text-xl font-black ${
-                        isCorrect
-                          ? "bg-amber-300 text-amber-950"
-                          : "bg-white/10 text-white/90 ring-1 ring-white/20"
-                      }`}
-                    >
-                      {LETTERS[i]}
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div
+                    className={`grid h-11 w-11 place-items-center rounded-full font-display text-xl font-black ${
+                      isCorrect
+                        ? "bg-amber-300 text-amber-950"
+                        : "bg-white/10 text-white/90 ring-1 ring-white/20"
+                    }`}
+                  >
+                    {LETTERS[i]}
+                  </div>
+                  {locks.length > 0 && !dropped && (
+                    <div className="rounded-full bg-black/40 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-white/80 ring-1 ring-white/10">
+                      {locks.length} locked
                     </div>
-                    {locks.length > 0 && (
-                      <div className="rounded-full bg-black/40 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-white/80 ring-1 ring-white/10">
-                        {locks.length} locked
-                      </div>
-                    )}
-                  </div>
+                  )}
+                </div>
 
-                  {/* answer text */}
-                  <div className="my-4 text-2xl font-bold leading-tight text-white sm:text-3xl">
-                    {label}
-                  </div>
+                <div className="my-4 text-2xl font-bold leading-tight text-white sm:text-3xl">
+                  {label}
+                </div>
 
-                  {/* bottom: mini avatars */}
-                  <div className="flex min-h-[28px] items-center gap-1.5">
-                    {locks.slice(0, 10).map((p) => (
+                <div className="flex min-h-[28px] items-center gap-1.5">
+                  {!dropped &&
+                    locks.slice(0, 10).map((p) => (
                       <div
                         key={p.id}
                         title={p.nickname}
@@ -200,15 +196,21 @@ export function QuestionStage({
                         )}
                       </div>
                     ))}
-                    {locks.length > 10 && (
-                      <div className="text-[10px] font-bold text-white/60">
-                        +{locks.length - 10}
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  {!dropped && locks.length > 10 && (
+                    <div className="text-[10px] font-bold text-white/60">
+                      +{locks.length - 10}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+
+              {/* Shatter overlay — sits on top, never affects layout */}
+              <AnimatePresence>
+                {dropped && (
+                  <ShatterOverlay key={`shatter-${i}`} letter={LETTERS[i]} label={label} />
+                )}
+              </AnimatePresence>
+            </div>
           );
         })}
       </div>
@@ -234,7 +236,7 @@ export function QuestionStage({
   );
 }
 
-function ShatterPanel({ letter, label }: { letter: string; label: string }) {
+function ShatterOverlay({ letter, label }: { letter: string; label: string }) {
   // 6 shards exploding outward
   const shards = [
     { x: -120, y: -90, r: -25 },
@@ -248,8 +250,8 @@ function ShatterPanel({ letter, label }: { letter: string; label: string }) {
     <motion.div
       initial={{ opacity: 1 }}
       animate={{ opacity: 0 }}
-      transition={{ duration: 0.6, delay: 0.25 }}
-      className="relative overflow-visible rounded-2xl"
+      transition={{ duration: 0.7, delay: 0.4 }}
+      className="pointer-events-none absolute inset-0 overflow-visible rounded-2xl"
     >
       {shards.map((s, idx) => (
         <motion.div

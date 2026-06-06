@@ -60,6 +60,7 @@ function HostPage() {
   const [paused, setPaused] = useState(false);
   const [origin, setOrigin] = useState("");
   const [roomPhase, setRoomPhase] = useState<string>("lobby");
+  const [roundNumber, setRoundNumber] = useState<number>(0);
   const initRef = useRef(false);
 
   // Hydration-safe origin + persisted mute pref
@@ -107,8 +108,9 @@ function HostPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "rooms", filter: `id=eq.${room.id}` },
         (payload) => {
-          const next = payload.new as { phase?: string } | undefined;
+          const next = payload.new as { phase?: string; round_number?: number } | undefined;
           if (next?.phase) setRoomPhase(next.phase);
+          if (typeof next?.round_number === "number") setRoundNumber(next.round_number);
         },
       )
       .subscribe();
@@ -242,7 +244,7 @@ function HostPage() {
     });
   }
 
-  useRevealAutoAdvance(room?.roomCode ?? "", room?.hostSessionId ?? "", roomPhase);
+  useRevealAutoAdvance(room?.roomCode ?? "", room?.hostSessionId ?? "", roomPhase, roundNumber);
 
   if (room && roomPhase !== "lobby") {
     return (
