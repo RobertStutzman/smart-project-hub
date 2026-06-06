@@ -213,6 +213,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
       (q as { media_url?: string | null }).media_url,
       (q as { media_type?: string | null }).media_type,
     );
+    const ttsUrl = await resolveQuestionTTS((q as { tts_path?: string | null }).tts_path);
 
     const { error } = await supabaseAdmin
       .from("rooms")
