@@ -135,6 +135,7 @@ export type Database = {
           category: string
           correct_answer: string
           created_at: string
+          difficulty: string
           explanation: string | null
           id: string
           is_premium: boolean
@@ -150,6 +151,7 @@ export type Database = {
           category: string
           correct_answer: string
           created_at?: string
+          difficulty?: string
           explanation?: string | null
           id?: string
           is_premium?: boolean
@@ -165,6 +167,7 @@ export type Database = {
           category?: string
           correct_answer?: string
           created_at?: string
+          difficulty?: string
           explanation?: string | null
           id?: string
           is_premium?: boolean
