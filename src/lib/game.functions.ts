@@ -571,6 +571,11 @@ export const startFinalRound = createServerFn({ method: "POST" })
       question_id: q.id,
     });
 
+    const finalMedia = await resolveMedia(
+      (q as { media_url?: string | null }).media_url,
+      (q as { media_type?: string | null }).media_type,
+    );
+
     const { error } = await supabaseAdmin
       .from("rooms")
       .update({
@@ -581,6 +586,8 @@ export const startFinalRound = createServerFn({ method: "POST" })
         current_answers: answers,
         current_correct_index: correctIndex,
         current_explanation: (q as { explanation?: string | null }).explanation ?? null,
+        current_media_url: finalMedia.url,
+        current_media_type: finalMedia.type,
         question_started_at: null,
         question_duration_ms: 25000,
         dropped_indexes: [],
