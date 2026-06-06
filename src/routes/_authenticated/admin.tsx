@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import Papa from "papaparse";
 import {
+  backfillExplanations,
   bulkInsertQuestions,
   checkIsAdmin,
+  countMissingExplanations,
   deleteQuestion,
   generateQuestions,
   listQuestions,
