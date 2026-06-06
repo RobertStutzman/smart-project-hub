@@ -79,7 +79,8 @@ function HostPage() {
         const hostSessionId = existing?.sessionId ?? newId();
         const res = await createRoomFn({ data: { hostSessionId } });
         saveHostSession({ sessionId: hostSessionId, roomCode: res.roomCode });
-        setRoom({ ...res, hostSessionId });
+        setRoom({ id: res.id, roomCode: res.roomCode, hostSessionId });
+        if (res.resumed) toast.success(`Resumed room ${res.roomCode}`);
       } catch (e) {
         setError((e as Error).message);
       } finally {
