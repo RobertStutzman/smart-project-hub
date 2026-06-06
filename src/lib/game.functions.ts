@@ -506,15 +506,34 @@ export const startFinalRound = createServerFn({ method: "POST" })
       wrong_2: string;
       wrong_3: string;
     } | null = null;
-    for (const useCategory of [true, false]) {
+    // Fallback chain for the final round:
+    //   1. impossible/hard in current category
+    //   2. impossible/hard in any category
+    //   3. any difficulty in current category
+    //   4. any question at all
+    const attempts: Array<{ difficulties: string[] | null; useCategory: boolean }> = [
+      { difficulties: ["impossible", "hard"], useCategory: true },
+      { difficulties: ["impossible", "hard"], useCategory: false },
+      { difficulties: null, useCategory: true },
+      { difficulties: null, useCategory: false },
+    ];
+    for (const attempt of attempts) {
       let qQuery = supabaseAdmin.from("questions").select("*");
-      if (useCategory && room.current_category)
+      if (attempt.useCategory && room.current_category)
         qQuery = qQuery.eq("category", room.current_category);
+      if (attempt.difficulties)
+        qQuery = qQuery.in("difficulty", attempt.difficulties);
       if (usedIds.length > 0)
         qQuery = qQuery.not("id", "in", `(${usedIds.join(",")})`);
-      const { data: candidates } = await qQuery.limit(50);
+      const { data: candidates } = await qQuery.limit(100);
       if (candidates && candidates.length > 0) {
-        q = candidates[Math.floor(Math.random() * candidates.length)];
+        // Weight 'impossible' 2x over 'hard' when both are in the pool
+        const weighted: typeof candidates = [];
+        for (const c of candidates) {
+          weighted.push(c);
+          if ((c as { difficulty?: string }).difficulty === "impossible") weighted.push(c);
+        }
+        q = weighted[Math.floor(Math.random() * weighted.length)];
         break;
       }
     }
