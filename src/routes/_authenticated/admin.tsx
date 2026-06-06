@@ -676,7 +676,7 @@ function AIGenerator({
           </p>
         </div>
       </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_auto_auto]">
+      <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_auto_auto_auto]">
         <input
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
@@ -691,6 +691,18 @@ function AIGenerator({
           {CATEGORIES.map((c) => (
             <option key={c.name} value={c.name}>{c.name}</option>
           ))}
+        </select>
+        <select
+          value={difficulty}
+          onChange={(e) => setDifficulty(e.target.value as typeof difficulty)}
+          className="rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
+          title="Difficulty"
+        >
+          <option value="mixed">Mixed</option>
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+          <option value="impossible">Impossible</option>
         </select>
         <input
           type="number"
