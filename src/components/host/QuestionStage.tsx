@@ -18,6 +18,8 @@ type Props = {
   players: Player[];
   phase: "question" | "reveal";
   explanation?: string | null;
+  mediaUrl?: string | null;
+  mediaType?: string | null; // 'image' | 'audio'
 };
 
 const LETTERS = ["A", "B", "C", "D"] as const;
@@ -32,6 +34,8 @@ export function QuestionStage({
   players,
   phase,
   explanation,
+  mediaUrl,
+  mediaType,
 }: Props) {
   const reading = readSecondsLeft > 0 && phase === "question";
   // Heartbeat pulse + screen shake on each new drop
