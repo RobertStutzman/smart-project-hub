@@ -9,6 +9,7 @@ export type Sfx =
   | "drop"
   | "tick"
   | "airhorn"
+  | "crickets"
   | "boo"
   | "sadTrombone";
 
