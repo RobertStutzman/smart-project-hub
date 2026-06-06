@@ -172,7 +172,7 @@ export function HostGameStage({ room }: Props) {
 
     if ((remainingS <= 0 || finalHoldDone) && !endedRef.current) {
       endedRef.current = true;
-      play("whoosh");
+      playEvent("reveal");
       endQuestionFn({
         data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
       })
@@ -180,7 +180,7 @@ export function HostGameStage({ room }: Props) {
           const correct = livePlayers.some(
             (p) => p.current_answer === state.current_correct_index,
           );
-          play(correct ? "correct" : "wrong");
+          playEvent(correct ? "correct" : "wrong");
         })
         .catch(() => {});
     }
