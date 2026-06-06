@@ -64,7 +64,7 @@ const QuestionInput = z
     explanation: z.string().max(500).optional().nullable(),
     difficulty: DIFFICULTY.default("medium"),
     media_url: z.string().max(500).optional().nullable(),
-    media_type: z.enum(["image", "audio"]).optional().nullable(),
+    media_type: z.enum(["image", "audio", "video"]).optional().nullable(),
     is_premium: z.boolean().default(false),
   })
   .superRefine((q, ctx) => {
@@ -585,4 +585,63 @@ export const signQuestionMedia = createServerFn({ method: "POST" })
       .createSignedUrl(data.path, 60 * 60);
     if (error) throw new Error(error.message);
     return { signedUrl: signed.signedUrl };
+  });
+
+/**
+ * Generate a voice clip via ElevenLabs TTS and upload it to the private
+ * `question-media` bucket. Returns the storage path + signed preview URL.
+ */
+export const generateQuestionVoice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      text: z.string().min(1).max(500),
+      voiceId: z.string().min(1).max(64),
+    }).parse,
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    if (!apiKey) throw new Error("ElevenLabs is not connected to this project");
+
+    const res = await fetch(
+      `https://api.elevenlabs.io/v1/text-to-speech/${data.voiceId}?output_format=mp3_44100_128`,
+      {
+        method: "POST",
+        headers: {
+          "xi-api-key": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: data.text,
+          model_id: "eleven_multilingual_v2",
+          voice_settings: {
+            stability: 0.5,
+            similarity_boost: 0.75,
+            style: 0.4,
+            use_speaker_boost: true,
+          },
+        }),
+      },
+    );
+
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      throw new Error(`Voice generation failed (${res.status}): ${t.slice(0, 200)}`);
+    }
+
+    const audioBuffer = await res.arrayBuffer();
+    const bytes = Buffer.from(audioBuffer);
+    const path = `audio/${crypto.randomUUID()}.mp3`;
+    const { error: upErr } = await supabaseAdmin.storage
+      .from("question-media")
+      .upload(path, bytes, { contentType: "audio/mpeg", upsert: false });
+    if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+
+    const { data: signed, error: signErr } = await supabaseAdmin.storage
+      .from("question-media")
+      .createSignedUrl(path, 60 * 60);
+    if (signErr) throw new Error(signErr.message);
+
+    return { path, signedUrl: signed.signedUrl };
   });

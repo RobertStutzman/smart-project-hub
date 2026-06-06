@@ -11,6 +11,7 @@ import {
   countMissingExplanations,
   deleteQuestion,
   generateQuestionImage,
+  generateQuestionVoice,
   generateQuestions,
   listQuestions,
   repairDuplicateAnswers,
@@ -955,6 +956,20 @@ function DuplicateAnswersRepair({ onUpdated }: { onUpdated: () => Promise<void> 
   );
 }
 
+const VOICES = [
+  { id: "CwhRBWXzGAHq8TQ4Fs17", name: "Roger" },
+  { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah" },
+  { id: "JBFqnCBsd6RMkjVDRZzb", name: "George" },
+  { id: "IKne3meq5aSn9XLyUdCD", name: "Charlie" },
+  { id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam" },
+  { id: "nPczCjzI2devNBz1zQrb", name: "Brian" },
+  { id: "cgSgspJ2msm6clMCkdW9", name: "Jessica" },
+  { id: "pFZP5JQG7iQjIQuC4Bku", name: "Lily" },
+  { id: "XrExE9yKIg1WjnnlVkGX", name: "Matilda" },
+  { id: "MDLAMJ0jxkpYkjXbmG4t", name: "Santa" },
+  { id: "kPtEHAvRnjUJFv7SK9WI", name: "Glitch" },
+] as const;
+
 function MediaEditor({
   q,
   setQ,
@@ -963,11 +978,15 @@ function MediaEditor({
   setQ: (next: DraftQuestion) => void;
 }) {
   const genImg = useServerFn(generateQuestionImage);
+  const genVoice = useServerFn(generateQuestionVoice);
   const signFn = useServerFn(signQuestionMedia);
   const [busy, setBusy] = useState(false);
   const [imgPrompt, setImgPrompt] = useState("");
+  const [voiceText, setVoiceText] = useState("");
+  const [voiceId, setVoiceId] = useState<string>(VOICES[0].id);
+  const [audioSource, setAudioSource] = useState<"upload" | "ai">("upload");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const type = (q.media_type ?? "none") as "none" | "image" | "audio";
+  const type = (q.media_type ?? "none") as "none" | "image" | "audio" | "video";
 
   useEffect(() => {
     let cancelled = false;
@@ -1008,9 +1027,27 @@ function MediaEditor({
     }
   }
 
+  async function handleGenerateVoice() {
+    if (!voiceText.trim()) {
+      toast.error("Enter the line to speak");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await genVoice({ data: { text: voiceText.trim(), voiceId } });
+      setQ({ ...q, media_url: res.path, media_type: "audio" });
+      setPreviewUrl(res.signedUrl);
+      toast.success("Voice clip generated");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleAudioUpload(file: File) {
-    if (file.size > 6 * 1024 * 1024) {
-      toast.error("Audio must be under 6 MB");
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("Audio must be under 15 MB");
       return;
     }
     setBusy(true);
@@ -1032,6 +1069,30 @@ function MediaEditor({
     }
   }
 
+  async function handleVideoUpload(file: File) {
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error("Video must be under 25 MB");
+      return;
+    }
+    setBusy(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "mp4";
+      const path = `video/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage
+        .from("question-media")
+        .upload(path, file, { contentType: file.type || "video/mp4", upsert: false });
+      if (error) throw error;
+      setQ({ ...q, media_url: path, media_type: "video" });
+      const res = await signFn({ data: { path } });
+      setPreviewUrl(res.signedUrl);
+      toast.success("Video uploaded");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="mt-4 rounded-2xl border border-border bg-background/40 p-4">
       <div className="flex items-center justify-between gap-3">
@@ -1039,7 +1100,7 @@ function MediaEditor({
         <select
           value={type}
           onChange={(e) => {
-            const v = e.target.value as "none" | "image" | "audio";
+            const v = e.target.value as "none" | "image" | "audio" | "video";
             if (v === "none") setQ({ ...q, media_url: null, media_type: null });
             else setQ({ ...q, media_type: v });
           }}
@@ -1048,6 +1109,7 @@ function MediaEditor({
           <option value="none">None</option>
           <option value="image">Image</option>
           <option value="audio">Audio</option>
+          <option value="video">Video</option>
         </select>
       </div>
 
@@ -1092,16 +1154,83 @@ function MediaEditor({
       )}
 
       {type === "audio" && (
-        <div className="mt-3 space-y-2">
-          <input
-            type="file"
-            accept="audio/*"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void handleAudioUpload(f);
-            }}
-            className="block w-full text-sm"
-          />
+        <div className="mt-3 space-y-3">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setAudioSource("upload")}
+              className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-widest ${
+                audioSource === "upload"
+                  ? "bg-accent text-accent-foreground"
+                  : "bg-background/60 text-muted-foreground"
+              }`}
+            >
+              Upload file
+            </button>
+            <button
+              type="button"
+              onClick={() => setAudioSource("ai")}
+              className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-widest ${
+                audioSource === "ai"
+                  ? "bg-accent text-accent-foreground"
+                  : "bg-background/60 text-muted-foreground"
+              }`}
+            >
+              AI voice
+            </button>
+          </div>
+
+          {audioSource === "upload" ? (
+            <>
+              <input
+                type="file"
+                accept="audio/*"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void handleAudioUpload(f);
+                }}
+                className="block w-full text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                MP3/M4A/WAV under 15 MB. The host TV will auto-play the clip once when the round starts.
+              </p>
+            </>
+          ) : (
+            <>
+              <textarea
+                value={voiceText}
+                onChange={(e) => setVoiceText(e.target.value)}
+                placeholder="Line to speak (e.g. 'I'll be back.')"
+                maxLength={500}
+                className="min-h-[60px] w-full rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={voiceId}
+                  onChange={(e) => setVoiceId(e.target.value)}
+                  className="rounded-xl border border-border bg-background/60 px-3 py-1.5 text-sm"
+                >
+                  {VOICES.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleGenerateVoice}
+                  disabled={busy}
+                  className="rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+                >
+                  {busy ? "Working…" : previewUrl ? "Regenerate voice" : "Generate voice"}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                AI-generated impression. Not the real person.
+              </p>
+            </>
+          )}
+
           {previewUrl && (
             <div className="space-y-2">
               <audio src={previewUrl} controls className="w-full" />
@@ -1117,8 +1246,41 @@ function MediaEditor({
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {type === "video" && (
+        <div className="mt-3 space-y-2">
+          <input
+            type="file"
+            accept="video/*"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void handleVideoUpload(f);
+            }}
+            className="block w-full text-sm"
+          />
+          {previewUrl && (
+            <div className="space-y-2">
+              <video
+                src={previewUrl}
+                controls
+                className="mt-2 max-h-64 w-full rounded-xl border border-border object-contain"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setQ({ ...q, media_url: null, media_type: null });
+                  setPreviewUrl(null);
+                }}
+                className="text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground"
+              >
+                Clear
+              </button>
+            </div>
+          )}
           <p className="text-xs text-muted-foreground">
-            MP3/M4A/WAV under 6 MB. The host TV will auto-play the clip once when the round starts.
+            MP4/WebM/MOV under 25 MB. The host TV will auto-play the clip once when the round starts.
           </p>
         </div>
       )}
