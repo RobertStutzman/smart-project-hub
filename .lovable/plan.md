@@ -1,16 +1,9 @@
-# Add 5 bonus announcer lines
+# Punch up lobby music
 
-Append to `VO_LINES` in `src/lib/announcer.functions.ts`:
+Edit `src/lib/announcer.functions.ts` `LOBBY_MUSIC` block:
 
-- `vo_new_challenger` — "A new challenger appears!"
-- `vo_streak_3` — "Three in a row!"
-- `vo_unstoppable` — "Unstoppable!"
-- `vo_neck_and_neck` — "It's neck and neck!"
-- `vo_blowout` — "It's not even close."
+- Prompt → "Loud, high-energy TV game show theme, big brass stabs, funky bass, hand claps, retro synth hits, crowd hype, anticipation building, 120 BPM, loopable, instrumental, no vocals, prime-time television production"
+- Volume → 0.7
+- Duration → 45000 ms (pass to `generateMusic` call)
 
-All marked `audienceVisible: true` so they appear in the soundboard for manual play. No event auto-assignment (those slots are already taken by the existing lines). After shipping, hit **Generate AI announcer pack** again to add them to the pack.
-
-## Files touched
-- `src/lib/announcer.functions.ts` — append 5 entries
-
-No schema changes, no other files.
+One file, three values. Then click **Generate AI announcer pack** in Admin → Soundboard to rebuild.
