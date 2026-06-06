@@ -528,11 +528,10 @@ function PlayPage() {
               </div>
             ) : room.phase === "final_question" ? (
               <>
-                <div className="rounded-2xl border-2 border-amber-300/60 bg-amber-500/10 p-3 text-center backdrop-blur">
-                  <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300">★ Final question · wagered {me?.final_wager ?? 0}</div>
-                  <div className="line-clamp-3 text-sm font-semibold">{room.current_question_text}</div>
+                <div className="flex items-center justify-between rounded-2xl border-2 border-amber-300/60 bg-amber-500/10 px-4 py-2 backdrop-blur">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-300">★ Final · wagered {me?.final_wager ?? 0}</div>
                   {remainingS !== null && (
-                    <div className="mt-1 font-mono text-xl font-black">{Math.ceil(remainingS)}s</div>
+                    <div className="font-mono text-xl font-black text-amber-200">{Math.ceil(remainingS)}s</div>
                   )}
                 </div>
                 <div className="min-h-0 flex-1">
