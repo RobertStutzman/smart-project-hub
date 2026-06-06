@@ -9,7 +9,7 @@ const SLOTS = [
 ] as const;
 
 function Shape({ kind }: { kind: (typeof SLOTS)[number]["shape"] }) {
-  const cls = "h-16 w-16 opacity-25";
+  const cls = "h-10 w-10 opacity-15";
   switch (kind) {
     case "circle":
       return <svg viewBox="0 0 24 24" className={cls}><circle cx="12" cy="12" r="9" fill="currentColor" /></svg>;
@@ -59,21 +59,19 @@ export function AnswerGrid({
               play("tap");
               onPick(i as 0 | 1 | 2 | 3);
             }}
-            className={`relative flex flex-col items-center justify-center overflow-hidden rounded-2xl text-primary-foreground transition active:scale-[0.97] ${slot.color} ring-0 focus:outline-none focus:ring-4 ${slot.ring} ${
+            className={`relative flex items-center justify-center overflow-hidden rounded-2xl p-4 text-primary-foreground transition active:scale-[0.97] ${slot.color} ring-0 focus:outline-none focus:ring-4 ${slot.ring} ${
               dropped ? "opacity-30 grayscale" : ""
             } ${selected ? "ring-4 ring-white" : ""}`}
           >
-            <div className="absolute inset-0 grid place-items-center text-white">
+            <span className="absolute left-2 top-2 grid h-7 w-7 place-items-center rounded-md bg-black/25 font-display text-sm font-black text-white">
+              {slot.key}
+            </span>
+            <div className="absolute right-2 bottom-2 text-white">
               <Shape kind={slot.shape} />
             </div>
-            <div className="relative z-10 flex flex-col items-center gap-1 px-3 text-center">
-              <span className="font-display text-4xl font-black drop-shadow">
-                {slot.key}
-              </span>
-              {labels?.[i] && (
-                <span className="line-clamp-2 text-sm font-semibold">{labels[i]}</span>
-              )}
-            </div>
+            <span className="relative z-10 line-clamp-4 px-2 text-center text-xl font-bold leading-tight text-white drop-shadow sm:text-2xl">
+              {labels?.[i] ?? slot.key}
+            </span>
             {dropped && (
               <div className="absolute inset-0 grid place-items-center bg-black/40 text-6xl">
                 ✕
