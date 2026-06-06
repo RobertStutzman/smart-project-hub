@@ -465,6 +465,16 @@ export function HostGameStage({ room }: Props) {
               {correctText}
             </div>
           </div>
+          {state.current_explanation && state.current_explanation.trim().length > 0 && (
+            <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-amber-300/40 bg-amber-400/10 px-5 py-4 text-center backdrop-blur">
+              <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300/90">
+                💡 Did you know?
+              </div>
+              <div className="mt-1 text-base font-medium leading-snug text-white/90 sm:text-lg">
+                {state.current_explanation}
+              </div>
+            </div>
+          )}
           <div className="mt-8 space-y-2">
             {ranked.map((p) => {
               const delta = p.current_round_score ?? 0;
