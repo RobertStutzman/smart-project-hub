@@ -89,7 +89,7 @@ export function HostGameStage({ room }: Props) {
       const { data: r } = await supabase
         .from("rooms")
         .select(
-          "id, room_code, phase, current_question_text, current_answers, current_correct_index, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number",
+          "id, room_code, phase, current_question_text, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number",
         )
         .eq("id", room.id)
         .maybeSingle();
