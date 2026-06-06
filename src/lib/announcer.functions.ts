@@ -156,7 +156,16 @@ async function assertAdmin(userId: string) {
   if (!data) throw new Error("Admin access required");
 }
 
-async function generateTTS(text: string): Promise<ArrayBuffer> {
+async function generateTTS(
+  text: string,
+  voiceSettings?: {
+    stability?: number;
+    similarity_boost?: number;
+    style?: number;
+    use_speaker_boost?: boolean;
+    speed?: number;
+  },
+): Promise<ArrayBuffer> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) throw new Error("ELEVENLABS_API_KEY not configured");
   const res = await fetch(
@@ -171,12 +180,11 @@ async function generateTTS(text: string): Promise<ArrayBuffer> {
         text,
         model_id: "eleven_multilingual_v2",
         voice_settings: {
-          stability: 0.2,
-          similarity_boost: 0.75,
-          style: 0.9,
-
-          use_speaker_boost: true,
-          speed: 1.0,
+          stability: voiceSettings?.stability ?? 0.2,
+          similarity_boost: voiceSettings?.similarity_boost ?? 0.75,
+          style: voiceSettings?.style ?? 0.9,
+          use_speaker_boost: voiceSettings?.use_speaker_boost ?? true,
+          speed: voiceSettings?.speed ?? 1.0,
         },
       }),
     },
