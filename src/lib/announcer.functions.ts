@@ -339,3 +339,14 @@ export const generateAnnouncerPack = createServerFn({ method: "POST" })
       total: VO_LINES.length + 1,
     };
   });
+
+export const previewAnnouncerLine = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ text: z.string().min(1).max(500) }).parse)
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const audio = await generateTTS(data.text);
+    const audioBase64 = Buffer.from(audio).toString("base64");
+    return { audioBase64 };
+  });
+
