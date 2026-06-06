@@ -42,6 +42,9 @@ type Player = {
   current_round_fastest: boolean;
   streak_count: number;
   is_audience: boolean;
+  final_wager: number;
+  final_answer: number | null;
+  final_locked_at: string | null;
 };
 
 type Props = {
