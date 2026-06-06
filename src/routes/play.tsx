@@ -34,6 +34,7 @@ type RoomState = {
   current_question_text: string | null;
   current_answers: string[] | null;
   current_correct_index: number | null;
+  current_explanation: string | null;
   question_started_at: string | null;
   question_duration_ms: number;
   dropped_indexes: number[];
@@ -105,7 +106,7 @@ function PlayPage() {
       const { data: r } = await supabase
         .from("rooms")
         .select(
-          "id, status, phase, current_category, current_question_text, current_answers, current_correct_index, question_started_at, question_duration_ms, dropped_indexes, is_paused, host_last_seen_at, wildcard, saboteur_session_id, glitch_active_until, glitch_used, round_number",
+          "id, status, phase, current_category, current_question_text, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, is_paused, host_last_seen_at, wildcard, saboteur_session_id, glitch_active_until, glitch_used, round_number",
         )
         .eq("room_code", session.roomCode)
         .maybeSingle();
