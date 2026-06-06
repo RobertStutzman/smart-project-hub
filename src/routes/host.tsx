@@ -388,13 +388,13 @@ function HostPage() {
 
           {/* RIGHT — players + controls */}
           <div className="flex flex-col gap-5">
-            <div className="rounded-3xl border border-border bg-card/40 p-6 backdrop-blur">
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur">
               <div className="mb-4 flex items-baseline justify-between">
-                <h2 className="text-xl font-bold">Players</h2>
-                <span className="text-sm text-muted-foreground">{players.length} in lobby</span>
+                <h2 className="text-xl font-bold text-white">Players</h2>
+                <span className="text-sm text-white/60">{players.length} in lobby</span>
               </div>
               {players.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
+                <div className="rounded-xl border border-dashed border-white/15 p-6 text-center text-sm text-white/60">
                   Waiting for players to join…
                 </div>
               ) : (
