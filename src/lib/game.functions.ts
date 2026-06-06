@@ -122,10 +122,22 @@ export const nextQuestion = createServerFn({ method: "POST" })
       .eq("room_id", room.id);
     const usedIds = (used ?? []).map((r) => r.question_id);
 
-    // Rotate difficulty evenly across rounds: easy → medium → hard → impossible → repeat.
-    const DIFFICULTY_ROTATION = ["easy", "medium", "hard", "impossible"] as const;
-    const targetDifficulty =
-      DIFFICULTY_ROTATION[(nextRound - 1) % DIFFICULTY_ROTATION.length];
+    // Pick difficulty to keep an even spread across the game without a predictable order.
+    // Strategy: count how many of each difficulty we've already asked this room, then
+    // pick randomly among the difficulties that are tied for least-used so far.
+    const DIFFICULTIES = ["easy", "medium", "hard", "impossible"] as const;
+    const { data: askedRows } = await supabaseAdmin
+      .from("room_questions")
+      .select("question_id, questions:question_id(difficulty)")
+      .eq("room_id", room.id);
+    const counts: Record<string, number> = { easy: 0, medium: 0, hard: 0, impossible: 0 };
+    for (const r of askedRows ?? []) {
+      const d = (r as { questions?: { difficulty?: string } | null }).questions?.difficulty;
+      if (d && d in counts) counts[d] += 1;
+    }
+    const minCount = Math.min(...DIFFICULTIES.map((d) => counts[d]));
+    const leastUsed = DIFFICULTIES.filter((d) => counts[d] === minCount);
+    const targetDifficulty = leastUsed[Math.floor(Math.random() * leastUsed.length)];
 
     async function fetchPool(difficulty: string | null, useCategory: boolean) {
       let qQuery = supabaseAdmin.from("questions").select("*");
