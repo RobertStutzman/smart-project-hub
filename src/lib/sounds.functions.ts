@@ -171,7 +171,7 @@ export const updateClipSettings = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
-    const patch: Record<string, unknown> = {};
+    const patch: { volume?: number; loop?: boolean; label?: string } = {};
     if (data.volume !== undefined) patch.volume = data.volume;
     if (data.loop !== undefined) patch.loop = data.loop;
     if (data.label !== undefined) patch.label = data.label;
