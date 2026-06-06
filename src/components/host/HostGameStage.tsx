@@ -97,7 +97,7 @@ export function HostGameStage({ room }: Props) {
       const { data: ps } = await supabase
         .from("players")
         .select(
-          "id, nickname, score, avatar_url, current_answer, current_round_score, current_round_fastest, streak_count, is_audience",
+          "id, nickname, score, avatar_url, current_answer, current_round_score, current_round_fastest, streak_count, is_audience, final_wager, final_answer, final_locked_at",
         )
         .eq("room_id", room.id)
         .order("created_at", { ascending: true });
