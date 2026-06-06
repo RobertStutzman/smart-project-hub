@@ -236,7 +236,7 @@ export function QuestionStage({
   );
 }
 
-function ShatterPanel({ letter, label }: { letter: string; label: string }) {
+function ShatterOverlay({ letter, label }: { letter: string; label: string }) {
   // 6 shards exploding outward
   const shards = [
     { x: -120, y: -90, r: -25 },
@@ -250,8 +250,8 @@ function ShatterPanel({ letter, label }: { letter: string; label: string }) {
     <motion.div
       initial={{ opacity: 1 }}
       animate={{ opacity: 0 }}
-      transition={{ duration: 0.6, delay: 0.25 }}
-      className="relative overflow-visible rounded-2xl"
+      transition={{ duration: 0.7, delay: 0.4 }}
+      className="pointer-events-none absolute inset-0 overflow-visible rounded-2xl"
     >
       {shards.map((s, idx) => (
         <motion.div
