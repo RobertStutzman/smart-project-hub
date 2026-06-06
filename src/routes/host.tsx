@@ -454,8 +454,8 @@ function HostPage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-border bg-card/40 p-6 backdrop-blur">
-              <h2 className="mb-3 text-lg font-bold">Pick a category</h2>
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur">
+              <h2 className="mb-3 text-lg font-bold text-white">Pick a category</h2>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {CATEGORIES.map((c) => {
                   const isActive = c.name === activeCategory;
