@@ -14,6 +14,21 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+async function resolveMedia(
+  mediaUrl: string | null | undefined,
+  mediaType: string | null | undefined,
+): Promise<{ url: string | null; type: string | null }> {
+  if (!mediaUrl || !mediaType) return { url: null, type: null };
+  // Already an absolute URL (legacy/manual entry) — pass through.
+  if (/^https?:\/\//i.test(mediaUrl)) return { url: mediaUrl, type: mediaType };
+  // Treat as a storage path inside the question-media bucket and sign it.
+  const { data, error } = await supabaseAdmin.storage
+    .from("question-media")
+    .createSignedUrl(mediaUrl, 60 * 60);
+  if (error || !data) return { url: null, type: null };
+  return { url: data.signedUrl, type: mediaType };
+}
+
 async function getRoomByHost(roomCode: string, hostSessionId: string) {
   const { data, error } = await supabaseAdmin
     .from("rooms")
