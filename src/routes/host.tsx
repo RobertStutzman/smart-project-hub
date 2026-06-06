@@ -438,8 +438,8 @@ function HostPage() {
                         onClick={() => setTheme(t as ThemeName)}
                         className={`rounded-full border px-3 py-1 text-xs transition ${
                           theme === t
-                            ? "border-foreground bg-foreground/10"
-                            : "border-border hover:bg-background/60"
+                            ? "border-amber-300/60 bg-amber-300/15 text-amber-100"
+                            : "border-white/15 text-white/70 hover:bg-white/10"
                         }`}
                       >
                         {THEME_META[t as ThemeName].label}
@@ -447,8 +447,8 @@ function HostPage() {
                     ))}
                   </div>
                 </div>
-                <div className="mt-1 flex items-center justify-between rounded-xl border border-dashed border-border/60 p-2 text-xs text-muted-foreground">
-                  Press <kbd className="rounded bg-background/60 px-2 py-0.5 font-mono">Space</kbd> to {paused ? "resume" : "pause"}
+                <div className="mt-1 flex items-center justify-between rounded-xl border border-dashed border-white/15 p-2 text-xs text-white/60">
+                  Press <kbd className="rounded bg-white/10 px-2 py-0.5 font-mono text-white/80">Space</kbd> to {paused ? "resume" : "pause"}
                   {paused ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
                 </div>
               </div>
