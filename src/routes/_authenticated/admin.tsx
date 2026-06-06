@@ -1150,23 +1150,75 @@ function MediaEditor({
       </div>
 
       {type === "image" && (
-        <div className="mt-3 space-y-2">
-          <textarea
-            value={imgPrompt}
-            onChange={(e) => setImgPrompt(e.target.value)}
-            placeholder="Describe the image (e.g. 'a close-up of a vintage Fender Stratocaster on a stage')"
-            className="min-h-[60px] w-full rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
-          />
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="mt-3 space-y-3">
+          <div className="flex gap-2">
             <button
               type="button"
-              onClick={handleGenerate}
-              disabled={busy}
-              className="rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+              onClick={() => setImageSource("upload")}
+              className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-widest ${
+                imageSource === "upload"
+                  ? "bg-accent text-accent-foreground"
+                  : "bg-background/60 text-muted-foreground"
+              }`}
             >
-              {busy ? "Working…" : previewUrl ? "Regenerate" : "Generate image"}
+              Upload
             </button>
-            {previewUrl && (
+            <button
+              type="button"
+              onClick={() => setImageSource("ai")}
+              className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-widest ${
+                imageSource === "ai"
+                  ? "bg-accent text-accent-foreground"
+                  : "bg-background/60 text-muted-foreground"
+              }`}
+            >
+              AI generate
+            </button>
+          </div>
+
+          {imageSource === "upload" ? (
+            <div className="space-y-2">
+              <input
+                type="file"
+                accept="image/*"
+                disabled={busy}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void handleImageUpload(f);
+                  e.target.value = "";
+                }}
+                className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-full file:border-0 file:bg-accent file:px-4 file:py-1.5 file:text-sm file:font-semibold file:text-accent-foreground"
+              />
+              <p className="text-xs text-muted-foreground">
+                JPG/PNG/WebP under 10 MB. Shows centered above the answers during the question.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <textarea
+                value={imgPrompt}
+                onChange={(e) => setImgPrompt(e.target.value)}
+                placeholder="Describe the image (e.g. 'a close-up of a vintage Fender Stratocaster on a stage')"
+                className="min-h-[60px] w-full rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={busy}
+                className="rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+              >
+                {busy ? "Working…" : previewUrl ? "Regenerate" : "Generate image"}
+              </button>
+            </div>
+          )}
+
+          {previewUrl && (
+            <div className="space-y-2">
+              <img
+                src={previewUrl}
+                alt=""
+                className="max-h-64 rounded-xl border border-border object-contain"
+              />
               <button
                 type="button"
                 onClick={() => {
@@ -1175,16 +1227,9 @@ function MediaEditor({
                 }}
                 className="text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground"
               >
-                Clear
+                Clear image
               </button>
-            )}
-          </div>
-          {previewUrl && (
-            <img
-              src={previewUrl}
-              alt=""
-              className="mt-2 max-h-64 rounded-xl border border-border object-contain"
-            />
+            </div>
           )}
         </div>
       )}
