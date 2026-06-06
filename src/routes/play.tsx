@@ -303,6 +303,35 @@ function PlayPage() {
     }
   };
 
+  const [wagerDraft, setWagerDraft] = useState<number>(0);
+  useEffect(() => {
+    if (room?.phase === "final_wager" && !me?.final_locked_at) {
+      setWagerDraft((w) => Math.min(w, me?.score ?? 0));
+    }
+  }, [room?.phase, me?.score, me?.final_locked_at]);
+
+  const sendWager = async () => {
+    if (!session) return;
+    Haptics.tap();
+    try {
+      await submitWagerFn({
+        data: { roomCode: session.roomCode, sessionId: session.sessionId, wager: wagerDraft },
+      });
+    } catch { /* ignore */ }
+  };
+
+  const pickFinal = async (i: 0 | 1 | 2 | 3) => {
+    if (!session) return;
+    Haptics.tap();
+    try {
+      await lockFinalFn({
+        data: { roomCode: session.roomCode, sessionId: session.sessionId, answerIndex: i },
+      });
+    } catch { /* ignore */ }
+  };
+
+
+
   return (
     <main className="relative h-screen overflow-hidden bg-background text-foreground">
       <HeartbeatBackground secondsLeft={room.phase === "question" ? remainingS : null} />
