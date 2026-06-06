@@ -565,6 +565,7 @@ function AIGenerator({
   const [category, setCategory] = useState(CATEGORIES[0].name);
   const [count, setCount] = useState(10);
   const [isPremium, setIsPremium] = useState(false);
+  const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard" | "impossible" | "mixed">("mixed");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [preview, setPreview] = useState<
@@ -574,6 +575,8 @@ function AIGenerator({
       wrong_1: string;
       wrong_2: string;
       wrong_3: string;
+      explanation?: string;
+      difficulty: Difficulty;
       category: string;
       is_premium: boolean;
     }>
@@ -587,7 +590,7 @@ function AIGenerator({
     try {
       if (count <= BATCH) {
         const res = await generate({
-          data: { prompt, category, count, isPremium },
+          data: { prompt, category, count, isPremium, difficulty },
         });
         setPreview(res.questions);
       } else {
@@ -599,7 +602,7 @@ function AIGenerator({
         while (remaining > 0) {
           const batchSize = Math.min(BATCH, remaining);
           const res = await generate({
-            data: { prompt, category, count: batchSize, isPremium },
+            data: { prompt, category, count: batchSize, isPremium, difficulty },
           });
           const rows = res.questions.map((q) => ({
             category: q.category,
@@ -609,6 +612,8 @@ function AIGenerator({
             wrong_1: q.wrong_1,
             wrong_2: q.wrong_2,
             wrong_3: q.wrong_3,
+            explanation: q.explanation ?? null,
+            difficulty: q.difficulty,
             media_url: null,
             media_type: null,
             is_premium: q.is_premium,
@@ -643,6 +648,8 @@ function AIGenerator({
             wrong_1: q.wrong_1,
             wrong_2: q.wrong_2,
             wrong_3: q.wrong_3,
+            explanation: q.explanation ?? null,
+            difficulty: q.difficulty,
             media_url: null,
             media_type: null,
             is_premium: q.is_premium,
