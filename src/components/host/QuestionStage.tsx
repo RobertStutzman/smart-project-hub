@@ -16,6 +16,7 @@ type Props = {
   secondsLeft: number;
   players: Player[];
   phase: "question" | "reveal";
+  explanation?: string | null;
 };
 
 const LETTERS = ["A", "B", "C", "D"] as const;
@@ -28,6 +29,7 @@ export function QuestionStage({
   secondsLeft,
   players,
   phase,
+  explanation,
 }: Props) {
   // Heartbeat pulse + screen shake on each new drop
   const [pulse, setPulse] = useState(false);
