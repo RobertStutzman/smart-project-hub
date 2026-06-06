@@ -204,10 +204,82 @@ export function HostGameStage({ room }: Props) {
   // Tense music during question, lobby during lobby
   useEffect(() => {
     if (!state) return;
-    if (state.phase === "question") startMusic("tense", 380);
+    if (state.phase === "question" || state.phase === "final_question")
+      startMusic("tense", 380);
     else if (state.phase === "lobby") startMusic("lobby", 600);
+    else if (state.phase === "final_intro" || state.phase === "final_wager")
+      startMusic("tense", 520);
     else stopMusic();
   }, [state?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Final round orchestrator ─────────────────────────────────────────
+  const finalAdvancedRef = useRef<string>("");
+  useEffect(() => {
+    if (!state) return;
+    const phase = state.phase;
+
+    // Intro → wager after 5s
+    if (phase === "final_intro") {
+      const key = `intro-${state.id}`;
+      if (finalAdvancedRef.current === key) return;
+      const id = window.setTimeout(() => {
+        finalAdvancedRef.current = key;
+        setPhaseFn({
+          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "final_wager" },
+        }).catch(() => {});
+      }, 5000);
+      return () => window.clearTimeout(id);
+    }
+
+    // Wager → start question after 20s OR when all live players locked
+    if (phase === "final_wager") {
+      const live = players.filter((p) => !p.is_audience);
+      const allLocked = live.length > 0 && live.every((p) => !!p.final_locked_at);
+      const key = `wager-${state.id}`;
+      const fire = () => {
+        if (finalAdvancedRef.current === key) return;
+        finalAdvancedRef.current = key;
+        startFinalQuestionFn({
+          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+        }).catch(() => {});
+      };
+      if (allLocked) {
+        const id = window.setTimeout(fire, 800);
+        return () => window.clearTimeout(id);
+      }
+      const id = window.setTimeout(fire, 20000);
+      return () => window.clearTimeout(id);
+    }
+
+    // Question → score when timer runs out
+    if (phase === "final_question" && state.question_started_at) {
+      const startMs = new Date(state.question_started_at).getTime();
+      const remainingMs = state.question_duration_ms - (now - startMs);
+      if (remainingMs <= 0) {
+        const key = `score-${state.question_started_at}`;
+        if (finalAdvancedRef.current === key) return;
+        finalAdvancedRef.current = key;
+        play("whoosh");
+        scoreFinalRoundFn({
+          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+        }).catch(() => {});
+      }
+    }
+
+    // Reveal → ended after 7s
+    if (phase === "final_reveal") {
+      const key = `reveal-${state.id}`;
+      if (finalAdvancedRef.current === key) return;
+      const id = window.setTimeout(() => {
+        finalAdvancedRef.current = key;
+        endGameFn({
+          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+        }).catch(() => {});
+      }, 7000);
+      return () => window.clearTimeout(id);
+    }
+  }, [state, now, players, setPhaseFn, startFinalQuestionFn, scoreFinalRoundFn, endGameFn, room.roomCode, room.hostSessionId]);
+
 
   if (!state) return null;
 
