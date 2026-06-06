@@ -217,30 +217,34 @@ export function QuestionStage({
                 </div>
 
                 <div className="flex min-h-[28px] flex-wrap items-center gap-1.5">
-                  {phase === "question" && !dropped &&
-                    locks.slice(0, 12).map((p) => (
-                      <motion.div
-                        key={p.id}
-                        layout
-                        initial={{ scale: 0.6, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.6, opacity: 0 }}
-                        transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                        title={p.nickname}
-                        className="h-7 w-7 overflow-hidden rounded-full ring-2 ring-white/40 shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
-                      >
-                        {p.avatar_url ? (
-                          <img src={p.avatar_url} alt={p.nickname} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="grid h-full w-full place-items-center bg-white/20 text-[10px] font-black text-white">
-                            {p.nickname.slice(0, 1).toUpperCase()}
-                          </div>
-                        )}
-                      </motion.div>
-                    ))}
+                  {phase === "question" && !dropped && (
+                    <AnimatePresence mode="popLayout">
+                      {locks.slice(0, 12).map((p) => (
+                        <motion.div
+                          key={p.id}
+                          layout
+                          initial={{ scale: 0.6, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.6, opacity: 0 }}
+                          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                          title={p.nickname}
+                          className="h-7 w-7 overflow-hidden rounded-full ring-2 ring-white/40 shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
+                        >
+                          {p.avatar_url ? (
+                            <img src={p.avatar_url} alt={p.nickname} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="grid h-full w-full place-items-center bg-white/20 text-[10px] font-black text-white">
+                              {p.nickname.slice(0, 1).toUpperCase()}
+                            </div>
+                          )}
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  )}
                   {phase === "question" && !dropped && locks.length > 12 && (
                     <div className="text-[10px] font-bold text-white/60">+{locks.length - 12}</div>
                   )}
+
                   {phase === "reveal" && !dropped &&
                     locks.slice(0, 12).map((p) => (
                       <div
