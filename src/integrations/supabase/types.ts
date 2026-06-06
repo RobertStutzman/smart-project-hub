@@ -291,34 +291,96 @@ export type Database = {
       }
       sound_clips: {
         Row: {
+          audience_visible: boolean
+          category: string
           created_at: string
           id: string
           is_active: boolean
           label: string
           loop: boolean
+          original_filename: string | null
           slot: string
           storage_path: string
           volume: number
         }
         Insert: {
+          audience_visible?: boolean
+          category?: string
           created_at?: string
           id?: string
           is_active?: boolean
           label: string
           loop?: boolean
+          original_filename?: string | null
           slot: string
           storage_path: string
           volume?: number
         }
         Update: {
+          audience_visible?: boolean
+          category?: string
           created_at?: string
           id?: string
           is_active?: boolean
           label?: string
           loop?: boolean
+          original_filename?: string | null
           slot?: string
           storage_path?: string
           volume?: number
+        }
+        Relationships: []
+      }
+      sound_event_assignments: {
+        Row: {
+          clip_id: string | null
+          event: string
+          loop: boolean
+          updated_at: string
+          volume: number
+        }
+        Insert: {
+          clip_id?: string | null
+          event: string
+          loop?: boolean
+          updated_at?: string
+          volume?: number
+        }
+        Update: {
+          clip_id?: string | null
+          event?: string
+          loop?: boolean
+          updated_at?: string
+          volume?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sound_event_assignments_clip_id_fkey"
+            columns: ["clip_id"]
+            isOneToOne: false
+            referencedRelation: "sound_clips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sound_folders: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
         }
         Relationships: []
       }

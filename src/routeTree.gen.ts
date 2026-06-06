@@ -17,8 +17,8 @@ import { Route as HostRouteImport } from './routes/host'
 import { Route as DevRouteImport } from './routes/dev'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedAdminSoundsRouteImport } from './routes/_authenticated/admin-sounds'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
-import { Route as AuthenticatedAdminSoundsRouteImport } from './routes/_authenticated/admin.sounds'
 
 const PreviewQuestionRoute = PreviewQuestionRouteImport.update({
   id: '/preview-question',
@@ -59,17 +59,17 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAdminSoundsRoute =
+  AuthenticatedAdminSoundsRouteImport.update({
+    id: '/admin-sounds',
+    path: '/admin-sounds',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedAdminSoundsRoute =
-  AuthenticatedAdminSoundsRouteImport.update({
-    id: '/sounds',
-    path: '/sounds',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -79,8 +79,8 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/play': typeof PlayRoute
   '/preview-question': typeof PreviewQuestionRoute
-  '/admin': typeof AuthenticatedAdminRouteWithChildren
-  '/admin/sounds': typeof AuthenticatedAdminSoundsRoute
+  '/admin': typeof AuthenticatedAdminRoute
+  '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -90,8 +90,8 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/play': typeof PlayRoute
   '/preview-question': typeof PreviewQuestionRoute
-  '/admin': typeof AuthenticatedAdminRouteWithChildren
-  '/admin/sounds': typeof AuthenticatedAdminSoundsRoute
+  '/admin': typeof AuthenticatedAdminRoute
+  '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -103,8 +103,8 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/play': typeof PlayRoute
   '/preview-question': typeof PreviewQuestionRoute
-  '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
-  '/_authenticated/admin/sounds': typeof AuthenticatedAdminSoundsRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/admin-sounds': typeof AuthenticatedAdminSoundsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -117,7 +117,7 @@ export interface FileRouteTypes {
     | '/play'
     | '/preview-question'
     | '/admin'
-    | '/admin/sounds'
+    | '/admin-sounds'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -128,7 +128,7 @@ export interface FileRouteTypes {
     | '/play'
     | '/preview-question'
     | '/admin'
-    | '/admin/sounds'
+    | '/admin-sounds'
   id:
     | '__root__'
     | '/'
@@ -140,7 +140,7 @@ export interface FileRouteTypes {
     | '/play'
     | '/preview-question'
     | '/_authenticated/admin'
-    | '/_authenticated/admin/sounds'
+    | '/_authenticated/admin-sounds'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -212,6 +212,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/admin-sounds': {
+      id: '/_authenticated/admin-sounds'
+      path: '/admin-sounds'
+      fullPath: '/admin-sounds'
+      preLoaderRoute: typeof AuthenticatedAdminSoundsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin': {
       id: '/_authenticated/admin'
       path: '/admin'
@@ -219,33 +226,17 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/admin/sounds': {
-      id: '/_authenticated/admin/sounds'
-      path: '/sounds'
-      fullPath: '/admin/sounds'
-      preLoaderRoute: typeof AuthenticatedAdminSoundsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
   }
 }
 
-interface AuthenticatedAdminRouteChildren {
+interface AuthenticatedRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAdminSoundsRoute: typeof AuthenticatedAdminSoundsRoute
 }
 
-const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
-  AuthenticatedAdminSoundsRoute: AuthenticatedAdminSoundsRoute,
-}
-
-const AuthenticatedAdminRouteWithChildren =
-  AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
-
-interface AuthenticatedRouteChildren {
-  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
-}
-
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedAdminSoundsRoute: AuthenticatedAdminSoundsRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

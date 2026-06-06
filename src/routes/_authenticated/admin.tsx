@@ -198,7 +198,7 @@ function AdminPage() {
           </div>
           <div className="flex items-center gap-2">
             <Link
-              to="/admin/sounds"
+              to="/admin-sounds"
               className="rounded-full border border-border px-4 py-2 text-sm hover:bg-card/60"
             >
               Sounds

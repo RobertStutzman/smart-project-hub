@@ -16,7 +16,7 @@ import { Leaderboard } from "./Leaderboard";
 import { ShatteredFaces } from "./ShatteredFaces";
 import { TwitchPanel } from "./TwitchPanel";
 import { AIRoast } from "./AIRoast";
-import { play, playSting, startMusic, stopMusic } from "@/lib/sound-engine";
+import { play, playEvent, startMusic, stopMusic } from "@/lib/sound-engine";
 
 type RoomState = {
   id: string;
@@ -172,7 +172,7 @@ export function HostGameStage({ room }: Props) {
 
     if ((remainingS <= 0 || finalHoldDone) && !endedRef.current) {
       endedRef.current = true;
-      play("whoosh");
+      playEvent("reveal");
       endQuestionFn({
         data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
       })
@@ -180,7 +180,7 @@ export function HostGameStage({ room }: Props) {
           const correct = livePlayers.some(
             (p) => p.current_answer === state.current_correct_index,
           );
-          play(correct ? "correct" : "wrong");
+          playEvent(correct ? "correct" : "wrong");
         })
         .catch(() => {});
     }
@@ -220,9 +220,21 @@ export function HostGameStage({ room }: Props) {
     const r = state.round_number ?? 0;
     if (state.phase === "question" && r > 0 && r !== lastRoundStingRef.current) {
       lastRoundStingRef.current = r;
-      playSting("round_intro");
+      playEvent("round_intro");
     }
   }, [state?.phase, state?.round_number]);
+
+  // Phase-driven event stings
+  const lastPhaseStingRef = useRef<string>("");
+  useEffect(() => {
+    if (!state) return;
+    const key = `${state.phase}`;
+    if (lastPhaseStingRef.current === key) return;
+    lastPhaseStingRef.current = key;
+    if (state.phase === "leaderboard") playEvent("leaderboard");
+    else if (state.phase === "final_intro") playEvent("final");
+    else if (state.phase === "ended") playEvent("victory");
+  }, [state?.phase]);
 
   // ─── Final round orchestrator ─────────────────────────────────────────
   const finalAdvancedRef = useRef<string>("");
