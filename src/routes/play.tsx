@@ -64,6 +64,9 @@ type Me = {
   best_streak: number;
   total_response_ms: number;
   answered_count: number;
+  final_wager: number;
+  final_answer: number | null;
+  final_locked_at: string | null;
 };
 
 function PlayPage() {
