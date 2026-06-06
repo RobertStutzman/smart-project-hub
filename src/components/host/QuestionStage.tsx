@@ -369,7 +369,28 @@ function ShatterOverlay(_props: { letter: string; label: string }) {
 }
 
 
+function PointsTicker({ secondsLeft, max }: { secondsLeft: number; max: number }) {
+  const points = Math.max(0, Math.round((Math.max(0, secondsLeft) / max) * 1000));
+  const color =
+    points >= 500
+      ? "text-amber-200"
+      : points >= 150
+        ? "text-amber-400"
+        : "text-rose-400";
+  return (
+    <div className="flex flex-col items-end justify-center">
+      <div className="text-[9px] font-bold uppercase tracking-[0.35em] text-white/50">
+        Lock now
+      </div>
+      <div className={`font-mono text-3xl font-black tabular-nums ${color} drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)]`}>
+        {points}
+      </div>
+    </div>
+  );
+}
+
 function TimerRing({ seconds, max, active }: { seconds: number; max: number; active: boolean }) {
+
   const pct = Math.max(0, Math.min(1, seconds / max));
   const r = 36;
   const c = 2 * Math.PI * r;
