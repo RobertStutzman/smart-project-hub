@@ -865,3 +865,89 @@ function ExplanationBackfill({ onUpdated }: { onUpdated: () => Promise<void> | v
     </section>
   );
 }
+
+function DuplicateAnswersRepair({ onUpdated }: { onUpdated: () => Promise<void> | void }) {
+  const countFn = useServerFn(countDuplicateAnswers);
+  const repairFn = useServerFn(repairDuplicateAnswers);
+  const [dupes, setDupes] = useState<number | null>(null);
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState({ updated: 0, total: 0 });
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const { duplicates } = await countFn();
+        setDupes(duplicates);
+      } catch {
+        /* ignore */
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function refresh() {
+    try {
+      const { duplicates } = await countFn();
+      setDupes(duplicates);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function run() {
+    setRunning(true);
+    const initial = dupes ?? 0;
+    setProgress({ updated: 0, total: initial });
+    const toastId = toast.loading(`Repairing duplicate answers… 0 / ${initial}`);
+    let totalUpdated = 0;
+    let safetyCounter = 0;
+    try {
+      while (safetyCounter++ < 200) {
+        const res = await repairFn({ data: { batchSize: 10 } });
+        totalUpdated += res.updated;
+        setProgress({ updated: totalUpdated, total: initial });
+        toast.loading(
+          `Repairing duplicate answers… ${totalUpdated} / ${initial}`,
+          { id: toastId },
+        );
+        if (res.done || res.processed === 0) break;
+      }
+      toast.success(`Done! Repaired ${totalUpdated} question${totalUpdated === 1 ? "" : "s"}.`, { id: toastId });
+    } catch (e) {
+      toast.error((e as Error).message, { id: toastId });
+    } finally {
+      setRunning(false);
+      await refresh();
+      await onUpdated();
+    }
+  }
+
+  if (dupes === 0) return null;
+
+  return (
+    <section className="rounded-3xl border border-rose-500/30 bg-rose-500/5 p-6 backdrop-blur">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold">🛠️ Repair duplicate answers</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {dupes === null
+              ? "Checking for questions with duplicate answer options…"
+              : `${dupes} question${dupes === 1 ? "" : "s"} have a wrong answer that matches the correct one (or another wrong). AI will rewrite the wrong options so all four are distinct.`}
+          </p>
+          {running && progress.total > 0 && (
+            <div className="mt-2 text-xs text-rose-300">
+              Repaired {progress.updated} / {progress.total}…
+            </div>
+          )}
+        </div>
+        <button
+          onClick={run}
+          disabled={running || dupes === null || dupes === 0}
+          className="rounded-full bg-rose-500 px-5 py-2 text-sm font-semibold text-rose-950 disabled:opacity-50"
+        >
+          {running ? "Repairing…" : "Repair duplicates"}
+        </button>
+      </div>
+    </section>
+  );
+}
