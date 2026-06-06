@@ -244,7 +244,7 @@ function HostPage() {
     });
   }
 
-  useRevealAutoAdvance(room?.roomCode ?? "", room?.hostSessionId ?? "", roomPhase);
+  useRevealAutoAdvance(room?.roomCode ?? "", room?.hostSessionId ?? "", roomPhase, roundNumber);
 
   if (room && roomPhase !== "lobby") {
     return (
