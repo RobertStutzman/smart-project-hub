@@ -139,10 +139,12 @@ export type Database = {
           explanation: string | null
           id: string
           is_premium: boolean
+          last_used_at: string | null
           media_type: string | null
           media_url: string | null
           question_text: string
           subcategory: string | null
+          times_used: number
           wrong_1: string
           wrong_2: string
           wrong_3: string
@@ -155,10 +157,12 @@ export type Database = {
           explanation?: string | null
           id?: string
           is_premium?: boolean
+          last_used_at?: string | null
           media_type?: string | null
           media_url?: string | null
           question_text: string
           subcategory?: string | null
+          times_used?: number
           wrong_1: string
           wrong_2: string
           wrong_3: string
@@ -171,10 +175,12 @@ export type Database = {
           explanation?: string | null
           id?: string
           is_premium?: boolean
+          last_used_at?: string | null
           media_type?: string | null
           media_url?: string | null
           question_text?: string
           subcategory?: string | null
+          times_used?: number
           wrong_1?: string
           wrong_2?: string
           wrong_3?: string
