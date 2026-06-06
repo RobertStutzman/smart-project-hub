@@ -9,8 +9,8 @@ export type Sfx =
   | "drop"
   | "tick"
   | "airhorn"
-  | "crickets"
-  | "boo";
+  | "boo"
+  | "sadTrombone";
 
 let ctx: AudioContext | null = null;
 let muted = false;
@@ -126,6 +126,23 @@ export function play(sfx: Sfx) {
       noise(0.6, 0.18);
       sweep(220, 110, 0.6, "sawtooth", 0.18);
       break;
+    case "sadTrombone": {
+      // Wah-wah-wah-waaah
+      const notes: Array<[number, number]> = [
+        [311, 0.18],
+        [277, 0.18],
+        [247, 0.18],
+        [196, 0.55],
+      ];
+      let t = 0;
+      for (const [f, d] of notes) {
+        sweep(f * 1.05, f * 0.92, d, "sawtooth", 0.22);
+        t += d * 0.9;
+        // schedule next via setTimeout-style using startAt on tone
+        tone(f * 0.5, d * 0.8, "triangle", 0.08, t);
+      }
+      break;
+    }
   }
 }
 
