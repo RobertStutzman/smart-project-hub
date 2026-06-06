@@ -108,8 +108,8 @@ function JoinPage() {
         </button>
 
         {step === "form" ? (
-          <div className="my-auto">
-            <h1 className="text-4xl font-black tracking-tight">Join the game</h1>
+          <div className="my-auto rounded-3xl border border-border bg-card p-6 shadow-sm">
+            <h1 className="font-display text-4xl font-bold tracking-tight text-foreground">Join the game</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Enter the 4-letter code shown on the TV.
             </p>
