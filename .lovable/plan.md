@@ -1,30 +1,30 @@
-## Goal
-Remove the 5-second "reading window" so players can buzz in the instant a new question appears, instead of waiting for a countdown.
+## Two changes
 
-## What's there today
-When `nextQuestion` reveals a question (`src/lib/game.functions.ts:232`), it sets `question_started_at` to **`now + 5000ms`**. Both the host (`HostGameStage`/`QuestionStage`) and the player (`play.tsx`) treat any time before that timestamp as a "reading" phase — answers are dimmed, the answer grid is `pointer-events-none`, the buzzer is disabled, and a big countdown number shows on top of the question.
+### 1. Live points countdown
+**Today:** points are awarded at reveal as `round((remainingTime / totalTime) * 1000)` (capped at 1000, +10% if streak ≥ 3, ×2 if pending 2x, +25% rubber-band — none of which players see). So if you lock at 0 s remaining, you get 0. At full time, 1000. Nobody currently sees the meter ticking down.
 
-## Change
-One line in `src/lib/game.functions.ts` line 232:
+**Add:** a live "Lock now: **873**" ticker on both host and player screens, visible only during `phase === "question"`.
 
-```ts
-// before
-question_started_at: new Date(Date.now() + 5000).toISOString(),
-// after
-question_started_at: new Date().toISOString(),
-```
+- Math (client-side, no DB change): `Math.max(0, Math.round((remainingS / totalS) * 1000))`. Recomputed every 100 ms using the same `now` clock both surfaces already poll.
+- Host (`QuestionStage.tsx`): drop it next to the existing seconds-remaining display in the top status bar — big, monospaced, color-shifts amber → rose as it drops below 400, then 150.
+- Player (`play.tsx`): smaller chip above the answer grid. **Once the player has locked an answer, freeze the ticker on the value at lock time** (computed from `current_answer_locked_at`) so they see exactly what they're banking — instead of watching it keep ticking down on a number they already locked in.
+- Bonuses (streak/2x) are intentionally hidden from this number to keep the spoiler-free "rubber-band" surprise and the existing 2x reveal moment intact. If you want 2x to multiply the ticker (so the player sees their gamble in real time), say the word.
 
-That's it. Because `readSecondsLeft = max(0, startMs - now)`, setting `startMs = now` makes `readSecondsLeft` immediately `0` on both host and player, so:
-- The answer grid is interactive on the very first frame.
-- The big read-countdown number never renders.
-- The 15-second answer timer begins counting down right away (no change to total question duration).
-- Media (`QuestionAudio`/`QuestionVideo`) auto-starts immediately, because their `autoStart={!reading}` flips true from the start.
-- The Elf's question voiceover still plays over the top — the buzzer just isn't gated behind it (matches the choice we made when adding question TTS).
+### 2. Real-time avatars on answer tiles when players pick
+**Today:** `QuestionStage.tsx` renders the per-tile avatar chips inside `phase === "reveal"` (line 214) — so during the actual question, you can't see who picked what or who switched.
 
-## Not changing
-- `question_duration_ms` stays at 15 s (the actual answering window).
-- The final-round flow (`startFinalQuestion` already uses `now` with no read window — unchanged).
-- No DB migration, no UI rewrites, no player/host component changes — the "reading" branches stay in the code but just never fire. Leaving them in place keeps the door open if you ever want to re-add a per-room "reading delay" setting later.
+**Add:** render the avatar chips on each answer tile during `phase === "question"` too. When a player changes their pick, their avatar disappears from the old tile and appears on the new tile (driven by Realtime updates to `players.current_answer`, which both host and player already subscribe to).
+
+- Visual treatment during `question` phase: just the avatar circle (no nickname pill, no color — that would spoil right vs. wrong). Slight `motion.div` fade-in / fade-out using the existing `framer-motion` import, keyed by player id, so the swap reads as "Sam slid over."
+- At `phase === "reveal"`, the existing nickname-pill chips take over (correct = amber, wrong = rose). No change to that.
+- Player screen (`play.tsx` answer grid): same treatment — show other players' avatars on each tile in real time so kids see "everyone else moved to B" social pressure. (If you want this host-only and keep the player screen clean, say so.)
+- Show up to 8 avatars per tile during the question (smaller than the reveal chips), then "+N" overflow.
 
 ## Out of scope
-- Making the read delay configurable per room/round. If you'd like a slider in the host controls ("0 s / 3 s / 5 s read time") instead of hard-removing it, say the word and I'll plan that variant instead.
+- Surfacing 2x / streak / rubber-band in the live points number (keeps surprises).
+- Animating the score-bank itself at reveal — separate ask if you want it.
+
+## Files touched
+- `src/components/host/QuestionStage.tsx` — add points ticker, move avatar chips out of the reveal-only branch and add a question-phase variant.
+- `src/routes/play.tsx` — add points ticker (freezes on lock) + avatar overlays on the answer grid.
+- No DB / server changes. No new dependencies.
