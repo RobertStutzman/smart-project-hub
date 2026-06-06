@@ -1,30 +1,39 @@
-# Preview welcome lines before generating the full pack
+# Longer, game-explaining welcome intros
 
 ## Goal
-Audition the 10 Elf welcome lines one-by-one (and tweak them) before burning a full announcer pack regeneration.
+Rewrite the 10 Elf welcome lines so each one actually introduces **Beat the Drop** — explains the format in a sentence, hypes the **Final Drop** (the round where no one is eliminated because anyone can wager it all and steal the win), and keeps the unhinged Elf energy.
 
 ## What changes
+Only one file: `src/lib/announcer.functions.ts` — replace the `WELCOME_LINES` array with 10 longer scripts (~3-5 sentences each, ~25-45 words). Everything else (preview UI, generator, playback on host load) already works and stays as-is.
 
-### 1. New server fn: `previewAnnouncerLine` (in `src/lib/announcer.functions.ts`)
-- Admin-only (`requireSupabaseAuth` + `assertAdmin`).
-- Input: `{ text: string }` (Zod, max ~500 chars).
-- Calls ElevenLabs TTS with the same Elf voice + settings used by the pack.
-- Returns `{ audioBase64: string }` (MP3, base64-encoded — small enough for a single line, no storage write).
+## Draft of the new lines
+Each line follows roughly: **Welcome hook → what the game is → Final Drop tease → sign-off jab.**
 
-Also export the `WELCOME_LINES` array so the UI can list them.
+1. "Welcoooome to BEAT! THE! DROP! Trivia, buzzers, and bad decisions — that's the whole show. Survive the rounds, and you'll hit the Final Drop, where NOBODY is safe and ANYONE can wager it all to steal the W. Let's ruin some friendships!"
 
-### 2. New "Welcome intro preview" card in Admin → Soundboard
-Above the existing **Generate AI announcer pack** button, add a collapsible panel:
+2. "Ohhh strap in, gamers — it's BEAT THE DROP! Answer fast, score big, talk trash. And don't get cocky, because in the Final Drop, even last place can bet the farm and walk out a CHAMPION. Painful, isn't it?"
 
-- Lists all 10 welcome lines as editable rows (textarea + ▶ Preview button per row).
-- Clicking Preview calls `previewAnnouncerLine` with that row's current text and plays the returned audio via a hidden `<Audio>`.
-- A "Reset to defaults" link restores the canonical text.
-- The edited text lives in component state only (no DB write) — purely an audition tool. Once happy, the user clicks **Generate AI announcer pack** as usual.
+3. "Ladies, gentlemen, and chaos goblins — welcome to BEAT THE DROP, the trivia bloodsport where speed pays and silence costs. Stick around for the Final Drop: no eliminations, all-in wagers, ONE winner. Try not to cry on camera!"
 
-This keeps cost low (one TTS call per click instead of all 16) and lets you re-roll any line that flops before committing.
+4. "Welcome to BEAT THE DROP! Here's the deal: questions drop, you buzz in, points pile up. Easy, right? WRONG — because the Final Drop lets ANYONE bet it ALL and yoink the trophy. Leaders beware. Underdogs… get weird."
 
-## Out of scope (for now)
-- Persisting edited welcome lines back to the codebase. If you want that later, we'd add a `welcome_lines` table or commit the chosen lines on Generate. Easy follow-up.
+5. "It's the show your therapist warned you about — BEAT! THE! DROOOOP! Trivia rounds, leaderboard drama, and a Final Drop where no one's eliminated and everyone can risk EVERYTHING. The smartest player rarely wins. The boldest one does."
+
+6. "Welcome contestants — or as I call you, FUTURE LOSERS! Beat the Drop is simple: outscore your friends round after round. Then comes the Final Drop, where every player wagers as much as they DARE. Big brain, big balls, big trophy. Let's go!"
+
+7. "Buckle up buttercups, it's BEAT THE DROP! You'll get trivia, you'll get taunts, you'll get a leaderboard that JUDGES you. And in the Final Drop? No safety net — bet small, play safe; bet it all, become a LEGEND. Choose wisely."
+
+8. "Welcome to BEAT THE DROP! Tonight, one of you becomes a legend — the rest become CONTENT. Race through the rounds, then face the Final Drop: nobody's out, anyone can wager it all, and the standings can flip in ONE question. Spicy!"
+
+9. "Heyyyy players! Beat the Drop is the trivia showdown where speed = points and hesitation = pain. Hang on till the Final Drop — that's where the meek inherit NOTHING, because the brave bet it all and steal the crown. Buzzers up!"
+
+10. "Welcome to BEAT THE DROP, where trivia goes to DIE! Three things to know: answer fast, climb the board, and pray you survive to the Final Drop — the round where nobody's eliminated and ANYONE can wager their whole score. May the boldest goblin win!"
+
+## Out of scope
+- Preview UI, generator, and host-side playback are unchanged.
+- No DB/storage migration needed — the slots (`vo_welcome_1`..`vo_welcome_10`) stay the same; re-running **Generate AI announcer pack** in Admin → Soundboard re-bakes the new MP3s into the existing slots.
 
 ## After shipping
-Open Admin → Soundboard → expand "Welcome intro preview" → hit ▶ next to each line to audition. Edit any line inline and re-preview. When satisfied, click **Generate AI announcer pack** to bake the final set into storage.
+1. Open Admin → Soundboard → **Welcome intros** to preview any line with The Elf.
+2. Tweak inline if a specific one flops.
+3. Click **Generate AI announcer pack** to bake the new versions into storage.
