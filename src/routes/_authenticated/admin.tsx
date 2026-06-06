@@ -397,6 +397,7 @@ function QuestionEditor({
             Premium
           </label>
         </div>
+        <MediaEditor q={q} setQ={setQ} />
         <div className="mt-6 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-full border border-border px-4 py-2 text-sm">
             Cancel
