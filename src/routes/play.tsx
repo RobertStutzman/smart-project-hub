@@ -552,6 +552,16 @@ function PlayPage() {
                   </div>
                   <div className="mt-4 text-xs uppercase tracking-widest text-muted-foreground">Final score</div>
                   <div className="font-mono text-4xl font-black text-amber-200">{me?.score ?? 0}</div>
+                  {room.current_explanation && room.current_explanation.trim().length > 0 && (
+                    <div className="mt-5 rounded-2xl border border-amber-300/40 bg-amber-400/10 p-3 text-left">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-300">
+                        💡 Did you know?
+                      </div>
+                      <div className="mt-1 text-sm leading-snug text-amber-50">
+                        {room.current_explanation}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : room.phase === "question" || room.phase === "reveal" ? (
