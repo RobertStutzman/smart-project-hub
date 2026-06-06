@@ -145,6 +145,8 @@ export type Database = {
           question_text: string
           subcategory: string | null
           times_used: number
+          tts_path: string | null
+          tts_text_hash: string | null
           wrong_1: string
           wrong_2: string
           wrong_3: string
@@ -163,6 +165,8 @@ export type Database = {
           question_text: string
           subcategory?: string | null
           times_used?: number
+          tts_path?: string | null
+          tts_text_hash?: string | null
           wrong_1: string
           wrong_2: string
           wrong_3: string
@@ -181,6 +185,8 @@ export type Database = {
           question_text?: string
           subcategory?: string | null
           times_used?: number
+          tts_path?: string | null
+          tts_text_hash?: string | null
           wrong_1?: string
           wrong_2?: string
           wrong_3?: string
