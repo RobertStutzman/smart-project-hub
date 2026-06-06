@@ -991,6 +991,7 @@ function MediaEditor({
   const [voiceText, setVoiceText] = useState("");
   const [voiceId, setVoiceId] = useState<string>(VOICES[0].id);
   const [audioSource, setAudioSource] = useState<"upload" | "ai">("upload");
+  const [imageSource, setImageSource] = useState<"upload" | "ai">("upload");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const type = (q.media_type ?? "none") as "none" | "image" | "audio" | "video";
 
