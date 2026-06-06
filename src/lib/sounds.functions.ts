@@ -355,6 +355,16 @@ export const getActiveSounds = createServerFn({ method: "GET" }).handler(
       });
     }
 
-    return { events, audience };
+    // Welcome intro pool (random rotation in lobby)
+    const welcomes: { url: string; volume: number; label: string }[] = [];
+    for (const c of clips ?? []) {
+      if (c.category !== "Announcer") continue;
+      if (!/^Welcome\s/i.test(c.label)) continue;
+      const url = await signPath(c.storage_path);
+      if (!url) continue;
+      welcomes.push({ url, volume: 0.95, label: c.label });
+    }
+
+    return { events, audience, welcomes };
   },
 );
