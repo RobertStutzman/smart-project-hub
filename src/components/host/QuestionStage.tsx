@@ -220,16 +220,16 @@ export function QuestionStage({
         {phase === "reveal" && explanation && explanation.trim().length > 0 && (
           <motion.div
             key="explanation"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-            className="relative z-10 mx-auto w-full max-w-4xl rounded-2xl border border-amber-300/40 bg-gradient-to-br from-amber-400/10 to-amber-600/[0.04] px-5 py-3 backdrop-blur-xl"
+            initial={{ opacity: 0, y: 24, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.5, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            className="relative z-10 mx-auto w-full max-w-5xl rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-400/20 via-amber-500/10 to-amber-600/[0.06] px-8 py-6 shadow-[0_20px_80px_-20px_rgba(251,191,36,0.45)] backdrop-blur-xl sm:px-10 sm:py-8"
           >
-            <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300/90">
+            <div className="text-sm font-bold uppercase tracking-[0.4em] text-amber-300">
               💡 Did you know?
             </div>
-            <div className="mt-1 text-base font-medium leading-snug text-white/90 sm:text-lg">
+            <div className="mt-3 text-2xl font-semibold leading-relaxed text-white sm:text-3xl md:text-4xl md:leading-snug">
               {explanation}
             </div>
           </motion.div>
