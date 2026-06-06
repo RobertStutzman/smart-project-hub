@@ -140,9 +140,10 @@ export function HostGameStage({ room }: Props) {
       play("tick");
     }
 
-    // schedule drops
-    DROP_AT_S.forEach((thresholdRemaining, idx) => {
-      if (remainingS <= thresholdRemaining && !droppedRef.current.has(idx)) {
+    // schedule drops based on ELAPSED time so the elimination sequence
+    // always plays out, regardless of how fast players lock in
+    DROP_AT_ELAPSED_S.forEach((thresholdElapsed, idx) => {
+      if (elapsedS >= thresholdElapsed && !droppedRef.current.has(idx)) {
         droppedRef.current.add(idx);
         play("drop");
         dropWrongFn({
@@ -151,29 +152,27 @@ export function HostGameStage({ room }: Props) {
       }
     });
 
-    // Fast-forward when all non-audience players have locked
+    // End the question only AFTER all wrong answers have dropped + a hold.
+    // No early fast-forward — the elimination IS the show.
+    const allDropsScheduled = droppedRef.current.size >= DROP_AT_ELAPSED_S.length;
+    const lastDropElapsed = DROP_AT_ELAPSED_S[DROP_AT_ELAPSED_S.length - 1];
+    const elapsedSinceLastDropMs = (elapsedS - lastDropElapsed) * 1000;
+    const finalHoldDone = allDropsScheduled && elapsedSinceLastDropMs >= FINAL_HOLD_MS;
     const livePlayers = players.filter((p) => !p.is_audience);
-    const allLocked =
-      livePlayers.length > 0 && livePlayers.every((p) => p.current_answer !== null);
-    const ffTriggerRemaining = 3;
-    const shouldFastForwardEnd = allLocked && remainingS > ffTriggerRemaining && !endedRef.current;
 
-    if ((remainingS <= 0 || shouldFastForwardEnd) && !endedRef.current) {
+    if ((remainingS <= 0 || finalHoldDone) && !endedRef.current) {
       endedRef.current = true;
-      const delay = shouldFastForwardEnd ? ffTriggerRemaining * 1000 : 0;
-      window.setTimeout(() => {
-        play("whoosh");
-        endQuestionFn({
-          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+      play("whoosh");
+      endQuestionFn({
+        data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+      })
+        .then(() => {
+          const correct = livePlayers.some(
+            (p) => p.current_answer === state.current_correct_index,
+          );
+          play(correct ? "correct" : "wrong");
         })
-          .then(() => {
-            const correct = livePlayers.some(
-              (p) => p.current_answer === state.current_correct_index,
-            );
-            play(correct ? "correct" : "wrong");
-          })
-          .catch(() => {});
-      }, delay);
+        .catch(() => {});
     }
   }, [state, now, players, dropWrongFn, endQuestionFn, room.roomCode, room.hostSessionId]);
 
