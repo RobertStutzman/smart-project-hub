@@ -29,6 +29,15 @@ async function resolveMedia(
   return { url: data.signedUrl, type: mediaType };
 }
 
+async function resolveQuestionTTS(ttsPath: string | null | undefined): Promise<string | null> {
+  if (!ttsPath) return null;
+  const { data, error } = await supabaseAdmin.storage
+    .from("question-media")
+    .createSignedUrl(ttsPath, 60 * 60);
+  if (error || !data) return null;
+  return data.signedUrl;
+}
+
 async function getRoomByHost(roomCode: string, hostSessionId: string) {
   const { data, error } = await supabaseAdmin
     .from("rooms")
