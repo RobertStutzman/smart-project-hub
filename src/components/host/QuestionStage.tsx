@@ -208,7 +208,12 @@ export function QuestionStage({
                   <ShatterOverlay key={`shatter-${i}`} letter={LETTERS[i]} label={label} />
                 )}
               </AnimatePresence>
+            </div>
+          );
+        })}
       </div>
+
+
 
       {/* Explanation / fun fact — reveal only */}
       <AnimatePresence>
