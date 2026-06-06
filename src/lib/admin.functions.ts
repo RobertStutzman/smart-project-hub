@@ -228,14 +228,15 @@ export const generateQuestions = createServerFn({ method: "POST" })
     };
     const fallbackDifficulty =
       data.difficulty === "mixed" ? "medium" : data.difficulty;
-    return {
-      questions: parsed.questions.map((q) => ({
-        ...q,
-        difficulty: q.difficulty ?? fallbackDifficulty,
-        category: data.category,
-        is_premium: data.isPremium,
-      })),
-    };
+    const all = parsed.questions.map((q) => ({
+      ...q,
+      difficulty: q.difficulty ?? fallbackDifficulty,
+      category: data.category,
+      is_premium: data.isPremium,
+    }));
+    const questions = all.filter(answersAreDistinct);
+    const skipped = all.length - questions.length;
+    return { questions, skipped };
   });
 
 /**
