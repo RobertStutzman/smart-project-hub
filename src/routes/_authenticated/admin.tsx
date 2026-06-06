@@ -370,6 +370,16 @@ function QuestionEditor({
             onChange={(e) => setQ({ ...q, wrong_3: e.target.value })}
             className="rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
           />
+          <select
+            value={q.difficulty}
+            onChange={(e) => setQ({ ...q, difficulty: e.target.value as Difficulty })}
+            className="rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
+          >
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+            <option value="impossible">Impossible</option>
+          </select>
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
