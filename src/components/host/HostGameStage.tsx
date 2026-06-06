@@ -302,14 +302,15 @@ export function HostGameStage({ room }: Props) {
         <div className="relative mt-auto flex justify-center gap-2">
           {isFinal ? (
             <button
-              onClick={() =>
-                endGameFn({
+              onClick={() => {
+                play("whoosh");
+                startFinalRoundFn({
                   data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
-                }).catch(() => {})
-              }
+                }).catch(() => {});
+              }}
               className="rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-8 py-3 font-display font-bold uppercase tracking-wider text-amber-950 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)] transition hover:scale-[1.03]"
             >
-              End game 🏁
+              ★ Start Final Round
             </button>
           ) : (
             <button
