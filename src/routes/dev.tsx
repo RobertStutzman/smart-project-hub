@@ -48,6 +48,15 @@ function DevPage() {
   const lastQRef = useRef<string>("");
   const modeRef = useRef<Mode>(mode);
   const delayRef = useRef<number>(delay);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
+  const newRoom = useCallback(() => {
+    setBots([]);
+    lastQRef.current = "";
+    setRoomCode("");
+    setRoomId("");
+    iframeRef.current?.contentWindow?.postMessage({ type: "parent:new-room" }, "*");
+  }, []);
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { delayRef.current = delay; }, [delay]);
@@ -269,7 +278,13 @@ function DevPage() {
             disabled={bots.length === 0}
             className="rounded border border-red-500/60 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/10 disabled:opacity-40"
           >
-            ■ Clear
+            ■ Clear bots
+          </button>
+          <button
+            onClick={newRoom}
+            className="rounded border border-amber-500/60 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-500/10"
+          >
+            🔄 New room
           </button>
         </div>
       </header>
@@ -278,6 +293,7 @@ function DevPage() {
         {/* Host iframe */}
         <div className="flex-1 min-w-0 bg-black">
           <iframe
+            ref={iframeRef}
             src="/host"
             title="Host view"
             className="h-full w-full border-0"
