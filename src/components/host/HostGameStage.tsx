@@ -16,7 +16,7 @@ import { Leaderboard } from "./Leaderboard";
 import { ShatteredFaces } from "./ShatteredFaces";
 import { TwitchPanel } from "./TwitchPanel";
 import { AIRoast } from "./AIRoast";
-import { play, startMusic, stopMusic } from "@/lib/sound-engine";
+import { play, playSting, startMusic, stopMusic } from "@/lib/sound-engine";
 
 type RoomState = {
   id: string;
@@ -212,6 +212,17 @@ export function HostGameStage({ room }: Props) {
       startMusic("tense", 520);
     else stopMusic();
   }, [state?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Round intro sting — fires when a new round's first question starts
+  const lastRoundStingRef = useRef<number>(0);
+  useEffect(() => {
+    if (!state) return;
+    const r = state.round_number ?? 0;
+    if (state.phase === "question" && r > 0 && r !== lastRoundStingRef.current) {
+      lastRoundStingRef.current = r;
+      playSting("round_intro");
+    }
+  }, [state?.phase, state?.round_number]);
 
   // ─── Final round orchestrator ─────────────────────────────────────────
   const finalAdvancedRef = useRef<string>("");
