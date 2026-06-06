@@ -48,6 +48,15 @@ function DevPage() {
   const lastQRef = useRef<string>("");
   const modeRef = useRef<Mode>(mode);
   const delayRef = useRef<number>(delay);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
+  const newRoom = useCallback(() => {
+    setBots([]);
+    lastQRef.current = "";
+    setRoomCode("");
+    setRoomId("");
+    iframeRef.current?.contentWindow?.postMessage({ type: "parent:new-room" }, "*");
+  }, []);
 
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { delayRef.current = delay; }, [delay]);
