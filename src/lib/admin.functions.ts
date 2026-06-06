@@ -216,3 +216,130 @@ export const generateQuestions = createServerFn({ method: "POST" })
       })),
     };
   });
+
+/**
+ * Backfill the "Did you know?" explanation for existing questions that
+ * don't have one. Processes a small batch per call so the UI can loop
+ * and show progress. Idempotent — only touches rows where
+ * explanation IS NULL OR explanation = ''.
+ */
+export const backfillExplanations = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({ batchSize: z.number().int().min(1).max(25).default(15) }).parse,
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("LOVABLE_API_KEY is not configured");
+
+    const { count: remainingBefore } = await supabaseAdmin
+      .from("questions")
+      .select("id", { count: "exact", head: true })
+      .or("explanation.is.null,explanation.eq.");
+
+    const { data: rows, error } = await supabaseAdmin
+      .from("questions")
+      .select("id, category, question_text, correct_answer")
+      .or("explanation.is.null,explanation.eq.")
+      .limit(data.batchSize);
+    if (error) throw new Error(error.message);
+    if (!rows || rows.length === 0) {
+      return { processed: 0, updated: 0, remaining: 0, done: true };
+    }
+
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You write a single 'Did you know?' fun fact for trivia questions. Given a question and its correct answer, return a conversational 1-2 sentence fact (under 200 characters) about WHY the answer is right — something a host would read aloud after the reveal. No preamble, just the fact.",
+          },
+          {
+            role: "user",
+            content: `Write a fun-fact explanation for each of these questions. Return them in the SAME order.\n\n${rows
+              .map(
+                (r, i) =>
+                  `${i + 1}. [${r.category}] Q: ${r.question_text}\n   A: ${r.correct_answer}`,
+              )
+              .join("\n\n")}`,
+          },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "emit_explanations",
+              description: "Return one explanation per input question, in order.",
+              parameters: {
+                type: "object",
+                properties: {
+                  explanations: {
+                    type: "array",
+                    items: { type: "string" },
+                    minItems: rows.length,
+                    maxItems: rows.length,
+                  },
+                },
+                required: ["explanations"],
+                additionalProperties: false,
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "emit_explanations" } },
+      }),
+    });
+
+    if (res.status === 429) throw new Error("Rate limit hit, please slow down.");
+    if (res.status === 402)
+      throw new Error("AI credits exhausted — add funds in Cloud → Usage.");
+    if (!res.ok) throw new Error(`AI gateway error ${res.status}`);
+    const json = await res.json();
+    const args =
+      json?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    if (!args) throw new Error("AI did not return structured output");
+    const parsed = JSON.parse(args) as { explanations: string[] };
+    const explanations = parsed.explanations ?? [];
+
+    let updated = 0;
+    for (let i = 0; i < rows.length; i++) {
+      const text = (explanations[i] ?? "").toString().trim().slice(0, 500);
+      if (!text) continue;
+      const { error: upErr } = await supabaseAdmin
+        .from("questions")
+        .update({ explanation: text })
+        .eq("id", rows[i].id);
+      if (!upErr) updated++;
+    }
+
+    const remaining = Math.max(0, (remainingBefore ?? rows.length) - updated);
+    return {
+      processed: rows.length,
+      updated,
+      remaining,
+      done: remaining === 0,
+    };
+  });
+
+/**
+ * Count of questions still missing the "Did you know?" explanation.
+ */
+export const countMissingExplanations = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    const { count, error } = await supabaseAdmin
+      .from("questions")
+      .select("id", { count: "exact", head: true })
+      .or("explanation.is.null,explanation.eq.");
+    if (error) throw new Error(error.message);
+    return { missing: count ?? 0 };
+  });
