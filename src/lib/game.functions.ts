@@ -157,6 +157,11 @@ export const nextQuestion = createServerFn({ method: "POST" })
       }
     }
 
+    const media = await resolveMedia(
+      (q as { media_url?: string | null }).media_url,
+      (q as { media_type?: string | null }).media_type,
+    );
+
     const { error } = await supabaseAdmin
       .from("rooms")
       .update({
@@ -167,6 +172,8 @@ export const nextQuestion = createServerFn({ method: "POST" })
         current_answers: answers,
         current_correct_index: correctIndex,
         current_explanation: (q as { explanation?: string | null }).explanation ?? null,
+        current_media_url: media.url,
+        current_media_type: media.type,
         question_started_at: new Date(Date.now() + 5000).toISOString(),
         question_duration_ms: 15000,
         dropped_indexes: [],
