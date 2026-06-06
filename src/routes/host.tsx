@@ -327,36 +327,40 @@ function HostPage() {
           </div>
         )}
 
-        <section className="grid flex-1 gap-6 lg:grid-cols-[1.1fr_1fr]">
-          {/* LEFT — brand + room code + QR */}
-          <div className="flex flex-col items-center justify-center rounded-3xl border border-border bg-card/40 p-8 text-center backdrop-blur">
-            <h1 className="font-display text-4xl font-bold tracking-tight sm:text-5xl">
-              Beat the Drop
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Join from your phone — winner takes all.
-            </p>
+        <section className="grid flex-1 gap-6 lg:grid-cols-[1.2fr_1fr]">
+          {/* LEFT — brand + room code + QR (gold/amber hero) */}
+          <div className="relative flex flex-col items-center justify-center overflow-hidden rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-500/25 via-amber-900/10 to-black p-10 text-center shadow-[0_20px_60px_-20px_rgba(251,191,36,0.5)]">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,oklch(0.85_0.18_85/0.25),transparent_65%)]" />
+            <div className="relative">
+              <h1 className="font-display text-5xl font-black tracking-tight text-amber-50 sm:text-6xl">
+                Beat the Drop
+              </h1>
+              <p className="mt-2 text-sm font-semibold uppercase tracking-[0.3em] text-amber-300/80">
+                Winner takes all
+              </p>
 
-            <div className="mt-6 text-xs uppercase tracking-[0.3em] text-muted-foreground">
-              Room code
-            </div>
-            <div className="mt-2 font-mono text-[clamp(4rem,14vw,10rem)] font-black leading-none tracking-[0.15em]">
-              {creating || !room ? "····" : room.roomCode}
-            </div>
-
-            <div className="mt-4 text-sm text-muted-foreground">
-              Go to{" "}
-              <span className="font-mono text-foreground">
-                {origin ? `${origin}/join` : "/join"}
-              </span>
-            </div>
-
-            {joinUrl && (
-              <div className="mt-5 rounded-2xl bg-white p-3">
-                <QRCodeSVG value={joinUrl} size={180} level="M" includeMargin={false} />
+              <div className="mt-10 text-[10px] font-bold uppercase tracking-[0.5em] text-amber-300">
+                Room code
               </div>
-            )}
+              <div className="mt-3 bg-gradient-to-b from-amber-200 to-amber-500 bg-clip-text font-mono text-[clamp(6rem,18vw,14rem)] font-black leading-none tracking-[0.15em] text-transparent drop-shadow-[0_8px_30px_rgba(251,191,36,0.45)]">
+                {creating || !room ? "····" : room.roomCode}
+              </div>
+
+              <div className="mt-6 text-sm text-amber-100/80">
+                Join at{" "}
+                <span className="font-mono font-bold text-amber-200">
+                  {origin ? `${origin.replace(/^https?:\/\//, "")}/join` : "/join"}
+                </span>
+              </div>
+
+              {joinUrl && (
+                <div className="mt-6 inline-block rounded-2xl bg-white p-4 shadow-[0_10px_40px_-10px_rgba(251,191,36,0.6)] ring-4 ring-amber-300/40">
+                  <QRCodeSVG value={joinUrl} size={280} level="M" includeMargin={false} />
+                </div>
+              )}
+            </div>
           </div>
+
 
           {/* RIGHT — players + controls */}
           <div className="flex flex-col gap-5">
