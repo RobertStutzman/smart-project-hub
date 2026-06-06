@@ -167,6 +167,23 @@ export const pauseRoom = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const endRoom = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      hostSessionId: z.string().min(8).max(128),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const { error } = await supabaseAdmin
+      .from("rooms")
+      .update({ status: "ended", phase: "ended" })
+      .eq("room_code", data.roomCode)
+      .eq("host_session_id", data.hostSessionId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const setCategory = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
