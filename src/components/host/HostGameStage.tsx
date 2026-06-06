@@ -353,20 +353,36 @@ export function HostGameStage({ room }: Props) {
   );
 }
 
-// Auto-advance from reveal → leaderboard after a delay
+// Rounds: show leaderboard only at end of each round (every QUESTIONS_PER_ROUND),
+// or at the final question. Between questions within a round, auto-advance to
+// the next question after the reveal.
+const QUESTIONS_PER_ROUND = 5;
+const FINAL_ROUND_NUMBER = 15;
+
 export function useRevealAutoAdvance(
   roomCode: string,
   hostSessionId: string,
   phase: string | undefined,
+  roundNumber: number,
 ) {
   const setPhaseFn = useServerFn(setPhase);
+  const nextQuestionFn = useServerFn(nextQuestion);
   useEffect(() => {
     if (phase !== "reveal") return;
+    const endOfRound =
+      roundNumber > 0 &&
+      (roundNumber % QUESTIONS_PER_ROUND === 0 || roundNumber >= FINAL_ROUND_NUMBER);
     const id = window.setTimeout(() => {
-      setPhaseFn({
-        data: { roomCode, hostSessionId, phase: "leaderboard" },
-      }).catch(() => {});
+      if (endOfRound) {
+        setPhaseFn({
+          data: { roomCode, hostSessionId, phase: "leaderboard" },
+        }).catch(() => {});
+      } else {
+        nextQuestionFn({
+          data: { roomCode, hostSessionId },
+        }).catch(() => {});
+      }
     }, 3500);
     return () => window.clearTimeout(id);
-  }, [phase, roomCode, hostSessionId, setPhaseFn]);
+  }, [phase, roundNumber, roomCode, hostSessionId, setPhaseFn, nextQuestionFn]);
 }
