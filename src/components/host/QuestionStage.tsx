@@ -373,7 +373,7 @@ function TimerRing({ seconds, max, active }: { seconds: number; max: number; act
 }
 
 function QuestionAudio({ src, autoStart }: { src: string; autoStart: boolean }) {
-  const ref = useState<HTMLAudioElement | null>(null);
+  const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
   const [playedKey, setPlayedKey] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
