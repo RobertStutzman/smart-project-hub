@@ -125,9 +125,9 @@ const LOBBY_MUSIC: {
   slot: "lobby_loop",
   label: "Lobby music loop",
   prompt:
-    "Upbeat game show intro loop, playful retro synth, claps, anticipation, energetic, loopable, instrumental, no vocals",
+    "Loud, high-energy TV game show theme, big brass stabs, funky bass, hand claps, retro synth hits, crowd hype, anticipation building, 120 BPM, loopable, instrumental, no vocals, prime-time television production",
   assignTo: "lobby_music",
-  volume: 0.45,
+  volume: 0.7,
   loop: true,
 };
 
@@ -303,7 +303,7 @@ export const generateAnnouncerPack = createServerFn({ method: "POST" })
 
     // Lobby music
     try {
-      const audio = await generateMusic(LOBBY_MUSIC.prompt, 30000);
+      const audio = await generateMusic(LOBBY_MUSIC.prompt, 45000);
       await upsertClip({
         slot: LOBBY_MUSIC.slot,
         label: LOBBY_MUSIC.label,
