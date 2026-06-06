@@ -479,8 +479,8 @@ function HostPage() {
                       }}
                       className={`relative flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition ${
                         isActive
-                          ? "border-foreground bg-foreground/10"
-                          : "border-border bg-background/40 hover:bg-background/70"
+                          ? "border-amber-300/60 bg-amber-300/15 text-amber-100"
+                          : "border-white/10 bg-white/[0.04] text-white/85 hover:bg-white/10"
                       }`}
                     >
                       <span className="text-2xl">{c.emoji}</span>
