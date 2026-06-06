@@ -648,7 +648,7 @@ export function useRevealAutoAdvance(
           data: { roomCode, hostSessionId },
         }).catch(() => {});
       }
-    }, 3500);
+    }, 8000);
     return () => window.clearTimeout(id);
   }, [phase, roundNumber, roomCode, hostSessionId, setPhaseFn, nextQuestionFn]);
 }
