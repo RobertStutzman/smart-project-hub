@@ -1073,6 +1073,33 @@ function MediaEditor({
       toast.error((e as Error).message);
     } finally {
       setBusy(false);
+  }
+
+  async function handleImageUpload(file: File) {
+    if (!file.type.startsWith("image/")) {
+      toast.error("That's not an image");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image must be under 10 MB");
+      return;
+    }
+    setBusy(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `image/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage
+        .from("question-media")
+        .upload(path, file, { contentType: file.type || "image/jpeg", upsert: false });
+      if (error) throw error;
+      setQ({ ...q, media_url: path, media_type: "image" });
+      const res = await signFn({ data: { path } });
+      setPreviewUrl(res.signedUrl);
+      toast.success("Image uploaded");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
     }
   }
 
