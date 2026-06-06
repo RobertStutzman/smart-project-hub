@@ -71,6 +71,9 @@ export function HostGameStage({ room }: Props) {
   const endQuestionFn = useServerFn(endQuestion);
   const setPhaseFn = useServerFn(setPhase);
   const endGameFn = useServerFn(endGame);
+  const startFinalRoundFn = useServerFn(startFinalRound);
+  const startFinalQuestionFn = useServerFn(startFinalQuestion);
+  const scoreFinalRoundFn = useServerFn(scoreFinalRound);
 
   // Shatter trigger: increments per drop event so ShatteredFaces re-fires
   const [shatterKey, setShatterKey] = useState("");
