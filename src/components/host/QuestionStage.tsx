@@ -170,7 +170,34 @@ export function QuestionStage({
                   {label}
                 </div>
 
-                <div className="min-h-[28px]" />
+                <div className="flex min-h-[28px] flex-wrap items-center gap-1.5">
+                  {phase === "reveal" && !dropped &&
+                    locks.slice(0, 12).map((p) => (
+                      <div
+                        key={p.id}
+                        title={p.nickname}
+                        className={`flex items-center gap-1.5 rounded-full px-1.5 py-0.5 ring-1 ${
+                          isCorrect
+                            ? "bg-amber-300/20 ring-amber-300/40"
+                            : "bg-rose-500/20 ring-rose-400/40"
+                        }`}
+                      >
+                        <div className="h-5 w-5 overflow-hidden rounded-full ring-1 ring-black/40">
+                          {p.avatar_url ? (
+                            <img src={p.avatar_url} alt={p.nickname} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="grid h-full w-full place-items-center bg-white/20 text-[9px] font-black text-white">
+                              {p.nickname.slice(0, 1).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <span className="pr-1 text-[11px] font-bold text-white/90">{p.nickname}</span>
+                      </div>
+                    ))}
+                  {phase === "reveal" && !dropped && locks.length > 12 && (
+                    <div className="text-[10px] font-bold text-white/60">+{locks.length - 12}</div>
+                  )}
+                </div>
               </motion.div>
 
               {/* Shatter overlay — sits on top, never affects layout */}
