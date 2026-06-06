@@ -29,12 +29,16 @@ function Shape({ kind }: { kind: (typeof SLOTS)[number]["shape"] }) {
   }
 }
 
+type TileAvatar = { id: string; nickname: string; avatar_url: string | null };
+
 type Props = {
   disabled?: boolean;
   labels?: [string, string, string, string] | string[];
   droppedIndexes?: number[];
   selectedIndex?: number | null;
   onPick: (index: 0 | 1 | 2 | 3) => void;
+  /** Avatars to show on each tile (others' live picks). */
+  avatarsByIndex?: TileAvatar[][];
 };
 
 export function AnswerGrid({
@@ -43,6 +47,7 @@ export function AnswerGrid({
   droppedIndexes = [],
   selectedIndex = null,
   onPick,
+  avatarsByIndex,
 }: Props) {
   return (
     <div className="grid h-full w-full grid-cols-2 grid-rows-2 gap-2">
@@ -50,6 +55,7 @@ export function AnswerGrid({
         const dropped = droppedIndexes.includes(i);
         const selected = selectedIndex === i;
         const inactive = dropped || disabled;
+        const tileAvatars = avatarsByIndex?.[i] ?? [];
         return (
           <button
             key={slot.key}
@@ -72,6 +78,28 @@ export function AnswerGrid({
             <span className="relative z-10 line-clamp-4 px-2 text-center text-xl font-bold leading-tight text-white drop-shadow sm:text-2xl">
               {labels?.[i] ?? slot.key}
             </span>
+            {tileAvatars.length > 0 && !dropped && (
+              <div className="pointer-events-none absolute inset-x-2 bottom-2 flex flex-wrap items-center gap-1">
+                {tileAvatars.slice(0, 6).map((p) => (
+                  <div
+                    key={p.id}
+                    title={p.nickname}
+                    className="h-6 w-6 overflow-hidden rounded-full ring-2 ring-white/70 shadow-md animate-scale-in"
+                  >
+                    {p.avatar_url ? (
+                      <img src={p.avatar_url} alt={p.nickname} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="grid h-full w-full place-items-center bg-black/40 text-[9px] font-black text-white">
+                        {p.nickname.slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {tileAvatars.length > 6 && (
+                  <div className="text-[10px] font-black text-white drop-shadow">+{tileAvatars.length - 6}</div>
+                )}
+              </div>
+            )}
             {dropped && (
               <div className="absolute inset-0 grid place-items-center bg-black/40 text-6xl">
                 ✕
@@ -83,3 +111,4 @@ export function AnswerGrid({
     </div>
   );
 }
+

@@ -55,6 +55,7 @@ type Me = {
   streak_count: number;
   is_audience: boolean;
   current_answer: number | null;
+  current_answer_locked_at: string | null;
   current_round_score: number;
   last_answer_correct: boolean | null;
   used_2x: boolean;
@@ -70,6 +71,16 @@ type Me = {
   final_locked_at: string | null;
 };
 
+type LobbyPlayer = {
+  id: string;
+  session_id: string;
+  nickname: string;
+  avatar_url: string | null;
+  score: number;
+  current_answer: number | null;
+};
+
+
 function PlayPage() {
   const navigate = useNavigate();
   const heartbeatFn = useServerFn(heartbeatPlayer);
@@ -79,7 +90,7 @@ function PlayPage() {
   const triggerGlitchFn = useServerFn(triggerGlitch);
   const submitWagerFn = useServerFn(submitWager);
   const lockFinalFn = useServerFn(lockFinalAnswer);
-  const [allPlayers, setAllPlayers] = useState<{ session_id: string; score: number }[]>([]);
+  const [allPlayers, setAllPlayers] = useState<LobbyPlayer[]>([]);
   useWakeLock(true);
 
   const [session, setSession] = useState<ReturnType<typeof loadPlayerSession>>(null);
@@ -120,7 +131,7 @@ function PlayPage() {
       const { data: p } = await supabase
         .from("players")
         .select(
-          "id, nickname, avatar_url, score, streak_count, is_audience, current_answer, current_round_score, last_answer_correct, used_2x, pending_2x, correct_count, wrong_count, fastest_count, best_streak, total_response_ms, answered_count, final_wager, final_answer, final_locked_at",
+          "id, nickname, avatar_url, score, streak_count, is_audience, current_answer, current_answer_locked_at, current_round_score, last_answer_correct, used_2x, pending_2x, correct_count, wrong_count, fastest_count, best_streak, total_response_ms, answered_count, final_wager, final_answer, final_locked_at",
         )
         .eq("room_id", r.id)
         .eq("session_id", session.sessionId)
@@ -140,12 +151,13 @@ function PlayPage() {
       if (!r2) return;
       const { data: rows } = await supabase
         .from("players")
-        .select("session_id, score")
+        .select("id, session_id, nickname, avatar_url, score, current_answer")
         .eq("room_id", r2.id)
         .eq("is_audience", false)
         .order("score", { ascending: true });
-      if (!cancelled && rows) setAllPlayers(rows);
+      if (!cancelled && rows) setAllPlayers(rows as LobbyPlayer[]);
     };
+
     void loadAllPlayers();
 
     const channel = supabase
@@ -578,8 +590,17 @@ function PlayPage() {
                       {Math.ceil(readSecondsLeft)}
                     </div>
                   ) : remainingS !== null && room.phase === "question" ? (
-                    <div className="font-mono text-xl font-black">
-                      {Math.ceil(remainingS)}s
+                    <div className="flex items-center gap-3">
+                      <PlayerPointsTicker
+                        remainingS={remainingS}
+                        totalS={room.question_duration_ms / 1000}
+                        lockedAt={me?.current_answer_locked_at ?? null}
+                        questionStartedAt={room.question_started_at}
+                        hasAnswer={me?.current_answer !== null && me?.current_answer !== undefined}
+                      />
+                      <div className="font-mono text-xl font-black text-muted-foreground">
+                        {Math.ceil(remainingS)}s
+                      </div>
                     </div>
                   ) : null}
                 </div>
@@ -606,8 +627,26 @@ function PlayPage() {
                     droppedIndexes={room.dropped_indexes ?? []}
                     selectedIndex={me?.current_answer ?? null}
                     onPick={(i) => void pick(i)}
+                    avatarsByIndex={
+                      room.phase === "question"
+                        ? [0, 1, 2, 3].map((idx) =>
+                            allPlayers
+                              .filter(
+                                (p) =>
+                                  p.session_id !== session?.sessionId &&
+                                  p.current_answer === idx,
+                              )
+                              .map((p) => ({
+                                id: p.id,
+                                nickname: p.nickname,
+                                avatar_url: p.avatar_url,
+                              })),
+                          )
+                        : undefined
+                    }
                   />
                 </div>
+
                 {buttonsScrambled && (
                   <div className="absolute inset-x-0 top-1/2 z-30 -translate-y-1/2 text-center font-display text-3xl font-black tracking-widest text-fuchsia-300 drop-shadow">
                     G̷L̷I̷T̷C̷H̷E̷D̷
@@ -663,3 +702,43 @@ function PlayPage() {
     </main>
   );
 }
+
+function PlayerPointsTicker({
+  remainingS,
+  totalS,
+  lockedAt,
+  questionStartedAt,
+  hasAnswer,
+}: {
+  remainingS: number;
+  totalS: number;
+  lockedAt: string | null;
+  questionStartedAt: string | null;
+  hasAnswer: boolean;
+}) {
+  let points: number;
+  if (hasAnswer && lockedAt && questionStartedAt) {
+    const elapsed = (new Date(lockedAt).getTime() - new Date(questionStartedAt).getTime()) / 1000;
+    const remainingAtLock = Math.max(0, totalS - elapsed);
+    points = Math.max(0, Math.round((remainingAtLock / totalS) * 1000));
+  } else {
+    points = Math.max(0, Math.round((Math.max(0, remainingS) / totalS) * 1000));
+  }
+  const color =
+    points >= 500
+      ? "text-amber-300"
+      : points >= 150
+        ? "text-amber-400"
+        : "text-rose-400";
+  return (
+    <div className="flex flex-col items-end leading-none">
+      <div className="text-[8px] font-bold uppercase tracking-[0.3em] text-muted-foreground">
+        {hasAnswer ? "Locked" : "Lock now"}
+      </div>
+      <div className={`font-mono text-2xl font-black tabular-nums ${color}`}>
+        {points}
+      </div>
+    </div>
+  );
+}
+

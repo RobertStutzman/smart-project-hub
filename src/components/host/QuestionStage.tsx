@@ -125,14 +125,20 @@ export function QuestionStage({
               ? "Live · Eliminate the wrong"
               : "Reveal"}
         </div>
-        {reading ? (
-          <div className="grid h-24 w-24 place-items-center rounded-full border-4 border-amber-300/60 bg-amber-400/10 font-mono text-4xl font-black text-amber-200 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)]">
-            {Math.ceil(readSecondsLeft)}
-          </div>
-        ) : (
-          <TimerRing seconds={secondsLeft} max={15} active={phase === "question"} />
-        )}
+        <div className="flex items-center gap-4">
+          {phase === "question" && !reading && (
+            <PointsTicker secondsLeft={secondsLeft} max={15} />
+          )}
+          {reading ? (
+            <div className="grid h-24 w-24 place-items-center rounded-full border-4 border-amber-300/60 bg-amber-400/10 font-mono text-4xl font-black text-amber-200 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)]">
+              {Math.ceil(readSecondsLeft)}
+            </div>
+          ) : (
+            <TimerRing seconds={secondsLeft} max={15} active={phase === "question"} />
+          )}
+        </div>
       </div>
+
 
       {/* Question */}
       <div className="relative z-10 mx-auto max-w-5xl text-center">
@@ -211,6 +217,34 @@ export function QuestionStage({
                 </div>
 
                 <div className="flex min-h-[28px] flex-wrap items-center gap-1.5">
+                  {phase === "question" && !dropped && (
+                    <AnimatePresence mode="popLayout">
+                      {locks.slice(0, 12).map((p) => (
+                        <motion.div
+                          key={p.id}
+                          layout
+                          initial={{ scale: 0.6, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.6, opacity: 0 }}
+                          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                          title={p.nickname}
+                          className="h-7 w-7 overflow-hidden rounded-full ring-2 ring-white/40 shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
+                        >
+                          {p.avatar_url ? (
+                            <img src={p.avatar_url} alt={p.nickname} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="grid h-full w-full place-items-center bg-white/20 text-[10px] font-black text-white">
+                              {p.nickname.slice(0, 1).toUpperCase()}
+                            </div>
+                          )}
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  )}
+                  {phase === "question" && !dropped && locks.length > 12 && (
+                    <div className="text-[10px] font-bold text-white/60">+{locks.length - 12}</div>
+                  )}
+
                   {phase === "reveal" && !dropped &&
                     locks.slice(0, 12).map((p) => (
                       <div
@@ -234,6 +268,7 @@ export function QuestionStage({
                         <span className="pr-1 text-[11px] font-bold text-white/90">{p.nickname}</span>
                       </div>
                     ))}
+
                   {phase === "reveal" && !dropped && locks.length > 12 && (
                     <div className="text-[10px] font-bold text-white/60">+{locks.length - 12}</div>
                   )}
@@ -338,7 +373,28 @@ function ShatterOverlay(_props: { letter: string; label: string }) {
 }
 
 
+function PointsTicker({ secondsLeft, max }: { secondsLeft: number; max: number }) {
+  const points = Math.max(0, Math.round((Math.max(0, secondsLeft) / max) * 1000));
+  const color =
+    points >= 500
+      ? "text-amber-200"
+      : points >= 150
+        ? "text-amber-400"
+        : "text-rose-400";
+  return (
+    <div className="flex flex-col items-end justify-center">
+      <div className="text-[9px] font-bold uppercase tracking-[0.35em] text-white/50">
+        Lock now
+      </div>
+      <div className={`font-mono text-3xl font-black tabular-nums ${color} drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)]`}>
+        {points}
+      </div>
+    </div>
+  );
+}
+
 function TimerRing({ seconds, max, active }: { seconds: number; max: number; active: boolean }) {
+
   const pct = Math.max(0, Math.min(1, seconds / max));
   const r = 36;
   const c = 2 * Math.PI * r;
