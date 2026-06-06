@@ -52,6 +52,43 @@ function answersAreDistinct(q: {
   return set.size === 4;
 }
 
+/**
+ * Strip garbage tokens (stray CJK / control chars) the AI sometimes appends
+ * to short English answer strings in tool-call output. If the string is
+ * mostly ASCII, we drop any trailing run of non-ASCII characters. Strings
+ * that are genuinely non-Latin (e.g. a Japanese title) are left alone.
+ */
+function sanitizeAnswer(s: string): string {
+  if (!s) return s;
+  let out = s.replace(/[\u0000-\u001f\u007f]/g, "").trim();
+  const ascii = out.replace(/[^\x20-\x7e]/g, "");
+  if (ascii.length >= Math.max(3, Math.floor(out.length * 0.6))) {
+    out = out.replace(/[^\x00-\x7f]+$/u, "").trim();
+    out = out.replace(/\s*[\/,;|]\s*$/u, "").trim();
+  }
+  return out;
+}
+
+function sanitizeQuestion<T extends {
+  question_text: string;
+  correct_answer: string;
+  wrong_1: string;
+  wrong_2: string;
+  wrong_3: string;
+  explanation?: string | null;
+}>(q: T): T {
+  return {
+    ...q,
+    question_text: sanitizeAnswer(q.question_text),
+    correct_answer: sanitizeAnswer(q.correct_answer),
+    wrong_1: sanitizeAnswer(q.wrong_1),
+    wrong_2: sanitizeAnswer(q.wrong_2),
+    wrong_3: sanitizeAnswer(q.wrong_3),
+    explanation: q.explanation ? sanitizeAnswer(q.explanation) : q.explanation,
+  };
+}
+
+
 const QuestionInput = z
   .object({
     category: z.string().min(1).max(60),
