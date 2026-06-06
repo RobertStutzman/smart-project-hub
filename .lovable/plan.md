@@ -1,30 +1,36 @@
-## Goal
-Final round question must come from a hard/impossible pool. We don't track difficulty today, so add it.
+# Backfill "Did you know?" for every question
 
-## Changes
+Goal: every existing question gets a `explanation` stored in the database (one-time AI cost). Gameplay continues to read straight from the row — **zero AI calls during games**, even at a million users.
 
-**1. Database**
-- Add `difficulty text NOT NULL DEFAULT 'medium'` to `public.questions` with a CHECK constraint allowing `'easy' | 'medium' | 'hard' | 'impossible'`.
-- Index on `(category, difficulty, is_premium)` to keep the final-round query fast.
-- Existing rows default to `'medium'` (i.e., they will NOT be used for the final round until reclassified).
+New question generation already includes `explanation` in the required AI output, so future questions are covered automatically.
 
-**2. AI Question Generator** (`src/lib/admin.functions.ts` + `admin.tsx`)
-- Add a "Difficulty" dropdown (easy / medium / hard / impossible / mixed) to the generator form.
-- Pass it to the server fn. Update the system prompt to calibrate to the requested level, and have the tool schema return a `difficulty` per question (so "mixed" still labels each one).
-- Persist `difficulty` on insert.
+## What gets built
 
-**3. Final round picker** (`src/lib/game.functions.ts`, the `startFinalRound` handler)
-- Change the question query to: same category (if any) AND `difficulty IN ('hard','impossible')`, excluding already-used IDs.
-- Fallback chain if none found:
-  1. hard/impossible in any category
-  2. any difficulty in current category
-  3. any question (current behavior)
-- Pick `impossible` over `hard` when both are available (small weighting) so the final feels climactic.
+### 1. Two new server functions in `src/lib/admin.functions.ts`
 
-**4. Admin question list**
-- Show a difficulty badge per row.
-- Allow inline edit via the existing edit dialog (add the dropdown).
+- `countMissingExplanations()` — returns how many questions still need one.
+- `backfillExplanations({ batchSize })` — picks up to N questions where `explanation IS NULL OR explanation = ''`, sends them to the Lovable AI gateway in a single batched call, and writes the result back to each row's `explanation` column. Returns `{ processed, updated, remaining, done }`. Idempotent and safely re-runnable.
+
+Batch size 15 per call, so each click handles 15 questions and the UI loops until `done`.
+
+### 2. Admin UI button in `src/routes/_authenticated/admin.tsx`
+
+A "Backfill explanations" panel near the AI generator that shows:
+- "N questions missing an explanation"
+- A button that loops `backfillExplanations` until `remaining === 0`, with a live progress toast ("Updated 15… 30… 45 / 120").
+- Disabled when nothing is missing.
+
+### 3. No schema changes
+
+`questions.explanation` already exists. Gameplay code (`startNextRound`, `startFinalRound`, reveal UIs) already reads and displays it — no changes needed there.
+
+## Cost & scale
+
+- One-time cost: ~1 AI call per ~15 existing questions. For a few hundred questions that's pennies.
+- After backfill: **0 AI calls per game**. Explanations are plain text columns served by Postgres like any other field.
+- New questions: explanation is generated at the same time as the question (already implemented), still one-time only.
 
 ## Out of scope
-- Auto-reclassifying existing questions (you can re-generate or edit a batch via admin).
-- Per-round difficulty curves for rounds 1-14.
+
+- Overwriting existing explanations (only fills empty ones).
+- Per-question "regenerate explanation" button (can add later if you want).
