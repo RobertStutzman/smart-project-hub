@@ -135,6 +135,7 @@ export type Database = {
           category: string
           correct_answer: string
           created_at: string
+          explanation: string | null
           id: string
           is_premium: boolean
           media_type: string | null
@@ -149,6 +150,7 @@ export type Database = {
           category: string
           correct_answer: string
           created_at?: string
+          explanation?: string | null
           id?: string
           is_premium?: boolean
           media_type?: string | null
@@ -163,6 +165,7 @@ export type Database = {
           category?: string
           correct_answer?: string
           created_at?: string
+          explanation?: string | null
           id?: string
           is_premium?: boolean
           media_type?: string | null
@@ -200,6 +203,7 @@ export type Database = {
           current_answers: string[] | null
           current_category: string | null
           current_correct_index: number | null
+          current_explanation: string | null
           current_question_id: string | null
           current_question_text: string | null
           dropped_indexes: number[]
@@ -226,6 +230,7 @@ export type Database = {
           current_answers?: string[] | null
           current_category?: string | null
           current_correct_index?: number | null
+          current_explanation?: string | null
           current_question_id?: string | null
           current_question_text?: string | null
           dropped_indexes?: number[]
@@ -252,6 +257,7 @@ export type Database = {
           current_answers?: string[] | null
           current_category?: string | null
           current_correct_index?: number | null
+          current_explanation?: string | null
           current_question_id?: string | null
           current_question_text?: string | null
           dropped_indexes?: number[]

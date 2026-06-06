@@ -34,6 +34,7 @@ type RoomState = {
   current_question_text: string | null;
   current_answers: string[] | null;
   current_correct_index: number | null;
+  current_explanation: string | null;
   question_started_at: string | null;
   question_duration_ms: number;
   dropped_indexes: number[];
@@ -105,7 +106,7 @@ function PlayPage() {
       const { data: r } = await supabase
         .from("rooms")
         .select(
-          "id, status, phase, current_category, current_question_text, current_answers, current_correct_index, question_started_at, question_duration_ms, dropped_indexes, is_paused, host_last_seen_at, wildcard, saboteur_session_id, glitch_active_until, glitch_used, round_number",
+          "id, status, phase, current_category, current_question_text, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, is_paused, host_last_seen_at, wildcard, saboteur_session_id, glitch_active_until, glitch_used, round_number",
         )
         .eq("room_code", session.roomCode)
         .maybeSingle();
@@ -551,6 +552,16 @@ function PlayPage() {
                   </div>
                   <div className="mt-4 text-xs uppercase tracking-widest text-muted-foreground">Final score</div>
                   <div className="font-mono text-4xl font-black text-amber-200">{me?.score ?? 0}</div>
+                  {room.current_explanation && room.current_explanation.trim().length > 0 && (
+                    <div className="mt-5 rounded-2xl border border-amber-300/40 bg-amber-400/10 p-3 text-left">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-300">
+                        💡 Did you know?
+                      </div>
+                      <div className="mt-1 text-sm leading-snug text-amber-50">
+                        {room.current_explanation}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : room.phase === "question" || room.phase === "reveal" ? (
@@ -598,6 +609,18 @@ function PlayPage() {
                     G̷L̷I̷T̷C̷H̷E̷D̷
                   </div>
                 )}
+                {room.phase === "reveal" &&
+                  room.current_explanation &&
+                  room.current_explanation.trim().length > 0 && (
+                    <div className="rounded-2xl border border-amber-300/40 bg-amber-400/10 p-3 text-center">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-300">
+                        💡 Did you know?
+                      </div>
+                      <div className="mt-1 text-sm leading-snug text-amber-50">
+                        {room.current_explanation}
+                      </div>
+                    </div>
+                  )}
               </>
             ) : (
               <div className="grid flex-1 place-items-center rounded-2xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">

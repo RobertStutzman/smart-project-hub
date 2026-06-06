@@ -25,6 +25,7 @@ type RoomState = {
   current_question_text: string | null;
   current_answers: string[] | null;
   current_correct_index: number | null;
+  current_explanation: string | null;
   question_started_at: string | null;
   question_duration_ms: number;
   dropped_indexes: number[];
@@ -89,7 +90,7 @@ export function HostGameStage({ room }: Props) {
       const { data: r } = await supabase
         .from("rooms")
         .select(
-          "id, room_code, phase, current_question_text, current_answers, current_correct_index, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number",
+          "id, room_code, phase, current_question_text, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number",
         )
         .eq("id", room.id)
         .maybeSingle();
@@ -315,6 +316,7 @@ export function HostGameStage({ room }: Props) {
           secondsLeft={remainingS}
           phase={state.phase as "question" | "reveal"}
           players={players.filter((p) => !p.is_audience)}
+          explanation={state.phase === "reveal" ? state.current_explanation : null}
         />
         <ShatteredFaces victims={shatterVictims} triggerKey={shatterKey} />
       </>
@@ -463,6 +465,16 @@ export function HostGameStage({ room }: Props) {
               {correctText}
             </div>
           </div>
+          {state.current_explanation && state.current_explanation.trim().length > 0 && (
+            <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-amber-300/40 bg-amber-400/10 px-5 py-4 text-center backdrop-blur">
+              <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300/90">
+                💡 Did you know?
+              </div>
+              <div className="mt-1 text-base font-medium leading-snug text-white/90 sm:text-lg">
+                {state.current_explanation}
+              </div>
+            </div>
+          )}
           <div className="mt-8 space-y-2">
             {ranked.map((p) => {
               const delta = p.current_round_score ?? 0;

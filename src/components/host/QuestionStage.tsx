@@ -16,6 +16,7 @@ type Props = {
   secondsLeft: number;
   players: Player[];
   phase: "question" | "reveal";
+  explanation?: string | null;
 };
 
 const LETTERS = ["A", "B", "C", "D"] as const;
@@ -28,6 +29,7 @@ export function QuestionStage({
   secondsLeft,
   players,
   phase,
+  explanation,
 }: Props) {
   // Heartbeat pulse + screen shake on each new drop
   const [pulse, setPulse] = useState(false);
@@ -210,6 +212,30 @@ export function QuestionStage({
           );
         })}
       </div>
+
+
+
+      {/* Explanation / fun fact — reveal only */}
+      <AnimatePresence>
+        {phase === "reveal" && explanation && explanation.trim().length > 0 && (
+          <motion.div
+            key="explanation"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+            className="relative z-10 mx-auto w-full max-w-4xl rounded-2xl border border-amber-300/40 bg-gradient-to-br from-amber-400/10 to-amber-600/[0.04] px-5 py-3 backdrop-blur-xl"
+          >
+            <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300/90">
+              💡 Did you know?
+            </div>
+            <div className="mt-1 text-base font-medium leading-snug text-white/90 sm:text-lg">
+              {explanation}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
 
       {/* Locked progress bar */}
       <div className="relative z-10 flex items-center gap-3">
