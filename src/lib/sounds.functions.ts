@@ -287,7 +287,12 @@ export const setEventAssignment = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
-    const patch: Record<string, unknown> = {
+    const patch: {
+      clip_id: string | null;
+      updated_at: string;
+      volume?: number;
+      loop?: boolean;
+    } = {
       clip_id: data.clip_id,
       updated_at: new Date().toISOString(),
     };
