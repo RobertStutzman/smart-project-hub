@@ -19,6 +19,24 @@ export const createRoom = createServerFn({ method: "POST" })
     }).parse,
   )
   .handler(async ({ data }) => {
+    // Resume an existing non-ended room for this host session, if any.
+    const { data: existing } = await supabaseAdmin
+      .from("rooms")
+      .select("id, room_code")
+      .eq("host_session_id", data.hostSessionId)
+      .neq("status", "ended")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existing) {
+      // Refresh heartbeat so the room isn't considered abandoned.
+      await supabaseAdmin
+        .from("rooms")
+        .update({ host_last_seen_at: new Date().toISOString() })
+        .eq("id", existing.id);
+      return { id: existing.id, roomCode: existing.room_code, resumed: true };
+    }
+
     // Try up to 5 times to avoid rare code collisions
     for (let attempt = 0; attempt < 5; attempt++) {
       const code = generateRoomCode();
@@ -31,7 +49,7 @@ export const createRoom = createServerFn({ method: "POST" })
         })
         .select("id, room_code")
         .single();
-      if (!error && row) return { id: row.id, roomCode: row.room_code };
+      if (!error && row) return { id: row.id, roomCode: row.room_code, resumed: false };
       if (error && !error.message.toLowerCase().includes("duplicate")) {
         throw new Error(error.message);
       }
