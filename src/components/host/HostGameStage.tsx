@@ -22,7 +22,9 @@ type RoomState = {
   id: string;
   room_code: string;
   phase: string;
+  current_question_id: string | null;
   current_question_text: string | null;
+  current_question_tts_url: string | null;
   current_answers: string[] | null;
   current_correct_index: number | null;
   current_explanation: string | null;
