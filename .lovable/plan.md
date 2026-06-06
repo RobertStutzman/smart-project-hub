@@ -1,67 +1,54 @@
-## Picture & audio trivia questions
+# Picture/Audio/Video Trivia — Round 2
 
-Two new question types, mixed into the normal question pool. The `questions` table already has `media_url` + `media_type` columns; they're just unused. We'll wire them through end-to-end.
+Three additions to the question editor and host TV.
 
-### 1. Storage
+## 1. ElevenLabs voice generation (audio)
 
-- **New private bucket `question-media`** (audio clips can be ~MB, don't belong in `avatars`). Policies: admin-only insert/update/delete, public read (so host TV `<audio>` works without signed URLs).
-- Image questions: store generated PNGs in the same bucket under `images/`.
-- Audio questions: admin uploads MP3/M4A/WAV under `audio/`.
+In the admin Media editor, add a "Generate voice" mode next to "Upload audio":
+- Text input for the line to speak (max ~500 chars)
+- Voice picker — small curated list (Roger, Sarah, George, Charlie, Liam, Brian, Jessica, Lily, Santa, Glitch)
+- "Generate" button → calls server, saves MP3 to `question-media/audio/{uuid}.mp3`, sets `media_url` + `media_type='audio'`
+- Inline `<audio controls>` preview, plus a "Regenerate" button
 
-### 2. Schema
+Connector setup: link the **ElevenLabs** standard connector (no existing link in workspace). Once linked, `ELEVENLABS_API_KEY` becomes available server-side automatically — no manual secret prompt.
 
-Add to `public.rooms` so the active question's media reaches clients in the existing realtime broadcast:
-- `current_media_url text`
-- `current_media_type text` (`'image' | 'audio'`)
+## 2. Video clip questions
 
-No change to `questions` — `media_url` + `media_type` already exist.
+- Treat `media_type='video'` as a third option throughout (admin editor, room state, host TV).
+- Admin uploader accepts MP4/WebM/MOV up to **25 MB** (videos run bigger than audio).
+- Files stored in `question-media/video/{uuid}.{ext}`.
+- Host TV renders a `<video>` element above the question text, max-height ~40vh, `object-contain`, **autoplay muted=false, controls hidden, loops off**, fires once when the read window opens (same trigger as audio).
+- Hidden during the reveal phase, same as image/audio.
 
-### 3. Admin UI (`src/routes/_authenticated/admin.tsx` + `src/lib/admin.functions.ts`)
+No DB schema change needed — `current_media_type` already stores a free-form string.
 
-In the per-question editor, add a **Media** section with a type picker (`none | image | audio`):
+## 3. Bump audio upload cap to 15 MB
 
-- **Image type** — text input + "Generate" button. New server fn `generateQuestionImage({ prompt })` calls Lovable AI Gateway (`openai/gpt-image-2`, non-streaming, `quality: "low"`, 1024x1024), uploads the PNG to `question-media/images/{uuid}.png` via `supabaseAdmin`, returns the public URL. Sets `media_url` + `media_type='image'` on the question. Re-generate button to try again. Manual URL input as fallback.
-- **Audio type** — file input (accept `audio/*`, max ~5MB). Client uploads directly to `question-media/audio/{uuid}.{ext}` with the user's auth (RLS lets admins write), then sets `media_url` + `media_type='audio'`. Inline `<audio controls>` preview.
-- AI bulk generation (`generateAiQuestions`) stays text-only for now — these new types are admin-curated.
+Update the admin uploader's client-side size check from 6 MB → 15 MB. No server change needed.
 
-### 4. Game wiring (`src/lib/game.functions.ts`)
+---
 
-In both places that start a round (`advanceRound` ~L148 and final round ~L555), include the question's media in the room update:
-```ts
-current_media_url: q.media_url,
-current_media_type: q.media_type,
-```
-And clear them (`null`) on round-end / lobby transitions wherever `current_question_text` is cleared.
+## Technical details
 
-### 5. Host TV (`src/components/host/QuestionStage.tsx` + `HostGameStage.tsx`)
+**New server function** in `src/lib/admin.functions.ts`:
+- `generateQuestionVoice({ text, voiceId })` — admin-only. POSTs to `https://api.elevenlabs.io/v1/text-to-speech/{voiceId}?output_format=mp3_44100_128` with `model_id: "eleven_multilingual_v2"`, gets MP3 ArrayBuffer, uploads to `question-media/audio/{uuid}.mp3` via `supabaseAdmin`, returns storage path. Reads `process.env.ELEVENLABS_API_KEY`; throws a clear error if missing.
 
-Pass `mediaUrl` / `mediaType` props into `QuestionStage`.
+**Voice ID constants** — small frozen object in admin.tsx so the picker labels stay readable.
 
-- **Image**: render above the question text in a contained, rounded frame (max-height ~40vh, `object-contain`). During the 5s read window it's full-brightness; during answer phase it stays visible but cards take focus.
-- **Audio**: render a centered glass card with a big play button + waveform-ish progress bar. **Auto-play once** when the read window starts (browser autoplay is fine on the host TV after first user interaction in the lobby). Replay button. Loops are off — single playthrough, then players answer from memory. Hide the audio element entirely during `reveal` phase.
+**MediaEditor changes** (`src/routes/_authenticated/admin.tsx`):
+- Add `"video"` to the type radio.
+- Audio section gains a "Source: upload | AI voice" sub-toggle. AI voice shows text + voice picker + Generate button.
+- Video section mirrors the audio upload UX (file input, preview, size cap 25 MB).
 
-### 6. Player side (`src/routes/play.tsx` / `AnswerGrid.tsx`)
+**Host TV changes** (`src/components/host/QuestionStage.tsx`):
+- Extract current `QuestionAudio` logic into a generic `QuestionMedia` that switches on `media_type`. Video uses the same "play once when read window opens" hook the audio component already has.
 
-**No change.** Host-TV-only per your choice — phones just show answer buttons.
+**Storage policies** — existing `question-media` bucket policies already cover any path; no migration needed.
 
-### Out of scope (ask later if you want)
+**Game wiring** — `resolveMedia` in `src/lib/game.functions.ts` already signs any path regardless of type, so video URLs flow through automatically.
 
-- AI voice synthesis (you chose admin-upload).
-- Dedicated picture/voice rounds (you chose mixed pool).
-- Re-using images across questions / a media library view in admin.
+## Out of scope
 
-### Technical notes
-
-- Image generation is a `createServerFn` with `requireSupabaseAuth` + admin-role check; uses `supabaseAdmin` for the storage upload. Non-streaming Gateway call (we just need the final PNG to upload).
-- Bucket is public-read but private-write — same pattern as `avatars`.
-- Migration creates the bucket via `storage_create_bucket` tool, then a SQL migration adds the two `rooms` columns and the `storage.objects` RLS policies.
-
-### Files touched
-
-- migration: add `rooms.current_media_url`, `rooms.current_media_type`; storage policies for `question-media`
-- new bucket `question-media` (via tool)
-- `src/lib/admin.functions.ts` — `generateQuestionImage` server fn
-- `src/routes/_authenticated/admin.tsx` — media editor UI
-- `src/lib/game.functions.ts` — forward media on round start/clear on end
-- `src/components/host/QuestionStage.tsx` — render image / audio player
-- `src/components/host/HostGameStage.tsx` — pass props through
+- AI video generation
+- Voice cloning / custom voices beyond the curated list
+- Per-question playback length trim UI (admin trims clips themselves before upload)
