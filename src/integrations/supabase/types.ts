@@ -26,6 +26,9 @@ export type Database = {
           current_round_fastest: boolean
           current_round_score: number
           fastest_count: number
+          final_answer: number | null
+          final_locked_at: string | null
+          final_wager: number
           id: string
           is_audience: boolean
           last_answer_correct: boolean | null
@@ -51,6 +54,9 @@ export type Database = {
           current_round_fastest?: boolean
           current_round_score?: number
           fastest_count?: number
+          final_answer?: number | null
+          final_locked_at?: string | null
+          final_wager?: number
           id?: string
           is_audience?: boolean
           last_answer_correct?: boolean | null
@@ -76,6 +82,9 @@ export type Database = {
           current_round_fastest?: boolean
           current_round_score?: number
           fastest_count?: number
+          final_answer?: number | null
+          final_locked_at?: string | null
+          final_wager?: number
           id?: string
           is_audience?: boolean
           last_answer_correct?: boolean | null

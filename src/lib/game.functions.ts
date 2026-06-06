@@ -441,7 +441,17 @@ export const setPhase = createServerFn({ method: "POST" })
     z.object({
       roomCode: z.string().length(4),
       hostSessionId: z.string().min(8).max(128),
-      phase: z.enum(["lobby", "question", "reveal", "leaderboard", "ended"]),
+      phase: z.enum([
+        "lobby",
+        "question",
+        "reveal",
+        "leaderboard",
+        "ended",
+        "final_intro",
+        "final_wager",
+        "final_question",
+        "final_reveal",
+      ]),
     }).parse,
   )
   .handler(async ({ data }) => {
@@ -449,6 +459,228 @@ export const setPhase = createServerFn({ method: "POST" })
     await supabaseAdmin
       .from("rooms")
       .update({ phase: data.phase })
+      .eq("id", room.id);
+    return { ok: true };
+  });
+
+// ============================================================
+// FINAL ROUND — Wager (Final Jeopardy style)
+// ============================================================
+
+export const startFinalRound = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      hostSessionId: z.string().min(8).max(128),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const room = await getRoomByHost(data.roomCode, data.hostSessionId);
+
+    // Reset per-player final fields
+    await supabaseAdmin
+      .from("players")
+      .update({
+        final_wager: 0,
+        final_answer: null,
+        final_locked_at: null,
+        current_round_score: 0,
+        current_round_fastest: false,
+        last_answer_correct: null,
+      })
+      .eq("room_id", room.id);
+
+    // Pick a fresh question (prefer same category; fall back to any)
+    const { data: used } = await supabaseAdmin
+      .from("room_questions")
+      .select("question_id")
+      .eq("room_id", room.id);
+    const usedIds = (used ?? []).map((r) => r.question_id);
+
+    let q: {
+      id: string;
+      question_text: string;
+      correct_answer: string;
+      wrong_1: string;
+      wrong_2: string;
+      wrong_3: string;
+    } | null = null;
+    for (const useCategory of [true, false]) {
+      let qQuery = supabaseAdmin.from("questions").select("*");
+      if (useCategory && room.current_category)
+        qQuery = qQuery.eq("category", room.current_category);
+      if (usedIds.length > 0)
+        qQuery = qQuery.not("id", "in", `(${usedIds.join(",")})`);
+      const { data: candidates } = await qQuery.limit(50);
+      if (candidates && candidates.length > 0) {
+        q = candidates[Math.floor(Math.random() * candidates.length)];
+        break;
+      }
+    }
+    if (!q) throw new Error("No questions available for the final round");
+
+    const answers = shuffle([q.correct_answer, q.wrong_1, q.wrong_2, q.wrong_3]);
+    const correctIndex = answers.indexOf(q.correct_answer);
+
+    await supabaseAdmin.from("room_questions").insert({
+      room_id: room.id,
+      question_id: q.id,
+    });
+
+    const { error } = await supabaseAdmin
+      .from("rooms")
+      .update({
+        status: "playing",
+        phase: "final_intro",
+        current_question_id: q.id,
+        current_question_text: q.question_text,
+        current_answers: answers,
+        current_correct_index: correctIndex,
+        question_started_at: null,
+        question_duration_ms: 25000,
+        dropped_indexes: [],
+        wildcard: null,
+        saboteur_session_id: null,
+        glitch_active_until: null,
+        roast_candidates: null,
+      })
+      .eq("id", room.id);
+    if (error) throw new Error(error.message);
+
+    return { ok: true, questionId: q.id };
+  });
+
+export const submitWager = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      sessionId: z.string().min(8).max(128),
+      wager: z.number().int().min(0).max(1000000),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const { data: room } = await supabaseAdmin
+      .from("rooms")
+      .select("id, phase")
+      .eq("room_code", data.roomCode)
+      .maybeSingle();
+    if (!room) throw new Error("Room not found");
+    if (room.phase !== "final_wager") throw new Error("Wagers are closed");
+    const { data: p } = await supabaseAdmin
+      .from("players")
+      .select("id, score")
+      .eq("room_id", room.id)
+      .eq("session_id", data.sessionId)
+      .maybeSingle();
+    if (!p) throw new Error("Player not found");
+    const wager = Math.max(0, Math.min(data.wager, p.score ?? 0));
+    const { error } = await supabaseAdmin
+      .from("players")
+      .update({ final_wager: wager, final_locked_at: new Date().toISOString() })
+      .eq("id", p.id);
+    if (error) throw new Error(error.message);
+    return { ok: true, wager };
+  });
+
+export const startFinalQuestion = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      hostSessionId: z.string().min(8).max(128),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const room = await getRoomByHost(data.roomCode, data.hostSessionId);
+    await supabaseAdmin
+      .from("rooms")
+      .update({
+        phase: "final_question",
+        question_started_at: new Date().toISOString(),
+        question_duration_ms: 25000,
+      })
+      .eq("id", room.id);
+    return { ok: true };
+  });
+
+export const lockFinalAnswer = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      sessionId: z.string().min(8).max(128),
+      answerIndex: z.number().int().min(0).max(3),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const { data: room } = await supabaseAdmin
+      .from("rooms")
+      .select("id, phase, question_started_at, question_duration_ms")
+      .eq("room_code", data.roomCode)
+      .maybeSingle();
+    if (!room) throw new Error("Room not found");
+    if (room.phase !== "final_question") throw new Error("Not accepting answers");
+    if (room.question_started_at) {
+      const elapsed = Date.now() - new Date(room.question_started_at).getTime();
+      if (elapsed > (room.question_duration_ms ?? 25000)) {
+        throw new Error("Time's up");
+      }
+    }
+    const { error } = await supabaseAdmin
+      .from("players")
+      .update({
+        final_answer: data.answerIndex,
+        final_locked_at: new Date().toISOString(),
+      })
+      .eq("room_id", room.id)
+      .eq("session_id", data.sessionId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const scoreFinalRound = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      hostSessionId: z.string().min(8).max(128),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const room = await getRoomByHost(data.roomCode, data.hostSessionId);
+    const correctIdx = room.current_correct_index;
+    if (correctIdx === null || correctIdx === undefined) {
+      throw new Error("No final question set");
+    }
+    const { data: players } = await supabaseAdmin
+      .from("players")
+      .select("id, score, final_wager, final_answer, correct_count, wrong_count, answered_count")
+      .eq("room_id", room.id)
+      .eq("is_audience", false);
+
+    for (const p of players ?? []) {
+      const wager = p.final_wager ?? 0;
+      const picked = p.final_answer;
+      const isCorrect = picked === correctIdx;
+      const delta = picked === null || picked === undefined
+        ? -wager
+        : isCorrect
+          ? wager
+          : -wager;
+      const newScore = Math.max(0, (p.score ?? 0) + delta);
+      await supabaseAdmin
+        .from("players")
+        .update({
+          score: newScore,
+          current_round_score: delta,
+          last_answer_correct: picked === null || picked === undefined ? false : isCorrect,
+          answered_count: (p.answered_count ?? 0) + (picked !== null && picked !== undefined ? 1 : 0),
+          correct_count: (p.correct_count ?? 0) + (isCorrect ? 1 : 0),
+          wrong_count: (p.wrong_count ?? 0) + (!isCorrect && picked !== null && picked !== undefined ? 1 : 0),
+        })
+        .eq("id", p.id);
+    }
+
+    await supabaseAdmin
+      .from("rooms")
+      .update({ phase: "final_reveal" })
       .eq("id", room.id);
     return { ok: true };
   });

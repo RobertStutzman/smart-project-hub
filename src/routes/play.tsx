@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { heartbeatPlayer, setAudienceMode } from "@/lib/rooms.functions";
-import { lockAnswer, activate2x, triggerGlitch } from "@/lib/game.functions";
+import { lockAnswer, activate2x, triggerGlitch, submitWager, lockFinalAnswer } from "@/lib/game.functions";
 import { loadPlayerSession, clearPlayerSession } from "@/lib/player-session";
 import { supabase } from "@/integrations/supabase/client";
 import { useWakeLock } from "@/hooks/use-wake-lock";
@@ -64,6 +64,9 @@ type Me = {
   best_streak: number;
   total_response_ms: number;
   answered_count: number;
+  final_wager: number;
+  final_answer: number | null;
+  final_locked_at: string | null;
 };
 
 function PlayPage() {
@@ -73,6 +76,8 @@ function PlayPage() {
   const lockFn = useServerFn(lockAnswer);
   const activate2xFn = useServerFn(activate2x);
   const triggerGlitchFn = useServerFn(triggerGlitch);
+  const submitWagerFn = useServerFn(submitWager);
+  const lockFinalFn = useServerFn(lockFinalAnswer);
   const [allPlayers, setAllPlayers] = useState<{ session_id: string; score: number }[]>([]);
   useWakeLock(true);
 
@@ -114,7 +119,7 @@ function PlayPage() {
       const { data: p } = await supabase
         .from("players")
         .select(
-          "id, nickname, avatar_url, score, streak_count, is_audience, current_answer, current_round_score, last_answer_correct, used_2x, pending_2x, correct_count, wrong_count, fastest_count, best_streak, total_response_ms, answered_count",
+          "id, nickname, avatar_url, score, streak_count, is_audience, current_answer, current_round_score, last_answer_correct, used_2x, pending_2x, correct_count, wrong_count, fastest_count, best_streak, total_response_ms, answered_count, final_wager, final_answer, final_locked_at",
         )
         .eq("room_id", r.id)
         .eq("session_id", session.sessionId)
@@ -298,6 +303,35 @@ function PlayPage() {
     }
   };
 
+  const [wagerDraft, setWagerDraft] = useState<number>(0);
+  useEffect(() => {
+    if (room?.phase === "final_wager" && !me?.final_locked_at) {
+      setWagerDraft((w) => Math.min(w, me?.score ?? 0));
+    }
+  }, [room?.phase, me?.score, me?.final_locked_at]);
+
+  const sendWager = async () => {
+    if (!session) return;
+    Haptics.tap();
+    try {
+      await submitWagerFn({
+        data: { roomCode: session.roomCode, sessionId: session.sessionId, wager: wagerDraft },
+      });
+    } catch { /* ignore */ }
+  };
+
+  const pickFinal = async (i: 0 | 1 | 2 | 3) => {
+    if (!session) return;
+    Haptics.tap();
+    try {
+      await lockFinalFn({
+        data: { roomCode: session.roomCode, sessionId: session.sessionId, answerIndex: i },
+      });
+    } catch { /* ignore */ }
+  };
+
+
+
   return (
     <main className="relative h-screen overflow-hidden bg-background text-foreground">
       <HeartbeatBackground secondsLeft={room.phase === "question" ? remainingS : null} />
@@ -439,7 +473,87 @@ function PlayPage() {
                 </button>
               )}
 
-            {room.phase === "question" || room.phase === "reveal" ? (
+            {room.phase === "final_intro" ? (
+              <div className="grid flex-1 place-items-center rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-500/20 via-black to-black p-6 text-center">
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-[0.5em] text-amber-300">One question. All on the line.</div>
+                  <div className="mt-3 font-display text-5xl font-black text-amber-200 [animation:scale-in_0.5s_ease-out]">Final Round</div>
+                </div>
+              </div>
+            ) : room.phase === "final_wager" ? (
+              <div className="flex flex-1 flex-col gap-4 rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-500/15 via-card/40 to-black p-5">
+                <div className="text-center">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300">Place your wager</div>
+                  <div className="mt-1 text-sm text-muted-foreground">0 to {me?.score ?? 0}</div>
+                </div>
+                {me?.final_locked_at ? (
+                  <div className="grid flex-1 place-items-center">
+                    <div className="text-center">
+                      <div className="text-xs uppercase tracking-widest text-muted-foreground">Wager locked</div>
+                      <div className="mt-2 font-mono text-6xl font-black text-amber-300">{me?.final_wager ?? 0}</div>
+                      <div className="mt-3 text-xs text-muted-foreground">Waiting for the question…</div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex flex-1 flex-col items-center justify-center gap-3">
+                      <div className="font-mono text-6xl font-black text-amber-200">{wagerDraft}</div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={me?.score ?? 0}
+                        value={wagerDraft}
+                        onChange={(e) => setWagerDraft(Number(e.target.value))}
+                        className="w-full accent-amber-400"
+                      />
+                      <div className="flex gap-2">
+                        <button onClick={() => setWagerDraft(0)} className="rounded-full border border-border px-3 py-1 text-xs">0</button>
+                        <button onClick={() => setWagerDraft(Math.floor((me?.score ?? 0) / 2))} className="rounded-full border border-border px-3 py-1 text-xs">½</button>
+                        <button onClick={() => setWagerDraft(me?.score ?? 0)} className="rounded-full border border-border px-3 py-1 text-xs">All in</button>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => void sendWager()}
+                      className="rounded-2xl bg-gradient-to-b from-amber-300 to-amber-500 px-6 py-4 font-display text-lg font-black uppercase tracking-wider text-amber-950 active:scale-[0.98]"
+                    >
+                      Lock wager
+                    </button>
+                  </>
+                )}
+              </div>
+            ) : room.phase === "final_question" ? (
+              <>
+                <div className="rounded-2xl border-2 border-amber-300/60 bg-amber-500/10 p-3 text-center backdrop-blur">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300">★ Final question · wagered {me?.final_wager ?? 0}</div>
+                  <div className="line-clamp-3 text-sm font-semibold">{room.current_question_text}</div>
+                  {remainingS !== null && (
+                    <div className="mt-1 font-mono text-xl font-black">{Math.ceil(remainingS)}s</div>
+                  )}
+                </div>
+                <div className="min-h-0 flex-1">
+                  <AnswerGrid
+                    disabled={false}
+                    labels={(room.current_answers ?? ["", "", "", ""]) as [string, string, string, string]}
+                    droppedIndexes={[]}
+                    selectedIndex={me?.final_answer ?? null}
+                    onPick={(i) => void pickFinal(i)}
+                  />
+                </div>
+              </>
+            ) : room.phase === "final_reveal" ? (
+              <div className="grid flex-1 place-items-center rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-500/15 via-black to-black p-6 text-center">
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.4em] text-amber-300">
+                    {me?.last_answer_correct ? "Correct!" : "Wrong"}
+                  </div>
+                  <div className={`mt-2 font-mono text-5xl font-black ${(me?.current_round_score ?? 0) >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                    {(me?.current_round_score ?? 0) > 0 ? "+" : ""}{me?.current_round_score ?? 0}
+                  </div>
+                  <div className="mt-4 text-xs uppercase tracking-widest text-muted-foreground">Final score</div>
+                  <div className="font-mono text-4xl font-black text-amber-200">{me?.score ?? 0}</div>
+                </div>
+              </div>
+            ) : room.phase === "question" || room.phase === "reveal" ? (
               <>
                 <div className="rounded-2xl border border-border bg-card/30 p-3 text-center backdrop-blur">
                   <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
