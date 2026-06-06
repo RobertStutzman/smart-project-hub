@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { heartbeatPlayer, setAudienceMode } from "@/lib/rooms.functions";
-import { lockAnswer, activate2x, triggerGlitch } from "@/lib/game.functions";
+import { lockAnswer, activate2x, triggerGlitch, submitWager, lockFinalAnswer } from "@/lib/game.functions";
 import { loadPlayerSession, clearPlayerSession } from "@/lib/player-session";
 import { supabase } from "@/integrations/supabase/client";
 import { useWakeLock } from "@/hooks/use-wake-lock";
