@@ -19,16 +19,16 @@ type ScriptLine = {
 };
 
 export const WELCOME_LINES: string[] = [
-  "Welcoooome to BEAT! THE! DROP! The trivia showdown where brains get BROKEN and egos get BRUISED!",
-  "Ohhh we got a LIVE one tonight! Strap in nerds, it's BEAT THE DROP, baby!",
-  "Ladies, gentlemen, and everyone in between, welcome to BEAT! THE! DROP!",
-  "Welcome to BEAT THE DROP, where your relationship will NOT survive round three!",
-  "It's the show your therapist warned you about... BEAT! THE! DROOOOP!",
-  "Welcome contestants! Or as I like to call you... future LOSERS! Let's play BEAT THE DROP!",
-  "Buckle up buttercups, it's BEAT THE DROP, the only game where being smart is a personality FLAW!",
-  "Welcome to BEAT THE DROP! Tonight ONE of you becomes a legend. The rest of you become CONTENT.",
-  "Heyyyy gamers! Put down the snacks, pick up the buzzers, it's BEAT THE DROP TIIIIME!",
-  "Welcome to BEAT THE DROP! Where trivia goes to DIE and friendships go RIGHT along with it!",
+  "Welcoooome to BEAT! THE! DROP! Trivia, buzzers, and bad decisions — that's the whole show. Survive the rounds, and you'll hit the Final Drop, where NOBODY is safe and ANYONE can wager it all to steal the W. Let's ruin some friendships!",
+  "Ohhh strap in, gamers — it's BEAT THE DROP! Answer fast, score big, talk trash. And don't get cocky, because in the Final Drop, even last place can bet the farm and walk out a CHAMPION. Painful, isn't it?",
+  "Ladies, gentlemen, and chaos goblins — welcome to BEAT THE DROP, the trivia bloodsport where speed pays and silence costs. Stick around for the Final Drop: no eliminations, all-in wagers, ONE winner. Try not to cry on camera!",
+  "Welcome to BEAT THE DROP! Here's the deal: questions drop, you buzz in, points pile up. Easy, right? WRONG — because the Final Drop lets ANYONE bet it ALL and yoink the trophy. Leaders beware. Underdogs… get weird.",
+  "It's the show your therapist warned you about — BEAT! THE! DROOOOP! Trivia rounds, leaderboard drama, and a Final Drop where no one's eliminated and everyone can risk EVERYTHING. The smartest player rarely wins. The boldest one does.",
+  "Welcome contestants — or as I call you, FUTURE LOSERS! Beat the Drop is simple: outscore your friends round after round. Then comes the Final Drop, where every player wagers as much as they DARE. Big brain, big guts, big trophy. Let's go!",
+  "Buckle up buttercups, it's BEAT THE DROP! You'll get trivia, you'll get taunts, you'll get a leaderboard that JUDGES you. And in the Final Drop? No safety net — bet small, play safe; bet it all, become a LEGEND. Choose wisely.",
+  "Welcome to BEAT THE DROP! Tonight, one of you becomes a legend — the rest become CONTENT. Race through the rounds, then face the Final Drop: nobody's out, anyone can wager it all, and the standings can flip in ONE question. Spicy!",
+  "Heyyyy players! Beat the Drop is the trivia showdown where speed equals points and hesitation equals pain. Hang on till the Final Drop — that's where the meek inherit NOTHING, because the brave bet it all and steal the crown. Buzzers up!",
+  "Welcome to BEAT THE DROP, where trivia goes to DIE! Three things to know: answer fast, climb the board, and pray you survive to the Final Drop — the round where nobody's eliminated and ANYONE can wager their whole score. May the boldest goblin win!",
 ];
 
 const VO_LINES: ScriptLine[] = [
