@@ -145,6 +145,20 @@ export function QuestionStage({
         <div className="mx-auto mt-4 h-[2px] w-24 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
       </div>
 
+      {/* Media (image / audio) */}
+      {mediaUrl && mediaType === "image" && (
+        <div className="relative z-10 mx-auto flex w-full max-w-3xl justify-center">
+          <img
+            src={mediaUrl}
+            alt=""
+            className="max-h-[36vh] w-auto rounded-2xl border border-white/10 object-contain shadow-[0_20px_80px_-20px_rgba(0,0,0,0.7)]"
+          />
+        </div>
+      )}
+      {mediaUrl && mediaType === "audio" && phase === "question" && (
+        <QuestionAudio src={mediaUrl} autoStart={!reading} />
+      )}
+
       {/* Answer panels — fixed 2x2 grid; cells NEVER reflow when shattered */}
       <div
         className={`relative z-10 grid flex-1 grid-cols-2 grid-rows-2 gap-4 transition-all duration-300 ${
