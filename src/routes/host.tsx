@@ -304,62 +304,86 @@ function HostPage() {
 
 
   return (
-    <main className="relative min-h-screen">
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 p-6 lg:p-10">
+    <main
+      className="relative min-h-screen overflow-hidden text-white"
+      style={{
+        background:
+          "radial-gradient(ellipse 90% 60% at 50% 30%, oklch(0.22 0.04 270 / 0.95), oklch(0.06 0.02 270) 80%)",
+      }}
+    >
+      {/* film grain */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.06] mix-blend-overlay"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
+        }}
+      />
+      {/* warm rim glow */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-50"
+        style={{
+          background:
+            "radial-gradient(ellipse 60% 40% at 50% 110%, oklch(0.55 0.18 60 / 0.35), transparent 60%)",
+        }}
+      />
+
+      <div className="relative mx-auto flex min-h-screen max-w-7xl flex-col gap-6 p-6 lg:p-10">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <button
             onClick={() => navigate({ to: "/" })}
-            className="text-sm text-muted-foreground hover:text-foreground"
+            className="text-sm text-white/60 hover:text-white"
           >
             ← Home
           </button>
-          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-muted-foreground">
+          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.35em] text-amber-200/80">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-400" />
             <span>Host view</span>
-            <Link to="/admin" className="rounded-full border border-border px-3 py-1 text-[10px] hover:bg-card/60">
+            <Link to="/admin" className="ml-1 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-[10px] text-white/70 backdrop-blur hover:bg-white/10">
               Admin
             </Link>
           </div>
         </header>
 
         {error && (
-          <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm">
+          <div className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-4 text-sm text-rose-100">
             {error}
           </div>
         )}
 
         <section className="grid flex-1 gap-6 lg:grid-cols-[1.2fr_1fr]">
-          {/* LEFT — brand + room code + QR (gold/amber hero) */}
-          <div className="relative flex flex-col items-center justify-center overflow-hidden rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-500/25 via-amber-900/10 to-black p-10 text-center shadow-[0_20px_60px_-20px_rgba(251,191,36,0.5)]">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,oklch(0.85_0.18_85/0.25),transparent_65%)]" />
-            <div className="relative">
-              <h1 className="font-display text-5xl font-black tracking-tight text-amber-50 sm:text-6xl">
-                Beat the Drop
-              </h1>
-              <p className="mt-2 text-sm font-semibold uppercase tracking-[0.3em] text-amber-300/80">
-                Winner takes all
-              </p>
+          {/* LEFT — brand + room code + QR */}
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-white/10 bg-white/[0.04] p-10 text-center backdrop-blur">
+            <h1 className="font-display text-5xl font-black leading-[0.95] tracking-tight text-white drop-shadow-[0_4px_40px_rgba(0,0,0,0.7)] sm:text-6xl">
+              Beat the{" "}
+              <span className="bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text text-transparent">
+                Drop
+              </span>
+            </h1>
 
-              <div className="mt-10 text-[10px] font-bold uppercase tracking-[0.5em] text-amber-300">
-                Room code
-              </div>
-              <div className="mt-3 bg-gradient-to-b from-amber-200 to-amber-500 bg-clip-text font-mono text-[clamp(6rem,18vw,14rem)] font-black leading-none tracking-[0.15em] text-transparent drop-shadow-[0_8px_30px_rgba(251,191,36,0.45)]">
-                {creating || !room ? "····" : room.roomCode}
-              </div>
+            <div className="mx-auto mt-4 h-[2px] w-24 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
 
-              <div className="mt-6 text-sm text-amber-100/80">
-                Join at{" "}
-                <span className="font-mono font-bold text-amber-200">
-                  {origin ? `${origin.replace(/^https?:\/\//, "")}/join` : "/join"}
-                </span>
-              </div>
-
-              {joinUrl && (
-                <div className="mt-6 inline-block rounded-2xl bg-white p-4 shadow-[0_10px_40px_-10px_rgba(251,191,36,0.6)] ring-4 ring-amber-300/40">
-                  <QRCodeSVG value={joinUrl} size={280} level="M" includeMargin={false} />
-                </div>
-              )}
+            <div className="mt-8 text-[10px] font-bold uppercase tracking-[0.5em] text-amber-200/80">
+              Room code
             </div>
+            <div className="mt-3 bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text font-mono text-[clamp(5rem,16vw,12rem)] font-black leading-none tracking-[0.15em] text-transparent drop-shadow-[0_8px_30px_rgba(251,191,36,0.35)]">
+              {creating || !room ? "····" : room.roomCode}
+            </div>
+
+            <div className="mt-5 text-sm text-white/60">
+              Join at{" "}
+              <span className="font-mono font-bold text-white/90">
+                {origin ? `${origin.replace(/^https?:\/\//, "")}/join` : "/join"}
+              </span>
+            </div>
+
+            {joinUrl && (
+              <div className="mt-6 inline-block rounded-2xl bg-white p-4 shadow-[0_0_50px_oklch(0.85_0.18_85/0.35)] ring-1 ring-white/20">
+                <QRCodeSVG value={joinUrl} size={260} level="M" includeMargin={false} />
+              </div>
+            )}
           </div>
+
 
 
           {/* RIGHT — players + controls */}
