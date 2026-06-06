@@ -45,7 +45,13 @@ type Props = {
   room: { id: string; roomCode: string; hostSessionId: string };
 };
 
-const DROP_AT_S = [11, 7, 3]; // remaining seconds when each wrong answer drops
+// Elapsed seconds (from question_started_at) at which each wrong answer drops.
+// Driven off elapsed time so the elimination sequence ALWAYS plays out,
+// even when every player locks in immediately.
+const DROP_AT_ELAPSED_S = [4, 8, 11];
+// After the final wrong answer drops, hold on the lone correct answer
+// for this long before triggering endQuestion / reveal.
+const FINAL_HOLD_MS = 1500;
 
 export function HostGameStage({ room }: Props) {
   const [state, setState] = useState<RoomState | null>(null);
