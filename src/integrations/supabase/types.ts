@@ -207,6 +207,8 @@ export type Database = {
           current_category: string | null
           current_correct_index: number | null
           current_explanation: string | null
+          current_media_type: string | null
+          current_media_url: string | null
           current_question_id: string | null
           current_question_text: string | null
           dropped_indexes: number[]
@@ -234,6 +236,8 @@ export type Database = {
           current_category?: string | null
           current_correct_index?: number | null
           current_explanation?: string | null
+          current_media_type?: string | null
+          current_media_url?: string | null
           current_question_id?: string | null
           current_question_text?: string | null
           dropped_indexes?: number[]
@@ -261,6 +265,8 @@ export type Database = {
           current_category?: string | null
           current_correct_index?: number | null
           current_explanation?: string | null
+          current_media_type?: string | null
+          current_media_url?: string | null
           current_question_id?: string | null
           current_question_text?: string | null
           dropped_indexes?: number[]

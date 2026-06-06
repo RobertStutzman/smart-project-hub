@@ -18,6 +18,8 @@ type Props = {
   players: Player[];
   phase: "question" | "reveal";
   explanation?: string | null;
+  mediaUrl?: string | null;
+  mediaType?: string | null; // 'image' | 'audio'
 };
 
 const LETTERS = ["A", "B", "C", "D"] as const;
@@ -32,6 +34,8 @@ export function QuestionStage({
   players,
   phase,
   explanation,
+  mediaUrl,
+  mediaType,
 }: Props) {
   const reading = readSecondsLeft > 0 && phase === "question";
   // Heartbeat pulse + screen shake on each new drop
@@ -140,6 +144,20 @@ export function QuestionStage({
         </h2>
         <div className="mx-auto mt-4 h-[2px] w-24 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
       </div>
+
+      {/* Media (image / audio) */}
+      {mediaUrl && mediaType === "image" && (
+        <div className="relative z-10 mx-auto flex w-full max-w-3xl justify-center">
+          <img
+            src={mediaUrl}
+            alt=""
+            className="max-h-[36vh] w-auto rounded-2xl border border-white/10 object-contain shadow-[0_20px_80px_-20px_rgba(0,0,0,0.7)]"
+          />
+        </div>
+      )}
+      {mediaUrl && mediaType === "audio" && phase === "question" && (
+        <QuestionAudio src={mediaUrl} autoStart={!reading} />
+      )}
 
       {/* Answer panels — fixed 2x2 grid; cells NEVER reflow when shattered */}
       <div
@@ -350,6 +368,60 @@ function TimerRing({ seconds, max, active }: { seconds: number; max: number; act
       <div className="absolute inset-0 grid place-items-center font-mono text-2xl font-black text-white">
         {Math.max(0, Math.ceil(seconds))}
       </div>
+    </div>
+  );
+}
+
+function QuestionAudio({ src, autoStart }: { src: string; autoStart: boolean }) {
+  const [playedKey, setPlayedKey] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
+
+  // Auto-play once per source when the read window ends.
+  useEffect(() => {
+    if (!audioEl || !autoStart) return;
+    if (playedKey === src) return;
+    audioEl.currentTime = 0;
+    audioEl.play().catch(() => {});
+    setPlayedKey(src);
+  }, [audioEl, autoStart, src, playedKey]);
+
+  // Reset the "played" key whenever the src changes (new question).
+  useEffect(() => {
+    setPlayedKey(null);
+  }, [src]);
+
+
+  return (
+    <div className="relative z-10 mx-auto flex w-full max-w-3xl items-center justify-center gap-4 rounded-2xl border border-white/10 bg-white/[0.04] px-6 py-4 backdrop-blur-xl">
+      <button
+        type="button"
+        onClick={() => {
+          if (!audioEl) return;
+          audioEl.currentTime = 0;
+          audioEl.play().catch(() => {});
+        }}
+        className="grid h-14 w-14 place-items-center rounded-full bg-amber-300 text-2xl font-black text-amber-950 shadow-[0_0_30px_oklch(0.85_0.18_85/0.55)]"
+        aria-label="Replay clip"
+      >
+        {isPlaying ? "▶" : "▶"}
+      </button>
+      <div className="flex-1">
+        <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300/80">
+          Listen
+        </div>
+        <div className="mt-1 text-sm text-white/70">
+          {isPlaying ? "Playing…" : "Tap to replay"}
+        </div>
+      </div>
+      <audio
+        ref={setAudioEl}
+        src={src}
+        preload="auto"
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={() => setIsPlaying(false)}
+      />
     </div>
   );
 }

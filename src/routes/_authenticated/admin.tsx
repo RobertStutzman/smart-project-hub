@@ -10,9 +10,11 @@ import {
   countDuplicateAnswers,
   countMissingExplanations,
   deleteQuestion,
+  generateQuestionImage,
   generateQuestions,
   listQuestions,
   repairDuplicateAnswers,
+  signQuestionMedia,
   upsertQuestion,
 } from "@/lib/admin.functions";
 import { supabase } from "@/integrations/supabase/client";
@@ -397,6 +399,7 @@ function QuestionEditor({
             Premium
           </label>
         </div>
+        <MediaEditor q={q} setQ={setQ} />
         <div className="mt-6 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-full border border-border px-4 py-2 text-sm">
             Cancel
@@ -949,5 +952,176 @@ function DuplicateAnswersRepair({ onUpdated }: { onUpdated: () => Promise<void> 
         </button>
       </div>
     </section>
+  );
+}
+
+function MediaEditor({
+  q,
+  setQ,
+}: {
+  q: DraftQuestion;
+  setQ: (next: DraftQuestion) => void;
+}) {
+  const genImg = useServerFn(generateQuestionImage);
+  const signFn = useServerFn(signQuestionMedia);
+  const [busy, setBusy] = useState(false);
+  const [imgPrompt, setImgPrompt] = useState("");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const type = (q.media_type ?? "none") as "none" | "image" | "audio";
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setPreviewUrl(null);
+      if (!q.media_url) return;
+      if (/^https?:\/\//i.test(q.media_url)) {
+        setPreviewUrl(q.media_url);
+        return;
+      }
+      try {
+        const res = await signFn({ data: { path: q.media_url } });
+        if (!cancelled) setPreviewUrl(res.signedUrl);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [q.media_url, signFn]);
+
+  async function handleGenerate() {
+    if (!imgPrompt.trim()) {
+      toast.error("Describe the image first");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await genImg({ data: { prompt: imgPrompt.trim() } });
+      setQ({ ...q, media_url: res.path, media_type: "image" });
+      setPreviewUrl(res.signedUrl);
+      toast.success("Image generated");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleAudioUpload(file: File) {
+    if (file.size > 6 * 1024 * 1024) {
+      toast.error("Audio must be under 6 MB");
+      return;
+    }
+    setBusy(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "mp3";
+      const path = `audio/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage
+        .from("question-media")
+        .upload(path, file, { contentType: file.type || "audio/mpeg", upsert: false });
+      if (error) throw error;
+      setQ({ ...q, media_url: path, media_type: "audio" });
+      const res = await signFn({ data: { path } });
+      setPreviewUrl(res.signedUrl);
+      toast.success("Audio uploaded");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-4 rounded-2xl border border-border bg-background/40 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm font-bold">Media</div>
+        <select
+          value={type}
+          onChange={(e) => {
+            const v = e.target.value as "none" | "image" | "audio";
+            if (v === "none") setQ({ ...q, media_url: null, media_type: null });
+            else setQ({ ...q, media_type: v });
+          }}
+          className="rounded-xl border border-border bg-background/60 px-3 py-1.5 text-sm"
+        >
+          <option value="none">None</option>
+          <option value="image">Image</option>
+          <option value="audio">Audio</option>
+        </select>
+      </div>
+
+      {type === "image" && (
+        <div className="mt-3 space-y-2">
+          <textarea
+            value={imgPrompt}
+            onChange={(e) => setImgPrompt(e.target.value)}
+            placeholder="Describe the image (e.g. 'a close-up of a vintage Fender Stratocaster on a stage')"
+            className="min-h-[60px] w-full rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={busy}
+              className="rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+            >
+              {busy ? "Working…" : previewUrl ? "Regenerate" : "Generate image"}
+            </button>
+            {previewUrl && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQ({ ...q, media_url: null, media_type: null });
+                  setPreviewUrl(null);
+                }}
+                className="text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          {previewUrl && (
+            <img
+              src={previewUrl}
+              alt=""
+              className="mt-2 max-h-64 rounded-xl border border-border object-contain"
+            />
+          )}
+        </div>
+      )}
+
+      {type === "audio" && (
+        <div className="mt-3 space-y-2">
+          <input
+            type="file"
+            accept="audio/*"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void handleAudioUpload(f);
+            }}
+            className="block w-full text-sm"
+          />
+          {previewUrl && (
+            <div className="space-y-2">
+              <audio src={previewUrl} controls className="w-full" />
+              <button
+                type="button"
+                onClick={() => {
+                  setQ({ ...q, media_url: null, media_type: null });
+                  setPreviewUrl(null);
+                }}
+                className="text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            MP3/M4A/WAV under 6 MB. The host TV will auto-play the clip once when the round starts.
+          </p>
+        </div>
+      )}
+    </div>
   );
 }

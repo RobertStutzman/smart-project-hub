@@ -321,6 +321,8 @@ export function HostGameStage({ room }: Props) {
           phase={state.phase as "question" | "reveal"}
           players={players.filter((p) => !p.is_audience)}
           explanation={state.phase === "reveal" ? state.current_explanation : null}
+          mediaUrl={(state as { current_media_url?: string | null }).current_media_url ?? null}
+          mediaType={(state as { current_media_type?: string | null }).current_media_type ?? null}
         />
         <ShatteredFaces victims={shatterVictims} triggerKey={shatterKey} />
       </>
@@ -435,6 +437,8 @@ export function HostGameStage({ room }: Props) {
           secondsLeft={remainingS}
           phase="question"
           players={players.filter((p) => !p.is_audience)}
+          mediaUrl={(state as { current_media_url?: string | null }).current_media_url ?? null}
+          mediaType={(state as { current_media_type?: string | null }).current_media_type ?? null}
         />
       </div>
     );

@@ -1,56 +1,67 @@
+## Picture & audio trivia questions
 
-# 20s round with a 5s read window + calm "eliminated" mark
+Two new question types, mixed into the normal question pool. The `questions` table already has `media_url` + `media_type` columns; they're just unused. We'll wire them through end-to-end.
 
-Two unrelated changes.
+### 1. Storage
 
-## 1. 20-second question with a 5-second reading window
+- **New private bucket `question-media`** (audio clips can be ~MB, don't belong in `avatars`). Policies: admin-only insert/update/delete, public read (so host TV `<audio>` works without signed URLs).
+- Image questions: store generated PNGs in the same bucket under `images/`.
+- Audio questions: admin uploads MP3/M4A/WAV under `audio/`.
 
-Today: 15s total, answers tappable immediately, speed bonus rewards being first.
+### 2. Schema
 
-Goal: 20s wall time, the first **5s is read-only** (no answer locks possible), then **15s to answer**. Scoring is unchanged (15s answer window stays the speed-bonus baseline, so nobody is silently penalized for late-launching).
+Add to `public.rooms` so the active question's media reaches clients in the existing realtime broadcast:
+- `current_media_url text`
+- `current_media_type text` (`'image' | 'audio'`)
 
-### How
+No change to `questions` — `media_url` + `media_type` already exist.
 
-Server (`src/lib/game.functions.ts`, `startNextRound` only — not the final round, which already has its own 25s feel):
-- Set `question_duration_ms = 15000` (unchanged — the answering window) but set `question_started_at = now() + 5000` (5s in the future). The existing scoring formula keys off `question_started_at`, so the timer ring naturally counts 15s from when answers unlock.
-- Server-side `lockAnswer` already rejects late locks; we also reject locks made *before* `question_started_at` (defensive — clock skew makes this rare but worth blocking).
+### 3. Admin UI (`src/routes/_authenticated/admin.tsx` + `src/lib/admin.functions.ts`)
 
-Host TV (`src/components/host/QuestionStage.tsx`):
-- While `Date.now() < question_started_at`, show a big centered "Get ready… N" countdown overlay (5 → 1) on top of the answer grid; answer cards render but appear dimmed and non-interactive.
-- When the count hits 0, the overlay fades, cards pop to full brightness, and the existing TimerRing starts counting down from 15s. This already happens automatically once `question_started_at` arrives.
+In the per-question editor, add a **Media** section with a type picker (`none | image | audio`):
 
-Player (`src/routes/play.tsx`):
-- `AnswerGrid` gets `disabled` when `Date.now() < question_started_at`, with the same "Get ready… N" message above the grid. After 0, buttons unlock.
+- **Image type** — text input + "Generate" button. New server fn `generateQuestionImage({ prompt })` calls Lovable AI Gateway (`openai/gpt-image-2`, non-streaming, `quality: "low"`, 1024x1024), uploads the PNG to `question-media/images/{uuid}.png` via `supabaseAdmin`, returns the public URL. Sets `media_url` + `media_type='image'` on the question. Re-generate button to try again. Manual URL input as fallback.
+- **Audio type** — file input (accept `audio/*`, max ~5MB). Client uploads directly to `question-media/audio/{uuid}.{ext}` with the user's auth (RLS lets admins write), then sets `media_url` + `media_type='audio'`. Inline `<audio controls>` preview.
+- AI bulk generation (`generateAiQuestions`) stays text-only for now — these new types are admin-curated.
 
-Timer ring math: pass `max=15` (the answer window) so the visible countdown is 15 → 0 once answers unlock. The 5s read phase has its own separate countdown UI; the ring stays hidden until answers unlock.
+### 4. Game wiring (`src/lib/game.functions.ts`)
 
-### Tradeoffs / what won't change
+In both places that start a round (`advanceRound` ~L148 and final round ~L555), include the question's media in the room update:
+```ts
+current_media_url: q.media_url,
+current_media_type: q.media_type,
+```
+And clear them (`null`) on round-end / lobby transitions wherever `current_question_text` is cleared.
 
-- "Time to first lock" stops including reading time, so the leaderboard reflects actual recall speed rather than reading speed. Net positive for fairness.
-- Final-round timing is untouched.
-- No DB schema change.
+### 5. Host TV (`src/components/host/QuestionStage.tsx` + `HostGameStage.tsx`)
 
-## 2. Eliminated answer: one shatter, then a calm static X
+Pass `mediaUrl` / `mediaType` props into `QuestionStage`.
 
-Today on the host TV, when an answer is eliminated, a 6-shard shatter explodes + a big ✕ stamps and **both fade away**, leaving the card just dimmed/grayscale. The dramatic effect plays cleanly once, but there's no lingering visual indicator that the answer was eliminated — and re-renders during reveal can occasionally re-trigger the entrance animation, making it feel like it "keeps happening".
+- **Image**: render above the question text in a contained, rounded frame (max-height ~40vh, `object-contain`). During the 5s read window it's full-brightness; during answer phase it stays visible but cards take focus.
+- **Audio**: render a centered glass card with a big play button + waveform-ish progress bar. **Auto-play once** when the read window starts (browser autoplay is fine on the host TV after first user interaction in the lobby). Replay button. Loops are off — single playthrough, then players answer from memory. Hide the audio element entirely during `reveal` phase.
 
-Goal: keep the punchy shatter (it's good!) but have it land on a **persistent, calm static ✕** so the answer stays visibly eliminated for the rest of the question without further animation.
+### 6. Player side (`src/routes/play.tsx` / `AnswerGrid.tsx`)
 
-### How
+**No change.** Host-TV-only per your choice — phones just show answer buttons.
 
-In `src/components/host/QuestionStage.tsx` (`ShatterOverlay` + the wrapping `AnimatePresence`):
-- Keep the shards-fly-out animation, but **don't fade the ✕ to 0**. Animate it from `scale 1.4 → 1, opacity 1 → 0.85` over 0.5s and leave it there. The shards still fly off and disappear after 0.7s.
-- Wrap the whole overlay in a stable keyed div (not AnimatePresence-exit-driven) so it can't re-mount mid-question. Use the question id + index as the key so it only animates once per question per slot.
-- Remove the bottom "✕ · LABEL" caption — redundant with the grayed card.
+### Out of scope (ask later if you want)
 
-Player side (`AnswerGrid.tsx`) already shows a static ✕, so no change there.
+- AI voice synthesis (you chose admin-upload).
+- Dedicated picture/voice rounds (you chose mixed pool).
+- Re-using images across questions / a media library view in admin.
 
-### If I guessed wrong on the X
+### Technical notes
 
-If you actually meant "the player-side static ✕ is too big and keeps redrawing" — say the word and I'll just shrink/tone that one instead.
+- Image generation is a `createServerFn` with `requireSupabaseAuth` + admin-role check; uses `supabaseAdmin` for the storage upload. Non-streaming Gateway call (we just need the final PNG to upload).
+- Bucket is public-read but private-write — same pattern as `avatars`.
+- Migration creates the bucket via `storage_create_bucket` tool, then a SQL migration adds the two `rooms` columns and the `storage.objects` RLS policies.
 
-## Files
+### Files touched
 
-- `src/lib/game.functions.ts` — `startNextRound`: offset `question_started_at` by +5000ms; `lockAnswer`: reject pre-start locks.
-- `src/components/host/QuestionStage.tsx` — read-window overlay + countdown; persistent static ✕ in `ShatterOverlay`.
-- `src/routes/play.tsx` — read-window overlay; disable `AnswerGrid` until start.
+- migration: add `rooms.current_media_url`, `rooms.current_media_type`; storage policies for `question-media`
+- new bucket `question-media` (via tool)
+- `src/lib/admin.functions.ts` — `generateQuestionImage` server fn
+- `src/routes/_authenticated/admin.tsx` — media editor UI
+- `src/lib/game.functions.ts` — forward media on round start/clear on end
+- `src/components/host/QuestionStage.tsx` — render image / audio player
+- `src/components/host/HostGameStage.tsx` — pass props through

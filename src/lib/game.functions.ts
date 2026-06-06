@@ -14,6 +14,21 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+async function resolveMedia(
+  mediaUrl: string | null | undefined,
+  mediaType: string | null | undefined,
+): Promise<{ url: string | null; type: string | null }> {
+  if (!mediaUrl || !mediaType) return { url: null, type: null };
+  // Already an absolute URL (legacy/manual entry) — pass through.
+  if (/^https?:\/\//i.test(mediaUrl)) return { url: mediaUrl, type: mediaType };
+  // Treat as a storage path inside the question-media bucket and sign it.
+  const { data, error } = await supabaseAdmin.storage
+    .from("question-media")
+    .createSignedUrl(mediaUrl, 60 * 60);
+  if (error || !data) return { url: null, type: null };
+  return { url: data.signedUrl, type: mediaType };
+}
+
 async function getRoomByHost(roomCode: string, hostSessionId: string) {
   const { data, error } = await supabaseAdmin
     .from("rooms")
@@ -85,6 +100,8 @@ export const nextQuestion = createServerFn({ method: "POST" })
           current_question_text: prompt,
           current_answers: candidates.map((c) => c.nickname),
           current_correct_index: null,
+          current_media_url: null,
+          current_media_type: null,
           question_started_at: new Date().toISOString(),
           question_duration_ms: 15000,
           dropped_indexes: [],
@@ -140,6 +157,11 @@ export const nextQuestion = createServerFn({ method: "POST" })
       }
     }
 
+    const media = await resolveMedia(
+      (q as { media_url?: string | null }).media_url,
+      (q as { media_type?: string | null }).media_type,
+    );
+
     const { error } = await supabaseAdmin
       .from("rooms")
       .update({
@@ -150,6 +172,8 @@ export const nextQuestion = createServerFn({ method: "POST" })
         current_answers: answers,
         current_correct_index: correctIndex,
         current_explanation: (q as { explanation?: string | null }).explanation ?? null,
+        current_media_url: media.url,
+        current_media_type: media.type,
         question_started_at: new Date(Date.now() + 5000).toISOString(),
         question_duration_ms: 15000,
         dropped_indexes: [],
@@ -547,6 +571,11 @@ export const startFinalRound = createServerFn({ method: "POST" })
       question_id: q.id,
     });
 
+    const finalMedia = await resolveMedia(
+      (q as { media_url?: string | null }).media_url,
+      (q as { media_type?: string | null }).media_type,
+    );
+
     const { error } = await supabaseAdmin
       .from("rooms")
       .update({
@@ -557,6 +586,8 @@ export const startFinalRound = createServerFn({ method: "POST" })
         current_answers: answers,
         current_correct_index: correctIndex,
         current_explanation: (q as { explanation?: string | null }).explanation ?? null,
+        current_media_url: finalMedia.url,
+        current_media_type: finalMedia.type,
         question_started_at: null,
         question_duration_ms: 25000,
         dropped_indexes: [],
