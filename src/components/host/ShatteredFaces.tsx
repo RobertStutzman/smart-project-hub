@@ -21,7 +21,7 @@ export function ShatteredFaces({ victims, triggerKey }: Props) {
     const now = Date.now();
     const batch: Victim[] = victims.map((v) => ({ ...v, ts: now }));
     setShown((cur) => [...cur, ...batch]);
-    play("wrong");
+    play("sadTrombone");
     const id = window.setTimeout(() => {
       setShown((cur) => cur.filter((v) => v.ts !== now));
     }, 2200);
