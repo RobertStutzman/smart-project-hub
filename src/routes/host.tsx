@@ -182,6 +182,31 @@ function HostPage() {
     } catch {}
   }, [room?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Listen for "new room" reset request from parent (dev playground)
+  useEffect(() => {
+    function onMsg(e: MessageEvent) {
+      const data = e.data as { type?: string } | null;
+      if (data?.type !== "parent:new-room") return;
+      void (async () => {
+        try {
+          setCreating(true);
+          const hostSessionId = newId();
+          const res = await createRoomFn({ data: { hostSessionId } });
+          saveHostSession({ sessionId: hostSessionId, roomCode: res.roomCode });
+          setPlayers([]);
+          setRoom({ id: res.id, roomCode: res.roomCode, hostSessionId });
+          toast.success(`New room ${res.roomCode}`);
+        } catch (err) {
+          setError((err as Error).message);
+        } finally {
+          setCreating(false);
+        }
+      })();
+    }
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [createRoomFn]);
+
   useEffect(() => {
     if (!room) return;
     startMusic("lobby", 600);
