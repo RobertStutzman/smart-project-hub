@@ -100,6 +100,8 @@ export const nextQuestion = createServerFn({ method: "POST" })
           current_question_text: prompt,
           current_answers: candidates.map((c) => c.nickname),
           current_correct_index: null,
+          current_media_url: null,
+          current_media_type: null,
           question_started_at: new Date().toISOString(),
           question_duration_ms: 15000,
           dropped_indexes: [],
