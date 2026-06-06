@@ -25,6 +25,7 @@ type RoomState = {
   current_question_text: string | null;
   current_answers: string[] | null;
   current_correct_index: number | null;
+  current_explanation: string | null;
   question_started_at: string | null;
   question_duration_ms: number;
   dropped_indexes: number[];
@@ -315,6 +316,7 @@ export function HostGameStage({ room }: Props) {
           secondsLeft={remainingS}
           phase={state.phase as "question" | "reveal"}
           players={players.filter((p) => !p.is_audience)}
+          explanation={state.phase === "reveal" ? state.current_explanation : null}
         />
         <ShatteredFaces victims={shatterVictims} triggerKey={shatterKey} />
       </>
