@@ -21,7 +21,7 @@ const VO_LINES: ScriptLine[] = [
   {
     slot: "vo_welcome",
     label: "Welcome",
-    text: "Welcome... to BEAT THE DROP! The trivia showdown where only the fastest survive. Let's meet your players!",
+    text: "Welcoooome... to BEAT! THE! DROP! The trivia showdown where brains get BROKEN, egos get BRUISED, and only the FASTEST fingers survive! Give it up for tonight's victims... I mean CONTESTANTS! Let's GOOOOO!",
     audienceVisible: true,
   },
   {
