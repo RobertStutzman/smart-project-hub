@@ -406,6 +406,22 @@ function QuestionEditor({
   );
 }
 
+function DifficultyBadge({ value }: { value: Difficulty }) {
+  const styles: Record<Difficulty, string> = {
+    easy: "bg-emerald-500/15 text-emerald-300 ring-emerald-400/30",
+    medium: "bg-sky-500/15 text-sky-300 ring-sky-400/30",
+    hard: "bg-amber-500/15 text-amber-300 ring-amber-400/30",
+    impossible: "bg-rose-500/15 text-rose-300 ring-rose-400/30",
+  };
+  return (
+    <span
+      className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ring-1 ${styles[value]}`}
+    >
+      {value}
+    </span>
+  );
+}
+
 function CsvDropzone({
   bulkInsert,
   onInserted,
