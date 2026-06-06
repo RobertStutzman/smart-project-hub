@@ -702,3 +702,43 @@ function PlayPage() {
     </main>
   );
 }
+
+function PlayerPointsTicker({
+  remainingS,
+  totalS,
+  lockedAt,
+  questionStartedAt,
+  hasAnswer,
+}: {
+  remainingS: number;
+  totalS: number;
+  lockedAt: string | null;
+  questionStartedAt: string | null;
+  hasAnswer: boolean;
+}) {
+  let points: number;
+  if (hasAnswer && lockedAt && questionStartedAt) {
+    const elapsed = (new Date(lockedAt).getTime() - new Date(questionStartedAt).getTime()) / 1000;
+    const remainingAtLock = Math.max(0, totalS - elapsed);
+    points = Math.max(0, Math.round((remainingAtLock / totalS) * 1000));
+  } else {
+    points = Math.max(0, Math.round((Math.max(0, remainingS) / totalS) * 1000));
+  }
+  const color =
+    points >= 500
+      ? "text-amber-300"
+      : points >= 150
+        ? "text-amber-400"
+        : "text-rose-400";
+  return (
+    <div className="flex flex-col items-end leading-none">
+      <div className="text-[8px] font-bold uppercase tracking-[0.3em] text-muted-foreground">
+        {hasAnswer ? "Locked" : "Lock now"}
+      </div>
+      <div className={`font-mono text-2xl font-black tabular-nums ${color}`}>
+        {points}
+      </div>
+    </div>
+  );
+}
+
