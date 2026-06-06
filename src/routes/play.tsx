@@ -590,8 +590,17 @@ function PlayPage() {
                       {Math.ceil(readSecondsLeft)}
                     </div>
                   ) : remainingS !== null && room.phase === "question" ? (
-                    <div className="font-mono text-xl font-black">
-                      {Math.ceil(remainingS)}s
+                    <div className="flex items-center gap-3">
+                      <PlayerPointsTicker
+                        remainingS={remainingS}
+                        totalS={room.question_duration_ms / 1000}
+                        lockedAt={me?.current_answer_locked_at ?? null}
+                        questionStartedAt={room.question_started_at}
+                        hasAnswer={me?.current_answer !== null && me?.current_answer !== undefined}
+                      />
+                      <div className="font-mono text-xl font-black text-muted-foreground">
+                        {Math.ceil(remainingS)}s
+                      </div>
                     </div>
                   ) : null}
                 </div>
@@ -618,8 +627,26 @@ function PlayPage() {
                     droppedIndexes={room.dropped_indexes ?? []}
                     selectedIndex={me?.current_answer ?? null}
                     onPick={(i) => void pick(i)}
+                    avatarsByIndex={
+                      room.phase === "question"
+                        ? [0, 1, 2, 3].map((idx) =>
+                            allPlayers
+                              .filter(
+                                (p) =>
+                                  p.session_id !== session?.sessionId &&
+                                  p.current_answer === idx,
+                              )
+                              .map((p) => ({
+                                id: p.id,
+                                nickname: p.nickname,
+                                avatar_url: p.avatar_url,
+                              })),
+                          )
+                        : undefined
+                    }
                   />
                 </div>
+
                 {buttonsScrambled && (
                   <div className="absolute inset-x-0 top-1/2 z-30 -translate-y-1/2 text-center font-display text-3xl font-black tracking-widest text-fuchsia-300 drop-shadow">
                     G̷L̷I̷T̷C̷H̷E̷D̷
