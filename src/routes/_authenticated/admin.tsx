@@ -218,6 +218,8 @@ function AdminPage() {
           </div>
         </header>
 
+        <StreamerModeToggle />
+
         <AIGenerator generate={generateFn} bulkInsert={bulkFn} onInserted={reload} />
 
         <ExplanationBackfill onUpdated={reload} />
