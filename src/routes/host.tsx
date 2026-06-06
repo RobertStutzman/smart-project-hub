@@ -264,13 +264,44 @@ function HostPage() {
 
   useRevealAutoAdvance(room?.roomCode ?? "", room?.hostSessionId ?? "", roomPhase, roundNumber);
 
+  async function endAndStartNewRoom() {
+    if (!room) return;
+    if (!window.confirm("End this game and start a fresh room?")) return;
+    try {
+      setCreating(true);
+      await endRoomFn({
+        data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+      }).catch(() => undefined);
+      const hostSessionId = newId();
+      const res = await createRoomFn({ data: { hostSessionId } });
+      saveHostSession({ sessionId: hostSessionId, roomCode: res.roomCode });
+      setPlayers([]);
+      setRoomPhase("lobby");
+      setRoundNumber(0);
+      setActiveCategory(null);
+      setRoom({ id: res.id, roomCode: res.roomCode, hostSessionId });
+      toast.success(`New room ${res.roomCode}`);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setCreating(false);
+    }
+  }
+
   if (room && roomPhase !== "lobby") {
     return (
       <main className="relative min-h-screen">
         <HostGameStage room={room} />
+        <button
+          onClick={endAndStartNewRoom}
+          className="fixed right-4 top-4 z-50 rounded-full border border-white/20 bg-black/60 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white shadow-lg backdrop-blur transition hover:bg-black/80"
+        >
+          End game · new room
+        </button>
       </main>
     );
   }
+
 
   return (
     <main className="relative min-h-screen">
