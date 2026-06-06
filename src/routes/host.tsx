@@ -218,8 +218,8 @@ function HostPage() {
         const { getActiveSounds } = await import("@/lib/sounds.functions");
         const res = await getActiveSounds();
         if (cancelled) return;
-        const { loadCustomClips } = await import("@/lib/sound-engine");
-        loadCustomClips(res.active as never);
+        const { loadCustomEvents } = await import("@/lib/sound-engine");
+        loadCustomEvents(res.events as never);
       } catch {
         /* ignore — fall back to synth */
       } finally {
