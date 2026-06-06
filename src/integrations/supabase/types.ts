@@ -135,6 +135,7 @@ export type Database = {
           category: string
           correct_answer: string
           created_at: string
+          explanation: string | null
           id: string
           is_premium: boolean
           media_type: string | null
@@ -149,6 +150,7 @@ export type Database = {
           category: string
           correct_answer: string
           created_at?: string
+          explanation?: string | null
           id?: string
           is_premium?: boolean
           media_type?: string | null
@@ -163,6 +165,7 @@ export type Database = {
           category?: string
           correct_answer?: string
           created_at?: string
+          explanation?: string | null
           id?: string
           is_premium?: boolean
           media_type?: string | null
