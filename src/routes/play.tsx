@@ -55,6 +55,7 @@ type Me = {
   streak_count: number;
   is_audience: boolean;
   current_answer: number | null;
+  current_answer_locked_at: string | null;
   current_round_score: number;
   last_answer_correct: boolean | null;
   used_2x: boolean;
@@ -69,6 +70,16 @@ type Me = {
   final_answer: number | null;
   final_locked_at: string | null;
 };
+
+type LobbyPlayer = {
+  id: string;
+  session_id: string;
+  nickname: string;
+  avatar_url: string | null;
+  score: number;
+  current_answer: number | null;
+};
+
 
 function PlayPage() {
   const navigate = useNavigate();
