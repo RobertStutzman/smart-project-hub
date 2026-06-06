@@ -39,6 +39,8 @@ export const listQuestions = createServerFn({ method: "GET" })
     return { questions: data ?? [] };
   });
 
+const DIFFICULTY = z.enum(["easy", "medium", "hard", "impossible"]);
+
 const QuestionInput = z.object({
   category: z.string().min(1).max(60),
   subcategory: z.string().max(60).optional().nullable(),
@@ -48,6 +50,7 @@ const QuestionInput = z.object({
   wrong_2: z.string().min(1).max(200),
   wrong_3: z.string().min(1).max(200),
   explanation: z.string().max(500).optional().nullable(),
+  difficulty: DIFFICULTY.default("medium"),
   media_url: z.string().url().max(500).optional().nullable(),
   media_type: z.string().max(20).optional().nullable(),
   is_premium: z.boolean().default(false),
@@ -112,6 +115,7 @@ export const generateQuestions = createServerFn({ method: "POST" })
       category: z.string().min(1).max(60),
       count: z.number().int().min(1).max(50),
       isPremium: z.boolean().default(false),
+      difficulty: z.enum(["easy", "medium", "hard", "impossible", "mixed"]).default("mixed"),
     }).parse,
   )
   .handler(async ({ data, context }) => {
@@ -131,11 +135,11 @@ export const generateQuestions = createServerFn({ method: "POST" })
           {
             role: "system",
             content:
-              "You write trivia questions for a live multiplayer game. Each question has exactly one correct answer and three plausible wrong answers. Keep wording crisp and unambiguous. Avoid duplicates. For each question, also include a 1-2 sentence 'explanation' — a fun, conversational fact about WHY the correct answer is right (something a host would read aloud after the reveal). Keep it under 200 characters.",
+              "You write trivia questions for a live multiplayer game. Each question has exactly one correct answer and three plausible wrong answers. Keep wording crisp and unambiguous. Avoid duplicates. For each question, also include a 1-2 sentence 'explanation' — a fun, conversational fact about WHY the correct answer is right (something a host would read aloud after the reveal), under 200 characters. Also tag each question with a 'difficulty' of easy, medium, hard, or impossible. Calibration: easy = most adults know it; medium = casual fans know it; hard = real fans / trivia regulars; impossible = stumps almost everyone, super obscure detail. The final round of the game uses hard/impossible questions, so when asked to generate at those levels, make them genuinely tough — obscure details, deep cuts, B-sides, not the obvious answer.",
           },
           {
             role: "user",
-            content: `Generate ${data.count} trivia questions for the "${data.category}" category. User brief: ${data.prompt}`,
+            content: `Generate ${data.count} trivia questions for the "${data.category}" category. Difficulty target: ${data.difficulty}${data.difficulty === "mixed" ? " (vary across easy/medium/hard/impossible)" : " (every question must be this level)"}. User brief: ${data.prompt}`,
           },
         ],
         tools: [
@@ -158,6 +162,7 @@ export const generateQuestions = createServerFn({ method: "POST" })
                         wrong_2: { type: "string" },
                         wrong_3: { type: "string" },
                         explanation: { type: "string" },
+                        difficulty: { type: "string", enum: ["easy", "medium", "hard", "impossible"] },
                       },
                       required: [
                         "question_text",
@@ -166,6 +171,7 @@ export const generateQuestions = createServerFn({ method: "POST" })
                         "wrong_2",
                         "wrong_3",
                         "explanation",
+                        "difficulty",
                       ],
                       additionalProperties: false,
                     },
@@ -196,11 +202,15 @@ export const generateQuestions = createServerFn({ method: "POST" })
         wrong_2: string;
         wrong_3: string;
         explanation?: string;
+        difficulty?: "easy" | "medium" | "hard" | "impossible";
       }>;
     };
+    const fallbackDifficulty =
+      data.difficulty === "mixed" ? "medium" : data.difficulty;
     return {
       questions: parsed.questions.map((q) => ({
         ...q,
+        difficulty: q.difficulty ?? fallbackDifficulty,
         category: data.category,
         is_premium: data.isPremium,
       })),

@@ -24,6 +24,8 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
 });
 
+type Difficulty = "easy" | "medium" | "hard" | "impossible";
+
 type Question = {
   id: string;
   category: string;
@@ -36,6 +38,7 @@ type Question = {
   media_url: string | null;
   media_type: string | null;
   is_premium: boolean;
+  difficulty: Difficulty;
   created_at: string;
 };
 
@@ -52,6 +55,7 @@ const EMPTY_DRAFT: DraftQuestion = {
   media_url: null,
   media_type: null,
   is_premium: false,
+  difficulty: "medium",
 };
 
 function AdminPage() {
@@ -110,6 +114,7 @@ function AdminPage() {
             media_url: q.media_url,
             media_type: q.media_type,
             is_premium: q.is_premium,
+            difficulty: q.difficulty,
           },
         },
       });
@@ -242,6 +247,7 @@ function AdminPage() {
                   <th className="px-3 py-2">Category</th>
                   <th className="px-3 py-2">Question</th>
                   <th className="px-3 py-2">Correct</th>
+                  <th className="px-3 py-2">Diff.</th>
                   <th className="px-3 py-2">Premium</th>
                   <th className="px-3 py-2"></th>
                 </tr>
@@ -252,6 +258,9 @@ function AdminPage() {
                     <td className="px-3 py-2 align-top">{q.category}</td>
                     <td className="px-3 py-2 align-top">{q.question_text}</td>
                     <td className="px-3 py-2 align-top font-medium">{q.correct_answer}</td>
+                    <td className="px-3 py-2 align-top">
+                      <DifficultyBadge value={q.difficulty} />
+                    </td>
                     <td className="px-3 py-2 align-top">{q.is_premium ? "★" : ""}</td>
                     <td className="px-3 py-2 align-top">
                       <div className="flex gap-2">
@@ -273,7 +282,7 @@ function AdminPage() {
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-3 py-10 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-3 py-10 text-center text-muted-foreground">
                       No questions match.
                     </td>
                   </tr>
@@ -361,6 +370,16 @@ function QuestionEditor({
             onChange={(e) => setQ({ ...q, wrong_3: e.target.value })}
             className="rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
           />
+          <select
+            value={q.difficulty}
+            onChange={(e) => setQ({ ...q, difficulty: e.target.value as Difficulty })}
+            className="rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
+          >
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+            <option value="impossible">Impossible</option>
+          </select>
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -384,6 +403,22 @@ function QuestionEditor({
         </div>
       </div>
     </div>
+  );
+}
+
+function DifficultyBadge({ value }: { value: Difficulty }) {
+  const styles: Record<Difficulty, string> = {
+    easy: "bg-emerald-500/15 text-emerald-300 ring-emerald-400/30",
+    medium: "bg-sky-500/15 text-sky-300 ring-sky-400/30",
+    hard: "bg-amber-500/15 text-amber-300 ring-amber-400/30",
+    impossible: "bg-rose-500/15 text-rose-300 ring-rose-400/30",
+  };
+  return (
+    <span
+      className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ring-1 ${styles[value]}`}
+    >
+      {value}
+    </span>
   );
 }
 
@@ -530,6 +565,7 @@ function AIGenerator({
   const [category, setCategory] = useState(CATEGORIES[0].name);
   const [count, setCount] = useState(10);
   const [isPremium, setIsPremium] = useState(false);
+  const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard" | "impossible" | "mixed">("mixed");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [preview, setPreview] = useState<
@@ -539,6 +575,8 @@ function AIGenerator({
       wrong_1: string;
       wrong_2: string;
       wrong_3: string;
+      explanation?: string;
+      difficulty: Difficulty;
       category: string;
       is_premium: boolean;
     }>
@@ -552,7 +590,7 @@ function AIGenerator({
     try {
       if (count <= BATCH) {
         const res = await generate({
-          data: { prompt, category, count, isPremium },
+          data: { prompt, category, count, isPremium, difficulty },
         });
         setPreview(res.questions);
       } else {
@@ -564,7 +602,7 @@ function AIGenerator({
         while (remaining > 0) {
           const batchSize = Math.min(BATCH, remaining);
           const res = await generate({
-            data: { prompt, category, count: batchSize, isPremium },
+            data: { prompt, category, count: batchSize, isPremium, difficulty },
           });
           const rows = res.questions.map((q) => ({
             category: q.category,
@@ -574,6 +612,8 @@ function AIGenerator({
             wrong_1: q.wrong_1,
             wrong_2: q.wrong_2,
             wrong_3: q.wrong_3,
+            explanation: q.explanation ?? null,
+            difficulty: q.difficulty,
             media_url: null,
             media_type: null,
             is_premium: q.is_premium,
@@ -608,6 +648,8 @@ function AIGenerator({
             wrong_1: q.wrong_1,
             wrong_2: q.wrong_2,
             wrong_3: q.wrong_3,
+            explanation: q.explanation ?? null,
+            difficulty: q.difficulty,
             media_url: null,
             media_type: null,
             is_premium: q.is_premium,
@@ -634,7 +676,7 @@ function AIGenerator({
           </p>
         </div>
       </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_auto_auto]">
+      <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_auto_auto_auto]">
         <input
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
@@ -649,6 +691,18 @@ function AIGenerator({
           {CATEGORIES.map((c) => (
             <option key={c.name} value={c.name}>{c.name}</option>
           ))}
+        </select>
+        <select
+          value={difficulty}
+          onChange={(e) => setDifficulty(e.target.value as typeof difficulty)}
+          className="rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
+          title="Difficulty"
+        >
+          <option value="mixed">Mixed</option>
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+          <option value="impossible">Impossible</option>
         </select>
         <input
           type="number"
@@ -684,10 +738,16 @@ function AIGenerator({
           <ul className="space-y-2 text-sm">
             {preview.map((q, i) => (
               <li key={i} className="rounded-xl border border-border bg-background/40 p-3">
-                <div className="font-medium">{q.question_text}</div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="font-medium">{q.question_text}</div>
+                  <DifficultyBadge value={q.difficulty} />
+                </div>
                 <div className="mt-1 text-xs text-muted-foreground">
                   ✓ {q.correct_answer} &nbsp;·&nbsp; ✗ {q.wrong_1} / {q.wrong_2} / {q.wrong_3}
                 </div>
+                {q.explanation && (
+                  <div className="mt-1 text-xs italic text-amber-300/80">💡 {q.explanation}</div>
+                )}
               </li>
             ))}
           </ul>

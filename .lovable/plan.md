@@ -1,26 +1,30 @@
 ## Goal
-After the correct answer is revealed, show a short explanation/fun fact about why it's correct.
+Final round question must come from a hard/impossible pool. We don't track difficulty today, so add it.
 
 ## Changes
 
 **1. Database**
-- Add `explanation text` column to `public.questions` (nullable — existing rows stay blank).
+- Add `difficulty text NOT NULL DEFAULT 'medium'` to `public.questions` with a CHECK constraint allowing `'easy' | 'medium' | 'hard' | 'impossible'`.
+- Index on `(category, difficulty, is_premium)` to keep the final-round query fast.
+- Existing rows default to `'medium'` (i.e., they will NOT be used for the final round until reclassified).
 
-**2. AI Question Generator** (`src/lib/admin.functions.ts`)
-- Update the generation prompt + schema so every new question returns a 1–2 sentence `explanation` (a fact about why the correct answer is right).
-- Persist `explanation` on insert.
+**2. AI Question Generator** (`src/lib/admin.functions.ts` + `admin.tsx`)
+- Add a "Difficulty" dropdown (easy / medium / hard / impossible / mixed) to the generator form.
+- Pass it to the server fn. Update the system prompt to calibrate to the requested level, and have the tool schema return a `difficulty` per question (so "mixed" still labels each one).
+- Persist `difficulty` on insert.
 
-**3. Reveal UI** (`src/components/host/QuestionStage.tsx` and player `play.tsx` reveal state)
-- When the correct answer is shown (alongside the "who picked what" card), render a "Did you know?" panel with the explanation underneath.
-- If `explanation` is null/empty (older questions), just hide the panel — no layout shift.
+**3. Final round picker** (`src/lib/game.functions.ts`, the `startFinalRound` handler)
+- Change the question query to: same category (if any) AND `difficulty IN ('hard','impossible')`, excluding already-used IDs.
+- Fallback chain if none found:
+  1. hard/impossible in any category
+  2. any difficulty in current category
+  3. any question (current behavior)
+- Pick `impossible` over `hard` when both are available (small weighting) so the final feels climactic.
 
-**4. Final round reveal** (`final_reveal` phase)
-- Same treatment: show the explanation under the correct answer card.
-
-## Existing questions
-Left as-is (no explanation shown). Optional follow-up: a one-click "Backfill explanations" admin button that runs the AI over rows where `explanation IS NULL`. Not included in this plan unless you want it.
+**4. Admin question list**
+- Show a difficulty badge per row.
+- Allow inline edit via the existing edit dialog (add the dropdown).
 
 ## Out of scope
-- Backfilling old questions
-- Editing explanations in the admin UI (can add later)
-- Voice/audio narration of the fact
+- Auto-reclassifying existing questions (you can re-generate or edit a batch via admin).
+- Per-round difficulty curves for rounds 1-14.
