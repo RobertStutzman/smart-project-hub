@@ -145,7 +145,11 @@ export const nextQuestion = createServerFn({ method: "POST" })
         qQuery = qQuery.eq("category", room.current_category);
       if (difficulty) qQuery = qQuery.eq("difficulty", difficulty);
       if (usedIds.length > 0) qQuery = qQuery.not("id", "in", `(${usedIds.join(",")})`);
-      const { data } = await qQuery.limit(100);
+      // Global rotation: least-used first, then oldest-used (nulls = never used → top).
+      const { data } = await qQuery
+        .order("times_used", { ascending: true })
+        .order("last_used_at", { ascending: true, nullsFirst: true })
+        .limit(12);
       return data ?? [];
     }
 
@@ -172,6 +176,16 @@ export const nextQuestion = createServerFn({ method: "POST" })
       room_id: room.id,
       question_id: q.id,
     });
+
+    // Bump global rotation counters so this question drops to the bottom of the pool.
+    await supabaseAdmin
+      .from("questions")
+      .update({
+        times_used: ((q as { times_used?: number }).times_used ?? 0) + 1,
+        last_used_at: new Date().toISOString(),
+      })
+      .eq("id", q.id);
+
 
     let saboteurSessionId: string | null = null;
     if (wildcard === "saboteur") {
@@ -578,7 +592,11 @@ export const startFinalRound = createServerFn({ method: "POST" })
         qQuery = qQuery.in("difficulty", attempt.difficulties);
       if (usedIds.length > 0)
         qQuery = qQuery.not("id", "in", `(${usedIds.join(",")})`);
-      const { data: candidates } = await qQuery.limit(100);
+      // Global rotation: least-used first, then oldest-used.
+      const { data: candidates } = await qQuery
+        .order("times_used", { ascending: true })
+        .order("last_used_at", { ascending: true, nullsFirst: true })
+        .limit(12);
       if (candidates && candidates.length > 0) {
         // Weight 'impossible' 2x over 'hard' when both are in the pool
         const weighted: typeof candidates = [];
@@ -599,6 +617,15 @@ export const startFinalRound = createServerFn({ method: "POST" })
       room_id: room.id,
       question_id: q.id,
     });
+
+    // Bump global rotation counters.
+    await supabaseAdmin
+      .from("questions")
+      .update({
+        times_used: ((q as { times_used?: number }).times_used ?? 0) + 1,
+        last_used_at: new Date().toISOString(),
+      })
+      .eq("id", q.id);
 
     const finalMedia = await resolveMedia(
       (q as { media_url?: string | null }).media_url,

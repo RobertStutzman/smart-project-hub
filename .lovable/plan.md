@@ -1,23 +1,51 @@
-## Change
+## Goal
 
-On the player phone, drop the question-text banner during normal rounds and let the 4 answer buttons own the whole screen. Players read the question on the TV.
+Make question selection globally fair: a question only comes back after every other question (matching the same category + difficulty) has been used at least once across all games.
 
-### `src/routes/play.tsx` — `question` / `reveal` branch (~lines 571–589)
+## 1. Schema migration
 
-- Remove the question-text banner entirely.
-- Replace it with a slim top strip that only shows:
-  - "Question" label (or wildcard label like "Roast vote")
-  - The countdown / "Read… Ns" timer
-- Strip is ~one line tall so the `AnswerGrid` (already `flex-1`) grows to fill nearly the full screen → bigger buttons automatically.
+Add a usage counter + timestamp to `questions`:
 
-### `src/routes/play.tsx` — final round (~lines 529–547)
+```sql
+ALTER TABLE public.questions
+  ADD COLUMN times_used integer NOT NULL DEFAULT 0,
+  ADD COLUMN last_used_at timestamptz;
 
-- Same treatment: keep the "★ Final · wagered N" + timer chip, drop the question text. Players look at the TV.
+CREATE INDEX questions_rotation_idx
+  ON public.questions (category, difficulty, times_used, last_used_at NULLS FIRST);
+```
 
-### `src/components/AnswerGrid.tsx`
+No new grants needed (table is already SELECT-public; writes happen via `supabaseAdmin`).
 
-- Promote answer **labels** to the hero of each tile: `text-xl sm:text-2xl font-bold leading-tight`, up to 3 lines, padded.
-- Demote A/B/C/D to a small chip in the top-left corner so the label has room.
-- Shrink the faded background shape so it doesn't compete with the label.
+## 2. Picker change — `src/lib/game.functions.ts`
 
-No backend, no game-logic changes — purely the player-phone presentation.
+In the two places that pick a question (`fetchPool` around lines 142 and 579):
+
+- Keep the per-room exclusion (`room_questions` → no repeats inside one game).
+- Replace `ORDER BY random()` (or current ordering) with:
+  ```
+  .order("times_used", { ascending: true })
+  .order("last_used_at", { ascending: true, nullsFirst: true })
+  ```
+- Fetch a small top window (e.g. limit 8) of least-used candidates, then `Math.random()` pick one — so games don't feel mechanically deterministic but still respect the rotation.
+
+## 3. Mark question as used
+
+Right after we insert into `room_questions` and set `current_question_id` (lines ~171 and ~598), also bump the question:
+
+```ts
+await supabaseAdmin
+  .from("questions")
+  .update({ times_used: q.times_used + 1, last_used_at: new Date().toISOString() })
+  .eq("id", q.id);
+```
+
+(Read `times_used` from the selected row; fall back to an RPC if we'd rather do an atomic `times_used + 1` — start with the simple update.)
+
+## Result
+
+- A brand-new question with `times_used = 0` and `last_used_at = NULL` is always preferred.
+- Once every question in the (category, difficulty) pool has `times_used = 1`, the picker moves to the ones with the oldest `last_used_at`.
+- Existing per-room "no repeats within one game" rule is unchanged.
+
+No frontend changes.
