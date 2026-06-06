@@ -358,3 +358,115 @@ export const previewAnnouncerLine = createServerFn({ method: "POST" })
     return { audioBase64 };
   });
 
+
+// ──────────────────────────────────────────────────────────────────────────
+// Question voiceovers — pre-bake The Elf reading each question's prompt
+// ──────────────────────────────────────────────────────────────────────────
+
+const QUESTION_TTS_PREFIX = "question-tts";
+// Calmer, more intelligible settings for question reads (vs. unhinged welcome lines)
+const QUESTION_VOICE_SETTINGS = {
+  stability: 0.5,
+  similarity_boost: 0.75,
+  style: 0.4,
+  use_speaker_boost: true,
+  speed: 1.0,
+};
+
+function hashText(text: string): string {
+  // Tiny non-cryptographic hash; we only need change-detection.
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) {
+    h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+  }
+  return (h >>> 0).toString(36);
+}
+
+async function bakeOneQuestion(
+  q: { id: string; question_text: string; tts_text_hash?: string | null; tts_path?: string | null },
+  force = false,
+): Promise<"baked" | "skipped"> {
+  const hash = hashText(q.question_text);
+  if (!force && q.tts_path && q.tts_text_hash === hash) return "skipped";
+
+  const audio = await generateTTS(q.question_text, QUESTION_VOICE_SETTINGS);
+  const path = `${QUESTION_TTS_PREFIX}/${q.id}.mp3`;
+  const { error: upErr } = await supabaseAdmin.storage
+    .from("question-media")
+    .upload(path, new Uint8Array(audio), {
+      contentType: "audio/mpeg",
+      upsert: true,
+    });
+  if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+
+  const { error: dbErr } = await supabaseAdmin
+    .from("questions")
+    .update({ tts_path: path, tts_text_hash: hash })
+    .eq("id", q.id);
+  if (dbErr) throw new Error(`DB update failed: ${dbErr.message}`);
+  return "baked";
+}
+
+export const bakeQuestionTTS = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({ questionId: z.string().uuid(), force: z.boolean().optional() }).parse,
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { data: q, error } = await supabaseAdmin
+      .from("questions")
+      .select("id, question_text, tts_path, tts_text_hash")
+      .eq("id", data.questionId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!q) throw new Error("Question not found");
+    const result = await bakeOneQuestion(q, data.force ?? false);
+    return { result };
+  });
+
+export const bakeAllQuestionTTS = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({ force: z.boolean().optional(), limit: z.number().int().min(1).max(500).optional() }).parse,
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    let query = supabaseAdmin
+      .from("questions")
+      .select("id, question_text, tts_path, tts_text_hash");
+    if (!data.force) query = query.is("tts_path", null);
+    const { data: rows, error } = await query.limit(data.limit ?? 100);
+    if (error) throw new Error(error.message);
+    const list = rows ?? [];
+
+    let baked = 0;
+    let skipped = 0;
+    const errors: { id: string; message: string }[] = [];
+    for (const q of list) {
+      try {
+        const r = await bakeOneQuestion(q, data.force ?? false);
+        if (r === "baked") baked += 1;
+        else skipped += 1;
+      } catch (e) {
+        errors.push({ id: q.id, message: (e as Error).message });
+      }
+      // Small delay so we don't hammer the ElevenLabs rate limiter
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    return { baked, skipped, errors, total: list.length };
+  });
+
+export const getQuestionTTSStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    const { count: total } = await supabaseAdmin
+      .from("questions")
+      .select("id", { count: "exact", head: true });
+    const { count: baked } = await supabaseAdmin
+      .from("questions")
+      .select("id", { count: "exact", head: true })
+      .not("tts_path", "is", null);
+    return { total: total ?? 0, baked: baked ?? 0 };
+  });
