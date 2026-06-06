@@ -108,8 +108,9 @@ function HostPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "rooms", filter: `id=eq.${room.id}` },
         (payload) => {
-          const next = payload.new as { phase?: string } | undefined;
+          const next = payload.new as { phase?: string; round_number?: number } | undefined;
           if (next?.phase) setRoomPhase(next.phase);
+          if (typeof next?.round_number === "number") setRoundNumber(next.round_number);
         },
       )
       .subscribe();
