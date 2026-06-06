@@ -407,7 +407,7 @@ function HostPage() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.9 }}
                         transition={{ duration: 0.25 }}
-                        className="flex items-center gap-2 rounded-lg border border-border bg-background/40 px-3 py-2 text-sm"
+                        className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white"
                       >
                         <span className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-primary to-accent text-xs font-bold text-primary-foreground">
                           {p.nickname.slice(0, 1).toUpperCase()}
