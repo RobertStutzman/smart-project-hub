@@ -17,13 +17,26 @@ type ScriptLine = {
   audienceVisible?: boolean;
 };
 
+const WELCOME_LINES: string[] = [
+  "Welcoooome to BEAT! THE! DROP! The trivia showdown where brains get BROKEN and egos get BRUISED!",
+  "Ohhh we got a LIVE one tonight! Strap in nerds, it's BEAT THE DROP, baby!",
+  "Ladies, gentlemen, and everyone in between, welcome to BEAT! THE! DROP!",
+  "Welcome to BEAT THE DROP, where your relationship will NOT survive round three!",
+  "It's the show your therapist warned you about... BEAT! THE! DROOOOP!",
+  "Welcome contestants! Or as I like to call you... future LOSERS! Let's play BEAT THE DROP!",
+  "Buckle up buttercups, it's BEAT THE DROP, the only game where being smart is a personality FLAW!",
+  "Welcome to BEAT THE DROP! Tonight ONE of you becomes a legend. The rest of you become CONTENT.",
+  "Heyyyy gamers! Put down the snacks, pick up the buzzers, it's BEAT THE DROP TIIIIME!",
+  "Welcome to BEAT THE DROP! Where trivia goes to DIE and friendships go RIGHT along with it!",
+];
+
 const VO_LINES: ScriptLine[] = [
-  {
-    slot: "vo_welcome",
-    label: "Welcome",
-    text: "Welcoooome... to BEAT! THE! DROP! The trivia showdown where brains get BROKEN, egos get BRUISED, and only the FASTEST fingers survive! Give it up for tonight's victims... I mean CONTESTANTS! Let's GOOOOO!",
+  ...WELCOME_LINES.map((text, i) => ({
+    slot: `vo_welcome_${i + 1}`,
+    label: `Welcome ${i + 1}`,
+    text,
     audienceVisible: true,
-  },
+  })),
   {
     slot: "vo_round_intro",
     label: "Round intro",
