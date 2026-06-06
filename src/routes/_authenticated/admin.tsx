@@ -1073,6 +1073,7 @@ function MediaEditor({
       toast.error((e as Error).message);
     } finally {
       setBusy(false);
+    }
   }
 
   async function handleImageUpload(file: File) {
