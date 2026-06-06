@@ -1103,6 +1103,7 @@ function MediaEditor({
     }
   }
 
+
   async function handleVideoUpload(file: File) {
     if (file.size > 25 * 1024 * 1024) {
       toast.error("Video must be under 25 MB");
