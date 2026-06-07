@@ -406,7 +406,6 @@ async function logTtsCall(row: {
 }
 
 export const speakPersonaLine = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator(
     z.object({
       text: z.string().min(1).max(600),
