@@ -344,7 +344,25 @@ export function HostGameStage({ room }: Props) {
         dropSfxTimersRef.current.push(sfxId);
         dropWrongFn({
           data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
-        }).catch(() => {});
+        })
+          .then((res) => {
+            const droppedIndex = res?.dropped;
+            if (droppedIndex == null) return;
+            // Play each guilty player's signature funny noise as their tile
+            // hits the ground. Stagger slightly so multiple players overlap
+            // into chaotic comedy instead of one wall of sound.
+            const guilty = players.filter(
+              (p) => !p.is_audience && p.current_answer === droppedIndex,
+            );
+            guilty.forEach((p, i) => {
+              const tid = window.setTimeout(
+                () => playFunnySoundForId(p.session_id ?? p.id),
+                DROP_FALL_MS + i * 120,
+              );
+              dropSfxTimersRef.current.push(tid);
+            });
+          })
+          .catch(() => {});
       }
     });
 
