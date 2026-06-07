@@ -741,6 +741,7 @@ export function HostGameStage({ room }: Props) {
               ⚔ Tied at {topScore} — {tied.map((p) => p.nickname).join(" & ")}
             </div>
             <button
+              data-host-primary="true"
               onClick={() => {
                 play("whoosh");
                 startSuddenDeathFn({
