@@ -215,8 +215,17 @@ function HostPage() {
       try {
         const res = await listCategoriesFn();
         if (cancelled) return;
-        const names = res.categories.map((c) => c.name);
-        setAllCategories(res.categories);
+        // Merge DB categories with hardcoded ones so placeholders (count=0) show.
+        const dbMap = new Map(res.categories.map((c) => [c.name, c.count]));
+        for (const c of CATEGORIES) {
+          if (c.name === MIX_CATEGORY) continue;
+          if (!dbMap.has(c.name)) dbMap.set(c.name, 0);
+        }
+        const merged = Array.from(dbMap.entries())
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+        const names = merged.filter((c) => c.count > 0).map((c) => c.name);
+        setAllCategories(merged);
         let initial: Set<string>;
         try {
           const raw = window.localStorage.getItem(CATEGORIES_KEY);
