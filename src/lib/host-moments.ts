@@ -162,6 +162,22 @@ export const HOST_MOMENTS: HostMomentMeta[] = [
     bakedKey: "credits_open",
     sampleText: "And that's the show. Roll credits.",
   },
+  {
+    key: "idle_interject",
+    label: "Idle interjection",
+    description: "Dead-air filler between questions to keep Vox 'in the room'.",
+    tier: "baked",
+    bakedKey: "idle_interject",
+    sampleText: "Don't make me start humming.",
+  },
+  {
+    key: "round_transition",
+    label: "Round transition",
+    description: "Stinger played when moving from one round to the next.",
+    tier: "baked",
+    bakedKey: "round_transition",
+    sampleText: "Round two. Heating up.",
+  },
 ];
 
 export function bakedCount(meta: HostMomentMeta): number {
