@@ -51,10 +51,10 @@ async function getRoomByHost(roomCode: string, hostSessionId: string) {
 }
 
 function wildcardForRound(round: number): "saboteur" | "glitch" | "roast" | "lightning" | null {
-  if (round === 5) return "saboteur";
-  if (round === 7) return "lightning";
-  if (round === 10) return "glitch";
-  if (round === 14) return "roast";
+  if (round === 3) return "saboteur";
+  if (round === 8) return "lightning";
+  if (round === 13) return "glitch";
+  if (round === 18) return "roast";
   return null;
 }
 
