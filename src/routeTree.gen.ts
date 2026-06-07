@@ -18,6 +18,7 @@ import { Route as HRouteImport } from './routes/h'
 import { Route as DevRouteImport } from './routes/dev'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SettingsStreamerRouteImport } from './routes/settings.streamer'
 import { Route as AuthenticatedAdminTtsRouteImport } from './routes/_authenticated/admin-tts'
 import { Route as AuthenticatedAdminSoundsRouteImport } from './routes/_authenticated/admin-sounds'
 import { Route as AuthenticatedAdminQuestionsRouteImport } from './routes/_authenticated/admin-questions'
@@ -68,6 +69,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsStreamerRoute = SettingsStreamerRouteImport.update({
+  id: '/settings/streamer',
+  path: '/settings/streamer',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminTtsRoute = AuthenticatedAdminTtsRouteImport.update({
   id: '/admin-tts',
   path: '/admin-tts',
@@ -110,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/admin-tts': typeof AuthenticatedAdminTtsRoute
+  '/settings/streamer': typeof SettingsStreamerRoute
   '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
 }
 export interface FileRoutesByTo {
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/admin-tts': typeof AuthenticatedAdminTtsRoute
+  '/settings/streamer': typeof SettingsStreamerRoute
   '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
 }
 export interface FileRoutesById {
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/_authenticated/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/_authenticated/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/_authenticated/admin-tts': typeof AuthenticatedAdminTtsRoute
+  '/settings/streamer': typeof SettingsStreamerRoute
   '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
 }
 export interface FileRouteTypes {
@@ -159,6 +168,7 @@ export interface FileRouteTypes {
     | '/admin-questions'
     | '/admin-sounds'
     | '/admin-tts'
+    | '/settings/streamer'
     | '/api/public/hooks/question-quality-alert'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
     | '/admin-questions'
     | '/admin-sounds'
     | '/admin-tts'
+    | '/settings/streamer'
     | '/api/public/hooks/question-quality-alert'
   id:
     | '__root__'
@@ -190,6 +201,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin-questions'
     | '/_authenticated/admin-sounds'
     | '/_authenticated/admin-tts'
+    | '/settings/streamer'
     | '/api/public/hooks/question-quality-alert'
   fileRoutesById: FileRoutesById
 }
@@ -203,6 +215,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PlayRoute: typeof PlayRoute
   PreviewQuestionRoute: typeof PreviewQuestionRoute
+  SettingsStreamerRoute: typeof SettingsStreamerRoute
   ApiPublicHooksQuestionQualityAlertRoute: typeof ApiPublicHooksQuestionQualityAlertRoute
 }
 
@@ -271,6 +284,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/streamer': {
+      id: '/settings/streamer'
+      path: '/settings/streamer'
+      fullPath: '/settings/streamer'
+      preLoaderRoute: typeof SettingsStreamerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin-tts': {
       id: '/_authenticated/admin-tts'
       path: '/admin-tts'
@@ -337,9 +357,20 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PlayRoute: PlayRoute,
   PreviewQuestionRoute: PreviewQuestionRoute,
+  SettingsStreamerRoute: SettingsStreamerRoute,
   ApiPublicHooksQuestionQualityAlertRoute:
     ApiPublicHooksQuestionQualityAlertRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
