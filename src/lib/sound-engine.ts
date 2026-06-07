@@ -10,7 +10,9 @@ export type Sfx =
   | "airhorn"
   | "crickets"
   | "boo"
-  | "sadTrombone";
+  | "sadTrombone"
+  | "shutterClose"
+  | "shutterOpen";
 
 export type GameEvent =
   | "lobby_music"
@@ -150,6 +152,20 @@ export function play(sfx: Sfx) {
         t += d * 0.9;
         tone(f * 0.5, d * 0.8, "triangle", 0.08, t);
       }
+      break;
+    }
+    case "shutterClose": {
+      // Low sub-bass thump + filtered noise burst as the bands slam shut.
+      sweep(180, 38, 0.45, "sine", 0.55);
+      sweep(90, 22, 0.55, "triangle", 0.4);
+      noise(0.35, 0.18);
+      break;
+    }
+    case "shutterOpen": {
+      // Bright metallic "shink" + soft noise sigh as bands retract.
+      sweep(3200, 1100, 0.18, "triangle", 0.18);
+      sweep(1800, 600, 0.22, "sine", 0.14);
+      noise(0.25, 0.08);
       break;
     }
   }

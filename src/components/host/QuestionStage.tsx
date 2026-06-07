@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { play } from "@/lib/sound-engine";
 import { ShatteredFaces } from "./ShatteredFaces";
+import { ShutterTransition } from "./ShutterTransition";
 
 type Player = {
   id: string;
@@ -220,35 +221,18 @@ export function QuestionStage({
         <QuestionVideo src={mediaUrl} autoStart={!reading} />
       )}
 
-      {/* Dim + "QUESTION N" badge during phase 1 of the transition */}
-      <AnimatePresence>
-        {showBadge && (
-          <motion.div
-            key={`badge-${questionNumber}`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="pointer-events-none absolute inset-0 z-30 grid place-items-center bg-black/55 backdrop-blur-md"
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.92 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -16, scale: 1.04 }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className="text-center"
-            >
-              <div className="text-[11px] font-bold uppercase tracking-[0.5em] text-amber-300/80">
-                Get ready
-              </div>
-              <div className="mt-3 font-display text-5xl font-black uppercase tracking-tight text-white drop-shadow-[0_8px_40px_rgba(0,0,0,0.6)] sm:text-6xl lg:text-7xl">
-                Question {questionNumber}
-              </div>
-              <div className="mx-auto mt-4 h-[2px] w-16 rounded-full bg-amber-300" />
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Cinematic shutter wipe + "QUESTION N" card during phase 1 */}
+      <ShutterTransition
+        visible={showBadge}
+        eyebrow="Get ready"
+        title={`Question ${questionNumber}`}
+        closeMs={420}
+        holdMs={900}
+        openMs={520}
+        zIndex={30}
+        position="absolute"
+      />
+
 
 
 
