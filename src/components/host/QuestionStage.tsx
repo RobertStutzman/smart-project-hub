@@ -107,16 +107,6 @@ export function QuestionStage({
         }}
       />
 
-      {/* heavy red flash on each drop */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 z-20 transition-opacity duration-500"
-        style={{
-          background:
-            "radial-gradient(ellipse at center, oklch(0.55 0.3 25 / 0.5), transparent 70%)",
-          opacity: vignette ? 1 : 0,
-        }}
-      />
 
       {/* Header */}
       <div className="relative z-10 flex items-start justify-between gap-4">
