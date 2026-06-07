@@ -512,6 +512,7 @@ function HostPage() {
             <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">Enter</kbd> start ·{" "}
             <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">Space</kbd> pause
           </div>
+          <LobbyTipCarousel />
         </section>
       </div>
 
