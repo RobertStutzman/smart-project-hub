@@ -21,6 +21,7 @@ import { CreditsStage } from "./CreditsStage";
 import { pickLine, speakPersona } from "@/lib/host-persona";
 import { play, playEvent, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
 import { FinalWagerStage, FinalRevealStage } from "./FinalStages";
+import { WinnerSpotlight } from "./WinnerSpotlight";
 
 type RoomState = {
   id: string;
@@ -558,31 +559,24 @@ export function HostGameStage({ room }: Props) {
   }
 
   if (state.phase === "ended") {
-    const live = players.filter((p) => !p.is_audience).sort((a, b) => b.score - a.score);
-    const winner = live[0];
     return (
-      <div className="grid h-full place-items-center p-8 text-center">
-        <div>
-          <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Game over</div>
-          <div className="mt-2 font-display text-6xl font-black">🏆 {winner?.nickname ?? "—"}</div>
-          <div className="mt-1 font-mono text-2xl">{winner?.score ?? 0} pts</div>
-          <div className="mt-6 text-sm text-muted-foreground">
-            Players can tap "Export to socials" on their phones.
-          </div>
-          <AIRoast roomCode={room.roomCode} hostSessionId={room.hostSessionId} />
-          <button
-            onClick={() => {
-              play("whoosh");
-              setPhaseFn({
-                data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "credits" },
-              }).catch(() => {});
-            }}
-            className="mt-8 rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-8 py-3 font-display font-bold uppercase tracking-wider text-amber-950 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)] transition hover:scale-[1.03]"
-          >
-            🎬 Roll credits
-          </button>
+      <WinnerSpotlight players={players}>
+        <div className="text-[11px] uppercase tracking-[0.3em] text-white/50">
+          Players can tap "Export to socials" on their phones
         </div>
-      </div>
+        <AIRoast roomCode={room.roomCode} hostSessionId={room.hostSessionId} />
+        <button
+          onClick={() => {
+            play("whoosh");
+            setPhaseFn({
+              data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "credits" },
+            }).catch(() => {});
+          }}
+          className="mt-2 rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-8 py-3 font-display font-bold uppercase tracking-wider text-amber-950 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)] transition hover:scale-[1.03]"
+        >
+          🎬 Roll credits
+        </button>
+      </WinnerSpotlight>
     );
   }
 
