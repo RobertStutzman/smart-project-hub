@@ -736,3 +736,37 @@ function PaywallModal({ category, onClose }: { category: Category; onClose: () =
     </div>
   );
 }
+
+const LOBBY_HOST_TIPS = [
+  "Phones out. Thumbs warm.",
+  "Lock fast. Points decay every tick.",
+  "Streaks pay. Three in a row and the room hears it.",
+  "Wrong is loud. Right is louder.",
+  "The final round can flip the whole game.",
+  "No phones in your pocket. Trust your gut.",
+];
+
+function LobbyTipCarousel() {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setIdx((i) => (i + 1) % LOBBY_HOST_TIPS.length), 4200);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <div className="mt-[1svh] h-[3svh] overflow-hidden">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={idx}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.4 }}
+          className="text-center text-[clamp(0.75rem,1.5svh,1rem)] italic text-white/50"
+        >
+          "{LOBBY_HOST_TIPS[idx]}"
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
+
