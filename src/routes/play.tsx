@@ -13,6 +13,7 @@ import { MemeScorecard, computeBadge } from "@/components/MemeScorecard";
 import { Haptics } from "@/hooks/use-haptics";
 import { play, startMusic, stopMusic } from "@/lib/sound-engine";
 import { AccessibilityToggle } from "@/components/AccessibilityToggle";
+import { PlayerWagerStage } from "@/components/play/PlayerWagerStage";
 import { t } from "@/lib/i18n";
 
 export const Route = createFileRoute("/play")({
@@ -493,46 +494,14 @@ function PlayPage() {
               )}
 
             {room.phase === "final_wager" || room.phase === "final_intro" ? (
-              <div className="flex flex-1 flex-col gap-4 rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-500/15 via-card/40 to-black p-5">
-                <div className="text-center">
-                  <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300">Place your wager</div>
-                  <div className="mt-1 text-sm text-muted-foreground">0 to {me?.score ?? 0}</div>
-                </div>
-                {me?.final_locked_at ? (
-                  <div className="grid flex-1 place-items-center">
-                    <div className="text-center">
-                      <div className="text-xs uppercase tracking-widest text-muted-foreground">Wager locked</div>
-                      <div className="mt-2 font-mono text-6xl font-black text-amber-300">{me?.final_wager ?? 0}</div>
-                      <div className="mt-3 text-xs text-muted-foreground">Waiting for the question…</div>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex flex-1 flex-col items-center justify-center gap-3">
-                      <div className="font-mono text-6xl font-black text-amber-200">{wagerDraft}</div>
-                      <input
-                        type="range"
-                        min={0}
-                        max={me?.score ?? 0}
-                        value={wagerDraft}
-                        onChange={(e) => setWagerDraft(Number(e.target.value))}
-                        className="w-full accent-amber-400"
-                      />
-                      <div className="flex gap-2">
-                        <button onClick={() => setWagerDraft(0)} className="rounded-full border border-border px-3 py-1 text-xs">0</button>
-                        <button onClick={() => setWagerDraft(Math.floor((me?.score ?? 0) / 2))} className="rounded-full border border-border px-3 py-1 text-xs">½</button>
-                        <button onClick={() => setWagerDraft(me?.score ?? 0)} className="rounded-full border border-border px-3 py-1 text-xs">All in</button>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => void sendWager()}
-                      className="rounded-2xl bg-gradient-to-b from-amber-300 to-amber-500 px-6 py-4 font-display text-lg font-black uppercase tracking-wider text-amber-950 active:scale-[0.98]"
-                    >
-                      Lock wager
-                    </button>
-                  </>
-                )}
-              </div>
+              <PlayerWagerStage
+                score={me?.score ?? 0}
+                wagerDraft={wagerDraft}
+                setWagerDraft={setWagerDraft}
+                locked={!!me?.final_locked_at}
+                lockedWager={me?.final_wager ?? 0}
+                onLock={() => void sendWager()}
+              />
             ) : room.phase === "final_question" ? (
               <>
                 <div className="flex items-center justify-between rounded-2xl border-2 border-amber-300/60 bg-amber-500/10 px-4 py-2 backdrop-blur">
@@ -576,9 +545,25 @@ function PlayPage() {
               </div>
             ) : room.phase === "question" || room.phase === "reveal" ? (
               <>
-                <div className="flex items-center justify-between rounded-2xl border border-border bg-card/30 px-4 py-2 backdrop-blur">
-                  <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-                    {room.wildcard === "roast" ? "Roast vote · check TV" : `Q · Round ${room.round_number}`}
+                <div
+                  className={`flex items-center justify-between rounded-2xl border px-4 py-2 backdrop-blur ${
+                    room.wildcard === "lightning"
+                      ? "border-rose-400/60 bg-rose-500/15 animate-pulse"
+                      : "border-border bg-card/30"
+                  }`}
+                >
+                  <div
+                    className={`text-[10px] uppercase tracking-[0.25em] ${
+                      room.wildcard === "lightning"
+                        ? "font-black text-rose-200"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {room.wildcard === "lightning"
+                      ? "⚡ Lightning · 2× pts · 8s"
+                      : room.wildcard === "roast"
+                        ? "Roast vote · check TV"
+                        : `Q · Round ${room.round_number}`}
                   </div>
                   {reading ? (
                     <div className="font-mono text-xl font-black text-amber-300">

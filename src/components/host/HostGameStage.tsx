@@ -496,7 +496,18 @@ export function HostGameStage({ room }: Props) {
             {state.wildcard === "saboteur" && "🕵 Saboteur round"}
             {state.wildcard === "glitch" && "⚡ Glitch round"}
             {state.wildcard === "roast" && "🔥 Roast vote"}
+            {state.wildcard === "lightning" && "⚡ LIGHTNING · 2× points · 8s"}
           </div>
+        )}
+        {state.wildcard === "lightning" && state.phase === "question" && (
+          <div
+            className="pointer-events-none absolute inset-0 z-10 animate-fade-in"
+            style={{
+              background:
+                "radial-gradient(ellipse at center, transparent 40%, oklch(0.65 0.25 25 / 0.18) 100%)",
+              boxShadow: "inset 0 0 120px 20px oklch(0.65 0.25 25 / 0.35)",
+            }}
+          />
         )}
         {typeof window !== "undefined" && window.localStorage.getItem("btd-twitch-enabled") === "1" && (
           <div className="absolute right-4 top-4 z-30 w-72">
