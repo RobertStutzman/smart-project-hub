@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { play } from "@/lib/sound-engine";
 
 type Player = {
   id: string;
@@ -15,13 +16,15 @@ type Props = {
   correctIndex: number | null; // null until reveal
   secondsLeft: number;
   totalS?: number;
-  readSecondsLeft?: number; // >0 while in the 5-second read window
+  readSecondsLeft?: number; // >0 while in the read window
   players: Player[];
   phase: "question" | "reveal";
   explanation?: string | null;
   mediaUrl?: string | null;
   mediaType?: string | null; // 'image' | 'audio'
+  questionNumber?: number;
 };
+
 
 const LETTERS = ["A", "B", "C", "D"] as const;
 
@@ -38,8 +41,41 @@ export function QuestionStage({
   explanation,
   mediaUrl,
   mediaType,
+  questionNumber = 1,
 }: Props) {
   const reading = readSecondsLeft > 0 && phase === "question";
+
+  // Phased intro derived from readSecondsLeft (3.5s total budget).
+  //   Phase 1 (badge):     readSecondsLeft > 2.7  (~0–800ms)
+  //   Phase 2 (question):  readSecondsLeft 1.6–2.7 (~800–1900ms)
+  //   Phase 3 (answers):   readSecondsLeft 0–1.6  (~1900–3500ms)
+  //   Phase 4 (play):      readSecondsLeft <= 0
+  const introPhase: 1 | 2 | 3 | 4 = !reading
+    ? 4
+    : readSecondsLeft > 2.7
+      ? 1
+      : readSecondsLeft > 1.6
+        ? 2
+        : 3;
+  const showBadge = introPhase === 1;
+  const showQuestion = introPhase >= 2;
+  const showAnswers = introPhase >= 3;
+
+  // Soft tick SFX as each answer lands during the stagger.
+  const tickedRef = useRef<string>("");
+  useEffect(() => {
+    if (!showAnswers) {
+      tickedRef.current = "";
+      return;
+    }
+    const key = `${questionText}-${answers.join("|")}`;
+    if (tickedRef.current === key) return;
+    tickedRef.current = key;
+    for (let i = 0; i < answers.length; i++) {
+      window.setTimeout(() => play("tick"), 700 + i * 110);
+    }
+  }, [showAnswers, questionText, answers]);
+
   // Heartbeat pulse + screen shake on each new drop
   const [pulse, setPulse] = useState(false);
   useEffect(() => {
@@ -125,14 +161,21 @@ export function QuestionStage({
       </div>
 
 
-      {/* Question */}
+      {/* Question — fades in during phase 2 */}
       <div className="relative z-10 mx-auto max-w-5xl text-center">
-        <h2
+        <motion.h2
+          initial={false}
+          animate={{
+            opacity: showQuestion ? 1 : 0,
+            y: showQuestion ? 0 : 16,
+            filter: showQuestion ? "blur(0px)" : "blur(8px)",
+          }}
+          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
           className="font-display text-2xl font-black leading-[1.05] text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.6)] sm:text-3xl lg:text-4xl xl:text-5xl"
           style={{ textWrap: "balance" as never }}
         >
           {questionText}
-        </h2>
+        </motion.h2>
         <div className="mx-auto mt-2 h-[2px] w-24 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
       </div>
 
@@ -153,46 +196,39 @@ export function QuestionStage({
         <QuestionVideo src={mediaUrl} autoStart={!reading} />
       )}
 
-      {/* HUGE next-question countdown overlay */}
+      {/* Dim + "QUESTION N" badge during phase 1 of the transition */}
       <AnimatePresence>
-        {reading && (
+        {showBadge && (
           <motion.div
-            key={`countdown-${Math.ceil(readSecondsLeft)}`}
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.4 }}
-            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className="pointer-events-none absolute inset-0 z-30 grid place-items-center"
+            key={`badge-${questionNumber}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="pointer-events-none absolute inset-0 z-30 grid place-items-center bg-black/55 backdrop-blur-md"
           >
-            <div className="text-center">
-              <div className="font-display text-sm font-bold uppercase tracking-[0.5em] text-amber-300/90 sm:text-base">
-                Next question
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.92 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -16, scale: 1.04 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              className="text-center"
+            >
+              <div className="text-[11px] font-bold uppercase tracking-[0.5em] text-amber-300/80">
+                Get ready
               </div>
-              <div
-                className="font-display font-black leading-none text-transparent drop-shadow-[0_10px_60px_rgba(251,191,36,0.6)]"
-                style={{
-                  fontSize: "clamp(8rem, 28vw, 22rem)",
-                  backgroundImage:
-                    "linear-gradient(180deg, oklch(0.97 0.12 90), oklch(0.75 0.20 60))",
-                  WebkitBackgroundClip: "text",
-                  backgroundClip: "text",
-                }}
-              >
-                {Math.ceil(readSecondsLeft)}
+              <div className="mt-3 font-display text-5xl font-black uppercase tracking-tight text-white drop-shadow-[0_8px_40px_rgba(0,0,0,0.6)] sm:text-6xl lg:text-7xl">
+                Question {questionNumber}
               </div>
-            </div>
+              <div className="mx-auto mt-4 h-[2px] w-16 rounded-full bg-amber-300" />
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-
-
       {/* Answer panels — fixed 2x2 grid; cells NEVER reflow when shattered */}
-      <div
-        className={`relative z-10 grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-3 transition-all duration-300 ${
-          reading ? "scale-[0.98] opacity-40 blur-[2px]" : ""
-        }`}
-      >
+      <div className="relative z-10 grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-3">
+
         {answers.map((label, i) => {
           const dropped = droppedIndexes.includes(i);
           const isCorrect = phase === "reveal" && correctIndex === i;
@@ -204,13 +240,14 @@ export function QuestionStage({
             <div key={i} className="relative min-h-0">
               {/* Stable card container — always rendered, never repositioned */}
               <motion.div
-                initial={{ scale: 0.96, opacity: 0, y: 8 }}
+                initial={false}
                 animate={{
-                  scale: isCorrect ? 1.04 : 1,
-                  opacity: dropped ? 0.15 : isWrongReveal ? 0.25 : 1,
-                  y: 0,
+                  scale: !showAnswers ? 0.94 : isCorrect ? 1.04 : 1,
+                  opacity: !showAnswers ? 0 : dropped ? 0.15 : isWrongReveal ? 0.25 : 1,
+                  y: !showAnswers ? 16 : 0,
                 }}
-                transition={{ duration: 0.3 }}
+                transition={{ duration: 0.35, delay: showAnswers && reading ? i * 0.11 : 0, ease: [0.22, 1, 0.36, 1] }}
+
                 className={`relative flex h-full w-full min-h-0 flex-col justify-between overflow-hidden rounded-2xl border p-3 backdrop-blur-xl sm:p-4 ${
                   dropped
                     ? "border-rose-500/30 bg-rose-950/20 grayscale"
