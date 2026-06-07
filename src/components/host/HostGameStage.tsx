@@ -16,7 +16,7 @@ import { Leaderboard } from "./Leaderboard";
 import { ShatteredFaces } from "./ShatteredFaces";
 import { TwitchPanel } from "./TwitchPanel";
 import { AIRoast } from "./AIRoast";
-import { play, playEvent, startMusic, stopMusic } from "@/lib/sound-engine";
+import { play, playEvent, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
 
 type RoomState = {
   id: string;
