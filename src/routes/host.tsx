@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Lock, Pause, Play, Settings as SettingsIcon, X } from "lucide-react";
 import { toast } from "sonner";
 import { createRoom, endRoom, heartbeatHost, setCategory, setRoomConfig, toggleTeamMode } from "@/lib/rooms.functions";
-import { nextQuestion, setPhase } from "@/lib/game.functions";
+import { setPhase } from "@/lib/game.functions";
 import {
   loadHostSession,
   saveHostSession,
@@ -56,7 +56,6 @@ function HostPage() {
   const setCategoryFn = useServerFn(setCategory);
   const setConfigFn = useServerFn(setRoomConfig);
   const toggleTeamModeFn = useServerFn(toggleTeamMode);
-  const nextQuestionFn = useServerFn(nextQuestion);
   const setPhaseFn = useServerFn(setPhase);
 
   const [room, setRoom] = useState<{ id: string; roomCode: string; hostSessionId: string } | null>(null);
