@@ -15,7 +15,6 @@ import {
 } from "@/lib/game.functions";
 import { QuestionStage } from "./QuestionStage";
 import { Leaderboard } from "./Leaderboard";
-import { ShatteredFaces } from "./ShatteredFaces";
 import { TwitchPanel } from "./TwitchPanel";
 import { AIRoast } from "./AIRoast";
 import { IntroStage } from "./IntroStage";
@@ -122,11 +121,6 @@ export function HostGameStage({ room }: Props) {
   }, [room.id]);
 
 
-  // Shatter trigger: increments per drop event so ShatteredFaces re-fires
-  const [shatterKey, setShatterKey] = useState("");
-  const [shatterVictims, setShatterVictims] = useState<
-    { id: string; nickname: string; avatar_url: string | null }[]
-  >([]);
   const lastDroppedRef = useRef<number[]>([]);
 
   // Fetch room + players, subscribe to realtime
@@ -298,21 +292,12 @@ export function HostGameStage({ room }: Props) {
     }
   }, [state, now, players, dropWrongFn, endQuestionFn, room.roomCode, room.hostSessionId]);
 
-  // Detect new drops → fire Shattered Faces overlay
+  // Track drops without firing any screen-wide overlay.
   useEffect(() => {
     if (!state) return;
     const cur = state.dropped_indexes ?? [];
-    const prev = lastDroppedRef.current;
-    const added = cur.filter((i) => !prev.includes(i));
     lastDroppedRef.current = cur;
-    if (added.length === 0) return;
-    const victims = players
-      .filter((p) => !p.is_audience && p.current_answer !== null && added.includes(p.current_answer))
-      .map((p) => ({ id: p.id, nickname: p.nickname, avatar_url: p.avatar_url }));
-    if (victims.length === 0) return;
-    setShatterVictims(victims);
-    setShatterKey(`${state.question_started_at}-${cur.join(",")}`);
-  }, [state?.dropped_indexes, state?.question_started_at, players]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [state?.dropped_indexes]);
 
   // Tense music during question, lobby during lobby
   useEffect(() => {
@@ -572,7 +557,6 @@ export function HostGameStage({ room }: Props) {
           questionNumber={state.round_number ?? 1}
         />
 
-        <ShatteredFaces victims={shatterVictims} triggerKey={shatterKey} />
       </>
     );
   }
