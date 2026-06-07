@@ -216,13 +216,22 @@ function EventsPanel({
           </div>
           <h2 className="text-2xl font-bold">What plays when</h2>
         </div>
-        <button
-          onClick={() => void handleGenerate()}
-          disabled={generating}
-          className="rounded-full bg-gradient-to-r from-amber-400 to-pink-500 px-5 py-2 text-sm font-bold text-black shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {generating ? "Generating… (1-2 min)" : "🎙️ Generate AI announcer pack"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => void handleGeneratePersona()}
+            disabled={generatingPersona}
+            className="rounded-full border border-amber-400/40 bg-amber-500/10 px-5 py-2 text-sm font-bold text-amber-200 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {generatingPersona ? "Baking…" : "🎭 Bake persona catchphrases"}
+          </button>
+          <button
+            onClick={() => void handleGenerate()}
+            disabled={generating}
+            className="rounded-full bg-gradient-to-r from-amber-400 to-pink-500 px-5 py-2 text-sm font-bold text-black shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {generating ? "Generating… (1-2 min)" : "🎙️ Generate AI announcer pack"}
+          </button>
+        </div>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
         Empty events fall back to the built-in synth sounds. The AI pack uses
