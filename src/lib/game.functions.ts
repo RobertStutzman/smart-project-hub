@@ -50,12 +50,16 @@ async function getRoomByHost(roomCode: string, hostSessionId: string) {
   return data;
 }
 
-function wildcardForRound(round: number): "saboteur" | "glitch" | "roast" | null {
+function wildcardForRound(round: number): "saboteur" | "glitch" | "roast" | "lightning" | null {
   if (round === 5) return "saboteur";
+  if (round === 7) return "lightning";
   if (round === 10) return "glitch";
   if (round === 14) return "roast";
   return null;
 }
+
+const LIGHTNING_DURATION_MS = 8000;
+const LIGHTNING_MULTIPLIER = 2;
 
 const ROAST_PROMPTS = [
   "Who would survive a zombie apocalypse?",
@@ -230,7 +234,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
         current_media_type: media.type,
         current_question_tts_url: ttsUrl,
         question_started_at: new Date(Date.now() + 3500).toISOString(),
-        question_duration_ms: 25000,
+        question_duration_ms: wildcard === "lightning" ? LIGHTNING_DURATION_MS : 25000,
         dropped_indexes: [],
         round_number: nextRound,
         wildcard: wildcard,
@@ -283,6 +287,7 @@ export const endQuestion = createServerFn({ method: "POST" })
 
     const isRoast = room.wildcard === "roast";
     const isSaboteur = room.wildcard === "saboteur";
+    const isLightning = room.wildcard === "lightning";
     const saboteurSessionId = room.saboteur_session_id ?? null;
     const roastCandidates =
       (room.roast_candidates as { session_id: string; nickname: string }[] | null) ?? null;
@@ -394,6 +399,7 @@ export const endQuestion = createServerFn({ method: "POST" })
           base *= 2;
           used2x = true;
         }
+        if (isLightning) base *= LIGHTNING_MULTIPLIER;
         roundScore = base;
         nextStreak += 1;
         if (nextStreak > bestStreak) bestStreak = nextStreak;
