@@ -146,6 +146,7 @@ export function HostGameStage({ room }: Props) {
     const qid = state?.current_question_id ?? null;
     const url = state?.current_question_tts_url ?? null;
     const phase = state?.phase;
+    const startedAt = state?.question_started_at ?? null;
     // Only play during actual question phases, and only once per question
     if (!qid || !url || (phase !== "question" && phase !== "final_intro" && phase !== "final_question")) {
       return;
@@ -162,18 +163,46 @@ export function HostGameStage({ room }: Props) {
       }
       questionTtsAudioRef.current = null;
     }
-    const audio = new Audio(url);
-    audio.volume = 1.0;
-    questionTtsAudioRef.current = audio;
-    duckMusic(true);
-    const undock = () => duckMusic(false);
-    audio.addEventListener("ended", undock);
-    audio.addEventListener("pause", undock);
-    audio.play().catch(() => {
-      // Autoplay may be blocked before first user gesture; silently ignore.
-      duckMusic(false);
-    });
-  }, [state?.current_question_id, state?.current_question_tts_url, state?.phase]);
+
+    // Wait until the 3-2-1 countdown is finished (question_started_at)
+    // so the "next question!" announcement doesn't overlap the read.
+    const startMs = startedAt ? new Date(startedAt).getTime() : Date.now();
+    const delay = Math.max(0, startMs - Date.now());
+
+    const timer = window.setTimeout(() => {
+      // Also wait for any in-flight speech synthesis to finish
+      const speak = () => {
+        const audio = new Audio(url);
+        audio.volume = 1.0;
+        questionTtsAudioRef.current = audio;
+        duckMusic(true);
+        const undock = () => duckMusic(false);
+        audio.addEventListener("ended", undock);
+        audio.addEventListener("pause", undock);
+        audio.play().catch(() => {
+          duckMusic(false);
+        });
+      };
+      if (typeof window !== "undefined" && "speechSynthesis" in window && window.speechSynthesis.speaking) {
+        const waitId = window.setInterval(() => {
+          if (!window.speechSynthesis.speaking) {
+            window.clearInterval(waitId);
+            speak();
+          }
+        }, 100);
+        // Hard cap: don't wait more than 2s
+        window.setTimeout(() => {
+          window.clearInterval(waitId);
+          if (!questionTtsAudioRef.current) speak();
+        }, 2000);
+      } else {
+        speak();
+      }
+    }, delay);
+
+    return () => window.clearTimeout(timer);
+  }, [state?.current_question_id, state?.current_question_tts_url, state?.phase, state?.question_started_at]);
+
 
   // Stop any lingering question read when leaving question phases
   useEffect(() => {
