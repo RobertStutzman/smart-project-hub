@@ -392,9 +392,9 @@ export function QuestionStage({
                 </div>
               </motion.div>
 
-              {/* Debris burst — fires once when the card drops */}
+              {/* Debris burst — fires at the impact moment, after the tile has fallen */}
               <AnimatePresence>
-                {dropped && <DropDebris key={`debris-${i}`} />}
+                {dropped && impacted[i] && <DropDebris key={`debris-${i}`} />}
               </AnimatePresence>
             </div>
           );
