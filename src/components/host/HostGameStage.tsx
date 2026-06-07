@@ -21,6 +21,7 @@ import { IntroStage } from "./IntroStage";
 import { CreditsStage } from "./CreditsStage";
 import { pickLine, speakPersona } from "@/lib/host-persona";
 import { playVoiceUrl } from "@/lib/elf-voice";
+import { speakAboutPlayer, setLiveRoomId, resetLiveCap } from "@/lib/persona-live";
 import { play, playEvent, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
 import { FinalWagerStage, FinalRevealStage } from "./FinalStages";
 import { WinnerSpotlight } from "./WinnerSpotlight";
@@ -113,6 +114,8 @@ export function HostGameStage({ room }: Props) {
           import("@/lib/elf-voice"),
         ]);
         setActiveRoomId(room.id);
+        setLiveRoomId(room.id);
+        resetLiveCap(room.id);
         const res = await getPersonaCacheMap();
         if (!cancelled && res?.map) initPersonaCache(res.map);
       } catch {
@@ -121,6 +124,7 @@ export function HostGameStage({ room }: Props) {
     })();
     return () => {
       cancelled = true;
+      setLiveRoomId(null);
       void import("@/lib/elf-voice").then(({ setActiveRoomId }) => setActiveRoomId(null));
     };
   }, [room.id]);
@@ -463,13 +467,18 @@ export function HostGameStage({ room }: Props) {
     const topStreaker = [...players]
       .filter((p) => !p.is_audience && p.current_answer === correctIdx)
       .sort((a, b) => (b.streak_count ?? 0) - (a.streak_count ?? 0))[0];
-    const streakLine =
-      topStreaker && (topStreaker.streak_count ?? 0) >= 3
-        ? `${topStreaker.nickname} on ${topStreaker.streak_count} in a row! ${pickLine("streak_milestone", qid)}`
-        : null;
+    const hasStreak = topStreaker && (topStreaker.streak_count ?? 0) >= 3;
     // Small delay so the line lands after the reveal sting, not on top of it.
     const id = window.setTimeout(() => {
-      speakPersona(streakLine ?? pickLine(moment, qid));
+      if (hasStreak && topStreaker) {
+        void speakAboutPlayer({
+          nickname: topStreaker.nickname,
+          moment: "streak",
+          streak: topStreaker.streak_count ?? 3,
+        });
+      } else {
+        void speakPersona(pickLine(moment, qid));
+      }
     }, 900);
     return () => window.clearTimeout(id);
   }, [state?.phase, state?.current_question_id, state?.current_correct_index, players]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -491,32 +500,161 @@ export function HostGameStage({ room }: Props) {
       })[0];
     if (!firstCorrect) return;
     firstBloodFiredRef.current = qid;
-    speakPersona(`${firstCorrect.nickname}! ${pickLine("first_blood", qid)}`);
+    void speakAboutPlayer({ nickname: firstCorrect.nickname, moment: "first_blood" });
   }, [state?.phase, state?.current_question_id, state?.current_correct_index, players]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Leader-changed: when leaderboard phase opens, compare top scorer to prior round.
   const lastLeaderRef = useRef<string | null>(null);
   const leaderAnnouncedForRoundRef = useRef<number>(0);
+  // Track per-player rank from prior leaderboard for comeback detection.
+  const prevRankBySessionRef = useRef<Map<string, number>>(new Map());
+  const comebackFiredForRoundRef = useRef<number>(0);
+  // Track round-recap MVP firing per round number.
+  const roundRecapFiredForRoundRef = useRef<number>(0);
+
   useEffect(() => {
     if (!state || state.phase !== "leaderboard") return;
     const round = state.round_number ?? 0;
-    if (round < 2) return; // skip round 1, no prior leader
     if (leaderAnnouncedForRoundRef.current === round) return;
-    const top = [...players]
+
+    const ranked = [...players]
       .filter((p) => !p.is_audience)
-      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0];
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    const top = ranked[0];
     if (!top) return;
     leaderAnnouncedForRoundRef.current = round;
-    const prev = lastLeaderRef.current;
-    lastLeaderRef.current = top.session_id;
-    if (prev && prev !== top.session_id) {
-      // Delay so it lands after DYK / reveal audio finishes.
-      const id = window.setTimeout(() => {
-        speakPersona(`${top.nickname} takes the lead! ${pickLine("leader_changed", round)}`);
-      }, 1200);
-      return () => window.clearTimeout(id);
+
+    // ── Leader change announcement (skip round 1) ──
+    if (round >= 2) {
+      const prev = lastLeaderRef.current;
+      if (prev && prev !== top.session_id) {
+        const id = window.setTimeout(() => {
+          void speakAboutPlayer({
+            nickname: top.nickname,
+            moment: "leader_changed",
+            roundNumber: round,
+          });
+        }, 1200);
+        // best-effort, no cleanup needed beyond setting refs
+        void id;
+      }
     }
+    lastLeaderRef.current = top.session_id;
+
+    // ── Round recap MVP (highest current_round_score) ──
+    if (round >= 1 && roundRecapFiredForRoundRef.current !== round) {
+      roundRecapFiredForRoundRef.current = round;
+      const roundMvp = [...players]
+        .filter((p) => !p.is_audience)
+        .sort((a, b) => (b.current_round_score ?? 0) - (a.current_round_score ?? 0))[0];
+      if (roundMvp && (roundMvp.current_round_score ?? 0) > 0) {
+        // Fire later so it doesn't collide with leader_changed.
+        const id = window.setTimeout(() => {
+          void speakAboutPlayer({
+            nickname: roundMvp.nickname,
+            moment: "round_recap",
+            roundNumber: round,
+          });
+        }, 3200);
+        void id;
+      }
+    }
+
+    // ── Comeback: player who climbed 3+ ranks and is now top 3 ──
+    if (round >= 2 && comebackFiredForRoundRef.current !== round) {
+      comebackFiredForRoundRef.current = round;
+      const prevMap = prevRankBySessionRef.current;
+      type ComebackCandidate = { nickname: string; ranksClimbed: number };
+      const candidates: ComebackCandidate[] = [];
+      ranked.slice(0, 3).forEach((p, idx) => {
+        const newRank = idx + 1;
+        const prevRank = prevMap.get(p.session_id);
+        if (prevRank && prevRank - newRank >= 3) {
+          candidates.push({ nickname: p.nickname, ranksClimbed: prevRank - newRank });
+        }
+      });
+      candidates.sort((a, b) => b.ranksClimbed - a.ranksClimbed);
+      const cb = candidates[0];
+      if (cb) {
+        const id = window.setTimeout(() => {
+          void speakAboutPlayer({
+            nickname: cb.nickname,
+            moment: "comeback",
+            ranksClimbed: cb.ranksClimbed,
+          });
+        }, 5400);
+        void id;
+      }
+    }
+
+    // Snapshot ranks for next round's comeback comparison
+    const nextMap = new Map<string, number>();
+    ranked.forEach((p, idx) => nextMap.set(p.session_id, idx + 1));
+    prevRankBySessionRef.current = nextMap;
   }, [state?.phase, state?.round_number, players]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Welcome roll call: fires once on first transition lobby → question ──
+  const welcomeFiredRef = useRef(false);
+  useEffect(() => {
+    if (!state || welcomeFiredRef.current) return;
+    if (state.phase !== "question") return;
+    if ((state.round_number ?? 0) !== 1) return;
+    welcomeFiredRef.current = true;
+    const live = players.filter((p) => !p.is_audience && p.nickname);
+    if (live.length === 0) return;
+    // Pick up to 3 random nicknames
+    const shuffled = [...live].sort(() => Math.random() - 0.5).slice(0, 3);
+    const [first, ...rest] = shuffled.map((p) => p.nickname);
+    // Land it during the question splash, before the question read.
+    const id = window.setTimeout(() => {
+      void speakAboutPlayer({
+        nickname: first,
+        extraNames: rest,
+        moment: "welcome",
+      });
+    }, 400);
+    return () => window.clearTimeout(id);
+  }, [state?.phase, state?.round_number, players]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Final showdown: name the top 3 entering final_intro ──
+  const finalShowdownFiredRef = useRef(false);
+  useEffect(() => {
+    if (!state || finalShowdownFiredRef.current) return;
+    if (state.phase !== "final_intro") return;
+    const top3 = [...players]
+      .filter((p) => !p.is_audience)
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+      .slice(0, 3);
+    if (top3.length === 0) return;
+    finalShowdownFiredRef.current = true;
+    const [first, ...rest] = top3.map((p) => p.nickname);
+    // Delay so it lands after the existing final hype sting.
+    const id = window.setTimeout(() => {
+      void speakAboutPlayer({
+        nickname: first,
+        extraNames: rest,
+        moment: "final_showdown",
+      });
+    }, 2000);
+    return () => window.clearTimeout(id);
+  }, [state?.phase, players]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Winner crowning: fires once on phase → ended ──
+  const winnerFiredRef = useRef(false);
+  useEffect(() => {
+    if (!state || winnerFiredRef.current) return;
+    if (state.phase !== "ended") return;
+    const winner = [...players]
+      .filter((p) => !p.is_audience)
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0];
+    if (!winner) return;
+    winnerFiredRef.current = true;
+    const id = window.setTimeout(() => {
+      void speakAboutPlayer({ nickname: winner.nickname, moment: "winner" });
+    }, 1500);
+    return () => window.clearTimeout(id);
+  }, [state?.phase, players]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
 
 
