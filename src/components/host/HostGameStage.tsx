@@ -10,6 +10,8 @@ import {
   startFinalRound,
   startFinalQuestion,
   scoreFinalRound,
+  startSuddenDeath,
+  resolveSuddenDeath,
 } from "@/lib/game.functions";
 import { QuestionStage } from "./QuestionStage";
 import { Leaderboard } from "./Leaderboard";
@@ -39,14 +41,17 @@ type RoomState = {
   dropped_indexes: number[];
   wildcard: string | null;
   round_number: number;
+  sudden_death_session_ids: string[] | null;
 };
 
 type Player = {
   id: string;
+  session_id: string;
   nickname: string;
   score: number;
   avatar_url: string | null;
   current_answer: number | null;
+  current_answer_locked_at: string | null;
   current_round_score: number;
   current_round_fastest: boolean;
   streak_count: number;
@@ -58,6 +63,7 @@ type Player = {
   fastest_count: number;
   correct_count: number;
   wrong_count: number;
+  comeback_bonus: boolean;
 };
 
 type Props = {
@@ -128,7 +134,7 @@ export function HostGameStage({ room }: Props) {
       const { data: r } = await supabase
         .from("rooms")
         .select(
-          "id, room_code, phase, current_question_id, current_question_text, current_question_tts_url, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number",
+          "id, room_code, phase, current_question_id, current_question_text, current_question_tts_url, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number, sudden_death_session_ids",
         )
         .eq("id", room.id)
         .maybeSingle();
@@ -136,7 +142,7 @@ export function HostGameStage({ room }: Props) {
       const { data: ps } = await supabase
         .from("players")
         .select(
-          "id, nickname, score, avatar_url, current_answer, current_round_score, current_round_fastest, streak_count, is_audience, final_wager, final_answer, final_locked_at, best_streak, fastest_count, correct_count, wrong_count",
+          "id, session_id, nickname, score, avatar_url, current_answer, current_answer_locked_at, current_round_score, current_round_fastest, streak_count, is_audience, final_wager, final_answer, final_locked_at, best_streak, fastest_count, correct_count, wrong_count, comeback_bonus",
         )
         .eq("room_id", room.id)
         .order("created_at", { ascending: true });
