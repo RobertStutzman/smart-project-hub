@@ -523,10 +523,12 @@ export const setPhase = createServerFn({ method: "POST" })
       hostSessionId: z.string().min(8).max(128),
       phase: z.enum([
         "lobby",
+        "intro",
         "question",
         "reveal",
         "leaderboard",
         "ended",
+        "credits",
         "final_intro",
         "final_wager",
         "final_question",

@@ -16,6 +16,9 @@ import { Leaderboard } from "./Leaderboard";
 import { ShatteredFaces } from "./ShatteredFaces";
 import { TwitchPanel } from "./TwitchPanel";
 import { AIRoast } from "./AIRoast";
+import { IntroStage } from "./IntroStage";
+import { CreditsStage } from "./CreditsStage";
+import { pickLine, speakPersona } from "@/lib/host-persona";
 import { play, playEvent, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
 
 type RoomState = {
@@ -48,6 +51,10 @@ type Player = {
   final_wager: number;
   final_answer: number | null;
   final_locked_at: string | null;
+  best_streak: number;
+  fastest_count: number;
+  correct_count: number;
+  wrong_count: number;
 };
 
 type Props = {
@@ -100,7 +107,7 @@ export function HostGameStage({ room }: Props) {
       const { data: ps } = await supabase
         .from("players")
         .select(
-          "id, nickname, score, avatar_url, current_answer, current_round_score, current_round_fastest, streak_count, is_audience, final_wager, final_answer, final_locked_at",
+          "id, nickname, score, avatar_url, current_answer, current_round_score, current_round_fastest, streak_count, is_audience, final_wager, final_answer, final_locked_at, best_streak, fastest_count, correct_count, wrong_count",
         )
         .eq("room_id", room.id)
         .order("created_at", { ascending: true });
@@ -288,7 +295,8 @@ export function HostGameStage({ room }: Props) {
     if (!state) return;
     if (state.phase === "question" || state.phase === "final_question")
       startMusic("tense", 380);
-    else if (state.phase === "lobby") startMusic("lobby", 600);
+    else if (state.phase === "lobby" || state.phase === "intro" || state.phase === "credits")
+      startMusic("lobby", 600);
     else if (state.phase === "final_intro" || state.phase === "final_wager")
       startMusic("tense", 520);
     else stopMusic();
@@ -345,9 +353,38 @@ export function HostGameStage({ room }: Props) {
     if (lastPhaseStingRef.current === key) return;
     lastPhaseStingRef.current = key;
     if (state.phase === "leaderboard") playEvent("leaderboard");
-    else if (state.phase === "final_intro") playEvent("final");
+    else if (state.phase === "final_intro") {
+      playEvent("final");
+      speakPersona(pickLine("final_hype", state.round_number));
+    }
     else if (state.phase === "ended") playEvent("victory");
-  }, [state?.phase]);
+  }, [state?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persona reactions on reveal — keyed off question id so a new line fires
+  // every reveal (the phase-sting ref above only fires on phase transitions).
+  const lastRevealReactionRef = useRef<string>("");
+  useEffect(() => {
+    if (!state || state.phase !== "reveal") return;
+    const qid = state.current_question_id;
+    if (!qid || lastRevealReactionRef.current === qid) return;
+    lastRevealReactionRef.current = qid;
+    const correctIdx = state.current_correct_index;
+    if (correctIdx === null) return;
+    const live = players.filter((p) => !p.is_audience && p.current_answer !== null);
+    if (live.length === 0) return;
+    const right = live.filter((p) => p.current_answer === correctIdx).length;
+    const wrong = live.length - right;
+    let moment: "all_correct" | "all_wrong" | "split_correct";
+    if (right === live.length) moment = "all_correct";
+    else if (wrong === live.length) moment = "all_wrong";
+    else moment = "split_correct";
+    // Small delay so the line lands after the reveal sting, not on top of it.
+    const id = window.setTimeout(() => {
+      speakPersona(pickLine(moment, qid));
+    }, 900);
+    return () => window.clearTimeout(id);
+  }, [state?.phase, state?.current_question_id, state?.current_correct_index, players]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   // ─── Final round orchestrator ─────────────────────────────────────────
   const finalAdvancedRef = useRef<string>("");
@@ -457,6 +494,36 @@ export function HostGameStage({ room }: Props) {
     );
   }
 
+  if (state.phase === "intro") {
+    return (
+      <IntroStage
+        players={players.filter((p) => !p.is_audience).map((p) => ({
+          id: p.id,
+          nickname: p.nickname,
+          avatar_url: p.avatar_url,
+        }))}
+        onDone={() => {
+          nextQuestionFn({
+            data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+          }).catch(() => {});
+        }}
+      />
+    );
+  }
+
+  if (state.phase === "credits") {
+    return (
+      <CreditsStage
+        players={players}
+        onPlayAgain={() => {
+          setPhaseFn({
+            data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "lobby" },
+          }).catch(() => {});
+        }}
+      />
+    );
+  }
+
   if (state.phase === "ended") {
     const live = players.filter((p) => !p.is_audience).sort((a, b) => b.score - a.score);
     const winner = live[0];
@@ -470,6 +537,17 @@ export function HostGameStage({ room }: Props) {
             Players can tap "Export to socials" on their phones.
           </div>
           <AIRoast roomCode={room.roomCode} hostSessionId={room.hostSessionId} />
+          <button
+            onClick={() => {
+              play("whoosh");
+              setPhaseFn({
+                data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "credits" },
+              }).catch(() => {});
+            }}
+            className="mt-8 rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-8 py-3 font-display font-bold uppercase tracking-wider text-amber-950 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)] transition hover:scale-[1.03]"
+          >
+            🎬 Roll credits
+          </button>
         </div>
       </div>
     );
@@ -729,13 +807,28 @@ export function HostGameStage({ room }: Props) {
         <button
           onClick={() => {
             play("whoosh");
+            setPhaseFn({
+              data: {
+                roomCode: room.roomCode,
+                hostSessionId: room.hostSessionId,
+                phase: "intro",
+              },
+            }).catch(() => {});
+          }}
+          className="rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-10 py-5 font-display text-xl font-black uppercase tracking-wider text-amber-950 shadow-[0_0_50px_oklch(0.85_0.18_85/0.55)] transition hover:scale-[1.03]"
+        >
+          🎬 Start the show
+        </button>
+        <button
+          onClick={() => {
+            play("whoosh");
             nextQuestionFn({
               data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
             }).catch(() => {});
           }}
-          className="rounded-full bg-primary px-10 py-5 text-xl font-bold text-primary-foreground shadow-lg"
+          className="text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground"
         >
-          Start round
+          Skip intro · jump straight to question
         </button>
         <button
           onClick={() =>
