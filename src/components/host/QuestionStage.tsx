@@ -31,6 +31,9 @@ type Props = {
 
 const LETTERS = ["A", "B", "C", "D"] as const;
 
+/** Duration of the falling-tile gravity animation. Drop SFX + debris fire at impact. */
+export const DROP_FALL_MS = 750;
+
 export function QuestionStage({
   questionText,
   answers,
@@ -134,6 +137,33 @@ export function QuestionStage({
   }, [phase, questionNumber]);
   const showFullscreenReveal =
     phase === "reveal" && revealStage === "fullscreen" && correctIndex != null;
+
+  // Per-cell "has the falling tile hit the floor?" gate — debris fires at impact.
+  const [impacted, setImpacted] = useState<boolean[]>([false, false, false, false]);
+  useEffect(() => {
+    // Reset impact flags whenever the question changes.
+    setImpacted([false, false, false, false]);
+  }, [questionNumber]);
+  useEffect(() => {
+    const timers: number[] = [];
+    droppedIndexes.forEach((i) => {
+      if (impacted[i]) return;
+      timers.push(
+        window.setTimeout(() => {
+          setImpacted((prev) => {
+            if (prev[i]) return prev;
+            const next = [...prev];
+            next[i] = true;
+            return next;
+          });
+        }, DROP_FALL_MS),
+      );
+    });
+    return () => {
+      for (const t of timers) window.clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [droppedIndexes.join(",")]);
 
   return (
     <motion.div
@@ -303,7 +333,7 @@ export function QuestionStage({
                 }
                 transition={
                   dropped
-                    ? { duration: 0.75, ease: [0.55, 0.06, 0.68, 0.19] }
+                    ? { duration: DROP_FALL_MS / 1000, ease: [0.55, 0.06, 0.68, 0.19] }
                     : { duration: 0.35, delay: showAnswers && reading ? i * 0.11 : 0, ease: [0.22, 1, 0.36, 1] }
                 }
                 style={{ transformOrigin: "50% 30%" }}
@@ -362,9 +392,9 @@ export function QuestionStage({
                 </div>
               </motion.div>
 
-              {/* Debris burst — fires once when the card drops */}
+              {/* Debris burst — fires at the impact moment, after the tile has fallen */}
               <AnimatePresence>
-                {dropped && <DropDebris key={`debris-${i}`} />}
+                {dropped && impacted[i] && <DropDebris key={`debris-${i}`} />}
               </AnimatePresence>
             </div>
           );
