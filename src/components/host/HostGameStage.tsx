@@ -827,7 +827,7 @@ export function HostGameStage({ room }: Props) {
         />
         <div className="relative text-center">
           <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300/80">
-            Round {state.round_number ?? 0} {isFinal ? "— Final" : ""}
+            Round {recapRoundDisplay} {isFinal ? "— Final" : ""}
           </div>
           <h2 className="mt-2 font-display text-5xl font-black text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.6)] sm:text-6xl">
             Standings
