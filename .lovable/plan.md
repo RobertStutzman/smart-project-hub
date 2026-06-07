@@ -1,45 +1,37 @@
 ## Goal
 
-When a wrong answer is eliminated mid-question, make the tile physically fall off the board (with debris/whoosh) and play one of several premium "drop" sound effects chosen at random — instead of the current static slash-and-stamp overlay.
+Make the drop SFX and the debris burst land at the exact moment the falling tile would "hit the floor" — i.e. ~750ms after the elimination is triggered, not at the start of the fall.
 
-## What changes visually
+## Current behavior
 
-The `dropped` tile in `QuestionStage.tsx` currently stays in place with a faded card, a SVG slash, and the "OUT" stamp. New behavior:
+- `HostGameStage.tsx` line 332 calls `playRandomDrop()` immediately when a wrong answer is scheduled to drop.
+- `QuestionStage.tsx` mounts `<DropDebris />` the moment `dropped` flips true.
+- The tile's gravity fall animation takes ~750ms.
 
-1. The card tilts ~10–15°, briefly hangs, then drops off-screen on the Y axis with gravity easing (~700ms, fades out as it falls).
-2. As it leaves, a quick debris/shatter burst (existing ember particles, plus a few rectangular shards) explodes from its centroid.
-3. A faded "ghost" footprint (dimmed letter + label, no slash) remains in the original grid cell so the 2×2 layout stays stable and avatars/lock counts still show.
-4. The "OUT" stamp + diagonal slash are removed — the drop is now the elimination beat.
+Result: sound and debris fire as the tile starts falling, then the tile silently sails off-screen.
 
-Implementation: replace the inner `motion.div` animate values for the dropped state with a falling keyframe (`rotate`, `y: '120%'`, `opacity: 0`), gated by `dropped`. Move the ember burst out of `ShatterOverlay` into a one-shot `DropDebris` overlay that fires the moment `dropped` flips true. Render a separate static ghost cell underneath so the grid never reflows.
+## Change
 
-## What changes audibly
+Introduce a single shared constant `DROP_FALL_MS = 750` (the duration already used by the falling card's `motion.div` transition). Both call sites delay by that amount.
 
-Add a small **drop sound bank** with 5–6 varied premium SFX generated via ElevenLabs and committed as static CDN assets:
+### `src/components/host/QuestionStage.tsx`
 
-- `drop-thud.mp3` — heavy wooden thud + low boom
-- `drop-glass.mp3` — glass shatter on stone floor
-- `drop-trapdoor.mp3` — wooden trapdoor creak + thud below
-- `drop-anvil.mp3` — cartoon anvil whistle + clang
-- `drop-splash.mp3` — comedic water splash with bubble
-- `drop-electric.mp3` — short electric zap + sizzle
+- Export `DROP_FALL_MS` constant from this file (or a new shared `drop-timing.ts` — exporting from QuestionStage is fine since HostGameStage already imports from it indirectly).
+- Use `DROP_FALL_MS` in the falling card's `transition.duration` (replace the literal `0.75`).
+- Per cell, track `impacted[i]` state. When `dropped` flips true, start a 750ms timer; when it fires, set `impacted[i] = true`. Render `<DropDebris />` only while `impacted[i]` is true (still wrapped in `AnimatePresence`).
+- Clear the timer on unmount / when `dropped` flips back false (resets between questions).
 
-Wired through a new `playRandomDrop()` in `sound-engine.ts` that:
-- Picks a random clip from the bank, weighted so cartoon ones (anvil, splash) appear less often than the serious ones.
-- Avoids repeating the same clip twice in a row within one question.
-- Falls back to the existing synth `play("drop")` if assets fail to load.
+### `src/components/host/HostGameStage.tsx`
 
-In `HostGameStage.tsx` line 332, replace `play("drop")` with `playRandomDrop()`.
+- Import `DROP_FALL_MS` from QuestionStage.
+- Replace `playRandomDrop()` at line 332 with `window.setTimeout(playRandomDrop, DROP_FALL_MS)`. Capture the timer ID in a ref array so it gets cleared if the question ends early (route change, host skip, etc.) — guard against orphan sounds after the question concludes.
 
 ## Files touched
 
-- new assets: `src/assets/audio/drop-thud.mp3.asset.json`, `drop-glass.mp3.asset.json`, `drop-trapdoor.mp3.asset.json`, `drop-anvil.mp3.asset.json`, `drop-splash.mp3.asset.json`, `drop-electric.mp3.asset.json` (generated via ElevenLabs SFX, uploaded via lovable-assets CLI)
-- edited: `src/lib/sound-engine.ts` — add `playRandomDrop()` with the bank, weights, anti-repeat memory
-- edited: `src/components/host/QuestionStage.tsx` — replace `ShatterOverlay` with `DropFall` animation on the card itself + `DropDebris` particle burst + static ghost cell behind; remove slash and OUT stamp
-- edited: `src/components/host/HostGameStage.tsx` line 332 — swap `play("drop")` for `playRandomDrop()`
+- edited: `src/components/host/QuestionStage.tsx` — export `DROP_FALL_MS`, add per-cell `impacted` state with timer, gate `<DropDebris />` on it
+- edited: `src/components/host/HostGameStage.tsx` — delay `playRandomDrop()` by `DROP_FALL_MS`, track timers in a ref for cleanup on unmount / new question
 
 ## Out of scope
 
-- No changes to scoring, server `dropWrongAnswer` logic, or player-side answer grid (mobile players already get their own `AnswerGrid` dropped state).
-- TwitchPanel and final-round stages unchanged.
-- The admin soundboard upload flow is untouched; these are baked-in defaults, not user-overridable events (we can promote them to user-overridable later if desired).
+- No changes to the SFX bank, weights, or the fall animation itself.
+- No change to elimination scheduling logic (`DROP_AT_ELAPSED_S` thresholds remain the same).
