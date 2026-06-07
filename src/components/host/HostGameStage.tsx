@@ -449,7 +449,9 @@ export function HostGameStage({ room }: Props) {
           explanation={state.phase === "reveal" ? state.current_explanation : null}
           mediaUrl={(state as { current_media_url?: string | null }).current_media_url ?? null}
           mediaType={(state as { current_media_type?: string | null }).current_media_type ?? null}
+          questionNumber={state.round_number ?? 1}
         />
+
         <ShatteredFaces victims={shatterVictims} triggerKey={shatterKey} />
       </>
     );
