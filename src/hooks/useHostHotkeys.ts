@@ -26,7 +26,7 @@ export function useHostHotkeys(toggleFullscreen: () => void | Promise<void>) {
         return;
       }
 
-      if (e.key === " " || e.key === "Enter") {
+      if (e.key === "Enter") {
         const btn = document.querySelector<HTMLElement>(
           '[data-host-primary="true"]',
         );
@@ -36,6 +36,7 @@ export function useHostHotkeys(toggleFullscreen: () => void | Promise<void>) {
         }
         return;
       }
+
       if (e.key === "f" || e.key === "F") {
         e.preventDefault();
         void toggleFullscreen();
