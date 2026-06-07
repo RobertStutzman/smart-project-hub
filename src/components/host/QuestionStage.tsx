@@ -219,7 +219,10 @@ export function QuestionStage({
                 </div>
 
                 <div className="flex min-h-[28px] flex-wrap items-center gap-1.5">
-                  {phase === "question" && !dropped && (
+                  {/* During the live question, peer picks are HIDDEN to prevent
+                      copying. Avatars only surface on the reveal, or on tiles
+                      that have already been eliminated. */}
+                  {phase === "question" && dropped && (
                     <AnimatePresence mode="popLayout">
                       {locks.slice(0, 12).map((p) => (
                         <motion.div
@@ -230,7 +233,7 @@ export function QuestionStage({
                           exit={{ scale: 0.6, opacity: 0 }}
                           transition={{ type: "spring", stiffness: 400, damping: 25 }}
                           title={p.nickname}
-                          className="h-7 w-7 overflow-hidden rounded-full ring-2 ring-white/40 shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
+                          className="h-7 w-7 overflow-hidden rounded-full ring-2 ring-rose-400/60 shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
                         >
                           {p.avatar_url ? (
                             <img src={p.avatar_url} alt={p.nickname} className="h-full w-full object-cover" />
@@ -243,7 +246,7 @@ export function QuestionStage({
                       ))}
                     </AnimatePresence>
                   )}
-                  {phase === "question" && !dropped && locks.length > 12 && (
+                  {phase === "question" && dropped && locks.length > 12 && (
                     <div className="text-[10px] font-bold text-white/60">+{locks.length - 12}</div>
                   )}
 
@@ -299,12 +302,12 @@ export function QuestionStage({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.5, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className="relative z-10 mx-auto w-full max-w-5xl rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-400/20 via-amber-500/10 to-amber-600/[0.06] px-8 py-6 shadow-[0_20px_80px_-20px_rgba(251,191,36,0.45)] backdrop-blur-xl sm:px-10 sm:py-8"
+            className="relative z-10 mx-auto w-full max-w-5xl max-h-[22vh] overflow-auto rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-400/20 via-amber-500/10 to-amber-600/[0.06] px-8 py-5 shadow-[0_20px_80px_-20px_rgba(251,191,36,0.45)] backdrop-blur-xl sm:px-10"
           >
             <div className="text-sm font-bold uppercase tracking-[0.4em] text-amber-300">
               💡 Did you know?
             </div>
-            <div className="mt-3 text-2xl font-semibold leading-relaxed text-white sm:text-3xl md:text-4xl md:leading-snug">
+            <div className="mt-3 text-xl font-semibold leading-snug text-white sm:text-2xl md:text-3xl">
               {explanation}
             </div>
           </motion.div>
