@@ -161,14 +161,21 @@ export function QuestionStage({
       </div>
 
 
-      {/* Question */}
+      {/* Question — fades in during phase 2 */}
       <div className="relative z-10 mx-auto max-w-5xl text-center">
-        <h2
+        <motion.h2
+          initial={false}
+          animate={{
+            opacity: showQuestion ? 1 : 0,
+            y: showQuestion ? 0 : 16,
+            filter: showQuestion ? "blur(0px)" : "blur(8px)",
+          }}
+          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
           className="font-display text-2xl font-black leading-[1.05] text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.6)] sm:text-3xl lg:text-4xl xl:text-5xl"
           style={{ textWrap: "balance" as never }}
         >
           {questionText}
-        </h2>
+        </motion.h2>
         <div className="mx-auto mt-2 h-[2px] w-24 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
       </div>
 
@@ -189,46 +196,39 @@ export function QuestionStage({
         <QuestionVideo src={mediaUrl} autoStart={!reading} />
       )}
 
-      {/* HUGE next-question countdown overlay */}
+      {/* Dim + "QUESTION N" badge during phase 1 of the transition */}
       <AnimatePresence>
-        {reading && (
+        {showBadge && (
           <motion.div
-            key={`countdown-${Math.ceil(readSecondsLeft)}`}
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.4 }}
-            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className="pointer-events-none absolute inset-0 z-30 grid place-items-center"
+            key={`badge-${questionNumber}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="pointer-events-none absolute inset-0 z-30 grid place-items-center bg-black/55 backdrop-blur-md"
           >
-            <div className="text-center">
-              <div className="font-display text-sm font-bold uppercase tracking-[0.5em] text-amber-300/90 sm:text-base">
-                Next question
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.92 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -16, scale: 1.04 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              className="text-center"
+            >
+              <div className="text-[11px] font-bold uppercase tracking-[0.5em] text-amber-300/80">
+                Get ready
               </div>
-              <div
-                className="font-display font-black leading-none text-transparent drop-shadow-[0_10px_60px_rgba(251,191,36,0.6)]"
-                style={{
-                  fontSize: "clamp(8rem, 28vw, 22rem)",
-                  backgroundImage:
-                    "linear-gradient(180deg, oklch(0.97 0.12 90), oklch(0.75 0.20 60))",
-                  WebkitBackgroundClip: "text",
-                  backgroundClip: "text",
-                }}
-              >
-                {Math.ceil(readSecondsLeft)}
+              <div className="mt-3 font-display text-5xl font-black uppercase tracking-tight text-white drop-shadow-[0_8px_40px_rgba(0,0,0,0.6)] sm:text-6xl lg:text-7xl">
+                Question {questionNumber}
               </div>
-            </div>
+              <div className="mx-auto mt-4 h-[2px] w-16 rounded-full bg-amber-300" />
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-
-
       {/* Answer panels — fixed 2x2 grid; cells NEVER reflow when shattered */}
-      <div
-        className={`relative z-10 grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-3 transition-all duration-300 ${
-          reading ? "scale-[0.98] opacity-40 blur-[2px]" : ""
-        }`}
-      >
+      <div className="relative z-10 grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-3">
+
         {answers.map((label, i) => {
           const dropped = droppedIndexes.includes(i);
           const isCorrect = phase === "reveal" && correctIndex === i;
