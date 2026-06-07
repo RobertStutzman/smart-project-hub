@@ -360,16 +360,35 @@ export function HostGameStage({ room }: Props) {
   }, [state, now, players, dropWrongFn, endQuestionFn, room.roomCode, room.hostSessionId]);
 
   // Tense music during question, lobby during lobby
+  const ambienceHandedRef = useRef(false);
   useEffect(() => {
     if (!state) return;
+    // On first transition out of "lobby", climax the crowd+drumroll ambience
+    // and hand off to the existing game-show music.
+    if (state.phase !== "lobby" && !ambienceHandedRef.current) {
+      ambienceHandedRef.current = true;
+      void import("@/lib/ambience-engine").then((m) => m.climaxAndHandoff());
+    } else if (state.phase === "lobby" && ambienceHandedRef.current) {
+      // Returning to lobby (play again) — re-arm ambience for next start.
+      ambienceHandedRef.current = false;
+      void import("@/lib/ambience-engine").then((m) => {
+        m.resetAmbience();
+        m.startCrowd();
+        window.setTimeout(() => m.startDrumroll(), 1200);
+      });
+    }
     if (state.phase === "question" || state.phase === "final_question")
       startMusic("tense", 380);
-    else if (state.phase === "lobby" || state.phase === "intro" || state.phase === "credits")
+    else if (state.phase === "intro" || state.phase === "credits")
       startMusic("lobby", 600);
-    else if (state.phase === "final_intro" || state.phase === "final_wager")
+    else if (state.phase === "lobby") {
+      // Lobby has crowd + drumroll ambience instead of synth music.
+      stopMusic();
+    } else if (state.phase === "final_intro" || state.phase === "final_wager")
       startMusic("tense", 520);
     else stopMusic();
   }, [state?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   // Round intro sting + voice — only when transitioning INTO question phase
   // from a non-question phase. Announces "Round N!" only at the start of a
