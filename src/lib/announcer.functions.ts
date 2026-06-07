@@ -545,6 +545,176 @@ export const getTTSCacheStats = createServerFn({ method: "GET" })
   });
 
 // ──────────────────────────────────────────────────────────────────────────
+// TTS observability — time series, top games, summary
+// ──────────────────────────────────────────────────────────────────────────
+
+export const TTS_COST_PER_MILLION_CHARS = 30; // ElevenLabs Starter ≈ $30/1M chars
+
+type LogRow = {
+  room_id: string | null;
+  outcome: string;
+  char_count: number;
+  created_at: string;
+};
+
+export const getTtsSummary = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ days: z.number().int().min(1).max(90).default(7) }).parse)
+  .handler(async ({ context, data }) => {
+    await assertAdmin(context.userId);
+    const since = new Date(Date.now() - data.days * 86400000).toISOString();
+    const { data: rows } = await supabaseAdmin
+      .from("tts_call_log")
+      .select("room_id, outcome, char_count, created_at")
+      .gte("created_at", since);
+    const list = (rows ?? []) as LogRow[];
+    const total = list.length;
+    const cacheHits = list.filter((r) => r.outcome === "cache_hit").length;
+    const generated = list.filter((r) => r.outcome === "generated").length;
+    const capSkipped = list.filter((r) => r.outcome === "cap_skipped").length;
+    const errors = list.filter((r) => r.outcome === "error").length;
+    const generatedChars = list
+      .filter((r) => r.outcome === "generated")
+      .reduce((a, r) => a + (r.char_count ?? 0), 0);
+    const uniqueGames = new Set(list.map((r) => r.room_id).filter(Boolean)).size;
+    return {
+      days: data.days,
+      total,
+      cacheHits,
+      generated,
+      capSkipped,
+      errors,
+      generatedChars,
+      uniqueGames,
+      cacheHitRate: total > 0 ? cacheHits / total : 0,
+      capSkipRate: total > 0 ? capSkipped / total : 0,
+      avgCallsPerGame: uniqueGames > 0 ? total / uniqueGames : 0,
+      estCostUsd: (generatedChars / 1_000_000) * TTS_COST_PER_MILLION_CHARS,
+      costPerMillion: TTS_COST_PER_MILLION_CHARS,
+    };
+  });
+
+export const getTtsTimeSeries = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ days: z.number().int().min(1).max(90).default(14) }).parse)
+  .handler(async ({ context, data }) => {
+    await assertAdmin(context.userId);
+    const sinceMs = Date.now() - data.days * 86400000;
+    const since = new Date(sinceMs).toISOString();
+    const { data: rows } = await supabaseAdmin
+      .from("tts_call_log")
+      .select("outcome, char_count, created_at")
+      .gte("created_at", since);
+    const list = (rows ?? []) as Pick<LogRow, "outcome" | "char_count" | "created_at">[];
+    // bucket by UTC day
+    type Bucket = {
+      day: string;
+      cache_hits: number;
+      generated: number;
+      cap_skipped: number;
+      errors: number;
+      generated_chars: number;
+    };
+    const buckets = new Map<string, Bucket>();
+    for (let i = 0; i < data.days; i++) {
+      const d = new Date(sinceMs + i * 86400000);
+      const key = d.toISOString().slice(0, 10);
+      buckets.set(key, {
+        day: key,
+        cache_hits: 0,
+        generated: 0,
+        cap_skipped: 0,
+        errors: 0,
+        generated_chars: 0,
+      });
+    }
+    for (const r of list) {
+      const key = r.created_at.slice(0, 10);
+      const b = buckets.get(key);
+      if (!b) continue;
+      if (r.outcome === "cache_hit") b.cache_hits++;
+      else if (r.outcome === "generated") {
+        b.generated++;
+        b.generated_chars += r.char_count ?? 0;
+      } else if (r.outcome === "cap_skipped") b.cap_skipped++;
+      else if (r.outcome === "error") b.errors++;
+    }
+    return { days: data.days, buckets: Array.from(buckets.values()) };
+  });
+
+export const getTtsTopGames = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      days: z.number().int().min(1).max(90).default(7),
+      limit: z.number().int().min(1).max(100).default(20),
+    }).parse,
+  )
+  .handler(async ({ context, data }) => {
+    await assertAdmin(context.userId);
+    const since = new Date(Date.now() - data.days * 86400000).toISOString();
+    const { data: rows } = await supabaseAdmin
+      .from("tts_call_log")
+      .select("room_id, outcome, char_count")
+      .gte("created_at", since)
+      .not("room_id", "is", null);
+    const list = (rows ?? []) as LogRow[];
+    type Agg = {
+      room_id: string;
+      total: number;
+      generated: number;
+      cache_hits: number;
+      cap_skipped: number;
+      generated_chars: number;
+    };
+    const agg = new Map<string, Agg>();
+    for (const r of list) {
+      if (!r.room_id) continue;
+      let a = agg.get(r.room_id);
+      if (!a) {
+        a = { room_id: r.room_id, total: 0, generated: 0, cache_hits: 0, cap_skipped: 0, generated_chars: 0 };
+        agg.set(r.room_id, a);
+      }
+      a.total++;
+      if (r.outcome === "cache_hit") a.cache_hits++;
+      else if (r.outcome === "generated") {
+        a.generated++;
+        a.generated_chars += r.char_count ?? 0;
+      } else if (r.outcome === "cap_skipped") a.cap_skipped++;
+    }
+    const sorted = Array.from(agg.values())
+      .sort((a, b) => b.generated_chars - a.generated_chars)
+      .slice(0, data.limit);
+    const ids = sorted.map((a) => a.room_id);
+    let codeMap = new Map<string, { room_code: string; created_at: string }>();
+    if (ids.length > 0) {
+      const { data: rooms } = await supabaseAdmin
+        .from("rooms")
+        .select("id, room_code, created_at")
+        .in("id", ids);
+      for (const r of rooms ?? []) {
+        codeMap.set(r.id as string, {
+          room_code: (r.room_code as string) ?? "—",
+          created_at: (r.created_at as string) ?? "",
+        });
+      }
+    }
+    return {
+      days: data.days,
+      cap: getTtsCap(),
+      costPerMillion: TTS_COST_PER_MILLION_CHARS,
+      rows: sorted.map((a) => ({
+        ...a,
+        room_code: codeMap.get(a.room_id)?.room_code ?? "—",
+        room_created_at: codeMap.get(a.room_id)?.created_at ?? null,
+        est_cost_usd: (a.generated_chars / 1_000_000) * TTS_COST_PER_MILLION_CHARS,
+      })),
+    };
+  });
+
+
+
+// ──────────────────────────────────────────────────────────────────────────
 // Persona pack — pre-bake static Vox catchphrases to storage so gameplay
 // doesn't hit ElevenLabs for the hot lines.
 // ──────────────────────────────────────────────────────────────────────────
