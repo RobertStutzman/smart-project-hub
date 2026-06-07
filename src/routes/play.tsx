@@ -317,7 +317,7 @@ function PlayPage() {
       await lockFn({
         data: { roomCode: session.roomCode, sessionId: session.sessionId, answerIndex: i },
       });
-      Haptics.correct();
+      Haptics.lock();
     } catch {
       /* ignore */
     }
