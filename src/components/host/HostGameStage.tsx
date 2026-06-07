@@ -902,6 +902,10 @@ export function HostGameStage({ room }: Props) {
 const QUESTIONS_PER_ROUND = 5;
 const FINAL_ROUND_NUMBER = 15;
 
+function getCompletedRoundNumber(completedQuestionNumber: number) {
+  return Math.max(1, Math.floor(Math.max(1, completedQuestionNumber) / QUESTIONS_PER_ROUND));
+}
+
 export function useRevealAutoAdvance(
   roomCode: string,
   hostSessionId: string,
