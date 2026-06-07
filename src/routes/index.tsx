@@ -29,7 +29,11 @@ function LandingPage() {
   }, []);
 
   return (
-    <main
+  return (
+    <>
+      {showBoot && <BootSequence onComplete={() => setShowBoot(false)} />}
+      <main
+
       className="relative min-h-screen overflow-hidden text-white"
       style={{
         background:
