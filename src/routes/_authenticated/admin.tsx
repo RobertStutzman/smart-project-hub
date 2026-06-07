@@ -1688,7 +1688,9 @@ function GeminiImporter({
           </select>
         </label>
         <label className="text-sm">
-          <div className="mb-1 text-muted-foreground">Count</div>
+          <div className="mb-1 text-muted-foreground">
+            {difficulty === "mixed" ? `Per difficulty (× 4 = ${count * 4} total)` : "Count"}
+          </div>
           <input
             type="number"
             min={1}
