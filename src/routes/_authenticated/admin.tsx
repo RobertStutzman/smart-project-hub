@@ -129,16 +129,23 @@ function AdminPage() {
   async function reload() {
     const { questions } = await listFn();
     setItems(questions as Question[]);
+    await reloadCategories();
   }
 
   async function handleSave(q: DraftQuestion) {
     setWorking(true);
     try {
+      const cleanCategory = q.category.trim().replace(/\s+/g, " ");
+      if (!cleanCategory) {
+        toast.error("Category is required");
+        setWorking(false);
+        return;
+      }
       await upsertFn({
         data: {
           id: q.id,
           q: {
-            category: q.category,
+            category: cleanCategory,
             subcategory: q.subcategory,
             question_text: q.question_text,
             correct_answer: q.correct_answer,
