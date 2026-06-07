@@ -47,6 +47,7 @@ type RoomState = {
   glitch_active_until: string | null;
   glitch_used: boolean;
   round_number: number;
+  sudden_death_session_ids: string[] | null;
 };
 
 type Me = {
@@ -71,6 +72,8 @@ type Me = {
   final_wager: number;
   final_answer: number | null;
   final_locked_at: string | null;
+  comeback_bonus: boolean;
+  session_id: string;
 };
 
 type LobbyPlayer = {
@@ -120,7 +123,7 @@ function PlayPage() {
       const { data: r } = await supabase
         .from("rooms")
         .select(
-          "id, status, phase, current_category, current_question_text, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, is_paused, host_last_seen_at, wildcard, saboteur_session_id, glitch_active_until, glitch_used, round_number",
+          "id, status, phase, current_category, current_question_text, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, is_paused, host_last_seen_at, wildcard, saboteur_session_id, glitch_active_until, glitch_used, round_number, sudden_death_session_ids",
         )
         .eq("room_code", session.roomCode)
         .maybeSingle();
@@ -134,7 +137,7 @@ function PlayPage() {
       const { data: p } = await supabase
         .from("players")
         .select(
-          "id, nickname, avatar_url, score, streak_count, is_audience, current_answer, current_answer_locked_at, current_round_score, last_answer_correct, used_2x, pending_2x, correct_count, wrong_count, fastest_count, best_streak, total_response_ms, answered_count, final_wager, final_answer, final_locked_at",
+          "id, session_id, nickname, avatar_url, score, streak_count, is_audience, current_answer, current_answer_locked_at, current_round_score, last_answer_correct, used_2x, pending_2x, correct_count, wrong_count, fastest_count, best_streak, total_response_ms, answered_count, final_wager, final_answer, final_locked_at, comeback_bonus",
         )
         .eq("room_id", r.id)
         .eq("session_id", session.sessionId)
@@ -474,14 +477,69 @@ function PlayPage() {
               )}
 
             {room.phase === "final_wager" || room.phase === "final_intro" ? (
-              <PlayerWagerStage
-                score={me?.score ?? 0}
-                wagerDraft={wagerDraft}
-                setWagerDraft={setWagerDraft}
-                locked={!!me?.final_locked_at}
-                lockedWager={me?.final_wager ?? 0}
-                onLock={() => void sendWager()}
-              />
+              <>
+                {me?.comeback_bonus && (
+                  <div className="rounded-2xl border-2 border-emerald-400/70 bg-gradient-to-br from-emerald-500/25 to-teal-500/15 p-3 text-center shadow-[0_10px_30px_-10px_rgba(16,185,129,0.6)] animate-scale-in">
+                    <div className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-200">
+                      🚀 Comeback Bonus
+                    </div>
+                    <div className="mt-1 text-sm font-semibold text-emerald-50">
+                      1.5× on your wager if you nail this. No pressure.
+                    </div>
+                  </div>
+                )}
+                <PlayerWagerStage
+                  score={me?.score ?? 0}
+                  wagerDraft={wagerDraft}
+                  setWagerDraft={setWagerDraft}
+                  locked={!!me?.final_locked_at}
+                  lockedWager={me?.final_wager ?? 0}
+                  onLock={() => void sendWager()}
+                />
+              </>
+            ) : room.phase === "sudden_death" ? (
+              (() => {
+                const cohort = room.sudden_death_session_ids ?? [];
+                const amIn = cohort.includes(session.sessionId);
+                if (!amIn) {
+                  return (
+                    <div className="grid flex-1 place-items-center rounded-3xl border-2 border-rose-400/60 bg-gradient-to-br from-rose-500/15 via-black to-black p-8 text-center">
+                      <div>
+                        <div className="text-3xl">⚔</div>
+                        <div className="mt-3 text-[10px] uppercase tracking-[0.4em] text-rose-200">
+                          Sudden Death
+                        </div>
+                        <div className="mt-2 text-lg font-bold text-white/90">
+                          Watch the screen — first correct answer wins.
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <>
+                    <div className="flex items-center justify-between rounded-2xl border-2 border-rose-400/70 bg-rose-500/15 px-4 py-2 backdrop-blur animate-pulse">
+                      <div className="text-[10px] font-black uppercase tracking-[0.3em] text-rose-100">
+                        ⚔ Sudden Death · First correct wins
+                      </div>
+                      {remainingS !== null && (
+                        <div className="font-mono text-xl font-black text-rose-100">
+                          {Math.ceil(remainingS)}s
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-h-0 flex-1">
+                      <AnswerGrid
+                        disabled={!!me?.current_answer_locked_at}
+                        labels={(room.current_answers ?? ["", "", "", ""]) as [string, string, string, string]}
+                        droppedIndexes={[]}
+                        selectedIndex={me?.current_answer ?? null}
+                        onPick={(i) => void pick(i)}
+                      />
+                    </div>
+                  </>
+                );
+              })()
             ) : room.phase === "final_question" ? (
               <>
                 <div className="flex items-center justify-between rounded-2xl border-2 border-amber-300/60 bg-amber-500/10 px-4 py-2 backdrop-blur">

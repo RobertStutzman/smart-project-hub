@@ -539,6 +539,7 @@ export const setPhase = createServerFn({ method: "POST" })
         "final_wager",
         "final_question",
         "final_reveal",
+        "sudden_death",
       ]),
     }).parse,
   )
@@ -565,7 +566,7 @@ export const startFinalRound = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const room = await getRoomByHost(data.roomCode, data.hostSessionId);
 
-    // Reset per-player final fields
+    // Reset per-player final fields + comeback flag
     await supabaseAdmin
       .from("players")
       .update({
@@ -575,8 +576,25 @@ export const startFinalRound = createServerFn({ method: "POST" })
         current_round_score: 0,
         current_round_fastest: false,
         last_answer_correct: null,
+        comeback_bonus: false,
       })
       .eq("room_id", room.id);
+
+    // Visible comeback boost: bottom-3 (non-audience, score > 0) get 1.5× on a correct wager.
+    // Skip if there are <=3 active players (everyone would qualify).
+    const { data: activePlayers } = await supabaseAdmin
+      .from("players")
+      .select("id, score")
+      .eq("room_id", room.id)
+      .eq("is_audience", false)
+      .order("score", { ascending: true });
+    if (activePlayers && activePlayers.length > 3) {
+      const bottomIds = activePlayers.slice(0, 3).map((p) => p.id);
+      await supabaseAdmin
+        .from("players")
+        .update({ comeback_bonus: true })
+        .in("id", bottomIds);
+    }
 
     // Pick a fresh question (prefer same category; fall back to any)
     const { data: used } = await supabaseAdmin
@@ -781,7 +799,7 @@ export const scoreFinalRound = createServerFn({ method: "POST" })
     }
     const { data: players } = await supabaseAdmin
       .from("players")
-      .select("id, score, final_wager, final_answer, correct_count, wrong_count, answered_count")
+      .select("id, score, final_wager, final_answer, correct_count, wrong_count, answered_count, comeback_bonus")
       .eq("room_id", room.id)
       .eq("is_audience", false);
 
@@ -789,10 +807,11 @@ export const scoreFinalRound = createServerFn({ method: "POST" })
       const wager = p.final_wager ?? 0;
       const picked = p.final_answer;
       const isCorrect = picked === correctIdx;
+      const boost = (p as { comeback_bonus?: boolean }).comeback_bonus ? 1.5 : 1;
       const delta = picked === null || picked === undefined
         ? -wager
         : isCorrect
-          ? wager
+          ? Math.round(wager * boost)
           : -wager;
       const newScore = Math.max(0, (p.score ?? 0) + delta);
       await supabaseAdmin
@@ -813,6 +832,207 @@ export const scoreFinalRound = createServerFn({ method: "POST" })
       .update({ phase: "final_reveal" })
       .eq("id", room.id);
     return { ok: true };
+  });
+
+// ============================================================
+// SUDDEN DEATH — break a top-tie after final reveal.
+// ============================================================
+
+export const startSuddenDeath = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      hostSessionId: z.string().min(8).max(128),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const room = await getRoomByHost(data.roomCode, data.hostSessionId);
+
+    // Find the tied leaders (or carry over an existing sudden-death cohort if still tied)
+    const existing = (room.sudden_death_session_ids as string[] | null) ?? [];
+    let cohort: string[];
+    if (existing.length >= 2) {
+      const { data: prev } = await supabaseAdmin
+        .from("players")
+        .select("session_id, score")
+        .eq("room_id", room.id)
+        .in("session_id", existing);
+      const max = Math.max(...(prev ?? []).map((p) => p.score ?? 0));
+      cohort = (prev ?? []).filter((p) => (p.score ?? 0) === max).map((p) => p.session_id);
+    } else {
+      const { data: standings } = await supabaseAdmin
+        .from("players")
+        .select("session_id, score")
+        .eq("room_id", room.id)
+        .eq("is_audience", false)
+        .order("score", { ascending: false });
+      const top = (standings ?? [])[0]?.score ?? 0;
+      cohort = (standings ?? []).filter((p) => (p.score ?? 0) === top).map((p) => p.session_id);
+    }
+
+    if (cohort.length < 2) {
+      // No tie — nothing to do.
+      return { ok: false, reason: "no-tie" as const };
+    }
+
+    // Reset cohort answer state
+    await supabaseAdmin
+      .from("players")
+      .update({
+        current_answer: null,
+        current_answer_locked_at: null,
+        last_answer_correct: null,
+        current_round_score: 0,
+      })
+      .eq("room_id", room.id)
+      .in("session_id", cohort);
+
+    // Pick an easy/medium tiebreaker question — first-correct wins, no eliminations.
+    const { data: used } = await supabaseAdmin
+      .from("room_questions")
+      .select("question_id")
+      .eq("room_id", room.id);
+    const usedIds = (used ?? []).map((r) => r.question_id);
+
+    let q: {
+      id: string;
+      question_text: string;
+      correct_answer: string;
+      wrong_1: string;
+      wrong_2: string;
+      wrong_3: string;
+    } | null = null;
+    const attempts: Array<{ difficulties: string[] | null }> = [
+      { difficulties: ["medium", "easy"] },
+      { difficulties: null },
+    ];
+    for (const attempt of attempts) {
+      let qQuery = supabaseAdmin.from("questions").select("*");
+      if (attempt.difficulties) qQuery = qQuery.in("difficulty", attempt.difficulties);
+      if (usedIds.length > 0) qQuery = qQuery.not("id", "in", `(${usedIds.join(",")})`);
+      const { data: pool } = await qQuery
+        .order("times_used", { ascending: true })
+        .order("last_used_at", { ascending: true, nullsFirst: true })
+        .limit(12);
+      if (pool && pool.length > 0) {
+        q = pool[Math.floor(Math.random() * pool.length)];
+        break;
+      }
+    }
+    if (!q) throw new Error("No questions available for sudden death");
+
+    const answers = shuffle([q.correct_answer, q.wrong_1, q.wrong_2, q.wrong_3]);
+    const correctIndex = answers.indexOf(q.correct_answer);
+
+    await supabaseAdmin.from("room_questions").insert({
+      room_id: room.id,
+      question_id: q.id,
+    });
+    await supabaseAdmin
+      .from("questions")
+      .update({
+        times_used: ((q as { times_used?: number }).times_used ?? 0) + 1,
+        last_used_at: new Date().toISOString(),
+      })
+      .eq("id", q.id);
+
+    const { error } = await supabaseAdmin
+      .from("rooms")
+      .update({
+        status: "playing",
+        phase: "sudden_death",
+        current_question_id: q.id,
+        current_question_text: q.question_text,
+        current_answers: answers,
+        current_correct_index: correctIndex,
+        current_explanation: (q as { explanation?: string | null }).explanation ?? null,
+        current_media_url: null,
+        current_media_type: null,
+        current_question_tts_url: null,
+        question_started_at: new Date(Date.now() + 2500).toISOString(),
+        question_duration_ms: 12000,
+        dropped_indexes: [],
+        wildcard: null,
+        saboteur_session_id: null,
+        glitch_active_until: null,
+        roast_candidates: null,
+        sudden_death_session_ids: cohort,
+      })
+      .eq("id", room.id);
+    if (error) throw new Error(error.message);
+
+    return { ok: true, cohortSize: cohort.length };
+  });
+
+export const resolveSuddenDeath = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      hostSessionId: z.string().min(8).max(128),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const room = await getRoomByHost(data.roomCode, data.hostSessionId);
+    if (room.phase !== "sudden_death") return { ok: false, reason: "wrong-phase" as const };
+    const cohort = (room.sudden_death_session_ids as string[] | null) ?? [];
+    const correctIdx = room.current_correct_index;
+    if (correctIdx === null || correctIdx === undefined) return { ok: false, reason: "no-q" as const };
+
+    const { data: players } = await supabaseAdmin
+      .from("players")
+      .select("id, session_id, current_answer, current_answer_locked_at, score")
+      .eq("room_id", room.id)
+      .in("session_id", cohort);
+
+    // First-correct wins: among those who answered correctly, lowest locked time.
+    const correct = (players ?? [])
+      .filter((p) => p.current_answer === correctIdx && p.current_answer_locked_at)
+      .sort(
+        (a, b) =>
+          new Date(a.current_answer_locked_at!).getTime() -
+          new Date(b.current_answer_locked_at!).getTime(),
+      );
+
+    // No-one correct → everyone still tied → keep cohort, host must trigger again.
+    if (correct.length === 0) {
+      await supabaseAdmin
+        .from("rooms")
+        .update({ phase: "final_reveal" })
+        .eq("id", room.id);
+      return { ok: true, resolved: false, stillTied: cohort };
+    }
+
+    const fastest = correct[0];
+    const ties = correct.filter(
+      (c) =>
+        new Date(c.current_answer_locked_at!).getTime() ===
+        new Date(fastest.current_answer_locked_at!).getTime(),
+    );
+
+    if (ties.length === 1) {
+      // Award +1 to break the tie cleanly so the winner sits above the others.
+      await supabaseAdmin
+        .from("players")
+        .update({
+          score: (fastest.score ?? 0) + 1,
+          last_answer_correct: true,
+          current_round_score: 1,
+        })
+        .eq("id", fastest.id);
+      await supabaseAdmin
+        .from("rooms")
+        .update({ phase: "final_reveal", sudden_death_session_ids: [] })
+        .eq("id", room.id);
+      return { ok: true, resolved: true, winnerSessionId: fastest.session_id };
+    }
+
+    // Sub-tie within sudden death: keep the tied subset for another round.
+    const stillIn = ties.map((t) => t.session_id);
+    await supabaseAdmin
+      .from("rooms")
+      .update({ phase: "final_reveal", sudden_death_session_ids: stillIn })
+      .eq("id", room.id);
+    return { ok: true, resolved: false, stillTied: stillIn };
   });
 
 export const lockAnswer = createServerFn({ method: "POST" })

@@ -19,6 +19,7 @@ export type Database = {
           answered_count: number
           avatar_url: string | null
           best_streak: number
+          comeback_bonus: boolean
           correct_count: number
           created_at: string
           current_answer: number | null
@@ -47,6 +48,7 @@ export type Database = {
           answered_count?: number
           avatar_url?: string | null
           best_streak?: number
+          comeback_bonus?: boolean
           correct_count?: number
           created_at?: string
           current_answer?: number | null
@@ -75,6 +77,7 @@ export type Database = {
           answered_count?: number
           avatar_url?: string | null
           best_streak?: number
+          comeback_bonus?: boolean
           correct_count?: number
           created_at?: string
           current_answer?: number | null
@@ -239,6 +242,7 @@ export type Database = {
           round_number: number
           saboteur_session_id: string | null
           status: string
+          sudden_death_session_ids: string[]
           theme: string
           tts_calls_count: number
           tts_cap_started_at: string | null
@@ -271,6 +275,7 @@ export type Database = {
           round_number?: number
           saboteur_session_id?: string | null
           status?: string
+          sudden_death_session_ids?: string[]
           theme?: string
           tts_calls_count?: number
           tts_cap_started_at?: string | null
@@ -303,6 +308,7 @@ export type Database = {
           round_number?: number
           saboteur_session_id?: string | null
           status?: string
+          sudden_death_session_ids?: string[]
           theme?: string
           tts_calls_count?: number
           tts_cap_started_at?: string | null

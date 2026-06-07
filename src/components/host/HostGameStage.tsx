@@ -10,6 +10,8 @@ import {
   startFinalRound,
   startFinalQuestion,
   scoreFinalRound,
+  startSuddenDeath,
+  resolveSuddenDeath,
 } from "@/lib/game.functions";
 import { QuestionStage } from "./QuestionStage";
 import { Leaderboard } from "./Leaderboard";
@@ -39,14 +41,17 @@ type RoomState = {
   dropped_indexes: number[];
   wildcard: string | null;
   round_number: number;
+  sudden_death_session_ids: string[] | null;
 };
 
 type Player = {
   id: string;
+  session_id: string;
   nickname: string;
   score: number;
   avatar_url: string | null;
   current_answer: number | null;
+  current_answer_locked_at: string | null;
   current_round_score: number;
   current_round_fastest: boolean;
   streak_count: number;
@@ -58,6 +63,7 @@ type Player = {
   fastest_count: number;
   correct_count: number;
   wrong_count: number;
+  comeback_bonus: boolean;
 };
 
 type Props = {
@@ -87,6 +93,8 @@ export function HostGameStage({ room }: Props) {
   const endGameFn = useServerFn(endGame);
   const startFinalRoundFn = useServerFn(startFinalRound);
   const startFinalQuestionFn = useServerFn(startFinalQuestion);
+  const startSuddenDeathFn = useServerFn(startSuddenDeath);
+  const resolveSuddenDeathFn = useServerFn(resolveSuddenDeath);
   const scoreFinalRoundFn = useServerFn(scoreFinalRound);
 
   // Load pre-baked persona pack URLs into the Elf voice cache once on mount,
@@ -128,7 +136,7 @@ export function HostGameStage({ room }: Props) {
       const { data: r } = await supabase
         .from("rooms")
         .select(
-          "id, room_code, phase, current_question_id, current_question_text, current_question_tts_url, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number",
+          "id, room_code, phase, current_question_id, current_question_text, current_question_tts_url, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number, sudden_death_session_ids",
         )
         .eq("id", room.id)
         .maybeSingle();
@@ -136,7 +144,7 @@ export function HostGameStage({ room }: Props) {
       const { data: ps } = await supabase
         .from("players")
         .select(
-          "id, nickname, score, avatar_url, current_answer, current_round_score, current_round_fastest, streak_count, is_audience, final_wager, final_answer, final_locked_at, best_streak, fastest_count, correct_count, wrong_count",
+          "id, session_id, nickname, score, avatar_url, current_answer, current_answer_locked_at, current_round_score, current_round_fastest, streak_count, is_audience, final_wager, final_answer, final_locked_at, best_streak, fastest_count, correct_count, wrong_count, comeback_bonus",
         )
         .eq("room_id", room.id)
         .order("created_at", { ascending: true });
@@ -433,10 +441,18 @@ export function HostGameStage({ room }: Props) {
       }
     }
 
-    // Reveal → ended after 7s
+    // Reveal → check for top-score tie. Tie → wait for host to trigger sudden death.
+    // No tie → end after 7s.
     if (phase === "final_reveal") {
-      const key = `reveal-${state.id}`;
+      const key = `reveal-${state.id}-${state.sudden_death_session_ids?.join(",") ?? ""}`;
       if (finalAdvancedRef.current === key) return;
+      const live = players.filter((p) => !p.is_audience);
+      const top = live.reduce((m, p) => Math.max(m, p.score), 0);
+      const tied = live.filter((p) => p.score === top);
+      if (tied.length > 1) {
+        // Don't auto-advance — host clicks "Sudden Death" button rendered below.
+        return;
+      }
       const id = window.setTimeout(() => {
         finalAdvancedRef.current = key;
         endGameFn({
@@ -445,7 +461,27 @@ export function HostGameStage({ room }: Props) {
       }, 7000);
       return () => window.clearTimeout(id);
     }
-  }, [state, now, players, setPhaseFn, startFinalQuestionFn, scoreFinalRoundFn, endGameFn, room.roomCode, room.hostSessionId]);
+
+    // Sudden death → resolve when timer ends OR all cohort have locked.
+    if (phase === "sudden_death" && state.question_started_at) {
+      const cohort = state.sudden_death_session_ids ?? [];
+      const startMs = new Date(state.question_started_at).getTime();
+      const remainingMs = state.question_duration_ms - (now - startMs);
+      const cohortPlayers = players.filter((p) => cohort.includes(p.session_id));
+      const allLocked =
+        cohortPlayers.length > 0 &&
+        cohortPlayers.every((p) => p.current_answer_locked_at !== null);
+      if (remainingMs <= 0 || allLocked) {
+        const key = `sd-${state.question_started_at}`;
+        if (finalAdvancedRef.current === key) return;
+        finalAdvancedRef.current = key;
+        play("whoosh");
+        resolveSuddenDeathFn({
+          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+        }).catch(() => {});
+      }
+    }
+  }, [state, now, players, setPhaseFn, startFinalQuestionFn, scoreFinalRoundFn, endGameFn, resolveSuddenDeathFn, room.roomCode, room.hostSessionId]);
 
   // Wager lock-in thud — fires when a new player locks
   const lastWagerLockedCountRef = useRef(0);
@@ -685,14 +721,68 @@ export function HostGameStage({ room }: Props) {
       );
     const prevLeaderId = prevRanked[0]?.id ?? null;
     const revealKey = `${state.id}-${state.current_question_id ?? "x"}`;
+    const live = players.filter((p) => !p.is_audience);
+    const topScore = live.reduce((m, p) => Math.max(m, p.score), 0);
+    const tied = live.filter((p) => p.score === topScore);
+    const isTie = tied.length > 1;
     return (
-      <FinalRevealStage
-        correctText={correctText}
-        explanation={state.current_explanation}
-        players={players}
-        revealKey={revealKey}
-        prevLeaderId={prevLeaderId}
-      />
+      <div className="relative h-full">
+        <FinalRevealStage
+          correctText={correctText}
+          explanation={state.current_explanation}
+          players={players}
+          revealKey={revealKey}
+          prevLeaderId={prevLeaderId}
+        />
+        {isTie && (
+          <div className="pointer-events-auto absolute inset-x-0 bottom-8 z-40 flex flex-col items-center gap-3">
+            <div className="rounded-full bg-rose-500/90 px-5 py-1.5 text-xs font-black uppercase tracking-[0.3em] text-white shadow-[0_10px_30px_-10px_rgba(244,63,94,0.7)] animate-pulse">
+              ⚔ Tied at {topScore} — {tied.map((p) => p.nickname).join(" & ")}
+            </div>
+            <button
+              onClick={() => {
+                play("whoosh");
+                startSuddenDeathFn({
+                  data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+                }).catch(() => {});
+              }}
+              className="rounded-full bg-gradient-to-b from-rose-400 to-rose-600 px-8 py-3 font-display text-lg font-black uppercase tracking-wider text-white shadow-[0_0_50px_oklch(0.65_0.25_25/0.6)] transition hover:scale-[1.03]"
+            >
+              ⚡ Sudden Death
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (state.phase === "sudden_death") {
+    const cohort = state.sudden_death_session_ids ?? [];
+    const cohortPlayers = players.filter((p) => cohort.includes(p.session_id));
+    return (
+      <div
+        className="relative h-full"
+        style={{
+          background:
+            "radial-gradient(ellipse 80% 60% at 50% 30%, oklch(0.25 0.18 25 / 0.95), oklch(0.06 0.05 25) 80%)",
+        }}
+      >
+        <div className="pointer-events-none absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full bg-rose-500/95 px-5 py-1.5 text-xs font-black uppercase tracking-[0.3em] text-white shadow animate-pulse">
+          ⚔ Sudden Death · {cohortPlayers.map((p) => p.nickname).join(" vs ")}
+        </div>
+        <QuestionStage
+          questionText={state.current_question_text ?? ""}
+          answers={state.current_answers ?? ["", "", "", ""]}
+          droppedIndexes={[]}
+          correctIndex={null}
+          secondsLeft={remainingS}
+          totalS={state.question_duration_ms / 1000}
+          phase="question"
+          players={cohortPlayers}
+          mediaUrl={null}
+          mediaType={null}
+        />
+      </div>
     );
   }
 
