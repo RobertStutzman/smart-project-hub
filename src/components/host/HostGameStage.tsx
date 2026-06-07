@@ -371,9 +371,12 @@ export function HostGameStage({ room }: Props) {
     }
     if (state.phase === "question" || state.phase === "final_question")
       startMusic("tense", 380);
-    else if (state.phase === "lobby" || state.phase === "intro" || state.phase === "credits")
+    else if (state.phase === "intro" || state.phase === "credits")
       startMusic("lobby", 600);
-    else if (state.phase === "final_intro" || state.phase === "final_wager")
+    else if (state.phase === "lobby") {
+      // Lobby has crowd + drumroll ambience instead of synth music.
+      stopMusic();
+    } else if (state.phase === "final_intro" || state.phase === "final_wager")
       startMusic("tense", 520);
     else stopMusic();
   }, [state?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
