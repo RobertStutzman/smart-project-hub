@@ -167,10 +167,11 @@ export const nextQuestion = createServerFn({ method: "POST" })
       return data ?? [];
     }
 
-    // Try target difficulty in category → any category → any difficulty in category → anything.
+    // Prefer staying inside the selected category: target difficulty in category →
+    // any difficulty in category → target difficulty any category → anything.
     let candidates = await fetchPool(targetDifficulty, true);
-    if (candidates.length === 0) candidates = await fetchPool(targetDifficulty, false);
     if (candidates.length === 0) candidates = await fetchPool(null, true);
+    if (candidates.length === 0) candidates = await fetchPool(targetDifficulty, false);
     if (candidates.length === 0) candidates = await fetchPool(null, false);
 
     if (candidates.length === 0) {
