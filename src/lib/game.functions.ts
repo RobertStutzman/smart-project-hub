@@ -153,10 +153,11 @@ export const nextQuestion = createServerFn({ method: "POST" })
     const leastUsed = DIFFICULTIES.filter((d) => counts[d] === minCount);
     const targetDifficulty = leastUsed[Math.floor(Math.random() * leastUsed.length)];
 
-    async function fetchPool(difficulty: string | null, useCategory: boolean) {
+    async function fetchPool(difficulty: string | null, useEnabledCategories: boolean) {
       let qQuery = supabaseAdmin.from("questions").select("*");
-      if (useCategory && room.current_category && room.current_category !== "Mystery Mix")
-        qQuery = qQuery.eq("category", room.current_category);
+      const enabled = (room as { enabled_categories?: string[] | null }).enabled_categories;
+      if (useEnabledCategories && enabled && enabled.length > 0)
+        qQuery = qQuery.in("category", enabled);
       if (difficulty) qQuery = qQuery.eq("difficulty", difficulty);
       if (usedIds.length > 0) qQuery = qQuery.not("id", "in", `(${usedIds.join(",")})`);
       // Global rotation: least-used first, then oldest-used (nulls = never used → top).
@@ -167,12 +168,14 @@ export const nextQuestion = createServerFn({ method: "POST" })
       return data ?? [];
     }
 
-    // Prefer staying inside the selected category: target difficulty in category →
-    // any difficulty in category → target difficulty any category → anything.
+
+    // Prefer staying inside the host's enabled set; fall back to all categories
+    // if that pool runs dry so the game keeps moving.
     let candidates = await fetchPool(targetDifficulty, true);
     if (candidates.length === 0) candidates = await fetchPool(null, true);
     if (candidates.length === 0) candidates = await fetchPool(targetDifficulty, false);
     if (candidates.length === 0) candidates = await fetchPool(null, false);
+
 
     if (candidates.length === 0) {
       // Out of questions — end the game gracefully instead of getting stuck.
@@ -227,6 +230,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
         status: "playing",
         phase: "question",
         current_question_id: q.id,
+        current_category: (q as { category?: string | null }).category ?? null,
         current_question_text: q.question_text,
         current_answers: answers,
         current_correct_index: correctIndex,
@@ -244,6 +248,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
         roast_candidates: null,
       })
       .eq("id", room.id);
+
     if (error) throw new Error(error.message);
 
     return { ok: true, questionId: q.id, wildcard };
@@ -640,6 +645,7 @@ export const startFinalRound = createServerFn({ method: "POST" })
       wrong_1: string;
       wrong_2: string;
       wrong_3: string;
+      category?: string | null;
     } | null = null;
     // Fallback chain for the final round (prefer staying in the selected category):
     //   1. impossible/hard in current category
@@ -654,8 +660,9 @@ export const startFinalRound = createServerFn({ method: "POST" })
     ];
     for (const attempt of attempts) {
       let qQuery = supabaseAdmin.from("questions").select("*");
-      if (attempt.useCategory && room.current_category && room.current_category !== "Mystery Mix")
-        qQuery = qQuery.eq("category", room.current_category);
+      const enabled = (room as { enabled_categories?: string[] | null }).enabled_categories;
+      if (attempt.useCategory && enabled && enabled.length > 0)
+        qQuery = qQuery.in("category", enabled);
       if (attempt.difficulties)
         qQuery = qQuery.in("difficulty", attempt.difficulties);
       if (usedIds.length > 0)
@@ -707,6 +714,7 @@ export const startFinalRound = createServerFn({ method: "POST" })
         status: "playing",
         phase: "final_intro",
         current_question_id: q.id,
+        current_category: q.category ?? null,
         current_question_text: q.question_text,
         current_answers: answers,
         current_correct_index: correctIndex,

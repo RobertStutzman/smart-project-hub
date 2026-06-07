@@ -3,9 +3,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { QRCodeSVG } from "qrcode.react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Lock, Pause, Play, Settings as SettingsIcon, X } from "lucide-react";
+import { Settings as SettingsIcon, Shuffle, X } from "lucide-react";
 import { toast } from "sonner";
-import { createRoom, endRoom, heartbeatHost, setCategory, setRoomConfig, toggleTeamMode } from "@/lib/rooms.functions";
+import {
+  createRoom,
+  endRoom,
+  heartbeatHost,
+  listCategories,
+  setEnabledCategories,
+  setRoomConfig,
+  toggleTeamMode,
+} from "@/lib/rooms.functions";
 import { setPhase } from "@/lib/game.functions";
 import {
   loadHostSession,
@@ -13,7 +21,7 @@ import {
   newId,
 } from "@/lib/player-session";
 import { supabase } from "@/integrations/supabase/client";
-import { CATEGORIES, type Category } from "@/lib/categories";
+import { DEFAULT_OFF_CATEGORIES, emojiForCategory } from "@/lib/categories";
 import { THEMES, THEME_META, type ThemeName } from "@/lib/theme";
 import { useTheme } from "@/components/ThemeProvider";
 import { play, setMuted as setSoundMuted, startMusic, stopMusic, type Sfx } from "@/lib/sound-engine";
@@ -48,6 +56,8 @@ const HOWTO_KEY = "btd:howto-shown";
 
 const MUTE_KEY = "btd:muted";
 
+const CATEGORIES_KEY = "btd:enabled-categories";
+
 function HostPage() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
@@ -57,7 +67,8 @@ function HostPage() {
   const createRoomFn = useServerFn(createRoom);
   const endRoomFn = useServerFn(endRoom);
   const heartbeatFn = useServerFn(heartbeatHost);
-  const setCategoryFn = useServerFn(setCategory);
+  const listCategoriesFn = useServerFn(listCategories);
+  const setEnabledCategoriesFn = useServerFn(setEnabledCategories);
   const setConfigFn = useServerFn(setRoomConfig);
   const toggleTeamModeFn = useServerFn(toggleTeamMode);
   const setPhaseFn = useServerFn(setPhase);
@@ -66,8 +77,10 @@ function HostPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showPaywall, setShowPaywall] = useState<Category | null>(null);
+  const [allCategories, setAllCategories] = useState<{ name: string; count: number }[]>([]);
+  const [enabledCats, setEnabledCats] = useState<Set<string>>(new Set());
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  
   const [allowLate, setAllowLate] = useState(true);
   const [teamMode, setTeamMode] = useState(false);
   const [muted, setMuted] = useState(false);
@@ -124,10 +137,16 @@ function HostPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "rooms", filter: `id=eq.${room.id}` },
         (payload) => {
-          const next = payload.new as { phase?: string; round_number?: number; team_mode?: boolean } | undefined;
+          const next = payload.new as {
+            phase?: string;
+            round_number?: number;
+            team_mode?: boolean;
+            current_category?: string | null;
+          } | undefined;
           if (next?.phase) setRoomPhase(next.phase);
           if (typeof next?.round_number === "number") setRoundNumber(next.round_number);
           if (typeof next?.team_mode === "boolean") setTeamMode(next.team_mode);
+          if (next && "current_category" in next) setActiveCategory(next.current_category ?? null);
         },
       )
       .subscribe();
@@ -184,6 +203,50 @@ function HostPage() {
       },
     }).catch(() => {});
   }, [theme, allowLate, room, setConfigFn]);
+
+  // Load the master category list once. Hydrate the host's saved enabled set
+  // from localStorage (or fall back to "everything except niche defaults").
+  // Then push that selection to the freshly-created room so the question
+  // picker server-side sees the right filter on the very first round.
+  useEffect(() => {
+    if (!room) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await listCategoriesFn();
+        if (cancelled) return;
+        const names = res.categories.map((c) => c.name);
+        setAllCategories(res.categories);
+        let initial: Set<string>;
+        try {
+          const raw = window.localStorage.getItem(CATEGORIES_KEY);
+          if (raw) {
+            const arr = JSON.parse(raw) as string[];
+            initial = new Set(arr.filter((n) => names.includes(n)));
+          } else {
+            initial = new Set(names.filter((n) => !DEFAULT_OFF_CATEGORIES.includes(n)));
+          }
+        } catch {
+          initial = new Set(names.filter((n) => !DEFAULT_OFF_CATEGORIES.includes(n)));
+        }
+        setEnabledCats(initial);
+        const all = initial.size === names.length;
+        setEnabledCategoriesFn({
+          data: {
+            roomCode: room.roomCode,
+            hostSessionId: room.hostSessionId,
+            categories: all ? null : Array.from(initial),
+          },
+        }).catch(() => {});
+      } catch {
+        /* ignore — server fn will fall back to "all categories" */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [room?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   // Apply mute to sound engine + drive lobby music on host TV
   useEffect(() => {
@@ -341,7 +404,34 @@ function HostPage() {
 
   const livePlayers = players.filter((p) => !p.is_audience);
   const audienceMembers = players.filter((p) => p.is_audience);
-  const canStart = !!room && !!activeCategory && livePlayers.length > 0;
+  const canStart = !!room && livePlayers.length > 0;
+  const mixLabel = enabledCats.size === 0 || enabledCats.size === allCategories.length
+    ? `🎲 Surprise Mix · all ${allCategories.length || ""} categories`.trim()
+    : `🎲 Surprise Mix · ${enabledCats.size} of ${allCategories.length} on`;
+
+  function persistEnabled(next: Set<string>) {
+    setEnabledCats(next);
+    try {
+      window.localStorage.setItem(CATEGORIES_KEY, JSON.stringify(Array.from(next)));
+    } catch {}
+    if (room) {
+      const all = allCategories.length > 0 && next.size === allCategories.length;
+      setEnabledCategoriesFn({
+        data: {
+          roomCode: room.roomCode,
+          hostSessionId: room.hostSessionId,
+          categories: all ? null : Array.from(next),
+        },
+      }).catch((e) => toast.error((e as Error).message));
+    }
+  }
+
+  function toggleCategory(name: string) {
+    const next = new Set(enabledCats);
+    if (next.has(name)) next.delete(name);
+    else next.add(name);
+    persistEnabled(next);
+  }
 
   function actuallyStart() {
     if (!room) return;
@@ -544,10 +634,16 @@ function HostPage() {
           >
             {canStart
               ? "▶ Press OK to start the show"
-              : !activeCategory
-                ? "⚙ Pick a category"
-                : "Waiting for players…"}
+              : "Waiting for players…"}
           </motion.button>
+
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-4 py-1.5 text-[clamp(0.65rem,1.2svh,0.8rem)] font-semibold uppercase tracking-[0.2em] text-white/70 backdrop-blur transition hover:bg-white/10 hover:text-amber-200"
+          >
+            <Shuffle className="h-3.5 w-3.5" />
+            {mixLabel}
+          </button>
 
 
 
@@ -590,46 +686,57 @@ function HostPage() {
               </div>
 
               <div className="mb-5">
-                <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-amber-200/80">
-                  Pick a category
-                </h3>
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-amber-200/80">
+                    Categories
+                  </h3>
+                  <div className="flex gap-2 text-[10px] uppercase tracking-widest">
+                    <button
+                      onClick={() => persistEnabled(new Set(allCategories.map((c) => c.name)))}
+                      className="text-white/60 hover:text-amber-200"
+                    >
+                      All
+                    </button>
+                    <span className="text-white/20">·</span>
+                    <button
+                      onClick={() => persistEnabled(new Set())}
+                      className="text-white/60 hover:text-amber-200"
+                    >
+                      None
+                    </button>
+                  </div>
+                </div>
+                <p className="mb-2 text-[11px] leading-snug text-white/50">
+                  Questions are pulled at random from whatever's checked. Leave them all on for the full Surprise Mix.
+                </p>
                 <div className="grid grid-cols-2 gap-2">
-                  {CATEGORIES.map((c) => {
-                    const isActive = c.name === activeCategory;
-                    return (
-                      <button
-                        key={c.name}
-                        onClick={() => {
-                          if (c.isPremium) {
-                            setShowPaywall(c);
-                            return;
-                          }
-                          if (!room) return;
-                          setActiveCategory(c.name);
-                          setCategoryFn({
-                            data: {
-                              roomCode: room.roomCode,
-                              hostSessionId: room.hostSessionId,
-                              category: c.name,
-                            },
-                          }).catch((e) => setError((e as Error).message));
-                        }}
-                        className={`relative flex flex-col items-start gap-1 rounded-lg border p-2 text-left transition ${
-                          isActive
-                            ? "border-amber-300/60 bg-amber-300/15 text-amber-100"
-                            : "border-white/10 bg-white/[0.04] text-white/85 hover:bg-white/10"
-                        }`}
-                      >
-                        <span className="text-xl leading-none">{c.emoji}</span>
-                        <span className="text-xs font-semibold leading-tight">{c.name}</span>
-                        {c.isPremium && (
-                          <Lock className="absolute right-2 top-2 h-3.5 w-3.5 text-accent" />
-                        )}
-                      </button>
-                    );
-                  })}
+                  {allCategories.length === 0 ? (
+                    <div className="col-span-2 rounded-lg border border-dashed border-white/10 p-3 text-xs text-white/40">
+                      Loading categories…
+                    </div>
+                  ) : (
+                    allCategories.map((c) => {
+                      const checked = enabledCats.has(c.name);
+                      return (
+                        <button
+                          key={c.name}
+                          onClick={() => toggleCategory(c.name)}
+                          className={`relative flex items-center gap-2 rounded-lg border p-2 text-left transition ${
+                            checked
+                              ? "border-amber-300/60 bg-amber-300/15 text-amber-100"
+                              : "border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/10"
+                          }`}
+                        >
+                          <span className="text-lg leading-none">{emojiForCategory(c.name)}</span>
+                          <span className="flex-1 text-xs font-semibold leading-tight">{c.name}</span>
+                          <span className="text-[10px] text-white/40">{c.count}</span>
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               </div>
+
 
               <div className="mb-5">
                 <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-amber-200/80">
@@ -706,11 +813,8 @@ function HostPage() {
         )}
       </AnimatePresence>
 
-      {showPaywall && (
-        <PaywallModal category={showPaywall} onClose={() => setShowPaywall(null)} />
-      )}
-
       {showHowTo && <HowToPlay onComplete={finishHowTo} />}
+
 
     </main>
   );
@@ -755,33 +859,8 @@ async function loadPlayers(roomId: string): Promise<Player[]> {
   return (data ?? []) as Player[];
 }
 
-function PaywallModal({ category, onClose }: { category: Category; onClose: () => void }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-background/80 p-4 backdrop-blur"
-      onClick={onClose}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-3xl border border-border bg-card p-8 text-center"
-      >
-        <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-accent/20 text-3xl">
-          {category.emoji}
-        </div>
-        <h3 className="mt-4 text-2xl font-bold">{category.name} is premium</h3>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Premium categories unlock in Phase 3. For now, try Music, Movies, or General Knowledge.
-        </p>
-        <button
-          onClick={onClose}
-          className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground"
-        >
-          Got it
-        </button>
-      </div>
-    </div>
-  );
-}
+
+
 
 const LOBBY_HOST_TIPS = [
   "Phones out. Thumbs warm.",

@@ -1,85 +1,63 @@
-# Jackbox-Style Polish for Beat the Drop
+## Goal
 
-A multi-phase plan. Each phase is shippable on its own — you can stop after any one and still have a better game.
+Replace the "pick one category per round" model with a hidden-pool "Surprise Mix" by default, while still letting hosts opt into a multi-select category filter from the lobby — Jackbox/HQ style.
 
-## Phase 1 — Boot sequence (the "open the app" moment)
+Important context: the DB has 10 categories (Movie Sci-Fi, Movies, Music, General Knowledge, 80's Music, Geography, TV Shows, Sports, Science, History). The current hardcoded picker only exposes 4 + Mystery Mix, so most questions are unreachable today. This change also fixes that.
 
-Currently the host lands straight on `/host` and starts creating a room. Jackbox spends 15-20 seconds setting the mood first. We'll add a boot route at `/` that auto-runs before lobby:
+## What the host will see
 
-```text
-[Logo splash 2s]
-   ↓ ambient bed music starts
-[Credits crawl 4s — "A Beat the Drop production"]
-   ↓
-[How-to-play teaser 6s — 3 quick illustrated tips]
-   ↓
-[Press OK / Tap to start]
-   ↓ host clicks → /host
+Lobby (instead of the current category grid):
+- Big primary button: `▶ Press OK to start the show` (already in place from Phase 1).
+- Underneath, a subtle pill button: `🎲 Surprise Mix · 8 categories on` → opens a bottom sheet.
+- Sheet: list of all categories with checkboxes, "Select all / none" links, and a Save button. Persists to localStorage (`btd:enabled-categories`) and writes to the room so all clients agree.
+- Niche categories (default-off for new hosts): `Movie Sci-Fi`. Everything else on by default.
+- Removes the per-round "Pick a category" grid entirely. `current_category` becomes informational only (shown on the question card as "Category: Sports") — it's set per-question from whatever was drawn.
+
+## Data model
+
+Add one column to `rooms`:
+- `enabled_categories text[]` — nullable. `null` = use all categories. Non-null = restrict pool to this list.
+
+No data migration needed. Existing rooms stay valid.
+
+## Question selection logic (`src/lib/game.functions.ts`)
+
+Replace the `useCategory` branch in `fetchPool`:
 ```
+if (enabledCategories?.length) qQuery = qQuery.in("category", enabledCategories);
+```
+Fallback chain becomes:
+1. target difficulty within enabled set
+2. any difficulty within enabled set
+3. target difficulty across all categories (safety net if the pool is exhausted)
+4. anything
 
-- New component `BootSequence.tsx` with auto-advancing stages, skippable with any key/click/remote.
-- New ambient music loop (low-volume bed) using existing `sound_event_assignments` system — add a `boot_ambient` event slot you can wire to a clip in `/admin-sounds`.
-- Replaces the placeholder `/` route content. Current `/host` flow becomes the destination, not the entry.
-- Skipped automatically if `?nosplash=1` or if user has booted in last 5 min (sessionStorage), so dev iteration isn't painful.
+After a question is drawn, write its category to `rooms.current_category` so the host UI and announcer voice lines still have something to display.
 
-## Phase 2 — Lobby polish (the "wait for players" moment)
+## Category list
 
-The lobby is what's on-screen longest when guests arrive — Jackbox makes it look alive.
+Stop hardcoding categories in `src/lib/categories.ts`. Replace with:
+- `DEFAULT_OFF_CATEGORIES = ["Movie Sci-Fi"]`
+- A new server fn `listCategories()` that returns `{ name, count }[]` from `SELECT category, COUNT(*) FROM questions GROUP BY category`.
+- Lobby fetches this on mount so new categories I add later show up automatically.
 
-- **Persistent room-code header** — big `JOIN AT [url] · CODE: ABCD` bar pinned to top, visible during lobby AND between rounds AND on the final score screen. Late joiners can always see it.
-- **QR code** next to the room code (uses `qrcode` npm package, ~5KB), links to `/join?code=ABCD`. One-tap phone join.
-- **Animated player tiles** — each new player bounces in with their nickname, color, and a join sting sound. Existing `players` realtime subscription already fires on insert; just need a transition wrapper.
-- **Ambient lobby music + idle background** — looping bed music + the existing `ThemeParticles` already provides movement. Light tuning only.
-- **"Waiting for host…" hint** when 1+ player has joined and host hasn't started yet — gentle nudge so the host knows to press OK.
+`MIX_CATEGORY` and the `CATEGORIES` array are removed (no callers left after the host refactor). The premium-paywall modal stays but is unused for now; I'll leave it in place for the future per-category premium gating.
 
-## Phase 3 — How-to-Play sequence
+## Files touched
 
-3 auto-advancing illustrated cards before round 1, ~6 sec each, skippable:
+- `supabase migration` — add `enabled_categories text[]` to `rooms`.
+- `src/lib/categories.ts` — replace with `DEFAULT_OFF_CATEGORIES` + types.
+- `src/lib/rooms.functions.ts` — new `listCategories()` + `setEnabledCategories(roomId, categories[])` server fns.
+- `src/lib/game.functions.ts` — swap `eq("category")` for `in("category", enabled)`, update fallback chain.
+- `src/routes/host.tsx` — remove category grid; add Surprise Mix pill + bottom sheet with checkboxes; load defaults from localStorage; save to room on change.
+- `src/components/host/QuestionStage.tsx` (only if it shows the picker label) — show current question's category as a small badge.
 
-1. **"Answer fast, score big"** — illustration of timer + points decay
-2. **"Use your 2× wisely"** — illustration of the comeback bonus
-3. **"Final round bets your score"** — illustration of the wager mechanic
+## Out of scope
 
-- New component `HowToPlay.tsx` shown once between lobby → round 1.
-- Voice-over optional (uses existing TTS pipeline; cached so it's free on replay).
-- "Skip" hint visible in corner — Enter on the remote dismisses early.
+- Global admin default for category exclusions — skipping per your answer ("host settings only").
+- Theme packs / curated bundles.
+- Per-category premium gating (paywall modal stays dormant).
 
-## Phase 4 — Audience mode (unlimited spectators)
+## Open follow-up
 
-The DB is already 90% ready: `players.is_audience BOOLEAN` exists. We need to wire the flow.
-
-- **New route `/audience?code=ABCD`** — joiner picks a nickname, joins as `is_audience=true`. No player limit.
-- **Existing `/join` becomes player-only**, capped at 8. When room is full, redirect to `/audience` automatically.
-- **Audience votes per question** — same A/B/C/D UI but their votes go into a separate aggregate (not scored, no streaks, no 2×).
-- **Host TV shows audience tally** as a secondary bar under the main answer reveal: "Audience picked B (62%)" with a small purple bar.
-- **DB**: one new column on `room_questions` — `audience_votes integer[4]` (running count). No new tables. Migration includes the GRANT block.
-- Players see audience badge on TV between rounds: "👀 24 watching".
-
-## Phase 5 — Between-round transitions + share moment
-
-Small polish to round out the Jackbox feel:
-
-- **"Round 2 of 3" splash** with theme sting (you have round splashes — tighten timing and add the sting).
-- **End-of-game share card** — winner spotlight already exists; add a QR code that links to a public results page `/results/$roomId` so players can scan and remember their score. The page reuses the existing winner spotlight component.
-- **Credits reel** (existing `CreditsStage.tsx`) auto-plays after the share card, then loops back to the boot splash for the next game.
-
-## What we're NOT doing in this plan
-
-- Building the Android APK (separate effort, on your computer — guide comes after this is polished).
-- Submitting to Amazon Appstore (Phase 6, after the in-app experience is locked).
-- Player avatars / character selection beyond nicknames (worth a follow-up if you want full Jackbox parity).
-- Continuous background music throughout *gameplay* (distracting during questions; only lobby + boot + between rounds).
-
-## Recommended order to ship
-
-1. **Phase 1 + 2 together** (boot + lobby) — biggest visible upgrade, no DB changes, ~one session.
-2. **Phase 3** (how-to-play) — small, satisfying.
-3. **Phase 4** (audience mode) — one migration, moderate code. Test with 10+ phones in a real room before considering it done.
-4. **Phase 5** (transitions + share) — final polish.
-5. **Then** the APK + Amazon submission as a separate effort.
-
-## Open questions before I start
-
-- **Music**: do you have ambient loop files in mind, or should I add an empty `boot_ambient` and `lobby_ambient` slot in `/admin-sounds` for you to upload to later?
-- **Phase 1's "press OK to start"**: should it auto-advance after, say, 8 seconds of no input (so a kid running the Firestick doesn't get stuck), or strictly wait for input?
-- **Audience cap**: hard cap at, say, 50 spectators per room to protect realtime bandwidth, or truly unlimited?
+`Chapter & Verse` (Bible) is referenced in `categories.ts` but has zero rows in the DB — so it'll naturally disappear when the lobby reads from the DB. If you want it to come back later, just add questions with that category name and it'll auto-appear in the sheet.
