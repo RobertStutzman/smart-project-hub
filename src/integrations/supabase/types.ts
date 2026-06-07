@@ -40,6 +40,7 @@ export type Database = {
           score: number
           session_id: string
           streak_count: number
+          team: string | null
           total_response_ms: number
           used_2x: boolean
           wrong_count: number
@@ -69,6 +70,7 @@ export type Database = {
           score?: number
           session_id: string
           streak_count?: number
+          team?: string | null
           total_response_ms?: number
           used_2x?: boolean
           wrong_count?: number
@@ -98,6 +100,7 @@ export type Database = {
           score?: number
           session_id?: string
           streak_count?: number
+          team?: string | null
           total_response_ms?: number
           used_2x?: boolean
           wrong_count?: number
@@ -252,6 +255,7 @@ export type Database = {
           saboteur_session_id: string | null
           status: string
           sudden_death_session_ids: string[]
+          team_mode: boolean
           theme: string
           tts_calls_count: number
           tts_cap_started_at: string | null
@@ -285,6 +289,7 @@ export type Database = {
           saboteur_session_id?: string | null
           status?: string
           sudden_death_session_ids?: string[]
+          team_mode?: boolean
           theme?: string
           tts_calls_count?: number
           tts_cap_started_at?: string | null
@@ -318,6 +323,7 @@ export type Database = {
           saboteur_session_id?: string | null
           status?: string
           sudden_death_session_ids?: string[]
+          team_mode?: boolean
           theme?: string
           tts_calls_count?: number
           tts_cap_started_at?: string | null
