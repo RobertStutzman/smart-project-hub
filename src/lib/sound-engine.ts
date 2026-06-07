@@ -311,3 +311,53 @@ export function playClipUrl(url: string, volume = 1, cacheKey?: string) {
   audio.volume = Math.max(0, Math.min(1, volume));
   audio.play().catch(() => {});
 }
+
+// ─── Drop SFX bank ─────────────────────────────────────────────────
+// Randomized "answer tile dropped" sound — heavy thuds appear more often
+// than cartoon takes for variety without leaning slapstick.
+
+import dropThud from "@/assets/audio/drop-thud.mp3.asset.json";
+import dropGlass from "@/assets/audio/drop-glass.mp3.asset.json";
+import dropTrapdoor from "@/assets/audio/drop-trapdoor.mp3.asset.json";
+import dropAnvil from "@/assets/audio/drop-anvil.mp3.asset.json";
+import dropSplash from "@/assets/audio/drop-splash.mp3.asset.json";
+import dropElectric from "@/assets/audio/drop-electric.mp3.asset.json";
+
+type DropClip = { url: string; weight: number; volume: number };
+const DROP_BANK: DropClip[] = [
+  { url: dropThud.url, weight: 3, volume: 0.9 },
+  { url: dropGlass.url, weight: 3, volume: 0.85 },
+  { url: dropTrapdoor.url, weight: 3, volume: 0.9 },
+  { url: dropElectric.url, weight: 2, volume: 0.8 },
+  { url: dropAnvil.url, weight: 1, volume: 0.85 },
+  { url: dropSplash.url, weight: 1, volume: 0.85 },
+];
+let lastDropUrl: string | null = null;
+
+export function playRandomDrop() {
+  if (muted || typeof window === "undefined") {
+    play("drop");
+    return;
+  }
+  const pool = DROP_BANK.filter((c) => c.url !== lastDropUrl);
+  const choices = pool.length > 0 ? pool : DROP_BANK;
+  const total = choices.reduce((s, c) => s + c.weight, 0);
+  let r = Math.random() * total;
+  let pick = choices[0];
+  for (const c of choices) {
+    r -= c.weight;
+    if (r <= 0) {
+      pick = c;
+      break;
+    }
+  }
+  lastDropUrl = pick.url;
+  try {
+    const audio = new Audio(pick.url);
+    audio.volume = pick.volume;
+    audio.play().catch(() => play("drop"));
+  } catch {
+    play("drop");
+  }
+}
+

@@ -22,7 +22,7 @@ import { CreditsStage } from "./CreditsStage";
 import { pickLine, speakPersona } from "@/lib/host-persona";
 import { playVoiceUrl } from "@/lib/elf-voice";
 import { speakAboutPlayer, setLiveRoomId, resetLiveCap } from "@/lib/persona-live";
-import { play, playEvent, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
+import { play, playEvent, playRandomDrop, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
 import { FinalWagerStage, FinalRevealStage } from "./FinalStages";
 import { WinnerSpotlight } from "./WinnerSpotlight";
 import { RoundRecapReel } from "./RoundRecapReel";
@@ -329,7 +329,7 @@ export function HostGameStage({ room }: Props) {
     DROP_AT_ELAPSED_S.forEach((thresholdElapsed, idx) => {
       if (elapsedS >= thresholdElapsed && !droppedRef.current.has(idx)) {
         droppedRef.current.add(idx);
-        play("drop");
+        playRandomDrop();
         dropWrongFn({
           data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
         }).catch(() => {});
