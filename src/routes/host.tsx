@@ -76,6 +76,7 @@ function HostPage() {
   const [roomPhase, setRoomPhase] = useState<string>("lobby");
   const [roundNumber, setRoundNumber] = useState<number>(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showHowTo, setShowHowTo] = useState(false);
   const initRef = useRef(false);
 
   // Hydration-safe origin + persisted mute pref
@@ -338,7 +339,39 @@ function HostPage() {
 
 
 
-  const canStart = !!room && !!activeCategory && players.length > 0;
+  const livePlayers = players.filter((p) => !p.is_audience);
+  const audienceMembers = players.filter((p) => p.is_audience);
+  const canStart = !!room && !!activeCategory && livePlayers.length > 0;
+
+  function actuallyStart() {
+    if (!room) return;
+    play("whoosh");
+    setPhaseFn({
+      data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "intro" },
+    }).catch((e) => setError((e as Error).message));
+  }
+
+  function handleStartClick() {
+    if (!canStart) {
+      setSettingsOpen(true);
+      return;
+    }
+    const shown = typeof window !== "undefined" && window.sessionStorage.getItem(HOWTO_KEY) === "1";
+    if (shown) {
+      actuallyStart();
+      return;
+    }
+    setShowHowTo(true);
+  }
+
+  function finishHowTo() {
+    setShowHowTo(false);
+    try {
+      window.sessionStorage.setItem(HOWTO_KEY, "1");
+    } catch {}
+    actuallyStart();
+  }
+
 
   return (
     <main
