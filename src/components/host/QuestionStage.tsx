@@ -14,6 +14,7 @@ type Props = {
   droppedIndexes: number[];
   correctIndex: number | null; // null until reveal
   secondsLeft: number;
+  totalS?: number;
   readSecondsLeft?: number; // >0 while in the 5-second read window
   players: Player[];
   phase: "question" | "reveal";
@@ -30,6 +31,7 @@ export function QuestionStage({
   droppedIndexes,
   correctIndex,
   secondsLeft,
+  totalS = 25,
   readSecondsLeft = 0,
   players,
   phase,
@@ -143,7 +145,7 @@ export function QuestionStage({
       {/* Question */}
       <div className="relative z-10 mx-auto max-w-5xl text-center">
         <h2
-          className="font-display text-4xl font-black leading-[1.05] text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.6)] sm:text-6xl"
+          className="font-display text-3xl font-black leading-[1.05] text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.6)] sm:text-5xl"
           style={{ textWrap: "balance" as never }}
         >
           {questionText}
@@ -157,7 +159,7 @@ export function QuestionStage({
           <img
             src={mediaUrl}
             alt=""
-            className="max-h-[36vh] w-auto rounded-2xl border border-white/10 object-contain shadow-[0_20px_80px_-20px_rgba(0,0,0,0.7)]"
+            className="max-h-[28vh] w-auto rounded-2xl border border-white/10 object-contain shadow-[0_20px_80px_-20px_rgba(0,0,0,0.7)]"
           />
         </div>
       )}
