@@ -171,7 +171,15 @@ export function HostGameStage({ room }: Props) {
         )
         .eq("room_id", room.id)
         .order("created_at", { ascending: true });
-      if (!cancelled && ps) setPlayers(ps as Player[]);
+      if (!cancelled && ps) {
+        // Mark pre-existing players as already-announced so the host page
+        // doesn't honk for every player on a refresh / mid-game open.
+        for (const p of ps as Player[]) {
+          const key = (p as Player).session_id ?? (p as Player).id;
+          if (key) announcedJoinsRef.current.add(key);
+        }
+        setPlayers(ps as Player[]);
+      }
     };
     void load();
 
