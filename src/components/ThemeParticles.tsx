@@ -83,7 +83,7 @@ export function ThemeParticles() {
       window.removeEventListener("resize", resize);
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [theme]);
+  }, []);
 
   return (
     <canvas
