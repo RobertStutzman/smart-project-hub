@@ -265,7 +265,8 @@ export function HostGameStage({ room }: Props) {
     else stopMusic();
   }, [state?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Round intro sting — only when transitioning INTO question phase from a non-question phase
+  // Round intro sting + "Next question!" voice — only when transitioning INTO
+  // question phase from a non-question phase
   const lastRoundStingRef = useRef<number>(0);
   const prevPhaseRef = useRef<string>("");
   useEffect(() => {
@@ -273,7 +274,8 @@ export function HostGameStage({ room }: Props) {
     const r = state.round_number ?? 0;
     const prev = prevPhaseRef.current;
     prevPhaseRef.current = state.phase;
-    const enteringFromBreak = prev === "lobby" || prev === "leaderboard" || prev === "";
+    const enteringFromBreak =
+      prev === "lobby" || prev === "leaderboard" || prev === "reveal" || prev === "";
     if (
       state.phase === "question" &&
       r > 0 &&
@@ -282,6 +284,29 @@ export function HostGameStage({ room }: Props) {
     ) {
       lastRoundStingRef.current = r;
       playEvent("round_intro");
+      // Brief voice announcement over the 3-2-1 countdown.
+      try {
+        if (typeof window !== "undefined" && "speechSynthesis" in window) {
+          const phrases = [
+            "Okay, next question!",
+            "Here we go!",
+            "Get ready!",
+            "Lock in!",
+          ];
+          const text = r === 1 ? "First question!" : phrases[r % phrases.length];
+          const u = new SpeechSynthesisUtterance(text);
+          u.rate = 1.05;
+          u.pitch = 1.0;
+          u.volume = 1.0;
+          duckMusic(true);
+          u.onend = () => duckMusic(false);
+          u.onerror = () => duckMusic(false);
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(u);
+        }
+      } catch {
+        /* ignore */
+      }
     }
   }, [state?.phase, state?.round_number]);
 
