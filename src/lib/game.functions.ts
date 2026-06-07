@@ -169,12 +169,13 @@ export const nextQuestion = createServerFn({ method: "POST" })
     }
 
 
-    // Prefer staying inside the selected category: target difficulty in category →
-    // any difficulty in category → target difficulty any category → anything.
+    // Prefer staying inside the host's enabled set; fall back to all categories
+    // if that pool runs dry so the game keeps moving.
     let candidates = await fetchPool(targetDifficulty, true);
     if (candidates.length === 0) candidates = await fetchPool(null, true);
     if (candidates.length === 0) candidates = await fetchPool(targetDifficulty, false);
     if (candidates.length === 0) candidates = await fetchPool(null, false);
+
 
     if (candidates.length === 0) {
       // Out of questions — end the game gracefully instead of getting stuck.
