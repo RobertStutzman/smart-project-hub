@@ -828,3 +828,94 @@ function QuestionVoiceoversPanel() {
     </div>
   );
 }
+
+function TTSCacheStatsPanel() {
+  const statsFn = useServerFn(getTTSCacheStats);
+  const [stats, setStats] = useState<{
+    total: number;
+    totalHits: number;
+    cap: number;
+    top: { text: string; preset: string; hit_count: number; last_used_at: string }[];
+  } | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const s = await statsFn();
+      setStats(s);
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  }, [statsFn]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const savedCalls = stats?.totalHits ?? 0;
+
+  return (
+    <div className="mt-6 rounded-2xl border border-border bg-card/30 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-amber-300/80">
+            Dynamic line cache
+          </div>
+          <h3 className="text-lg font-bold">ElevenLabs cost insurance</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Every dynamic Vox line (roasts, narration) is cached server-side
+            after the first call. A per-game cap of{" "}
+            <span className="font-bold text-foreground">{stats?.cap ?? "…"}</span>{" "}
+            live ElevenLabs calls acts as a circuit breaker. Override with the{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">TTS_CAP_PER_GAME</code>{" "}
+            secret.
+          </p>
+        </div>
+        <div className="text-right">
+          <div className="text-2xl font-black tabular-nums">{stats?.total ?? "…"}</div>
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">
+            cached lines
+          </div>
+          <div className="mt-2 text-sm font-bold tabular-nums text-emerald-300">
+            {savedCalls.toLocaleString()} free replays
+          </div>
+        </div>
+      </div>
+
+      {stats && stats.top.length > 0 && (
+        <div className="mt-4">
+          <div className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            Top 10 most-replayed lines
+          </div>
+          <ul className="space-y-1 text-sm">
+            {stats.top.map((row, i) => (
+              <li
+                key={i}
+                className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/40 px-3 py-2"
+              >
+                <span className="min-w-[2.5rem] text-right font-mono text-xs tabular-nums text-emerald-300">
+                  ×{row.hit_count}
+                </span>
+                <span className="flex-1 truncate" title={row.text}>
+                  {row.text}
+                </span>
+                <span className="text-xs uppercase text-muted-foreground">
+                  {row.preset}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="mt-4">
+        <button
+          type="button"
+          onClick={() => void refresh()}
+          className="rounded-full border border-border px-4 py-1.5 text-xs font-bold transition hover:bg-card"
+        >
+          Refresh stats
+        </button>
+      </div>
+    </div>
+  );
+}
