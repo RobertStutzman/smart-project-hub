@@ -233,7 +233,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
         current_media_url: media.url,
         current_media_type: media.type,
         current_question_tts_url: ttsUrl,
-        question_started_at: new Date(Date.now() + 3500).toISOString(),
+        question_started_at: new Date(Date.now() + 6000).toISOString(),
         question_duration_ms: wildcard === "lightning" ? LIGHTNING_DURATION_MS : 25000,
         dropped_indexes: [],
         round_number: nextRound,

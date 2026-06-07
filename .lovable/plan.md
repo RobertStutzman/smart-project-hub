@@ -1,46 +1,40 @@
-Redesign the host lobby as a single-screen, no-scroll Jackbox-style layout that fits any TV viewport from 720p up.
+Two fixes for the host TV game stage.
 
-## What Jackbox does (target)
+## Fix 1 — Kill the white flash and shake when a wrong answer is eliminated
 
-- One screen, no scroll, ever.
-- Huge centered room code + QR as the hero.
-- "Join at jackbox.tv" line under the code.
-- Player avatars appear in a row across the bottom as they join.
-- No settings, toggles, theme pickers, or category grid on the lobby — the host advances with one button.
+### Cause
+In `src/components/host/QuestionStage.tsx`:
+- Line 109: `<motion.div key={shakeKey} …>` re-keys the entire stage on every drop, unmounting/remounting the whole tree. Backdrop-blur compositing for a frame reads as a white flash on TV.
+- Lines 110-114: the whole stage animates `x` and `y` through a 6-step jerk — the shake.
 
-## Changes
+### Changes
+1. Remove `key={shakeKey}` from the root `motion.div` so children never unmount on a drop. No more flash.
+2. Remove the stage-wide x/y shake animation.
+3. Remove the now-unused `shakeKey` state and its `useEffect`.
 
-1. Strip the lobby down to four things, top to bottom:
-   - Brand line (small, top)
-   - Hero block: "JOIN AT {host}/join" + giant room code + QR, all centered
-   - Player avatar row (horizontal, wraps)
-   - Single primary action button: "Start the show" (disabled until ready)
+The eliminated tile already gets a grayscale + rose ✕ stamp + rose border, so feedback stays clear.
 
-2. Move host controls off the lobby
-   - Allow late joiners, team mode, theme, mute, category picker → behind a small gear icon button (top-right) that opens a slide-in panel/sheet.
-   - Category picker stays required before starting, but lives inside the settings sheet with a "Pick category" call-to-action shown on the Start button when none selected.
+## Fix 2 — Make the "Question N" intro reliably long (no random shortening)
 
-3. Use viewport-safe sizing that actually fits Silk
-   - Container: `height: 100svh`, no scroll, flex column.
-   - All sizes clamp on `svh` (small viewport height) so Silk's chrome doesn't push content off.
-   - Add 3-4% inset padding on all sides for TV overscan.
+### Cause
+The intro window is set server-side as `question_started_at = serverNow + 3500ms`. The host TV computes how long to show the intro as `(question_started_at − clientNow)`. Any realtime delivery latency or clock skew between server and client eats into that window. Different latency each round → "intro got shorter randomly."
 
-4. Remove the fixed top-right QR panel
-   - The QR is now the hero in the center, no longer a corner pin.
-   - Header (Home, Host view, Fullscreen, Admin, Settings gear) sits on a single thin top row.
+### Changes
+1. `src/lib/game.functions.ts` line 236: bump the budget from `+ 3500` to `+ 6000` so even with latency there's headroom.
 
-5. Keep game stage screens unchanged
-   - This redesign only touches the lobby phase. Question/reveal/scoreboard stages already render via `HostGameStage` and are untouched.
+2. `src/components/host/QuestionStage.tsx`: anchor the intro on **when the host first observes the new question**, not on server-side absolute time. Approach:
+   - Track the current `questionText`/`questionNumber` in a ref. When it changes, record `clientStartMs = performance.now()` for this question.
+   - Compute a local `localReadSecondsLeft = max(0, 6 − (performance.now() − clientStartMs) / 1000)`.
+   - Use the larger of `localReadSecondsLeft` and the existing `readSecondsLeft` prop. That guarantees the intro is never shorter than the full local budget, even when the server-derived value arrives with latency baked in.
 
-## Technical notes
+3. Re-split the 6s budget in the phased intro (lines 53-59):
+   - Badge "Question N": `readSecondsLeft > 4.0` (≈2.0s)
+   - Question fades in: `readSecondsLeft > 2.0` (≈2.0s)
+   - Answers stagger in: final ≈2.0s
+   Update the comment block to match.
 
-- File: `src/routes/host.tsx`, lobby return block only (lines ~336-633).
-- New small component (inline): `SettingsSheet` for the gear panel, using existing `Toggle` and category grid markup moved into it.
-- Sizing: `text-[clamp(4rem,18svh,12rem)]` for the code, `size={Math.min(220, viewport-derived)}` for the QR via a `clamp`-style CSS approach (use fixed 200px — fits even at 720p once controls are removed).
-- No new dependencies.
+4. Adjust the tick-SFX stagger in lines 64-77 so the per-answer ticks still align with the new ≈2.0s answer-reveal phase (currently `700 + i*110`ms → change to `0 + i*400`ms scheduled from the start of the answers phase, or simply lengthen the existing delays proportionally).
 
-## Verification
-
-- Preview at 1280x720 (Firestick): no scroll, QR + code + players + Start all visible.
-- Preview at 1024x600 (low-end TV browser): same.
-- Preview at 1920x1080: hero scales up, still no scroll.
+### Verification
+- Trigger a wrong-answer drop in the preview: no flash, no shake, eliminated tile still shows ✕ + grayscale.
+- Trigger multiple questions back-to-back: "Question N" badge holds ≈2s every time, question text appears for ≈2s, answers stagger in for ≈2s, then the lock-in timer starts.

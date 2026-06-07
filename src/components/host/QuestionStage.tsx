@@ -43,25 +43,47 @@ export function QuestionStage({
   mediaType,
   questionNumber = 1,
 }: Props) {
-  const reading = readSecondsLeft > 0 && phase === "question";
+  // Anchor the intro on when THIS host first observed the new question.
+  // The server schedules `question_started_at` ~6s in the future, but realtime
+  // delivery latency can eat into that window, randomly shortening the intro.
+  // We track the local start time per question and guarantee a full local
+  // budget regardless of when the server-derived value arrives.
+  const INTRO_BUDGET_S = 6;
+  const questionKey = `${questionNumber}|${questionText}`;
+  const localStartRef = useRef<{ key: string; startedAt: number } | null>(null);
+  if (!localStartRef.current || localStartRef.current.key !== questionKey) {
+    localStartRef.current = { key: questionKey, startedAt: performance.now() };
+  }
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    if (phase !== "question") return;
+    const id = window.setInterval(() => forceTick((n) => n + 1), 100);
+    return () => window.clearInterval(id);
+  }, [phase, questionKey]);
+  const localReadSecondsLeft =
+    phase === "question"
+      ? Math.max(0, INTRO_BUDGET_S - (performance.now() - localStartRef.current.startedAt) / 1000)
+      : 0;
+  const effectiveReadSecondsLeft = Math.max(localReadSecondsLeft, readSecondsLeft);
+  const reading = effectiveReadSecondsLeft > 0 && phase === "question";
 
-  // Phased intro derived from readSecondsLeft (3.5s total budget).
-  //   Phase 1 (badge):     readSecondsLeft > 2.7  (~0–800ms)
-  //   Phase 2 (question):  readSecondsLeft 1.6–2.7 (~800–1900ms)
-  //   Phase 3 (answers):   readSecondsLeft 0–1.6  (~1900–3500ms)
+  // Phased intro derived from effectiveReadSecondsLeft (6s total budget).
+  //   Phase 1 (badge):     readSecondsLeft > 4.0  (~0–2.0s)
+  //   Phase 2 (question):  readSecondsLeft 2.0–4.0 (~2.0–4.0s)
+  //   Phase 3 (answers):   readSecondsLeft 0–2.0  (~4.0–6.0s)
   //   Phase 4 (play):      readSecondsLeft <= 0
   const introPhase: 1 | 2 | 3 | 4 = !reading
     ? 4
-    : readSecondsLeft > 2.7
+    : effectiveReadSecondsLeft > 4.0
       ? 1
-      : readSecondsLeft > 1.6
+      : effectiveReadSecondsLeft > 2.0
         ? 2
         : 3;
   const showBadge = introPhase === 1;
   const showQuestion = introPhase >= 2;
   const showAnswers = introPhase >= 3;
 
-  // Soft tick SFX as each answer lands during the stagger.
+  // Soft tick SFX as each answer lands during the stagger (~2s phase).
   const tickedRef = useRef<string>("");
   useEffect(() => {
     if (!showAnswers) {
@@ -72,11 +94,11 @@ export function QuestionStage({
     if (tickedRef.current === key) return;
     tickedRef.current = key;
     for (let i = 0; i < answers.length; i++) {
-      window.setTimeout(() => play("tick"), 700 + i * 110);
+      window.setTimeout(() => play("tick"), 100 + i * 380);
     }
   }, [showAnswers, questionText, answers]);
 
-  // Heartbeat pulse + screen shake on each new drop
+  // Heartbeat pulse near end of timer
   const [pulse, setPulse] = useState(false);
   useEffect(() => {
     if (secondsLeft > 5 || phase !== "question") {
@@ -87,13 +109,6 @@ export function QuestionStage({
     const id = window.setInterval(() => setPulse((p) => !p), tempo);
     return () => window.clearInterval(id);
   }, [secondsLeft, phase]);
-
-  // Trigger shake whenever droppedIndexes grows
-  const [shakeKey, setShakeKey] = useState(0);
-  useEffect(() => {
-    if (droppedIndexes.length === 0) return;
-    setShakeKey((k) => k + 1);
-  }, [droppedIndexes.length]);
 
 
   const lockedByIndex: Record<number, Player[]> = { 0: [], 1: [], 2: [], 3: [] };
@@ -106,19 +121,13 @@ export function QuestionStage({
 
   return (
     <motion.div
-      key={shakeKey}
-      animate={
-        shakeKey > 0
-          ? { x: [0, -14, 12, -8, 6, -3, 0], y: [0, 6, -4, 3, -2, 0] }
-          : undefined
-      }
-      transition={{ duration: 0.5 }}
       className="relative flex h-full min-h-0 flex-col gap-3 overflow-hidden p-4 sm:gap-4 sm:p-5"
       style={{
         background:
           "radial-gradient(ellipse 90% 60% at 50% 35%, oklch(0.22 0.04 270 / 0.9), oklch(0.08 0.02 270) 75%)",
       }}
     >
+
       {/* film grain */}
       <div
         aria-hidden
