@@ -28,6 +28,21 @@ function LandingPage() {
     if (shouldShowBoot()) setShowBoot(true);
   }, []);
 
+  // Crowd ambience starts on first user gesture (browser autoplay policy).
+  useEffect(() => {
+    const start = () => {
+      void import("@/lib/ambience-engine").then((m) => m.startCrowd());
+      window.removeEventListener("pointerdown", start);
+      window.removeEventListener("keydown", start);
+    };
+    window.addEventListener("pointerdown", start, { once: true });
+    window.addEventListener("keydown", start, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", start);
+      window.removeEventListener("keydown", start);
+    };
+  }, []);
+
   return (
     <>
       {showBoot && <BootSequence onComplete={() => setShowBoot(false)} />}
