@@ -638,7 +638,7 @@ function PlayPage() {
                       ? "⚡ Lightning · 2× pts · 8s"
                       : room.wildcard === "roast"
                         ? "Roast vote · check TV"
-                        : `Q · Round ${room.round_number}`}
+                        : `Q${((room.round_number - 1) % 5) + 1} · Round ${Math.min(4, Math.ceil(room.round_number / 5))}`}
                   </div>
                   {reading ? (
                     <div className="font-mono text-xl font-black text-amber-300">
