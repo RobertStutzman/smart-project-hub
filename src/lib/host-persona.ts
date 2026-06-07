@@ -17,7 +17,7 @@ type Moment =
   | "final_hype"        // entering final round
   | "credits_open";     // outro credits start
 
-const LINES: Record<Moment, string[]> = {
+export const LINES: Record<Moment, string[]> = {
   intro_hype: [
     "Buckle up. The drop is coming.",
     "Fingers on buzzers. Egos at the door.",
