@@ -20,6 +20,7 @@ import { play, setMuted as setSoundMuted, startMusic, stopMusic, type Sfx } from
 import { HostGameStage, useRevealAutoAdvance } from "@/components/host/HostGameStage";
 import { useHostStageMode } from "@/hooks/useHostStageMode";
 import { useHostHotkeys } from "@/hooks/useHostHotkeys";
+import { HowToPlay } from "@/components/HowToPlay";
 
 
 export const Route = createFileRoute("/host")({
@@ -40,7 +41,10 @@ type Player = {
   score: number;
   avatar_url: string | null;
   team: "red" | "blue" | null;
+  is_audience: boolean;
 };
+
+const HOWTO_KEY = "btd:howto-shown";
 
 const MUTE_KEY = "btd:muted";
 
@@ -710,7 +714,7 @@ function Toggle({
 async function loadPlayers(roomId: string): Promise<Player[]> {
   const { data } = await supabase
     .from("players")
-    .select("id, nickname, score, avatar_url, team")
+    .select("id, nickname, score, avatar_url, team, is_audience")
     .eq("room_id", roomId)
     .order("created_at", { ascending: true });
   return (data ?? []) as Player[];
