@@ -368,18 +368,144 @@ const PERSONA_PRESETS = {
   calm: { stability: 0.5, similarity_boost: 0.75, style: 0.4, use_speaker_boost: true, speed: 1.0 },
 } as const;
 
+import { createHash } from "crypto";
+
+const TTS_CACHE_BUCKET = "question-media";
+const TTS_CACHE_PREFIX = "tts-cache";
+const TTS_DEFAULT_CAP = 50;
+
+function getTtsCap(): number {
+  const raw = process.env.TTS_CAP_PER_GAME;
+  if (!raw) return TTS_DEFAULT_CAP;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : TTS_DEFAULT_CAP;
+}
+
+function hashTtsKey(preset: string, text: string): string {
+  return createHash("sha256").update(`${preset}::${text}`).digest("hex");
+}
+
 export const speakPersonaLine = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
     z.object({
       text: z.string().min(1).max(600),
       preset: z.enum(["hype", "calm"]).optional(),
+      roomId: z.string().uuid().optional(),
     }).parse,
   )
   .handler(async ({ data }) => {
-    const settings = PERSONA_PRESETS[data.preset ?? "hype"];
-    const audio = await generateTTS(data.text, settings);
+    const preset = data.preset ?? "hype";
+    const text = data.text;
+    const hash = hashTtsKey(preset, text);
+
+    // 1. Cache hit?
+    const { data: cached } = await supabaseAdmin
+      .from("tts_cache")
+      .select("storage_path, hit_count")
+      .eq("text_hash", hash)
+      .maybeSingle();
+
+    if (cached) {
+      // Bump usage stats (fire-and-forget)
+      void supabaseAdmin
+        .from("tts_cache")
+        .update({
+          hit_count: (cached.hit_count ?? 0) + 1,
+          last_used_at: new Date().toISOString(),
+        })
+        .eq("text_hash", hash);
+
+      const { data: signed } = await supabaseAdmin.storage
+        .from(TTS_CACHE_BUCKET)
+        .createSignedUrl(cached.storage_path, 60 * 60 * 24 * 7);
+      if (signed?.signedUrl) {
+        return { audioUrl: signed.signedUrl, cached: true };
+      }
+    }
+
+    // 2. Cache miss — check per-game cap before generating
+    if (data.roomId) {
+      const { data: room } = await supabaseAdmin
+        .from("rooms")
+        .select("tts_calls_count")
+        .eq("id", data.roomId)
+        .maybeSingle();
+      const cap = getTtsCap();
+      const count = room?.tts_calls_count ?? 0;
+      if (count >= cap) {
+        return { skipped: true as const, reason: "cap" as const, count, cap };
+      }
+      // Reserve a slot up front so concurrent calls don't all squeak through
+      await supabaseAdmin
+        .from("rooms")
+        .update({ tts_calls_count: count + 1 })
+        .eq("id", data.roomId);
+    }
+
+    // 3. Generate via ElevenLabs
+    const settings = PERSONA_PRESETS[preset];
+    const audio = await generateTTS(text, settings);
+
+    // 4. Upload to storage
+    const path = `${TTS_CACHE_PREFIX}/${hash}.mp3`;
+    const { error: upErr } = await supabaseAdmin.storage
+      .from(TTS_CACHE_BUCKET)
+      .upload(path, new Uint8Array(audio), {
+        contentType: "audio/mpeg",
+        upsert: true,
+      });
+    if (upErr) {
+      // Fall back to base64 if storage upload fails
+      return { audioBase64: Buffer.from(audio).toString("base64") };
+    }
+
+    // 5. Record in cache table (idempotent)
+    await supabaseAdmin
+      .from("tts_cache")
+      .upsert(
+        {
+          text_hash: hash,
+          preset,
+          text,
+          storage_path: path,
+          last_used_at: new Date().toISOString(),
+          hit_count: 0,
+        },
+        { onConflict: "text_hash" },
+      );
+
+    const { data: signed } = await supabaseAdmin.storage
+      .from(TTS_CACHE_BUCKET)
+      .createSignedUrl(path, 60 * 60 * 24 * 7);
+    if (signed?.signedUrl) {
+      return { audioUrl: signed.signedUrl, cached: false };
+    }
     return { audioBase64: Buffer.from(audio).toString("base64") };
+  });
+
+export const getTTSCacheStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    const { count: total } = await supabaseAdmin
+      .from("tts_cache")
+      .select("text_hash", { count: "exact", head: true });
+    const { data: top } = await supabaseAdmin
+      .from("tts_cache")
+      .select("text, preset, hit_count, last_used_at")
+      .order("hit_count", { ascending: false })
+      .limit(10);
+    const { data: totalHitsRow } = await supabaseAdmin
+      .from("tts_cache")
+      .select("hit_count.sum()")
+      .single();
+    return {
+      total: total ?? 0,
+      totalHits: (totalHitsRow as { sum?: number } | null)?.sum ?? 0,
+      cap: getTtsCap(),
+      top: top ?? [],
+    };
   });
 
 // ──────────────────────────────────────────────────────────────────────────
