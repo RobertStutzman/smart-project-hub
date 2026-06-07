@@ -22,6 +22,7 @@ import { pickLine, speakPersona } from "@/lib/host-persona";
 import { play, playEvent, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
 import { FinalWagerStage, FinalRevealStage } from "./FinalStages";
 import { WinnerSpotlight } from "./WinnerSpotlight";
+import { RoundRecapReel } from "./RoundRecapReel";
 
 type RoomState = {
   id: string;
@@ -77,6 +78,7 @@ export function HostGameStage({ room }: Props) {
   const [now, setNow] = useState(() => Date.now());
   const droppedRef = useRef<Set<number>>(new Set());
   const endedRef = useRef(false);
+  const [recapDoneForRound, setRecapDoneForRound] = useState<number>(-1);
 
   const nextQuestionFn = useServerFn(nextQuestion);
   const dropWrongFn = useServerFn(dropWrongAnswer);
@@ -699,6 +701,18 @@ export function HostGameStage({ room }: Props) {
 
   if (state.phase === "leaderboard") {
     const isFinal = (state.round_number ?? 0) >= 15;
+    const livePlayers = players.filter((p) => !p.is_audience);
+    const recapNeeded = recapDoneForRound !== (state.round_number ?? 0);
+    if (recapNeeded) {
+      return (
+        <RoundRecapReel
+          players={livePlayers}
+          roundNumber={state.round_number ?? 0}
+          triggerKey={state.round_number ?? 0}
+          onDone={() => setRecapDoneForRound(state.round_number ?? 0)}
+        />
+      );
+    }
     return (
       <div
         className="relative flex h-full flex-col gap-8 overflow-hidden p-8 text-white"
@@ -726,7 +740,7 @@ export function HostGameStage({ room }: Props) {
         </div>
 
         <div className="relative flex-1">
-          <Leaderboard players={players.filter((p) => !p.is_audience)} />
+          <Leaderboard players={livePlayers} />
         </div>
 
         <div className="relative mt-auto flex justify-center gap-2">
