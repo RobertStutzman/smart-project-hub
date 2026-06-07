@@ -311,15 +311,27 @@ function HostPage() {
     return (
       <main className="relative h-dvh w-screen overflow-hidden">
         <HostGameStage room={room} />
-        <button
-          onClick={endAndStartNewRoom}
-          className="fixed right-4 top-4 z-50 rounded-full border border-white/20 bg-black/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-white shadow-lg backdrop-blur transition hover:bg-black/80"
-        >
-          End · new room
-        </button>
+        <div className="fixed right-4 top-4 z-50 flex gap-2">
+          {!isFullscreen && (
+            <button
+              onClick={toggleFullscreen}
+              className="rounded-full border border-white/20 bg-black/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-white shadow-lg backdrop-blur transition hover:bg-black/80"
+              title="Fullscreen (F)"
+            >
+              ⛶ Fullscreen
+            </button>
+          )}
+          <button
+            onClick={endAndStartNewRoom}
+            className="rounded-full border border-white/20 bg-black/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-white shadow-lg backdrop-blur transition hover:bg-black/80"
+          >
+            End · new room
+          </button>
+        </div>
       </main>
     );
   }
+
 
 
   return (
