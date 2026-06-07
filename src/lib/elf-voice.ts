@@ -128,11 +128,27 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
       });
       return;
     }
-    // 2. In-memory base64 cache → 3. Live ElevenLabs
-    const b64 = await fetchAudio(text, preset);
-    if (!b64) return;
+    // 2. URL/base64 from cache or live ElevenLabs
+    const res = await fetchAudio(text, preset);
+    if (!res || res.kind === "skipped") return;
+    if (res.kind === "url") {
+      await new Promise<void>((resolve) => {
+        const audio = new Audio(res.url);
+        audio.volume = volume;
+        const cleanup = () => {
+          if (currentAudio === audio) currentAudio = null;
+          resolve();
+        };
+        audio.addEventListener("ended", cleanup);
+        audio.addEventListener("pause", cleanup);
+        audio.addEventListener("error", cleanup);
+        currentAudio = audio;
+        audio.play().catch(cleanup);
+      });
+      return;
+    }
     await new Promise<void>((resolve) => {
-      playBase64(b64, volume, resolve);
+      playBase64(res.b64, volume, resolve);
     });
   };
 
