@@ -578,7 +578,7 @@ function PlayPage() {
               <>
                 <div className="flex items-center justify-between rounded-2xl border border-border bg-card/30 px-4 py-2 backdrop-blur">
                   <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-                    {room.wildcard === "roast" ? "Roast vote · check TV" : "Check TV for question"}
+                    {room.wildcard === "roast" ? "Roast vote · check TV" : `Q · Round ${room.round_number}`}
                   </div>
                   {reading ? (
                     <div className="font-mono text-xl font-black text-amber-300">
@@ -599,6 +599,30 @@ function PlayPage() {
                     </div>
                   ) : null}
                 </div>
+
+                {/* Question text on phone */}
+                {room.current_question_text && room.wildcard !== "roast" && (
+                  <div className="rounded-2xl border border-border bg-card/40 px-4 py-3 text-center backdrop-blur">
+                    <div className="line-clamp-4 text-base font-bold leading-snug text-foreground">
+                      {room.current_question_text}
+                    </div>
+                  </div>
+                )}
+
+                {/* LOCKED IN confirmation */}
+                {room.phase === "question" &&
+                  me?.current_answer !== null &&
+                  me?.current_answer !== undefined && (
+                    <div className="flex items-center justify-center gap-2 rounded-full border-2 border-emerald-400/70 bg-emerald-500/20 px-4 py-2 text-center font-bold text-emerald-100 shadow-[0_0_30px_oklch(0.7_0.2_150/0.4)] animate-scale-in">
+                      <span className="grid h-7 w-7 place-items-center rounded-full bg-emerald-400 font-display text-sm font-black text-emerald-950">
+                        {["A", "B", "C", "D"][me.current_answer]}
+                      </span>
+                      <span className="text-sm uppercase tracking-[0.2em]">
+                        ✓ Locked · {me?.nickname ?? session.nickname}
+                      </span>
+                    </div>
+                  )}
+
                 <div
                   className={`min-h-0 flex-1 transition ${
                     buttonsScrambled ? "rotate-1 scale-[1.02] blur-sm" : ""
@@ -622,23 +646,6 @@ function PlayPage() {
                     droppedIndexes={room.dropped_indexes ?? []}
                     selectedIndex={me?.current_answer ?? null}
                     onPick={(i) => void pick(i)}
-                    avatarsByIndex={
-                      room.phase === "question"
-                        ? [0, 1, 2, 3].map((idx) =>
-                            allPlayers
-                              .filter(
-                                (p) =>
-                                  p.session_id !== session?.sessionId &&
-                                  p.current_answer === idx,
-                              )
-                              .map((p) => ({
-                                id: p.id,
-                                nickname: p.nickname,
-                                avatar_url: p.avatar_url,
-                              })),
-                          )
-                        : undefined
-                    }
                   />
                 </div>
 
