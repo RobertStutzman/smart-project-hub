@@ -393,12 +393,21 @@ export function HostGameStage({ room }: Props) {
     if (right === live.length) moment = "all_correct";
     else if (wrong === live.length) moment = "all_wrong";
     else moment = "split_correct";
+    // Streak hype takes priority over the generic reaction when someone is on ≥3.
+    const topStreaker = [...players]
+      .filter((p) => !p.is_audience && p.current_answer === correctIdx)
+      .sort((a, b) => (b.streak_count ?? 0) - (a.streak_count ?? 0))[0];
+    const streakLine =
+      topStreaker && (topStreaker.streak_count ?? 0) >= 3
+        ? `${topStreaker.nickname} on ${topStreaker.streak_count} in a row! ${pickLine("streak_milestone", qid)}`
+        : null;
     // Small delay so the line lands after the reveal sting, not on top of it.
     const id = window.setTimeout(() => {
-      speakPersona(pickLine(moment, qid));
+      speakPersona(streakLine ?? pickLine(moment, qid));
     }, 900);
     return () => window.clearTimeout(id);
   }, [state?.phase, state?.current_question_id, state?.current_correct_index, players]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
 
   // ─── Final round orchestrator ─────────────────────────────────────────
