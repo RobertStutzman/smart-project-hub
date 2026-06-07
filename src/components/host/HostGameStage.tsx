@@ -87,6 +87,7 @@ export function HostGameStage({ room }: Props) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [now, setNow] = useState(() => Date.now());
   const droppedRef = useRef<Set<number>>(new Set());
+  const dropSfxTimersRef = useRef<number[]>([]);
   const endedRef = useRef(false);
   const [recapDoneForRound, setRecapDoneForRound] = useState<number>(-1);
   const leaderboardAutoAdvanceRef = useRef<string>("");
