@@ -48,73 +48,27 @@ export function ThemeParticles() {
       }
     }
 
-    let gridOffset = 0;
-
-    let rayPhase = 0;
-
     let raf = 0;
     let running = !document.hidden && !reduced;
 
     function frame() {
       ctx!.clearRect(0, 0, w, h);
 
-      if (theme === "fellowship") {
-        for (const e of embers) {
-          e.y -= e.vy;
-          e.x += Math.sin((e.y + e.hue) * 0.01) * 0.2;
-          if (e.y < -10) {
-            e.y = h + 10;
-            e.x = Math.random() * w;
-          }
-          ctx!.beginPath();
-          ctx!.fillStyle = `hsla(${e.hue}, 90%, 60%, ${e.a})`;
-          ctx!.shadowColor = `hsla(${e.hue}, 100%, 60%, ${e.a})`;
-          ctx!.shadowBlur = 8;
-          ctx!.arc(e.x, e.y, e.r, 0, Math.PI * 2);
-          ctx!.fill();
+      for (const e of embers) {
+        e.y -= e.vy;
+        e.x += Math.sin((e.y + e.hue) * 0.01) * 0.2;
+        if (e.y < -10) {
+          e.y = h + 10;
+          e.x = Math.random() * w;
         }
-        ctx!.shadowBlur = 0;
-      } else if (theme === "synthwave") {
-        gridOffset = (gridOffset + 1.2) % 40;
-        const horizon = h * 0.55;
-        ctx!.strokeStyle = "rgba(255, 30, 200, 0.5)";
-        ctx!.lineWidth = 1;
-        // Horizontal lines (perspective)
-        for (let i = 0; i < 18; i++) {
-          const t = (i + gridOffset / 40) / 18;
-          const y = horizon + Math.pow(t, 2) * (h - horizon);
-          if (y > h) continue;
-          ctx!.globalAlpha = 1 - t * 0.8;
-          ctx!.beginPath();
-          ctx!.moveTo(0, y);
-          ctx!.lineTo(w, y);
-          ctx!.stroke();
-        }
-        // Vertical lines converging
-        ctx!.globalAlpha = 0.6;
-        ctx!.strokeStyle = "rgba(0, 230, 255, 0.5)";
-        const vanishX = w / 2;
-        for (let i = -10; i <= 10; i++) {
-          const x = vanishX + (i * w) / 6;
-          ctx!.beginPath();
-          ctx!.moveTo(x, h);
-          ctx!.lineTo(vanishX, horizon);
-          ctx!.stroke();
-        }
-        ctx!.globalAlpha = 1;
-      } else if (theme === "sanctuary") {
-        rayPhase += 0.002;
-        for (let i = 0; i < 5; i++) {
-          const t = (i / 5 + rayPhase) % 1;
-          const x = -w * 0.3 + t * w * 1.6;
-          const grad = ctx!.createLinearGradient(x, 0, x + w * 0.3, h);
-          grad.addColorStop(0, "rgba(180, 140, 255, 0)");
-          grad.addColorStop(0.5, "rgba(200, 170, 255, 0.06)");
-          grad.addColorStop(1, "rgba(180, 140, 255, 0)");
-          ctx!.fillStyle = grad;
-          ctx!.fillRect(x, 0, w * 0.3, h);
-        }
+        ctx!.beginPath();
+        ctx!.fillStyle = `hsla(${e.hue}, 90%, 60%, ${e.a})`;
+        ctx!.shadowColor = `hsla(${e.hue}, 100%, 60%, ${e.a})`;
+        ctx!.shadowBlur = 8;
+        ctx!.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+        ctx!.fill();
       }
+      ctx!.shadowBlur = 0;
 
       if (running) raf = requestAnimationFrame(frame);
     }
