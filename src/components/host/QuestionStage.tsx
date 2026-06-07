@@ -374,38 +374,64 @@ export function QuestionStage({
 
 
 
-      {/* Explanation / fun fact — reveal only */}
+      {/* Full-screen reveal: huge correct answer + Did You Know */}
       <AnimatePresence>
-        {phase === "reveal" && explanation && explanation.trim().length > 0 && (
+        {showFullscreenReveal && (
           <motion.div
-            key="explanation"
-            initial={{ opacity: 0, y: 24, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.5, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className="relative z-10 mx-auto max-h-[16vh] w-full max-w-5xl overflow-hidden rounded-2xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-400/20 via-amber-500/10 to-amber-600/[0.06] px-5 py-2.5 shadow-[0_20px_80px_-20px_rgba(251,191,36,0.45)] backdrop-blur-xl sm:px-7 sm:py-3"
+            key={`fullscreen-reveal-${questionNumber}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-8 overflow-y-auto px-8 py-12 sm:px-16"
+            style={{
+              background:
+                "radial-gradient(ellipse 90% 70% at 50% 40%, oklch(0.20 0.06 270 / 0.98), oklch(0.06 0.02 270) 80%)",
+              backdropFilter: "blur(14px)",
+            }}
           >
-            <div className="flex items-baseline gap-3 flex-wrap">
-              <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300 shrink-0">
-                💡 Did you know?
+            {/* Correct answer block */}
+            <motion.div
+              initial={{ y: 24, opacity: 0, scale: 0.96 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+              className="text-center"
+            >
+              <div className="text-[11px] font-bold uppercase tracking-[0.5em] text-emerald-300/80">
+                Correct answer
               </div>
-              {correctIndex !== null && answers[correctIndex] && (
-                <div className="flex items-baseline gap-2 min-w-0">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-emerald-300/80 shrink-0">
-                    Answer
-                  </span>
-                  <span className="truncate font-display text-sm font-black text-emerald-200 sm:text-base">
-                    {LETTERS[correctIndex]}. {answers[correctIndex]}
-                  </span>
+              <div
+                className="mt-4 bg-gradient-to-b from-amber-100 via-amber-200 to-amber-400 bg-clip-text font-display text-5xl font-black uppercase leading-[1.05] tracking-tight text-transparent drop-shadow-[0_8px_50px_rgba(251,191,36,0.45)] sm:text-6xl lg:text-7xl xl:text-8xl"
+                style={{ textWrap: "balance" as never }}
+              >
+                {LETTERS[correctIndex!]}. {answers[correctIndex!]}
+              </div>
+              <div className="mx-auto mt-5 h-[3px] w-40 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
+            </motion.div>
+
+            {/* Did You Know */}
+            {explanation && explanation.trim().length > 0 && (
+              <motion.div
+                initial={{ y: 24, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.55, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                className="mx-auto w-full max-w-5xl rounded-3xl border-2 border-amber-300/40 bg-gradient-to-br from-amber-400/15 via-amber-500/[0.06] to-transparent px-8 py-7 shadow-[0_30px_120px_-30px_rgba(251,191,36,0.45)] backdrop-blur-xl sm:px-12 sm:py-9"
+              >
+                <div className="text-center text-xs font-bold uppercase tracking-[0.5em] text-amber-300">
+                  💡 Did you know?
                 </div>
-              )}
-            </div>
-            <div className="mt-1.5 line-clamp-2 text-sm font-semibold leading-snug text-white sm:text-base lg:text-lg">
-              {explanation}
-            </div>
+                <div
+                  className="mt-5 text-center font-display text-2xl font-semibold leading-snug text-white sm:text-3xl lg:text-4xl"
+                  style={{ textWrap: "balance" as never }}
+                >
+                  {explanation}
+                </div>
+              </motion.div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
+
 
 
       {/* Locked progress bar */}
