@@ -838,6 +838,7 @@ export function HostGameStage({ room }: Props) {
         <div className="relative mt-auto flex justify-center gap-2">
           {isFinal ? (
             <button
+              data-host-primary="true"
               onClick={() => {
                 play("whoosh");
                 startFinalRoundFn({
@@ -850,6 +851,7 @@ export function HostGameStage({ room }: Props) {
             </button>
           ) : (
             <button
+              data-host-primary="true"
               onClick={() =>
                 nextQuestionFn({
                   data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
