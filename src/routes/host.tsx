@@ -56,6 +56,8 @@ const HOWTO_KEY = "btd:howto-shown";
 
 const MUTE_KEY = "btd:muted";
 
+const CATEGORIES_KEY = "btd:enabled-categories";
+
 function HostPage() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
