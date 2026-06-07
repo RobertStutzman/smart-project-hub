@@ -584,10 +584,16 @@ function HostPage() {
           >
             {canStart
               ? "▶ Press OK to start the show"
-              : !activeCategory
-                ? "⚙ Pick a category"
-                : "Waiting for players…"}
+              : "Waiting for players…"}
           </motion.button>
+
+          <button
+            onClick={() => setCatSheetOpen(true)}
+            className="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-4 py-1.5 text-[clamp(0.65rem,1.2svh,0.8rem)] font-semibold uppercase tracking-[0.2em] text-white/70 backdrop-blur transition hover:bg-white/10 hover:text-amber-200"
+          >
+            <Shuffle className="h-3.5 w-3.5" />
+            {mixLabel}
+          </button>
 
 
 
