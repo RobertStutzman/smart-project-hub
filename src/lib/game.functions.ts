@@ -641,15 +641,15 @@ export const startFinalRound = createServerFn({ method: "POST" })
       wrong_2: string;
       wrong_3: string;
     } | null = null;
-    // Fallback chain for the final round:
+    // Fallback chain for the final round (prefer staying in the selected category):
     //   1. impossible/hard in current category
-    //   2. impossible/hard in any category
-    //   3. any difficulty in current category
+    //   2. any difficulty in current category
+    //   3. impossible/hard in any category
     //   4. any question at all
     const attempts: Array<{ difficulties: string[] | null; useCategory: boolean }> = [
       { difficulties: ["impossible", "hard"], useCategory: true },
-      { difficulties: ["impossible", "hard"], useCategory: false },
       { difficulties: null, useCategory: true },
+      { difficulties: ["impossible", "hard"], useCategory: false },
       { difficulties: null, useCategory: false },
     ];
     for (const attempt of attempts) {
