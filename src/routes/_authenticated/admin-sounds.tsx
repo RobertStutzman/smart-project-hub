@@ -29,6 +29,11 @@ import {
   previewAnnouncerLine,
   WELCOME_LINES,
 } from "@/lib/announcer.functions";
+import {
+  HOST_MOMENTS,
+  bakedCount,
+  type HostMomentMeta,
+} from "@/lib/host-moments";
 
 export const Route = createFileRoute("/_authenticated/admin-sounds")({
   component: SoundsPage,
@@ -245,6 +250,8 @@ function EventsPanel({
       <QuestionVoiceoversPanel />
 
       <TTSCacheStatsPanel />
+
+      <HostMomentsPanel />
 
 
 
@@ -919,6 +926,112 @@ function TTSCacheStatsPanel() {
           Refresh stats
         </button>
       </div>
+    </div>
+  );
+}
+
+// ─── Host moments (Vox) ───────────────────────────────────────────
+
+function HostMomentsPanel() {
+  const previewFn = useServerFn(previewAnnouncerLine);
+  const [open, setOpen] = useState(false);
+  const [loadingKey, setLoadingKey] = useState<string | null>(null);
+
+  async function handlePreview(m: HostMomentMeta) {
+    setLoadingKey(m.key);
+    try {
+      const res = await previewFn({ data: { text: m.sampleText } });
+      const audio = new Audio(`data:audio/mpeg;base64,${res.audioBase64}`);
+      audio.volume = 0.95;
+      await audio.play();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setLoadingKey(null);
+    }
+  }
+
+  return (
+    <div className="mt-4 rounded-2xl border border-border bg-background/40 p-4">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between text-left"
+      >
+        <div>
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-amber-300/80">
+            Host moments
+          </div>
+          <div className="text-sm font-bold">
+            Vox reactions ({HOST_MOMENTS.length}) — every moment the host calls out
+          </div>
+        </div>
+        <span className="text-xs text-muted-foreground">
+          {open ? "Hide ▲" : "Show ▼"}
+        </span>
+      </button>
+      {open && (
+        <div className="mt-4 space-y-2">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-bold text-amber-300/80">Baked</span> = static
+            catchphrases (free, cached forever).{" "}
+            <span className="font-bold text-pink-300/80">Live</span> = generated
+            per game with the player's nickname (Tier 1 budget). Preview plays
+            the sample line with the real ElevenLabs voice.
+          </p>
+          <div className="grid gap-2">
+            {HOST_MOMENTS.map((m) => {
+              const baked = bakedCount(m);
+              const live = m.liveCount ?? 0;
+              return (
+                <div
+                  key={m.key}
+                  className="grid items-start gap-3 rounded-xl border border-border bg-background/40 p-3 sm:grid-cols-[1fr_auto]"
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="text-sm font-bold">{m.label}</div>
+                      <code className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
+                        {m.key}
+                      </code>
+                      {(m.tier === "baked" || m.tier === "both") && (
+                        <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-200">
+                          {baked} baked
+                        </span>
+                      )}
+                      {(m.tier === "live" || m.tier === "both") && (
+                        <span className="rounded-full bg-pink-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-pink-200">
+                          {live} live
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {m.description}
+                    </div>
+                    <div className="mt-1 text-xs italic text-foreground/70">
+                      “{m.sampleText}”
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handlePreview(m)}
+                    disabled={loadingKey !== null}
+                    className="self-center rounded-full bg-amber-400 px-4 py-2 text-xs font-bold text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {loadingKey === m.key ? "…" : "▶ Preview"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            To edit baked lines: <code className="rounded bg-muted px-1">src/lib/host-persona.ts</code> →{" "}
+            <code className="rounded bg-muted px-1">LINES</code>. To edit live templates:{" "}
+            <code className="rounded bg-muted px-1">src/lib/persona-live.ts</code> →{" "}
+            <code className="rounded bg-muted px-1">TEMPLATES</code>.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
