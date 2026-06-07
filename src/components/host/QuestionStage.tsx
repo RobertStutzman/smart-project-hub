@@ -132,7 +132,7 @@ export function QuestionStage({
             <PointsTicker secondsLeft={secondsLeft} max={totalS} />
           )}
           {reading ? (
-            <div className="grid h-20 w-20 place-items-center rounded-full border-4 border-amber-300/60 bg-amber-400/10 font-mono text-3xl font-black text-amber-200 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)] sm:h-24 sm:w-24 sm:text-4xl">
+            <div className="grid h-16 w-16 place-items-center rounded-full border-4 border-amber-300/60 bg-amber-400/10 font-mono text-2xl font-black text-amber-200 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)] sm:h-20 sm:w-20 sm:text-3xl">
               {Math.ceil(readSecondsLeft)}
             </div>
           ) : (
@@ -145,12 +145,12 @@ export function QuestionStage({
       {/* Question */}
       <div className="relative z-10 mx-auto max-w-5xl text-center">
         <h2
-          className="font-display text-3xl font-black leading-[1.05] text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.6)] sm:text-5xl"
+          className="font-display text-2xl font-black leading-[1.05] text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.6)] sm:text-3xl lg:text-4xl xl:text-5xl"
           style={{ textWrap: "balance" as never }}
         >
           {questionText}
         </h2>
-        <div className="mx-auto mt-4 h-[2px] w-24 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
+        <div className="mx-auto mt-2 h-[2px] w-24 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
       </div>
 
       {/* Media (image / audio) */}
@@ -159,7 +159,7 @@ export function QuestionStage({
           <img
             src={mediaUrl}
             alt=""
-            className="max-h-[28vh] w-auto rounded-2xl border border-white/10 object-contain shadow-[0_20px_80px_-20px_rgba(0,0,0,0.7)]"
+            className="max-h-[22vh] w-auto rounded-2xl border border-white/10 object-contain shadow-[0_20px_80px_-20px_rgba(0,0,0,0.7)]"
           />
         </div>
       )}
@@ -172,7 +172,7 @@ export function QuestionStage({
 
       {/* Answer panels — fixed 2x2 grid; cells NEVER reflow when shattered */}
       <div
-        className={`relative z-10 grid flex-1 grid-cols-2 grid-rows-2 gap-4 transition-all duration-300 ${
+        className={`relative z-10 grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-3 transition-all duration-300 ${
           reading ? "scale-[0.98] opacity-40 blur-[2px]" : ""
         }`}
       >
