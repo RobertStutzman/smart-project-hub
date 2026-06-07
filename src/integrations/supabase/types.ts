@@ -240,6 +240,8 @@ export type Database = {
           saboteur_session_id: string | null
           status: string
           theme: string
+          tts_calls_count: number
+          tts_cap_started_at: string | null
           wildcard: string | null
         }
         Insert: {
@@ -270,6 +272,8 @@ export type Database = {
           saboteur_session_id?: string | null
           status?: string
           theme?: string
+          tts_calls_count?: number
+          tts_cap_started_at?: string | null
           wildcard?: string | null
         }
         Update: {
@@ -300,6 +304,8 @@ export type Database = {
           saboteur_session_id?: string | null
           status?: string
           theme?: string
+          tts_calls_count?: number
+          tts_cap_started_at?: string | null
           wildcard?: string | null
         }
         Relationships: []
@@ -396,6 +402,36 @@ export type Database = {
           id?: string
           name?: string
           sort_order?: number
+        }
+        Relationships: []
+      }
+      tts_cache: {
+        Row: {
+          created_at: string
+          hit_count: number
+          last_used_at: string
+          preset: string
+          storage_path: string
+          text: string
+          text_hash: string
+        }
+        Insert: {
+          created_at?: string
+          hit_count?: number
+          last_used_at?: string
+          preset: string
+          storage_path: string
+          text: string
+          text_hash: string
+        }
+        Update: {
+          created_at?: string
+          hit_count?: number
+          last_used_at?: string
+          preset?: string
+          storage_path?: string
+          text?: string
+          text_hash?: string
         }
         Relationships: []
       }
