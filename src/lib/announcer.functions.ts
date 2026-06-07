@@ -496,13 +496,16 @@ export const getTTSCacheStats = createServerFn({ method: "GET" })
       .select("text, preset, hit_count, last_used_at")
       .order("hit_count", { ascending: false })
       .limit(10);
-    const { data: totalHitsRow } = await supabaseAdmin
+    const { data: hits } = await supabaseAdmin
       .from("tts_cache")
-      .select("hit_count.sum()")
-      .single();
+      .select("hit_count");
+    const totalHits = (hits ?? []).reduce(
+      (acc, r) => acc + (r.hit_count ?? 0),
+      0,
+    );
     return {
       total: total ?? 0,
-      totalHits: (totalHitsRow as { sum?: number } | null)?.sum ?? 0,
+      totalHits,
       cap: getTtsCap(),
       top: top ?? [],
     };
