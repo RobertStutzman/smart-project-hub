@@ -500,7 +500,7 @@ export function HostGameStage({ room }: Props) {
       })[0];
     if (!firstCorrect) return;
     firstBloodFiredRef.current = qid;
-    speakPersona(`${firstCorrect.nickname}! ${pickLine("first_blood", qid)}`);
+    void speakAboutPlayer({ nickname: firstCorrect.nickname, moment: "first_blood" });
   }, [state?.phase, state?.current_question_id, state?.current_correct_index, players]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Leader-changed: when leaderboard phase opens, compare top scorer to prior round.
