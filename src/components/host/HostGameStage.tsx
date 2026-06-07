@@ -121,8 +121,6 @@ export function HostGameStage({ room }: Props) {
   }, [room.id]);
 
 
-  const lastDroppedRef = useRef<number[]>([]);
-
   // Fetch room + players, subscribe to realtime
   useEffect(() => {
     let cancelled = false;
@@ -291,13 +289,6 @@ export function HostGameStage({ room }: Props) {
         .catch(() => {});
     }
   }, [state, now, players, dropWrongFn, endQuestionFn, room.roomCode, room.hostSessionId]);
-
-  // Track drops without firing any screen-wide overlay.
-  useEffect(() => {
-    if (!state) return;
-    const cur = state.dropped_indexes ?? [];
-    lastDroppedRef.current = cur;
-  }, [state?.dropped_indexes]);
 
   // Tense music during question, lobby during lobby
   useEffect(() => {
