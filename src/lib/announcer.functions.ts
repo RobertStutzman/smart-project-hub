@@ -2,10 +2,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { LINES as PERSONA_LINES } from "@/lib/host-persona";
 
 // Brian — deep, energetic hype-man (Jackbox-style host)
 const VOICE_ID = "e79twtVS2278lVZZQiAD";
 const FOLDER = "Announcer";
+const PERSONA_FOLDER = "Persona";
+const PERSONA_CATEGORY = "Persona";
 
 type ScriptLine = {
   slot: string;
