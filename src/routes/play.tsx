@@ -306,10 +306,12 @@ function PlayPage() {
 
   const pick = async (i: 0 | 1 | 2 | 3) => {
     if (!session) return;
+    Haptics.tap();
     try {
       await lockFn({
         data: { roomCode: session.roomCode, sessionId: session.sessionId, answerIndex: i },
       });
+      Haptics.correct();
     } catch {
       /* ignore */
     }
@@ -497,7 +499,7 @@ function PlayPage() {
                   <div className="mt-3 font-display text-5xl font-black text-amber-200 [animation:scale-in_0.5s_ease-out]">Final Round</div>
                 </div>
               </div>
-            ) : room.phase === "final_wager" ? (
+            ) : room.phase === "final_wager" || room.phase === "final_intro" ? (
               <div className="flex flex-1 flex-col gap-4 rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-500/15 via-card/40 to-black p-5">
                 <div className="text-center">
                   <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300">Place your wager</div>
