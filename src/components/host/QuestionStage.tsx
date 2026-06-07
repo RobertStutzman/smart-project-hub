@@ -402,18 +402,10 @@ export function QuestionStage({
 
 function ShatterOverlay(_props: { letter: string; label: string }) {
   // Contained-to-tile elimination beat: SVG slash draws on, "OUT" stamp punches in,
-  // rose embers drift up. No screen-wide flash, no stage shake.
+  // rose embers drift up. No flash layer, no stage shake.
   const embers = Array.from({ length: 8 });
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
-      {/* Rose flash that fades fast */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: [0, 0.55, 0] }}
-        transition={{ duration: 0.45, ease: "easeOut", times: [0, 0.25, 1] }}
-        className="absolute inset-0 bg-rose-500/40 mix-blend-screen"
-      />
-
       {/* Diagonal slash */}
       <svg
         className="absolute inset-0 h-full w-full"

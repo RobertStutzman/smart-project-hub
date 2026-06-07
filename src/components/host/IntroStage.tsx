@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { HOST_NAME, pickLine, speakPersona } from "@/lib/host-persona";
 import { play } from "@/lib/sound-engine";
@@ -21,6 +21,11 @@ type Props = {
  */
 export function IntroStage({ players, onDone }: Props) {
   const [step, setStep] = useState<"title" | "roster" | "go">("title");
+  const onDoneRef = useRef(onDone);
+
+  useEffect(() => {
+    onDoneRef.current = onDone;
+  }, [onDone]);
 
   useEffect(() => {
     // Hype line via TTS as the title card lands
@@ -31,16 +36,16 @@ export function IntroStage({ players, onDone }: Props) {
     const t2 = window.setTimeout(() => setStep("go"), 6200);
     const t3 = window.setTimeout(() => {
       play("whoosh");
-      onDone();
+      onDoneRef.current();
     }, 8400);
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.code === "Space" || e.code === "Enter") {
+      if (e.code === "Space") {
         e.preventDefault();
         window.clearTimeout(t1);
         window.clearTimeout(t2);
         window.clearTimeout(t3);
-        onDone();
+        onDoneRef.current();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -50,7 +55,7 @@ export function IntroStage({ players, onDone }: Props) {
       window.clearTimeout(t3);
       window.removeEventListener("keydown", onKey);
     };
-  }, [onDone, players.length]);
+  }, [players.length]);
 
   return (
     <div

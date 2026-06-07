@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Lock, Pause, Play, Settings as SettingsIcon, X } from "lucide-react";
 import { toast } from "sonner";
 import { createRoom, endRoom, heartbeatHost, setCategory, setRoomConfig, toggleTeamMode } from "@/lib/rooms.functions";
-import { nextQuestion } from "@/lib/game.functions";
+import { setPhase } from "@/lib/game.functions";
 import {
   loadHostSession,
   saveHostSession,
@@ -56,7 +56,7 @@ function HostPage() {
   const setCategoryFn = useServerFn(setCategory);
   const setConfigFn = useServerFn(setRoomConfig);
   const toggleTeamModeFn = useServerFn(toggleTeamMode);
-  const nextQuestionFn = useServerFn(nextQuestion);
+  const setPhaseFn = useServerFn(setPhase);
 
   const [room, setRoom] = useState<{ id: string; roomCode: string; hostSessionId: string } | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -486,8 +486,8 @@ function HostPage() {
                 return;
               }
               play("whoosh");
-              nextQuestionFn({
-                data: { roomCode: room!.roomCode, hostSessionId: room!.hostSessionId },
+              setPhaseFn({
+                data: { roomCode: room!.roomCode, hostSessionId: room!.hostSessionId, phase: "intro" },
               }).catch((e) => setError((e as Error).message));
             }}
             className={`rounded-2xl px-[clamp(1.5rem,4vw,3rem)] py-[clamp(0.6rem,1.8svh,1rem)] text-[clamp(1rem,2.4svh,1.5rem)] font-black uppercase tracking-wider shadow-lg transition ${

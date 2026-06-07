@@ -21,7 +21,8 @@ export function useHostHotkeys(toggleFullscreen: () => void | Promise<void>) {
         t &&
         (t.tagName === "INPUT" ||
           t.tagName === "TEXTAREA" ||
-          t.isContentEditable)
+          t.isContentEditable ||
+          !!t.closest("button,a,[role='button']"))
       ) {
         return;
       }
