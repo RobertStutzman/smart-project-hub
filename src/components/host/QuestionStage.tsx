@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { play } from "@/lib/sound-engine";
 
 type Player = {
   id: string;
@@ -15,13 +16,15 @@ type Props = {
   correctIndex: number | null; // null until reveal
   secondsLeft: number;
   totalS?: number;
-  readSecondsLeft?: number; // >0 while in the 5-second read window
+  readSecondsLeft?: number; // >0 while in the read window
   players: Player[];
   phase: "question" | "reveal";
   explanation?: string | null;
   mediaUrl?: string | null;
   mediaType?: string | null; // 'image' | 'audio'
+  questionNumber?: number;
 };
+
 
 const LETTERS = ["A", "B", "C", "D"] as const;
 
