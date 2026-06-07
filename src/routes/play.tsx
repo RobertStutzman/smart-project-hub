@@ -748,9 +748,7 @@ function PlayPage() {
                 </div>
               </div>
             ) : (
-              <div className="grid flex-1 place-items-center rounded-2xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
-                Waiting for the host to start…
-              </div>
+              <LobbyWaitingCard nickname={me?.nickname ?? ""} avatarUrl={me?.avatar_url ?? null} playerCount={allPlayers.length} />
             )}
           </>
         )}
