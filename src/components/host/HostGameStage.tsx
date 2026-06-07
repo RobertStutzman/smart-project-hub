@@ -305,30 +305,33 @@ export function HostGameStage({ room }: Props) {
     else stopMusic();
   }, [state?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Round intro sting + "Next question!" voice — only when transitioning INTO
-  // question phase from a non-question phase
+  // Round intro sting + voice — only when transitioning INTO question phase
+  // from a non-question phase. Announces "Round N!" only at the start of a
+  // new round (Q1/6/11/16); other questions get neutral hype lines.
   const lastRoundStingRef = useRef<number>(0);
   const prevPhaseRef = useRef<string>("");
   useEffect(() => {
     if (!state) return;
-    const r = state.round_number ?? 0;
+    const q = state.round_number ?? 0;
     const prev = prevPhaseRef.current;
     prevPhaseRef.current = state.phase;
     const enteringFromBreak =
       prev === "lobby" || prev === "leaderboard" || prev === "reveal" || prev === "";
     if (
       state.phase === "question" &&
-      r > 0 &&
-      r !== lastRoundStingRef.current &&
+      q > 0 &&
+      q !== lastRoundStingRef.current &&
       enteringFromBreak
     ) {
-      lastRoundStingRef.current = r;
+      lastRoundStingRef.current = q;
       playEvent("round_intro");
-      // Whoosh sting at the very start of the transition
       play("whoosh");
-      // Snappy voice announcement before the question reveals.
-      const phrases = ["Next!", "Here we go!", "Lock in!", "Round " + r + "!"];
-      const text = r === 1 ? "First question!" : phrases[r % phrases.length];
+      const displayRound = Math.min(4, Math.ceil(q / 5));
+      const isRoundStart = q === 1 || q === 6 || q === 11 || q === 16;
+      const phrases = ["Next!", "Here we go!", "Lock in!", "Keep going!"];
+      const text = isRoundStart
+        ? (q === 1 ? "Round 1! First question!" : `Round ${displayRound}!`)
+        : phrases[q % phrases.length];
       duckMusic(true);
       import("@/lib/elf-voice").then(({ speakAsElf }) => {
         speakAsElf(text, { interrupt: true, preset: "hype" }).finally(() => duckMusic(false));
