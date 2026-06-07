@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import { useTheme } from "./ThemeProvider";
 
 /**
  * Full-viewport canvas particle layer for the Fellowship theme.
@@ -7,7 +6,6 @@ import { useTheme } from "./ThemeProvider";
  * prefers-reduced-motion.
  */
 export function ThemeParticles() {
-  const { theme } = useTheme();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
