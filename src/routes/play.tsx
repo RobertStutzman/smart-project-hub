@@ -748,9 +748,7 @@ function PlayPage() {
                 </div>
               </div>
             ) : (
-              <div className="grid flex-1 place-items-center rounded-2xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
-                Waiting for the host to start…
-              </div>
+              <LobbyWaitingCard nickname={me?.nickname ?? ""} avatarUrl={me?.avatar_url ?? null} playerCount={allPlayers.length} />
             )}
           </>
         )}
@@ -817,6 +815,52 @@ function PlayerPointsTicker({
       </div>
       <div className={`font-mono text-2xl font-black tabular-nums ${color}`}>
         {points}
+      </div>
+    </div>
+  );
+}
+
+const LOBBY_TIPS = [
+  "You're in. Phone on loud — the host announces every round.",
+  "Faster locks = more points. Don't camp.",
+  "Streaks stack. Three in a row and the room hears about it.",
+  "Pick wrong, lose the streak. Pick fast, lose nothing.",
+  "Don't overthink. Trust your first guess.",
+];
+
+function LobbyWaitingCard({ nickname, avatarUrl, playerCount }: { nickname: string; avatarUrl: string | null; playerCount: number }) {
+  const [tipIdx, setTipIdx] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTipIdx((i) => (i + 1) % LOBBY_TIPS.length), 3800);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <div className="grid flex-1 place-items-center rounded-3xl border border-amber-300/20 bg-gradient-to-b from-amber-300/[0.06] to-transparent p-6 text-center backdrop-blur animate-scale-in">
+      <div className="flex flex-col items-center gap-4">
+        <div className="relative">
+          <div className="absolute -inset-2 rounded-full bg-amber-300/20 blur-xl animate-pulse" />
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="" className="relative h-20 w-20 rounded-full object-cover ring-2 ring-amber-300/60" />
+          ) : (
+            <div className="relative grid h-20 w-20 place-items-center rounded-full bg-gradient-to-br from-amber-300 to-amber-500 text-2xl font-black text-black ring-2 ring-amber-300/60">
+              {(nickname || "?").slice(0, 1).toUpperCase()}
+            </div>
+          )}
+        </div>
+        <div>
+          <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300">You're in</div>
+          <div className="mt-1 text-2xl font-black text-foreground">{nickname || "Player"}</div>
+        </div>
+        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 text-xs font-semibold text-muted-foreground">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+          {playerCount} {playerCount === 1 ? "player" : "players"} in the room
+        </div>
+        <div className="min-h-[2.5rem] max-w-xs px-2 text-sm text-muted-foreground transition-opacity">
+          <span key={tipIdx} className="inline-block animate-fade-in italic">"{LOBBY_TIPS[tipIdx]}"</span>
+        </div>
+        <div className="text-[10px] uppercase tracking-[0.3em] text-amber-300/70 animate-pulse">
+          Waiting for host…
+        </div>
       </div>
     </div>
   );

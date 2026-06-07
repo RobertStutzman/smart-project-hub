@@ -442,6 +442,10 @@ function HostPage() {
 
         {/* PLAYER ROW */}
         <section className="flex flex-none flex-col items-center gap-[1.5svh]">
+          <div className="flex items-center gap-2 text-[clamp(0.65rem,1.3svh,0.85rem)] font-bold uppercase tracking-[0.35em] text-white/60">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+            {players.length} {players.length === 1 ? "player" : "players"} in
+          </div>
           <div className="flex flex-wrap items-center justify-center gap-2" style={{ maxHeight: "12svh", overflow: "hidden" }}>
             <AnimatePresence>
               {players.length === 0 ? (
@@ -508,6 +512,7 @@ function HostPage() {
             <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">Enter</kbd> start ·{" "}
             <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">Space</kbd> pause
           </div>
+          <LobbyTipCarousel />
         </section>
       </div>
 
@@ -731,3 +736,37 @@ function PaywallModal({ category, onClose }: { category: Category; onClose: () =
     </div>
   );
 }
+
+const LOBBY_HOST_TIPS = [
+  "Phones out. Thumbs warm.",
+  "Lock fast. Points decay every tick.",
+  "Streaks pay. Three in a row and the room hears it.",
+  "Wrong is loud. Right is louder.",
+  "The final round can flip the whole game.",
+  "No phones in your pocket. Trust your gut.",
+];
+
+function LobbyTipCarousel() {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setIdx((i) => (i + 1) % LOBBY_HOST_TIPS.length), 4200);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <div className="mt-[1svh] h-[3svh] overflow-hidden">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={idx}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.4 }}
+          className="text-center text-[clamp(0.75rem,1.5svh,1rem)] italic text-white/50"
+        >
+          "{LOBBY_HOST_TIPS[idx]}"
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
+
