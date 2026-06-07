@@ -261,7 +261,7 @@ function AdminPage() {
 
 
 
-        <AIGenerator generate={generateFn} bulkInsert={bulkFn} onInserted={reload} />
+        <AIGenerator generate={generateFn} bulkInsert={bulkFn} onInserted={reload} categories={mergedCategories} />
 
         <GeminiImporter bulkInsert={bulkFn} onInserted={reload} />
 
@@ -281,9 +281,9 @@ function AdminPage() {
                 className="rounded-full border border-border bg-background/60 px-3 py-2 text-sm"
               >
                 <option value="all">All categories</option>
-                {CATEGORIES.map((c) => (
+                {mergedCategories.map((c) => (
                   <option key={c.name} value={c.name}>
-                    {c.emoji} {c.name}
+                    {c.name}{c.count > 0 ? ` (${c.count})` : ""}
                   </option>
                 ))}
               </select>
