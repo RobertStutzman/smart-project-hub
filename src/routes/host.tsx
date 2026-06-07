@@ -702,7 +702,7 @@ function HostPage() {
                   </h3>
                   <div className="flex gap-2 text-[10px] uppercase tracking-widest">
                     <button
-                      onClick={() => persistEnabled(new Set(allCategories.map((c) => c.name)))}
+                      onClick={() => persistEnabled(new Set(availableCategories.map((c) => c.name)))}
                       className="text-white/60 hover:text-amber-200"
                     >
                       All
