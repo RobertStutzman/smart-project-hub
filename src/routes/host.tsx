@@ -359,7 +359,7 @@ function HostPage() {
         }}
       />
 
-      <div className="relative mx-auto flex h-full min-h-0 max-w-7xl flex-col gap-6 p-6 lg:p-10">
+      <div className="relative mx-auto flex h-full min-h-0 max-w-7xl flex-col gap-3 p-4 sm:p-5 lg:gap-4 lg:p-6">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <button
             onClick={() => navigate({ to: "/" })}
@@ -392,30 +392,30 @@ function HostPage() {
           </div>
         )}
 
-        <section className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[1.2fr_1fr]">
+        <section className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[1.05fr_1fr]">
 
           {/* LEFT — brand + room code + QR */}
-          <div className="flex flex-col items-center justify-center rounded-3xl border border-white/10 bg-white/[0.04] p-10 text-center backdrop-blur">
-            <h1 className="font-display text-5xl font-black leading-[0.95] tracking-tight text-white drop-shadow-[0_4px_40px_rgba(0,0,0,0.7)] sm:text-6xl">
+          <div className="flex min-h-0 flex-col items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center backdrop-blur sm:p-5 lg:p-6">
+            <h1 className="font-display text-[clamp(2.25rem,7vh,4.5rem)] font-black leading-[0.9] tracking-tight text-white drop-shadow-[0_4px_40px_rgba(0,0,0,0.7)]">
               Beat the{" "}
               <span className="bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text text-transparent">
                 Drop
               </span>
             </h1>
 
-            <div className="mx-auto mt-4 h-[2px] w-24 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
+            <div className="mx-auto mt-3 h-[2px] w-20 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
 
-            <div className="mt-8 text-[10px] font-bold uppercase tracking-[0.5em] text-amber-200/80">
+            <div className="mt-5 text-[10px] font-bold uppercase tracking-[0.45em] text-amber-200/80">
               Room code
             </div>
-            <div className="mt-3 bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text font-mono text-[clamp(5rem,16vw,12rem)] font-black leading-none tracking-[0.15em] text-transparent drop-shadow-[0_8px_30px_rgba(251,191,36,0.35)]">
+            <div className="mt-2 bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text font-mono text-[clamp(3.4rem,15vh,8rem)] font-black leading-none tracking-[0.12em] text-transparent drop-shadow-[0_8px_30px_rgba(251,191,36,0.35)]">
               {creating || !room ? "····" : room.roomCode}
             </div>
 
 
             {joinUrl && (
-              <div className="mt-6 inline-block rounded-2xl bg-white p-4 shadow-[0_0_50px_oklch(0.85_0.18_85/0.35)] ring-1 ring-white/20">
-                <QRCodeSVG value={joinUrl} size={260} level="M" includeMargin={false} />
+              <div className="mt-4 inline-block rounded-xl bg-white p-3 shadow-[0_0_40px_oklch(0.85_0.18_85/0.32)] ring-1 ring-white/20">
+                <QRCodeSVG value={joinUrl} size={190} level="M" includeMargin={false} />
               </div>
             )}
           </div>
