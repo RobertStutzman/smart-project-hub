@@ -1733,9 +1733,15 @@ function GeminiImporter({
         toast.info("Generating voice narration… this may take a minute.");
         try {
           const b = await bakeFn({ data: { limit: Math.max(toInsert.length, 50) } });
-          toast.success(`Voice baked: ${b.baked} new, ${b.skipped} already done${b.errors.length ? `, ${b.errors.length} failed` : ""}`);
+          toast.success(`Prompt voice baked: ${b.baked} new, ${b.skipped} already done${b.errors.length ? `, ${b.errors.length} failed` : ""}`);
         } catch (e) {
-          toast.error(`TTS bake failed: ${(e as Error).message}`);
+          toast.error(`Prompt TTS bake failed: ${(e as Error).message}`);
+        }
+        try {
+          const e2 = await bakeExplanationFn({ data: { limit: Math.max(toInsert.length, 50) } });
+          toast.success(`Did You Know baked: ${e2.baked} new, ${e2.skipped} already done${e2.errors.length ? `, ${e2.errors.length} failed` : ""}`);
+        } catch (e) {
+          toast.error(`Did You Know bake failed: ${(e as Error).message}`);
         }
       }
       setPasted("");
