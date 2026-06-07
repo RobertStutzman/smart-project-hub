@@ -18,7 +18,6 @@ import { THEMES, THEME_META, type ThemeName } from "@/lib/theme";
 import { useTheme } from "@/components/ThemeProvider";
 import { play, setMuted as setSoundMuted, startMusic, stopMusic, type Sfx } from "@/lib/sound-engine";
 import { HostGameStage, useRevealAutoAdvance } from "@/components/host/HostGameStage";
-import { HostOnboarding } from "@/components/host/HostOnboarding";
 import { useHostStageMode } from "@/hooks/useHostStageMode";
 import { useHostHotkeys } from "@/hooks/useHostHotkeys";
 
@@ -629,7 +628,6 @@ function HostPage() {
         <PaywallModal category={showPaywall} onClose={() => setShowPaywall(null)} />
       )}
 
-      <HostOnboarding />
     </main>
   );
 }
