@@ -196,7 +196,9 @@ export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
       if (typeof window === "undefined") return;
       loopAudio = new Audio(clip.url);
       loopAudio.loop = clip.loop;
-      loopAudio.volume = Math.max(0, Math.min(1, clip.volume));
+      // Cap music well below voice so announcer/TTS is always intelligible.
+      const base = Math.max(0, Math.min(1, clip.volume));
+      loopAudio.volume = Math.min(base, 0.25) * (duckActive ? 0.25 : 1);
       loopAudio.play().catch(() => {});
       return;
     }
@@ -208,11 +210,24 @@ export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
   let i = 0;
   const tick = () => {
     if (muted || currentLoopMode !== mode) return;
-    tone(notes[i % notes.length], 0.18, mode === "lobby" ? "triangle" : "square", 0.1);
+    // much quieter synth bed so voice sits on top
+    const g = (mode === "lobby" ? 0.04 : 0.05) * (duckActive ? 0.3 : 1);
+    tone(notes[i % notes.length], 0.18, mode === "lobby" ? "triangle" : "square", g);
     i++;
   };
   tick();
   synthLoopTimer = window.setInterval(tick, tempoMs);
+}
+
+let duckActive = false;
+/** Temporarily lower the background music so voice/TTS is clear. */
+export function duckMusic(on: boolean) {
+  duckActive = on;
+  if (loopAudio) {
+    // Re-apply volume cap with current duck state.
+    const base = Math.min(loopAudio.volume / (on ? 1 : 0.25 || 1), 0.25);
+    loopAudio.volume = on ? Math.min(0.08, base) : Math.min(0.25, base);
+  }
 }
 
 export function stopMusic() {
