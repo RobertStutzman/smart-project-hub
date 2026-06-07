@@ -121,6 +121,7 @@ function TtsObservabilityPage() {
           <div className="text-sm text-muted-foreground">Loading…</div>
         ) : (
           <div className="space-y-10">
+            <AlertsBanner summary={summary} topGames={topGames} days={days} />
             <SummaryCards summary={summary} />
             <TrendChart series={series} />
             <TopGamesTable data={topGames} />
@@ -129,6 +130,138 @@ function TtsObservabilityPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// Thresholds — tuned for typical use. Tweak here.
+const ALERT_THRESHOLDS = {
+  minCallsForHitRate: 50,
+  lowHitRate: 0.6, // below 60%
+  highErrorRate: 0.05, // above 5%
+  dailyUsdBudget: 1.0, // per-day estimated spend
+  maxGamesAtCap: 2, // more than 2 games at cap
+};
+
+type Alert = {
+  level: "warn" | "danger";
+  title: string;
+  detail: string;
+};
+
+function computeAlerts(
+  summary: Summary | null,
+  topGames: TopGames | null,
+  days: number,
+): Alert[] {
+  const out: Alert[] = [];
+  if (!summary) return out;
+  // Low cache hit rate
+  if (
+    summary.total >= ALERT_THRESHOLDS.minCallsForHitRate &&
+    summary.cacheHitRate < ALERT_THRESHOLDS.lowHitRate
+  ) {
+    out.push({
+      level: "warn",
+      title: "Low cache hit rate",
+      detail: `${fmtPct(summary.cacheHitRate)} (target ≥ ${fmtPct(ALERT_THRESHOLDS.lowHitRate)}). Review dynamic line patterns — cache key may be too unique.`,
+    });
+  }
+  // Error rate
+  const errorRate = summary.total > 0 ? summary.errors / summary.total : 0;
+  if (errorRate > ALERT_THRESHOLDS.highErrorRate) {
+    out.push({
+      level: "danger",
+      title: "Elevated TTS error rate",
+      detail: `${fmtPct(errorRate)} of calls errored (${fmtInt(summary.errors)} fails). Check ElevenLabs status & API key.`,
+    });
+  }
+  // Spend pace
+  const perDay = summary.estCostUsd / Math.max(1, days);
+  if (perDay > ALERT_THRESHOLDS.dailyUsdBudget) {
+    out.push({
+      level: "warn",
+      title: "Spend pace above budget",
+      detail: `${fmtUsd(perDay)}/day avg (budget ${fmtUsd(ALERT_THRESHOLDS.dailyUsdBudget)}). ${fmtUsd(summary.estCostUsd)} total in last ${days}d.`,
+    });
+  }
+  // Games at cap
+  if (topGames) {
+    const atCap = topGames.rows.filter((r) => r.total >= topGames.cap).length;
+    if (atCap > ALERT_THRESHOLDS.maxGamesAtCap) {
+      out.push({
+        level: "danger",
+        title: "Multiple games hit the cap",
+        detail: `${atCap} games maxed the ${topGames.cap}-call/game cap. Cost insurance is firing — investigate dynamic line spam.`,
+      });
+    }
+  }
+  return out;
+}
+
+function AlertsBanner({
+  summary,
+  topGames,
+  days,
+}: {
+  summary: Summary | null;
+  topGames: TopGames | null;
+  days: number;
+}) {
+  const alerts = computeAlerts(summary, topGames, days);
+  if (alerts.length === 0) {
+    return (
+      <div className="flex items-center gap-3 rounded-2xl border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-sm">
+        <span className="grid h-7 w-7 place-items-center rounded-full bg-emerald-400/20 text-emerald-300">
+          ✓
+        </span>
+        <div>
+          <div className="font-bold text-emerald-200">All clear</div>
+          <div className="text-xs text-emerald-200/70">
+            Cache, spend, and error rate are within thresholds for the last {days}d.
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <section className="space-y-2">
+      {alerts.map((a) => (
+        <div
+          key={a.title}
+          className={`flex items-start gap-3 rounded-2xl border px-4 py-3 ${
+            a.level === "danger"
+              ? "border-rose-400/50 bg-rose-500/10"
+              : "border-amber-400/50 bg-amber-500/10"
+          }`}
+        >
+          <span
+            className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-black ${
+              a.level === "danger"
+                ? "bg-rose-500/25 text-rose-200"
+                : "bg-amber-500/25 text-amber-200"
+            }`}
+          >
+            {a.level === "danger" ? "!" : "⚠"}
+          </span>
+          <div>
+            <div
+              className={`font-bold ${
+                a.level === "danger" ? "text-rose-100" : "text-amber-100"
+              }`}
+            >
+              {a.title}
+            </div>
+            <div
+              className={`text-xs ${
+                a.level === "danger" ? "text-rose-200/80" : "text-amber-200/80"
+              }`}
+            >
+              {a.detail}
+            </div>
+          </div>
+        </div>
+      ))}
+    </section>
   );
 }
 
