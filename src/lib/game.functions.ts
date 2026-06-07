@@ -167,10 +167,11 @@ export const nextQuestion = createServerFn({ method: "POST" })
       return data ?? [];
     }
 
-    // Try target difficulty in category → any category → any difficulty in category → anything.
+    // Prefer staying inside the selected category: target difficulty in category →
+    // any difficulty in category → target difficulty any category → anything.
     let candidates = await fetchPool(targetDifficulty, true);
-    if (candidates.length === 0) candidates = await fetchPool(targetDifficulty, false);
     if (candidates.length === 0) candidates = await fetchPool(null, true);
+    if (candidates.length === 0) candidates = await fetchPool(targetDifficulty, false);
     if (candidates.length === 0) candidates = await fetchPool(null, false);
 
     if (candidates.length === 0) {
@@ -640,15 +641,15 @@ export const startFinalRound = createServerFn({ method: "POST" })
       wrong_2: string;
       wrong_3: string;
     } | null = null;
-    // Fallback chain for the final round:
+    // Fallback chain for the final round (prefer staying in the selected category):
     //   1. impossible/hard in current category
-    //   2. impossible/hard in any category
-    //   3. any difficulty in current category
+    //   2. any difficulty in current category
+    //   3. impossible/hard in any category
     //   4. any question at all
     const attempts: Array<{ difficulties: string[] | null; useCategory: boolean }> = [
       { difficulties: ["impossible", "hard"], useCategory: true },
-      { difficulties: ["impossible", "hard"], useCategory: false },
       { difficulties: null, useCategory: true },
+      { difficulties: ["impossible", "hard"], useCategory: false },
       { difficulties: null, useCategory: false },
     ];
     for (const attempt of attempts) {

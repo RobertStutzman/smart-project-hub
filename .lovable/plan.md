@@ -1,40 +1,30 @@
-Two fixes for the host TV game stage.
+## The bug
 
-## Fix 1 — Kill the white flash and shake when a wrong answer is eliminated
+When the host picks "80's Music", players see Sci-Fi questions. Cause: the question-picker's fallback chain abandons the chosen category too eagerly.
 
-### Cause
-In `src/components/host/QuestionStage.tsx`:
-- Line 109: `<motion.div key={shakeKey} …>` re-keys the entire stage on every drop, unmounting/remounting the whole tree. Backdrop-blur compositing for a frame reads as a white flash on TV.
-- Lines 110-114: the whole stage animates `x` and `y` through a 6-step jerk — the shake.
+DB reality: "80's Music" has 20 questions, all `medium` difficulty. Movie Sci-Fi has 141 questions spread across easy/medium/hard/impossible. The picker rotates through difficulties (easy → medium → hard → impossible) trying to balance them. When it targets `easy`/`hard`/`impossible` and 80's Music has none, the current fallback order is:
 
-### Changes
-1. Remove `key={shakeKey}` from the root `motion.div` so children never unmount on a drop. No more flash.
-2. Remove the stage-wide x/y shake animation.
-3. Remove the now-unused `shakeKey` state and its `useEffect`.
+1. target difficulty + category
+2. target difficulty, any category ← jumps to Sci-Fi here
+3. any difficulty + category
+4. any difficulty, any category
 
-The eliminated tile already gets a grayscale + rose ✕ stamp + rose border, so feedback stays clear.
+So as soon as a non-medium round comes up, it leaves 80's Music for Sci-Fi.
 
-## Fix 2 — Make the "Question N" intro reliably long (no random shortening)
+## Fix
 
-### Cause
-The intro window is set server-side as `question_started_at = serverNow + 3500ms`. The host TV computes how long to show the intro as `(question_started_at − clientNow)`. Any realtime delivery latency or clock skew between server and client eats into that window. Different latency each round → "intro got shorter randomly."
+Swap the fallback priority in `src/lib/game.functions.ts` so the selected category is preserved before opening up to other categories.
 
-### Changes
-1. `src/lib/game.functions.ts` line 236: bump the budget from `+ 3500` to `+ 6000` so even with latency there's headroom.
+**Normal rounds (around line 170):**
+1. target difficulty + category
+2. **any difficulty + category** (was step 3)
+3. **target difficulty, any category** (was step 2)
+4. any difficulty, any category
 
-2. `src/components/host/QuestionStage.tsx`: anchor the intro on **when the host first observes the new question**, not on server-side absolute time. Approach:
-   - Track the current `questionText`/`questionNumber` in a ref. When it changes, record `clientStartMs = performance.now()` for this question.
-   - Compute a local `localReadSecondsLeft = max(0, 6 − (performance.now() − clientStartMs) / 1000)`.
-   - Use the larger of `localReadSecondsLeft` and the existing `readSecondsLeft` prop. That guarantees the intro is never shorter than the full local budget, even when the server-derived value arrives with latency baked in.
+**Final round (around line 648):** apply the same reordering to the `attempts` array — try `impossible/hard in category` → `any difficulty in category` → `impossible/hard any category` → `any`.
 
-3. Re-split the 6s budget in the phased intro (lines 53-59):
-   - Badge "Question N": `readSecondsLeft > 4.0` (≈2.0s)
-   - Question fades in: `readSecondsLeft > 2.0` (≈2.0s)
-   - Answers stagger in: final ≈2.0s
-   Update the comment block to match.
+This keeps the game inside the chosen category whenever any question remains there, and only crosses categories when that category is truly exhausted.
 
-4. Adjust the tick-SFX stagger in lines 64-77 so the per-answer ticks still align with the new ≈2.0s answer-reveal phase (currently `700 + i*110`ms → change to `0 + i*400`ms scheduled from the start of the answers phase, or simply lengthen the existing delays proportionally).
+## Out of scope
 
-### Verification
-- Trigger a wrong-answer drop in the preview: no flash, no shake, eliminated tile still shows ✕ + grayscale.
-- Trigger multiple questions back-to-back: "Question N" badge holds ≈2s every time, question text appears for ≈2s, answers stagger in for ≈2s, then the lock-in timer starts.
+Not touching the category list, the difficulty-rotation logic, or seeding more 80's Music questions — that's content work, separate from this bug.
