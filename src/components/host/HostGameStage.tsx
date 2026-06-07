@@ -245,6 +245,76 @@ export function HostGameStage({ room }: Props) {
     };
   }, []);
 
+  // Play The Elf reading the "Did you know?" explanation once the full-screen
+  // reveal card appears (~2.2s after reveal phase starts, matching QuestionStage).
+  const explanationTtsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const lastPlayedExplanationIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const qid = state?.current_question_id ?? null;
+    const url = state?.current_explanation_tts_url ?? null;
+    const phase = state?.phase;
+    if (!qid || !url || phase !== "reveal") return;
+    if (lastPlayedExplanationIdRef.current === qid) return;
+    lastPlayedExplanationIdRef.current = qid;
+
+    // Stop any previous explanation read
+    if (explanationTtsAudioRef.current) {
+      try {
+        explanationTtsAudioRef.current.pause();
+      } catch {
+        /* ignore */
+      }
+      explanationTtsAudioRef.current = null;
+    }
+
+    // Match QuestionStage's tiles→fullscreen flip (~2200ms).
+    const timer = window.setTimeout(() => {
+      const audio = new Audio(url);
+      audio.volume = 1.0;
+      explanationTtsAudioRef.current = audio;
+      duckMusic(true);
+      const undock = () => duckMusic(false);
+      audio.addEventListener("ended", undock);
+      audio.addEventListener("pause", undock);
+      audio.play().catch(() => {
+        duckMusic(false);
+      });
+    }, 2200);
+
+    return () => window.clearTimeout(timer);
+  }, [state?.current_question_id, state?.current_explanation_tts_url, state?.phase]);
+
+  // Reset the "played explanation" gate when we leave reveal so the next
+  // question's explanation can play.
+  useEffect(() => {
+    if (state?.phase !== "reveal") {
+      lastPlayedExplanationIdRef.current = null;
+      if (explanationTtsAudioRef.current) {
+        try {
+          explanationTtsAudioRef.current.pause();
+        } catch {
+          /* ignore */
+        }
+        explanationTtsAudioRef.current = null;
+      }
+    }
+  }, [state?.phase]);
+
+  // Stop any lingering explanation read on unmount
+  useEffect(() => {
+    return () => {
+      if (explanationTtsAudioRef.current) {
+        try {
+          explanationTtsAudioRef.current.pause();
+        } catch {
+          /* ignore */
+        }
+        explanationTtsAudioRef.current = null;
+      }
+    };
+  }, []);
+
+
 
   // Orchestrator: schedule drops and end based on elapsed
   useEffect(() => {
