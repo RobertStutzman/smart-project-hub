@@ -721,14 +721,68 @@ export function HostGameStage({ room }: Props) {
       );
     const prevLeaderId = prevRanked[0]?.id ?? null;
     const revealKey = `${state.id}-${state.current_question_id ?? "x"}`;
+    const live = players.filter((p) => !p.is_audience);
+    const topScore = live.reduce((m, p) => Math.max(m, p.score), 0);
+    const tied = live.filter((p) => p.score === topScore);
+    const isTie = tied.length > 1;
     return (
-      <FinalRevealStage
-        correctText={correctText}
-        explanation={state.current_explanation}
-        players={players}
-        revealKey={revealKey}
-        prevLeaderId={prevLeaderId}
-      />
+      <div className="relative h-full">
+        <FinalRevealStage
+          correctText={correctText}
+          explanation={state.current_explanation}
+          players={players}
+          revealKey={revealKey}
+          prevLeaderId={prevLeaderId}
+        />
+        {isTie && (
+          <div className="pointer-events-auto absolute inset-x-0 bottom-8 z-40 flex flex-col items-center gap-3">
+            <div className="rounded-full bg-rose-500/90 px-5 py-1.5 text-xs font-black uppercase tracking-[0.3em] text-white shadow-[0_10px_30px_-10px_rgba(244,63,94,0.7)] animate-pulse">
+              ⚔ Tied at {topScore} — {tied.map((p) => p.nickname).join(" & ")}
+            </div>
+            <button
+              onClick={() => {
+                play("whoosh");
+                startSuddenDeathFn({
+                  data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+                }).catch(() => {});
+              }}
+              className="rounded-full bg-gradient-to-b from-rose-400 to-rose-600 px-8 py-3 font-display text-lg font-black uppercase tracking-wider text-white shadow-[0_0_50px_oklch(0.65_0.25_25/0.6)] transition hover:scale-[1.03]"
+            >
+              ⚡ Sudden Death
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (state.phase === "sudden_death") {
+    const cohort = state.sudden_death_session_ids ?? [];
+    const cohortPlayers = players.filter((p) => cohort.includes(p.session_id));
+    return (
+      <div
+        className="relative h-full"
+        style={{
+          background:
+            "radial-gradient(ellipse 80% 60% at 50% 30%, oklch(0.25 0.18 25 / 0.95), oklch(0.06 0.05 25) 80%)",
+        }}
+      >
+        <div className="pointer-events-none absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full bg-rose-500/95 px-5 py-1.5 text-xs font-black uppercase tracking-[0.3em] text-white shadow animate-pulse">
+          ⚔ Sudden Death · {cohortPlayers.map((p) => p.nickname).join(" vs ")}
+        </div>
+        <QuestionStage
+          questionText={state.current_question_text ?? ""}
+          answers={state.current_answers ?? ["", "", "", ""]}
+          droppedIndexes={[]}
+          correctIndex={null}
+          secondsLeft={remainingS}
+          totalS={state.question_duration_ms / 1000}
+          phase="question"
+          players={cohortPlayers}
+          mediaUrl={null}
+          mediaType={null}
+        />
+      </div>
     );
   }
 
