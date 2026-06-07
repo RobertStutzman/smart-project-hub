@@ -1,49 +1,49 @@
-## Phase 1.5 — Swap Vox to The Elf (ElevenLabs)
+## Phase 1.6 — Pre-bake Vox catchphrases (kill ~80% of live ElevenLabs calls)
 
-Goal: kill `window.speechSynthesis` everywhere and route every Vox utterance through your existing ElevenLabs pipeline (voice `e79twtVS2278lVZZQiAD`, same one the announcer pack and question TTS already use).
+Bake the 30 static lines from `host-persona.ts` to Supabase Storage once. Client checks storage first, only hits ElevenLabs for truly dynamic lines (player-name roasts, intro/credits narration with rosters).
 
 ### What changes
 
-**1. New server fn — `speakPersonaLine`** (in `src/lib/announcer.functions.ts`)
-- Input: `{ text: string, settingsKey?: "hype" | "calm" }`
-- Returns: `{ audioBase64 }` (mp3)
-- No admin gate (any authenticated host can call it during a game)
-- Reuses existing `generateTTS()` helper + Elf voice ID
-- `hype` preset = current welcome-line settings (style 0.9), `calm` = question-read settings (style 0.4)
+**1. New server fn — `generatePersonaPack`** (in `src/lib/announcer.functions.ts`)
+- Imports the `LINES` dict from `host-persona.ts` (10 moments × 3 lines = 30)
+- For each line: generate TTS (hype preset, Elf voice) → upload to `question-media` bucket at `announcer/persona_<moment>_<idx>.mp3` → upsert `sound_clips` row with slot `Persona`, category `Persona`, label = the line text
+- Admin-gated, idempotent (re-running re-uploads + replaces rows, same as `generateAnnouncerPack`)
+- Returns `{ generated, errors, total }`
 
-**2. Client TTS helper — `src/lib/elf-voice.ts`** (new)
-- `speakAsElf(text, opts?)` — calls `speakPersonaLine` via `useServerFn`-style direct invocation, plays returned base64 mp3 via `new Audio('data:audio/mpeg;base64,...')`
-- In-memory LRU cache keyed by `text+settingsKey` so repeat catchphrases ("On fire!", "Lock it in!") only hit the API once per session
-- Queue: if a line is already playing, new line waits (no overlap). `cancelElfSpeech()` interrupts.
-- Falls back silently to no-op on error (never crashes the game)
+**2. New server fn — `getPersonaCacheMap`** (no admin gate)
+- Returns `Record<text, publicUrl>` for all clips in the `Persona` category
+- Cached on the client for the session via TanStack Query
 
-**3. Pre-baked common lines** (extend `generateAnnouncerPack`)
-- Add a `PERSONA_LINES` array covering every static catchphrase in `host-persona.ts` (correct, wrong, streak, intro beats, credits beats)
-- On game start, client preloads these from storage via existing `sound_clips` lookup — instant playback, zero API latency for the hot lines
-- Dynamic lines (player-name roasts, intro narration with roster) go through the live `speakPersonaLine` path
+**3. Client lookup — extend `src/lib/elf-voice.ts`**
+- Add `initPersonaCache(map)` to seed an in-memory `text → url` lookup
+- `speakAsElf(text)` checks the URL map first → plays from storage (free) → only falls back to `speakPersonaLine` server fn on miss
+- HostGameStage calls `initPersonaCache` once on mount via `useQuery` over `getPersonaCacheMap`
 
-**4. Rip out `speechSynthesis`**
-- `src/lib/host-persona.ts` `speakAsVox()` → calls `speakAsElf()` instead; delete the `SpeechSynthesisUtterance` block
-- `src/components/host/HostGameStage.tsx` lines 193-339 → replace the two `speechSynthesis` blocks with `speakAsElf()` + `cancelElfSpeech()`
-- `IntroStage.tsx` & `CreditsStage.tsx` → swap any persona calls to the new helper (they already go through `host-persona`, so this falls out free)
+**4. Admin UI button — `src/routes/_authenticated/admin-sounds.tsx`**
+- Add "Generate persona pack" button next to the existing "Generate announcer pack" button
+- Shows progress (X / 30), errors, and a "regenerate" option
 
 ### Files touched
 
 ```text
-src/lib/announcer.functions.ts   # add speakPersonaLine + PERSONA_LINES export
-src/lib/elf-voice.ts             # NEW: client cache + queue + playback
-src/lib/host-persona.ts          # speakAsVox → speakAsElf
-src/components/host/HostGameStage.tsx   # remove speechSynthesis blocks
+src/lib/announcer.functions.ts          # + generatePersonaPack, getPersonaCacheMap
+src/lib/elf-voice.ts                    # + initPersonaCache, storage-first lookup
+src/components/host/HostGameStage.tsx   # call initPersonaCache once on mount
+src/routes/_authenticated/admin-sounds.tsx  # + button
 ```
 
-No DB migration. No new secrets (ElevenLabs already connected). No new env vars.
+No DB migration. Reuses existing `sound_clips` table, `Persona` category for filtering.
 
 ### Acceptance
 
-- Cold open, reveal reactions, leaderboard roasts, final-round hype, credits roll all narrate in The Elf's voice
-- Repeat lines play instantly (cached); first-time dynamic lines have ~600-1200ms TTS latency
-- No `speechSynthesis` references remain in `src/`
+- After clicking "Generate persona pack" once, every catchphrase ("Buckle up. The drop is coming.", "On fire!", etc.) plays from Supabase Storage — zero ElevenLabs calls during gameplay for static lines
+- Dynamic lines (player-name roasts, narration with rosters) still use live TTS path
+- Re-running the generator overwrites cleanly
 
-### After this
+### Cost impact
 
-Phase 2 (round themes + commercials) builds on this — round-theme stingers and commercial reads just call `speakAsElf()` + queue an SFX clip.
+Drops live ElevenLabs usage from ~700 chars/game to ~100-150 chars/game (~80% reduction). Re-baking the 30 lines costs ~1500 chars total, one-time.
+
+### Reminder
+
+If usage scales past ~500 games/month, revisit **Phase 1.7**: server-side DB cache for dynamic lines (cuts another ~15%) + per-session rate limits as a circuit breaker.
