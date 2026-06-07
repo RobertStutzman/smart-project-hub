@@ -21,7 +21,7 @@ import {
   newId,
 } from "@/lib/player-session";
 import { supabase } from "@/integrations/supabase/client";
-import { DEFAULT_OFF_CATEGORIES, emojiForCategory } from "@/lib/categories";
+import { CATEGORIES, DEFAULT_OFF_CATEGORIES, MIX_CATEGORY, emojiForCategory } from "@/lib/categories";
 import { THEMES, THEME_META, type ThemeName } from "@/lib/theme";
 import { useTheme } from "@/components/ThemeProvider";
 import { play, setMuted as setSoundMuted, startMusic, stopMusic, type Sfx } from "@/lib/sound-engine";
@@ -215,8 +215,17 @@ function HostPage() {
       try {
         const res = await listCategoriesFn();
         if (cancelled) return;
-        const names = res.categories.map((c) => c.name);
-        setAllCategories(res.categories);
+        // Merge DB categories with hardcoded ones so placeholders (count=0) show.
+        const dbMap = new Map(res.categories.map((c) => [c.name, c.count]));
+        for (const c of CATEGORIES) {
+          if (c.name === MIX_CATEGORY) continue;
+          if (!dbMap.has(c.name)) dbMap.set(c.name, 0);
+        }
+        const merged = Array.from(dbMap.entries())
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+        const names = merged.filter((c) => c.count > 0).map((c) => c.name);
+        setAllCategories(merged);
         let initial: Set<string>;
         try {
           const raw = window.localStorage.getItem(CATEGORIES_KEY);
@@ -405,9 +414,10 @@ function HostPage() {
   const livePlayers = players.filter((p) => !p.is_audience);
   const audienceMembers = players.filter((p) => p.is_audience);
   const canStart = !!room && livePlayers.length > 0;
-  const mixLabel = enabledCats.size === 0 || enabledCats.size === allCategories.length
-    ? `🎲 Surprise Mix · all ${allCategories.length || ""} categories`.trim()
-    : `🎲 Surprise Mix · ${enabledCats.size} of ${allCategories.length} on`;
+  const availableCategories = allCategories.filter((c) => c.count > 0);
+  const mixLabel = enabledCats.size === 0 || enabledCats.size === availableCategories.length
+    ? `🎲 Surprise Mix · all ${availableCategories.length || ""} categories`.trim()
+    : `🎲 Surprise Mix · ${enabledCats.size} of ${availableCategories.length} on`;
 
   function persistEnabled(next: Set<string>) {
     setEnabledCats(next);
@@ -415,7 +425,7 @@ function HostPage() {
       window.localStorage.setItem(CATEGORIES_KEY, JSON.stringify(Array.from(next)));
     } catch {}
     if (room) {
-      const all = allCategories.length > 0 && next.size === allCategories.length;
+      const all = availableCategories.length > 0 && next.size === availableCategories.length;
       setEnabledCategoriesFn({
         data: {
           roomCode: room.roomCode,
@@ -692,7 +702,7 @@ function HostPage() {
                   </h3>
                   <div className="flex gap-2 text-[10px] uppercase tracking-widest">
                     <button
-                      onClick={() => persistEnabled(new Set(allCategories.map((c) => c.name)))}
+                      onClick={() => persistEnabled(new Set(availableCategories.map((c) => c.name)))}
                       className="text-white/60 hover:text-amber-200"
                     >
                       All
@@ -717,19 +727,24 @@ function HostPage() {
                   ) : (
                     allCategories.map((c) => {
                       const checked = enabledCats.has(c.name);
+                      const empty = c.count === 0;
                       return (
                         <button
                           key={c.name}
-                          onClick={() => toggleCategory(c.name)}
+                          onClick={() => { if (!empty) toggleCategory(c.name); }}
+                          disabled={empty}
+                          title={empty ? "No questions in this category yet. Add some on /admin." : undefined}
                           className={`relative flex items-center gap-2 rounded-lg border p-2 text-left transition ${
-                            checked
-                              ? "border-amber-300/60 bg-amber-300/15 text-amber-100"
-                              : "border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/10"
+                            empty
+                              ? "cursor-not-allowed border-white/5 bg-white/[0.02] text-white/30"
+                              : checked
+                                ? "border-amber-300/60 bg-amber-300/15 text-amber-100"
+                                : "border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/10"
                           }`}
                         >
                           <span className="text-lg leading-none">{emojiForCategory(c.name)}</span>
                           <span className="flex-1 text-xs font-semibold leading-tight">{c.name}</span>
-                          <span className="text-[10px] text-white/40">{c.count}</span>
+                          <span className="text-[10px] text-white/40">{empty ? "empty" : c.count}</span>
                         </button>
                       );
                     })
