@@ -22,15 +22,15 @@ export interface HostMomentMeta {
 // Kept here as constants so the admin UI doesn't have to import the
 // browser-only persona-live module (which pulls in elf-voice / audio).
 const LIVE_COUNTS: Record<string, number> = {
-  first_blood: 7,
-  leader_changed: 6,
-  streak: 6,
-  elimination: 6,
-  comeback: 5,
-  round_recap: 5,
-  welcome: 5,
-  final_showdown: 4,
-  winner: 5,
+  first_blood: 10,
+  leader_changed: 10,
+  streak: 10,
+  elimination: 10,
+  comeback: 10,
+  round_recap: 10,
+  welcome: 10,
+  final_showdown: 10,
+  winner: 10,
 };
 
 export const HOST_MOMENTS: HostMomentMeta[] = [
@@ -89,7 +89,8 @@ export const HOST_MOMENTS: HostMomentMeta[] = [
     key: "comeback",
     label: "Comeback alert",
     description: "Player climbs 3+ ranks back into the top 3.",
-    tier: "live",
+    tier: "both",
+    bakedKey: "comeback",
     liveCount: LIVE_COUNTS.comeback,
     sampleText: "Wait — Sarah climbed 4 spots. Sneaky.",
   },
@@ -130,7 +131,8 @@ export const HOST_MOMENTS: HostMomentMeta[] = [
     key: "round_recap",
     label: "Round recap MVP",
     description: "Calls out the round's top scorer at round end.",
-    tier: "live",
+    tier: "both",
+    bakedKey: "round_recap",
     liveCount: LIVE_COUNTS.round_recap,
     sampleText: "Round 2 belonged to Sarah. The rest of you — adjust.",
   },
@@ -159,6 +161,22 @@ export const HOST_MOMENTS: HostMomentMeta[] = [
     tier: "baked",
     bakedKey: "credits_open",
     sampleText: "And that's the show. Roll credits.",
+  },
+  {
+    key: "idle_interject",
+    label: "Idle interjection",
+    description: "Dead-air filler between questions to keep Vox 'in the room'.",
+    tier: "baked",
+    bakedKey: "idle_interject",
+    sampleText: "Don't make me start humming.",
+  },
+  {
+    key: "round_transition",
+    label: "Round transition",
+    description: "Stinger played when moving from one round to the next.",
+    tier: "baked",
+    bakedKey: "round_transition",
+    sampleText: "Round two. Heating up.",
   },
 ];
 
