@@ -73,6 +73,16 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
   )[0];
   const hasStreak = (streakKing?.streak_count ?? 0) >= 2;
 
+  // Voice callouts that match the reel beats.
+  useEffect(() => {
+    if (beat === 1 && fastest) {
+      speakPersona(`Fastest finger: ${fastest.nickname}!`);
+    } else if (beat === 2 && mvp) {
+      speakPersona(`Round MVP: ${mvp.nickname}.`);
+    }
+  }, [beat, fastest?.id, mvp?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-black text-white">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(0.22_0.04_270/0.95),oklch(0.05_0.02_270)_75%)]" />
