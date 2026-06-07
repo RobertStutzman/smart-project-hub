@@ -1,29 +1,28 @@
-# Bring back wrong-answer face overlay on host screen
+# Full-screen reveal: correct answer + Did You Know
 
-## Problem
-`src/components/host/ShatteredFaces.tsx` still exists (cracked-glass avatar overlay + sad-trombone) but is no longer imported anywhere. So no faces appear on the TV when players get a question wrong.
+## Current
+On reveal, the 2×2 answer grid stays, and "Did you know?" is jammed into a 16vh banner under it with `line-clamp-2`. Hard to read on the TV.
 
-## Fix
-Wire `ShatteredFaces` back into `QuestionStage` and trigger it on the transition into the `reveal` phase.
+## Proposed change (in `src/components/host/QuestionStage.tsx`)
 
-### Edit `src/components/host/QuestionStage.tsx`
-1. Import `ShatteredFaces`.
-2. Extend the local `Player` prop type with `is_audience?: boolean` (so we can exclude audience).
-3. Inside the component, compute:
-   ```ts
-   const victims = phase === "reveal" && correctIndex != null
-     ? players.filter(p => !p.is_audience && p.current_answer != null && p.current_answer !== correctIndex)
-       .map(p => ({ id: p.id, nickname: p.nickname, avatar_url: p.avatar_url }))
-     : [];
-   const triggerKey = phase === "reveal" ? `${questionNumber}-reveal` : "";
-   ```
-4. Render `<ShatteredFaces victims={victims} triggerKey={triggerKey} />` near the bottom of the JSX (alongside other overlays).
+Add a **2-beat reveal**:
+1. **Beat 1 (~2 s)** — keep existing reveal animation on the answer grid: correct tile glows, wrong tiles dim, shattered-face overlay pops. This preserves the dramatic "who got it right" moment + ShatteredFaces.
+2. **Beat 2 (rest of reveal)** — swap the grid + small banner for a **full-screen reveal card** taking the whole stage:
+   - Tiny "Correct answer" eyebrow
+   - Huge correct answer (e.g. `font-display text-7xl`, "A. {answer}")
+   - Divider
+   - "💡 Did you know?" label
+   - Full explanation in large readable type (`text-2xl`/`3xl`, no `line-clamp`, wraps freely)
+   - No question tiles, no media in this view — clean and TTS-friendly
 
-### Edit `src/components/host/HostGameStage.tsx`
-- `HostGameStage` already filters players when passing them to `QuestionStage` — confirm `is_audience` is on the player object (it is, from select list). No change needed there beyond making sure the field flows through. If TS complains, widen the `players` prop type passed in.
+Use a `useEffect` + `setTimeout(2000)` keyed on `questionNumber + phase` to flip an internal `revealStage` state from `"tiles"` → `"fullscreen"`. Resets on next question.
 
-## Result
-On every reveal, every non-audience player who picked the wrong answer (or chose anything other than correct) gets their avatar popped on screen for ~2 s with the cracked-glass effect + sad trombone, then auto-dismisses.
+Existing "Did you know?" small banner: remove (replaced by full-screen card).
 
-## Scope
-Two-file presentation change. No DB, no server logic, no sound assets.
+ShatteredFaces overlay still fires on entering reveal (already wired) — it sits z-50 over either layout, so it just works.
+
+## Out of scope (next turn)
+ElevenLabs TTS reading the explanation — you mentioned you'll add that. I'll leave a clean hook: an `onFullscreenEnter` callback or just have the parent observe `phase === "reveal"` + 2s delay. Easiest follow-up is to fire TTS from `HostGameStage` when phase enters reveal.
+
+## Files
+- `src/components/host/QuestionStage.tsx` — only file changed.
