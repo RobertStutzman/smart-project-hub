@@ -34,6 +34,7 @@ type RoomState = {
   current_question_id: string | null;
   current_question_text: string | null;
   current_question_tts_url: string | null;
+  current_explanation_tts_url: string | null;
   current_answers: string[] | null;
   current_correct_index: number | null;
   current_explanation: string | null;
@@ -131,7 +132,7 @@ export function HostGameStage({ room }: Props) {
       const { data: r } = await supabase
         .from("rooms")
         .select(
-          "id, room_code, phase, current_question_id, current_question_text, current_question_tts_url, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number, sudden_death_session_ids",
+          "id, room_code, phase, current_question_id, current_question_text, current_question_tts_url, current_explanation_tts_url, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number, sudden_death_session_ids",
         )
         .eq("id", room.id)
         .maybeSingle();
