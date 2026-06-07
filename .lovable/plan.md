@@ -1,74 +1,70 @@
-## Phase 1.7 — Cost insurance for dynamic ElevenLabs lines
+## Phase 2 — Polish the Final Drop
 
-Phase 1.6 killed the 30 static catchphrases. Phase 1.7 protects the **dynamic** path (player-name roasts, intro/credits narration, anything passed through `speakPersonaLine`) so the same exact line never bills twice and a runaway game can't drain your ElevenLabs quota.
+Make the Final round feel like the climactic moment. Three beats: **wager (tension)**, **question (heart-pound)**, **reveal (drama)**. All work stays in `HostGameStage.tsx` + sounds; no game-logic changes.
 
-### Two protections
+### Beat 1 — Wager phase (tension build)
 
-**1. Server-side TTS cache** — every generated line is uploaded to storage and recorded in a `tts_cache` table keyed by `sha256(preset + text)`. Repeats return the cached URL for free. Player rosters and recurring roast templates repeat far more than you'd think — expect ~30-50% hit rate after a few games, ~70%+ once you have regulars.
+Current: split layout, "All players are betting…", locked counter. Static.
 
-**2. Per-game call cap** — a small counter on the `rooms` table (`tts_calls_count`). When a host starts a new game the counter resets. `speakPersonaLine` increments before generating; if it crosses the cap (default **50 calls / game**, configurable), the server returns `{ skipped: true, reason: "cap" }` and the client silently no-ops. Static catchphrases from Phase 1.6 don't count against the cap — they never hit the server.
+Add:
+- **Heartbeat pulse**: amber glow on the page ring synced to a ~70bpm pulse (CSS keyframe). Pulse speed increases as more players lock in.
+- **Animated bet counter**: locked / total morphs with `scale-in` each time someone locks. Add a soft "thud" sound on each lock (reuse `drop` sfx).
+- **Top-3 standings**: subtle parallax — each row drifts in from left with stagger (`fade-in` + translateX, 80ms stagger).
+- **"All in" warning ribbon**: if a top-3 player wagers their full score, show a small flashing "ALL IN — {name}" tag at top center.
+- **Looping low-bass bed**: trigger `final` sound event (already exists) at phase entry, loop=true, volume 0.3. Stop on phase exit.
 
-### What changes
+### Beat 2 — Final question (heart-pound)
 
-**Migration**
-```text
-tts_cache table:
-  text_hash text PK
-  preset text
-  text text
-  storage_path text
-  created_at timestamptz
-  last_used_at timestamptz
-  hit_count int
+Current: standard QuestionStage with amber ring + "★ Final question" badge.
 
-rooms.tts_calls_count int default 0
-rooms.tts_cap_started_at timestamptz
-```
-GRANTs: `service_role` only (writes happen via `supabaseAdmin` in server fns; clients never touch it directly).
+Add:
+- **Stronger ring**: ring pulses red→amber as timer drops below 10s, then below 5s flashes faster.
+- **Vignette closes in**: radial darken from edges intensifies as time runs out (opacity tied to remaining %).
+- **Tick sound speedup**: existing tick at 10s, then double-tick under 5s (reuse `tick` clip, faster interval).
+- **Per-player lock-in flashes**: when a player locks an answer, brief amber flash overlay on their tile (already tracked via `current_answer_locked_at`).
 
-**`src/lib/announcer.functions.ts` — rewrite `speakPersonaLine`**
-- Hash input → `SELECT storage_path FROM tts_cache WHERE text_hash = ?`
-- On hit: bump `hit_count` + `last_used_at`, return `{ audioUrl: signedUrl }`
-- On miss: check + atomically increment `rooms.tts_calls_count` for the active room. If over cap (read from a new `TTS_CAP_PER_GAME` env var, default 50), return `{ skipped: true, reason: "cap" }`
-- Otherwise: generate via ElevenLabs → upload to `question-media/tts-cache/<hash>.mp3` → insert `tts_cache` row → return `{ audioUrl: signedUrl }`
-- Input now also accepts optional `roomId` so the cap counter knows which game to charge
+### Beat 3 — Reveal (drama swell)
 
-**`src/lib/elf-voice.ts`**
-- `fetchAudio` now expects `{ audioUrl?, audioBase64?, skipped? }` and prefers URL playback (lighter, browser-streamable)
-- On `skipped: true`, silently resolve — no error, no crash. Game keeps playing
-- Pass `roomId` through `speakAsElf(text, { preset, roomId })`; callers in `HostGameStage.tsx` thread it from the room state
+Current: shows correct answer, lists ranked players with delta.
 
-**`src/lib/rooms.functions.ts`** (or wherever a game starts)
-- When `phase` transitions from `lobby` → first round, reset `tts_calls_count = 0`, `tts_cap_started_at = now()`
+Add:
+- **Two-stage reveal**:
+  1. **Pause beat** (~1.2s): "The answer was…" appears, big amber bar fills left→right while a rising sweep plays (reuse `whoosh`).
+  2. **Answer slam**: correct answer text scales in from 0.5 with a heavy "boom" (reuse `reveal` sound event, or `drop` louder).
+- **Per-player roll-out**: ranked list reveals one player at a time, bottom→top, 400ms stagger. Each row:
+  - Correct → green flash + `correct` sfx (soft, volume 0.4)
+  - Wrong + wager > 0 → red shake + `wrong` sfx (soft)
+  - No bet → muted slide in, no sound
+- **Score counter animation**: delta number counts up/down from previous score to new (300ms tween) instead of static print.
+- **Winner crown**: after all rows revealed, if leader changed, the new #1 row gets a gold crown badge with a small `victory` cue (volume 0.5, no loop).
 
-**`src/routes/_authenticated/admin-sounds.tsx`** — small stats panel
-- Total cached lines + total storage used
-- Top 10 most-hit cached lines (sanity-check the cache is working)
-- Current `TTS_CAP_PER_GAME` value + note on how to change it via secrets
+### Technical implementation
 
-**New secret (optional, default 50)**
-- `TTS_CAP_PER_GAME` — number of live ElevenLabs calls allowed per game before the circuit breaker trips
+Keep everything client-side in `HostGameStage.tsx`. New helpers:
+- `useStaggeredReveal(items, delayMs)` — returns indices that have "appeared", drives the roll-out.
+- `useCountUp(from, to, durMs)` — tween hook for score deltas.
+- `useHeartbeat(bpm)` — returns 0→1 pulse value for the wager ring.
+
+Sound triggers reuse existing `play()` from the sounds system. The looping `final` bed during wager needs a small addition to the play helper to support `loop: true` and explicit stop on phase change — check whether `play()` already supports this; if not, add a `playLoop(name)` / `stopLoop(name)` pair.
+
+No database changes. No new server functions. No changes to `game.functions.ts`.
 
 ### Files touched
-```text
-supabase migration                            # tts_cache table, rooms columns
-src/lib/announcer.functions.ts                # cache + cap in speakPersonaLine
-src/lib/elf-voice.ts                          # URL playback, skipped no-op, roomId pass-through
-src/lib/rooms.functions.ts                    # reset counter on game start
-src/components/host/HostGameStage.tsx         # pass roomId to speakAsElf calls
-src/routes/_authenticated/admin-sounds.tsx    # cache stats panel
-```
+
+- `src/components/host/HostGameStage.tsx` — all three beat upgrades
+- `src/lib/sounds-client.ts` (or wherever `play()` lives) — add loop/stop support if missing
+- Maybe one new file `src/hooks/useCountUp.ts` if the tween is reused
 
 ### Acceptance
-- Two different games where Player "Alex" answers wrong → second game's roast for Alex plays from cache, zero ElevenLabs call
-- Force 51 calls in one game → call #51 returns `skipped`, host UI keeps moving, no errors in console
-- Admin page shows cache row count growing over time, with hit counts > 1 on common lines
-- Phase 1.6 static catchphrases are unaffected (they never reach the server)
 
-### Cost impact
-- ~70% additional reduction on the dynamic path after a few sessions
-- Hard ceiling per game prevents any single chaotic session from costing more than ~50 lines worth of characters
-- Combined with Phase 1.6, you go from ~700 chars/game baseline → ~100 chars/game typical → max ~600 chars/game worst case (capped)
+- Wager phase has visible/audible pulse, lock count animates, all-in players are called out, low bass bed loops.
+- Final question phase intensifies visually + audibly under 10s and 5s thresholds.
+- Reveal phase has a deliberate pause before the answer slams in, then players roll out bottom-up with score count-up and winner crown.
+- Phase 1.6/1.7 voice lines still play on top without conflict.
+- No regressions to non-final rounds.
 
-### One heads-up
-Per-game cap uses the `rooms.tts_calls_count` column as the counter. That's a soft limit — two simultaneous requests could both squeak through if they read the counter at the same millisecond. For this use case (one host driving the game) that's fine. If you ever go multi-host-per-room I'd revisit with a proper atomic RPC.
+### Out of scope
+
+- New music tracks (uses existing `final` clip, user can swap in admin)
+- Camera/confetti for final winner (that's the post-game `leaderboard` celebration, separate polish pass)
+- Mobile player-side wager UI polish (host stage only this pass)
