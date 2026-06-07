@@ -442,6 +442,10 @@ function HostPage() {
 
         {/* PLAYER ROW */}
         <section className="flex flex-none flex-col items-center gap-[1.5svh]">
+          <div className="flex items-center gap-2 text-[clamp(0.65rem,1.3svh,0.85rem)] font-bold uppercase tracking-[0.35em] text-white/60">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+            {players.length} {players.length === 1 ? "player" : "players"} in
+          </div>
           <div className="flex flex-wrap items-center justify-center gap-2" style={{ maxHeight: "12svh", overflow: "hidden" }}>
             <AnimatePresence>
               {players.length === 0 ? (
