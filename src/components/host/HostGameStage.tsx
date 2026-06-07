@@ -23,6 +23,7 @@ import { pickLine, speakPersona } from "@/lib/host-persona";
 import { playVoiceUrl } from "@/lib/elf-voice";
 import { speakAboutPlayer, setLiveRoomId, resetLiveCap } from "@/lib/persona-live";
 import { play, playEvent, playRandomDrop, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
+import { playFunnySoundForId, preloadFunnyBank } from "@/lib/funny-sounds";
 import { FinalWagerStage, FinalRevealStage } from "./FinalStages";
 import { WinnerSpotlight } from "./WinnerSpotlight";
 import { RoundRecapReel } from "./RoundRecapReel";
