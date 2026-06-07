@@ -48,6 +48,9 @@ const MUTE_KEY = "btd:muted";
 function HostPage() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
+  const { isFullscreen, toggleFullscreen } = useHostStageMode();
+  useHostHotkeys(toggleFullscreen);
+
   const createRoomFn = useServerFn(createRoom);
   const endRoomFn = useServerFn(endRoom);
   const heartbeatFn = useServerFn(heartbeatHost);
