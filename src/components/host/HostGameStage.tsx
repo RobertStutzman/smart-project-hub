@@ -279,7 +279,7 @@ export function HostGameStage({ room }: Props) {
       audio.play().catch(() => {
         duckMusic(false);
       });
-    }, 2200);
+    }, 3800);
 
     return () => window.clearTimeout(timer);
   }, [state?.current_question_id, state?.current_explanation_tts_url, state?.phase]);
