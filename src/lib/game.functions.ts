@@ -705,7 +705,7 @@ export const startFinalRound = createServerFn({ method: "POST" })
       .from("rooms")
       .update({
         status: "playing",
-        phase: "final_wager",
+        phase: "final_intro",
         current_question_id: q.id,
         current_question_text: q.question_text,
         current_answers: answers,
