@@ -803,33 +803,8 @@ async function loadPlayers(roomId: string): Promise<Player[]> {
   return (data ?? []) as Player[];
 }
 
-function PaywallModal({ category, onClose }: { category: Category; onClose: () => void }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-background/80 p-4 backdrop-blur"
-      onClick={onClose}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-3xl border border-border bg-card p-8 text-center"
-      >
-        <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-accent/20 text-3xl">
-          {category.emoji}
-        </div>
-        <h3 className="mt-4 text-2xl font-bold">{category.name} is premium</h3>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Premium categories unlock in Phase 3. For now, try Music, Movies, or General Knowledge.
-        </p>
-        <button
-          onClick={onClose}
-          className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground"
-        >
-          Got it
-        </button>
-      </div>
-    </div>
-  );
-}
+
+
 
 const LOBBY_HOST_TIPS = [
   "Phones out. Thumbs warm.",
