@@ -195,7 +195,12 @@ export const setCategory = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { error } = await supabaseAdmin
       .from("rooms")
-      .update({ current_category: data.category, status: "playing" })
+      .update({
+        current_category: data.category,
+        status: "playing",
+        tts_calls_count: 0,
+        tts_cap_started_at: new Date().toISOString(),
+      })
       .eq("room_code", data.roomCode)
       .eq("host_session_id", data.hostSessionId);
     if (error) throw new Error(error.message);

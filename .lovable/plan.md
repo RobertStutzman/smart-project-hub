@@ -1,49 +1,74 @@
-## Phase 1.6 — Pre-bake Vox catchphrases (kill ~80% of live ElevenLabs calls)
+## Phase 1.7 — Cost insurance for dynamic ElevenLabs lines
 
-Bake the 30 static lines from `host-persona.ts` to Supabase Storage once. Client checks storage first, only hits ElevenLabs for truly dynamic lines (player-name roasts, intro/credits narration with rosters).
+Phase 1.6 killed the 30 static catchphrases. Phase 1.7 protects the **dynamic** path (player-name roasts, intro/credits narration, anything passed through `speakPersonaLine`) so the same exact line never bills twice and a runaway game can't drain your ElevenLabs quota.
+
+### Two protections
+
+**1. Server-side TTS cache** — every generated line is uploaded to storage and recorded in a `tts_cache` table keyed by `sha256(preset + text)`. Repeats return the cached URL for free. Player rosters and recurring roast templates repeat far more than you'd think — expect ~30-50% hit rate after a few games, ~70%+ once you have regulars.
+
+**2. Per-game call cap** — a small counter on the `rooms` table (`tts_calls_count`). When a host starts a new game the counter resets. `speakPersonaLine` increments before generating; if it crosses the cap (default **50 calls / game**, configurable), the server returns `{ skipped: true, reason: "cap" }` and the client silently no-ops. Static catchphrases from Phase 1.6 don't count against the cap — they never hit the server.
 
 ### What changes
 
-**1. New server fn — `generatePersonaPack`** (in `src/lib/announcer.functions.ts`)
-- Imports the `LINES` dict from `host-persona.ts` (10 moments × 3 lines = 30)
-- For each line: generate TTS (hype preset, Elf voice) → upload to `question-media` bucket at `announcer/persona_<moment>_<idx>.mp3` → upsert `sound_clips` row with slot `Persona`, category `Persona`, label = the line text
-- Admin-gated, idempotent (re-running re-uploads + replaces rows, same as `generateAnnouncerPack`)
-- Returns `{ generated, errors, total }`
+**Migration**
+```text
+tts_cache table:
+  text_hash text PK
+  preset text
+  text text
+  storage_path text
+  created_at timestamptz
+  last_used_at timestamptz
+  hit_count int
 
-**2. New server fn — `getPersonaCacheMap`** (no admin gate)
-- Returns `Record<text, publicUrl>` for all clips in the `Persona` category
-- Cached on the client for the session via TanStack Query
+rooms.tts_calls_count int default 0
+rooms.tts_cap_started_at timestamptz
+```
+GRANTs: `service_role` only (writes happen via `supabaseAdmin` in server fns; clients never touch it directly).
 
-**3. Client lookup — extend `src/lib/elf-voice.ts`**
-- Add `initPersonaCache(map)` to seed an in-memory `text → url` lookup
-- `speakAsElf(text)` checks the URL map first → plays from storage (free) → only falls back to `speakPersonaLine` server fn on miss
-- HostGameStage calls `initPersonaCache` once on mount via `useQuery` over `getPersonaCacheMap`
+**`src/lib/announcer.functions.ts` — rewrite `speakPersonaLine`**
+- Hash input → `SELECT storage_path FROM tts_cache WHERE text_hash = ?`
+- On hit: bump `hit_count` + `last_used_at`, return `{ audioUrl: signedUrl }`
+- On miss: check + atomically increment `rooms.tts_calls_count` for the active room. If over cap (read from a new `TTS_CAP_PER_GAME` env var, default 50), return `{ skipped: true, reason: "cap" }`
+- Otherwise: generate via ElevenLabs → upload to `question-media/tts-cache/<hash>.mp3` → insert `tts_cache` row → return `{ audioUrl: signedUrl }`
+- Input now also accepts optional `roomId` so the cap counter knows which game to charge
 
-**4. Admin UI button — `src/routes/_authenticated/admin-sounds.tsx`**
-- Add "Generate persona pack" button next to the existing "Generate announcer pack" button
-- Shows progress (X / 30), errors, and a "regenerate" option
+**`src/lib/elf-voice.ts`**
+- `fetchAudio` now expects `{ audioUrl?, audioBase64?, skipped? }` and prefers URL playback (lighter, browser-streamable)
+- On `skipped: true`, silently resolve — no error, no crash. Game keeps playing
+- Pass `roomId` through `speakAsElf(text, { preset, roomId })`; callers in `HostGameStage.tsx` thread it from the room state
+
+**`src/lib/rooms.functions.ts`** (or wherever a game starts)
+- When `phase` transitions from `lobby` → first round, reset `tts_calls_count = 0`, `tts_cap_started_at = now()`
+
+**`src/routes/_authenticated/admin-sounds.tsx`** — small stats panel
+- Total cached lines + total storage used
+- Top 10 most-hit cached lines (sanity-check the cache is working)
+- Current `TTS_CAP_PER_GAME` value + note on how to change it via secrets
+
+**New secret (optional, default 50)**
+- `TTS_CAP_PER_GAME` — number of live ElevenLabs calls allowed per game before the circuit breaker trips
 
 ### Files touched
-
 ```text
-src/lib/announcer.functions.ts          # + generatePersonaPack, getPersonaCacheMap
-src/lib/elf-voice.ts                    # + initPersonaCache, storage-first lookup
-src/components/host/HostGameStage.tsx   # call initPersonaCache once on mount
-src/routes/_authenticated/admin-sounds.tsx  # + button
+supabase migration                            # tts_cache table, rooms columns
+src/lib/announcer.functions.ts                # cache + cap in speakPersonaLine
+src/lib/elf-voice.ts                          # URL playback, skipped no-op, roomId pass-through
+src/lib/rooms.functions.ts                    # reset counter on game start
+src/components/host/HostGameStage.tsx         # pass roomId to speakAsElf calls
+src/routes/_authenticated/admin-sounds.tsx    # cache stats panel
 ```
 
-No DB migration. Reuses existing `sound_clips` table, `Persona` category for filtering.
-
 ### Acceptance
-
-- After clicking "Generate persona pack" once, every catchphrase ("Buckle up. The drop is coming.", "On fire!", etc.) plays from Supabase Storage — zero ElevenLabs calls during gameplay for static lines
-- Dynamic lines (player-name roasts, narration with rosters) still use live TTS path
-- Re-running the generator overwrites cleanly
+- Two different games where Player "Alex" answers wrong → second game's roast for Alex plays from cache, zero ElevenLabs call
+- Force 51 calls in one game → call #51 returns `skipped`, host UI keeps moving, no errors in console
+- Admin page shows cache row count growing over time, with hit counts > 1 on common lines
+- Phase 1.6 static catchphrases are unaffected (they never reach the server)
 
 ### Cost impact
+- ~70% additional reduction on the dynamic path after a few sessions
+- Hard ceiling per game prevents any single chaotic session from costing more than ~50 lines worth of characters
+- Combined with Phase 1.6, you go from ~700 chars/game baseline → ~100 chars/game typical → max ~600 chars/game worst case (capped)
 
-Drops live ElevenLabs usage from ~700 chars/game to ~100-150 chars/game (~80% reduction). Re-baking the 30 lines costs ~1500 chars total, one-time.
-
-### Reminder
-
-If usage scales past ~500 games/month, revisit **Phase 1.7**: server-side DB cache for dynamic lines (cuts another ~15%) + per-session rate limits as a circuit breaker.
+### One heads-up
+Per-game cap uses the `rooms.tts_calls_count` column as the counter. That's a soft limit — two simultaneous requests could both squeak through if they read the counter at the same millisecond. For this use case (one host driving the game) that's fine. If you ever go multi-host-per-room I'd revisit with a proper atomic RPC.
