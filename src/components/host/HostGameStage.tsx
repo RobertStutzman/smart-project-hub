@@ -329,7 +329,7 @@ export function HostGameStage({ room }: Props) {
     DROP_AT_ELAPSED_S.forEach((thresholdElapsed, idx) => {
       if (elapsedS >= thresholdElapsed && !droppedRef.current.has(idx)) {
         droppedRef.current.add(idx);
-        play("drop");
+        playRandomDrop();
         dropWrongFn({
           data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
         }).catch(() => {});
