@@ -347,3 +347,44 @@ export const setAudienceMode = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// Return all distinct categories that have questions in the DB, with counts.
+// Drives the "Surprise Mix" picker in the host lobby.
+export const listCategories = createServerFn({ method: "GET" }).handler(async () => {
+  const { data, error } = await supabaseAdmin
+    .from("questions")
+    .select("category");
+  if (error) throw new Error(error.message);
+  const counts = new Map<string, number>();
+  for (const row of data ?? []) {
+    const c = (row as { category: string }).category;
+    if (!c) continue;
+    counts.set(c, (counts.get(c) ?? 0) + 1);
+  }
+  return {
+    categories: Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  };
+});
+
+// Persist the host's enabled category set onto the room. Pass null/empty to
+// mean "all categories" (true Surprise Mix).
+export const setEnabledCategories = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      hostSessionId: z.string().min(8).max(128),
+      categories: z.array(z.string().min(1).max(60)).max(64).nullable(),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const value = data.categories && data.categories.length > 0 ? data.categories : null;
+    const { error } = await supabaseAdmin
+      .from("rooms")
+      .update({ enabled_categories: value })
+      .eq("room_code", data.roomCode)
+      .eq("host_session_id", data.hostSessionId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
