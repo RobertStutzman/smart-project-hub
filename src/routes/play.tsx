@@ -489,7 +489,31 @@ function PlayPage() {
                 </button>
               )}
 
-            {room.phase === "final_wager" || room.phase === "final_intro" ? (
+            {room.phase === "final_intro" ? (
+              <div className="grid flex-1 place-items-center rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-500/15 via-black to-black p-8 text-center">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.5em] text-amber-300/90">
+                    One question. All on the line.
+                  </div>
+                  <div
+                    className="mt-3 font-display text-5xl font-black uppercase tracking-tight text-transparent [animation:scale-in_0.5s_ease-out]"
+                    style={{
+                      backgroundImage:
+                        "linear-gradient(180deg, oklch(0.97 0.12 90), oklch(0.75 0.20 60))",
+                      WebkitBackgroundClip: "text",
+                      backgroundClip: "text",
+                      filter: "drop-shadow(0 6px 30px oklch(0.85 0.20 70 / 0.55))",
+                    }}
+                  >
+                    ★ Final Round
+                  </div>
+                  <div className="mt-6 flex items-center justify-center gap-2 text-xs uppercase tracking-[0.3em] text-amber-200/70">
+                    <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-amber-300" />
+                    Get ready to wager…
+                  </div>
+                </div>
+              </div>
+            ) : room.phase === "final_wager" ? (
               <>
                 {me?.comeback_bonus && (
                   <div className="rounded-2xl border-2 border-emerald-400/70 bg-gradient-to-br from-emerald-500/25 to-teal-500/15 p-3 text-center shadow-[0_10px_30px_-10px_rgba(16,185,129,0.6)] animate-scale-in">

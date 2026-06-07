@@ -416,6 +416,19 @@ export function HostGameStage({ room }: Props) {
     if (!state) return;
     const phase = state.phase;
 
+    // Intro splash → flip to wager after the dramatic beat plays
+    if (phase === "final_intro") {
+      const key = `intro-${state.id}`;
+      if (finalAdvancedRef.current === key) return;
+      const id = window.setTimeout(() => {
+        finalAdvancedRef.current = key;
+        setPhaseFn({
+          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "final_wager" },
+        }).catch(() => {});
+      }, 4500);
+      return () => window.clearTimeout(id);
+    }
+
     // Wager → start question after 30s OR when all live players locked
     if (phase === "final_wager") {
       const live = players.filter((p) => !p.is_audience);
@@ -490,6 +503,20 @@ export function HostGameStage({ room }: Props) {
           data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
         }).catch(() => {});
       }
+    }
+
+    // Ended → auto-roll credits after 20s if host doesn't click
+    if (phase === "ended") {
+      const key = `ended-${state.id}`;
+      if (finalAdvancedRef.current === key) return;
+      const id = window.setTimeout(() => {
+        finalAdvancedRef.current = key;
+        play("whoosh");
+        setPhaseFn({
+          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "credits" },
+        }).catch(() => {});
+      }, 20000);
+      return () => window.clearTimeout(id);
     }
   }, [state, now, players, setPhaseFn, startFinalQuestionFn, scoreFinalRoundFn, endGameFn, resolveSuddenDeathFn, room.roomCode, room.hostSessionId]);
 
