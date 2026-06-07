@@ -1,22 +1,46 @@
-I’ll update the host lobby so Silk browser chrome and TV overscan can’t hide the join QR.
+Redesign the host lobby as a single-screen, no-scroll Jackbox-style layout that fits any TV viewport from 720p up.
 
-Plan:
-1. Move the join block into a dedicated top-right TV-safe panel
-   - Keep the QR code and room code always visible near the top-right.
-   - Add enough inset padding so TV overscan does not crop it.
-   - Keep it visible even when the rest of the lobby content changes.
+## What Jackbox does (target)
 
-2. Rebalance the lobby layout around the fixed join panel
-   - Reduce the room-code/QR footprint in the main left column so the page is no longer dependent on bottom space.
-   - Keep player list, categories, and host controls readable without requiring scroll.
-   - Avoid using vertical space that Silk’s address/navigation bars may steal.
+- One screen, no scroll, ever.
+- Huge centered room code + QR as the hero.
+- "Join at jackbox.tv" line under the code.
+- Player avatars appear in a row across the bottom as they join.
+- No settings, toggles, theme pickers, or category grid on the lobby — the host advances with one button.
 
-3. Add Silk/TV-safe sizing rules
-   - Use viewport-height-safe clamps instead of large desktop sizes.
-   - Prefer smaller QR sizing for 720p TV browsers.
-   - Add safe margins around the whole lobby for TVs that crop edges.
+## Changes
 
-4. Verify the target behavior
-   - Check the host lobby at a 1280×720 viewport.
-   - Confirm the QR code is fully visible without scrolling.
-   - Confirm the room code remains readable and host controls are still usable.
+1. Strip the lobby down to four things, top to bottom:
+   - Brand line (small, top)
+   - Hero block: "JOIN AT {host}/join" + giant room code + QR, all centered
+   - Player avatar row (horizontal, wraps)
+   - Single primary action button: "Start the show" (disabled until ready)
+
+2. Move host controls off the lobby
+   - Allow late joiners, team mode, theme, mute, category picker → behind a small gear icon button (top-right) that opens a slide-in panel/sheet.
+   - Category picker stays required before starting, but lives inside the settings sheet with a "Pick category" call-to-action shown on the Start button when none selected.
+
+3. Use viewport-safe sizing that actually fits Silk
+   - Container: `height: 100svh`, no scroll, flex column.
+   - All sizes clamp on `svh` (small viewport height) so Silk's chrome doesn't push content off.
+   - Add 3-4% inset padding on all sides for TV overscan.
+
+4. Remove the fixed top-right QR panel
+   - The QR is now the hero in the center, no longer a corner pin.
+   - Header (Home, Host view, Fullscreen, Admin, Settings gear) sits on a single thin top row.
+
+5. Keep game stage screens unchanged
+   - This redesign only touches the lobby phase. Question/reveal/scoreboard stages already render via `HostGameStage` and are untouched.
+
+## Technical notes
+
+- File: `src/routes/host.tsx`, lobby return block only (lines ~336-633).
+- New small component (inline): `SettingsSheet` for the gear panel, using existing `Toggle` and category grid markup moved into it.
+- Sizing: `text-[clamp(4rem,18svh,12rem)]` for the code, `size={Math.min(220, viewport-derived)}` for the QR via a `clamp`-style CSS approach (use fixed 200px — fits even at 720p once controls are removed).
+- No new dependencies.
+
+## Verification
+
+- Preview at 1280x720 (Firestick): no scroll, QR + code + players + Start all visible.
+- Preview at 1024x600 (low-end TV browser): same.
+- Preview at 1920x1080: hero scales up, still no scroll.
