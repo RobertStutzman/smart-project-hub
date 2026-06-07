@@ -22,6 +22,7 @@ import { pickLine, speakPersona } from "@/lib/host-persona";
 import { play, playEvent, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
 import { FinalWagerStage, FinalRevealStage } from "./FinalStages";
 import { WinnerSpotlight } from "./WinnerSpotlight";
+import { RoundRecapReel } from "./RoundRecapReel";
 
 type RoomState = {
   id: string;
