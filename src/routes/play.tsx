@@ -690,7 +690,7 @@ function PlayPage() {
                     G̷L̷I̷T̷C̷H̷E̷D̷
                   </div>
                 )}
-                {room.phase === "reveal" && me?.last_answer_correct !== null && me?.last_answer_correct !== undefined && (
+                {room.phase === "reveal" && me && me.last_answer_correct !== null && me.last_answer_correct !== undefined && (
                   <div
                     className={`flex items-center justify-between gap-3 rounded-2xl border-2 px-4 py-3 backdrop-blur animate-scale-in ${
                       me.last_answer_correct
