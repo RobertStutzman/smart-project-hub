@@ -601,8 +601,9 @@ function HostPage() {
         </section>
 
         <div className="text-center text-[10px] uppercase tracking-[0.3em] text-white/40">
-          Press <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">F</kbd> for fullscreen · <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">Space</kbd> to advance · works great on Firestick
+          <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">F</kbd> fullscreen · <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">Enter</kbd> advance · <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">Space</kbd> pause · works on Firestick
         </div>
+
       </div>
 
 
