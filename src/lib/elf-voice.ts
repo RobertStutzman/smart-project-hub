@@ -85,6 +85,25 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
 
   const task = async () => {
     if (opts.interrupt) cancelElfSpeech();
+    // 1. Pre-baked URL (free, instant)
+    const url = urlCache.get(text);
+    if (url) {
+      await new Promise<void>((resolve) => {
+        const audio = new Audio(url);
+        audio.volume = volume;
+        const cleanup = () => {
+          if (currentAudio === audio) currentAudio = null;
+          resolve();
+        };
+        audio.addEventListener("ended", cleanup);
+        audio.addEventListener("pause", cleanup);
+        audio.addEventListener("error", cleanup);
+        currentAudio = audio;
+        audio.play().catch(cleanup);
+      });
+      return;
+    }
+    // 2. In-memory base64 cache → 3. Live ElevenLabs
     const b64 = await fetchAudio(text, preset);
     if (!b64) return;
     await new Promise<void>((resolve) => {
