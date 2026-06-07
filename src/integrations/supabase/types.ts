@@ -147,7 +147,10 @@ export type Database = {
           media_url: string | null
           question_text: string
           subcategory: string | null
+          times_answered: number
+          times_correct: number
           times_used: number
+          total_response_ms: number
           tts_path: string | null
           tts_text_hash: string | null
           wrong_1: string
@@ -167,7 +170,10 @@ export type Database = {
           media_url?: string | null
           question_text: string
           subcategory?: string | null
+          times_answered?: number
+          times_correct?: number
           times_used?: number
+          total_response_ms?: number
           tts_path?: string | null
           tts_text_hash?: string | null
           wrong_1: string
@@ -187,7 +193,10 @@ export type Database = {
           media_url?: string | null
           question_text?: string
           subcategory?: string | null
+          times_answered?: number
+          times_correct?: number
           times_used?: number
+          total_response_ms?: number
           tts_path?: string | null
           tts_text_hash?: string | null
           wrong_1?: string
