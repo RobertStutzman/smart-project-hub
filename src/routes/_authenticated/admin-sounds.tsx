@@ -29,6 +29,11 @@ import {
   previewAnnouncerLine,
   WELCOME_LINES,
 } from "@/lib/announcer.functions";
+import {
+  HOST_MOMENTS,
+  bakedCount,
+  type HostMomentMeta,
+} from "@/lib/host-moments";
 
 export const Route = createFileRoute("/_authenticated/admin-sounds")({
   component: SoundsPage,
@@ -245,6 +250,8 @@ function EventsPanel({
       <QuestionVoiceoversPanel />
 
       <TTSCacheStatsPanel />
+
+      <HostMomentsPanel />
 
 
 
