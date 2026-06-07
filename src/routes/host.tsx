@@ -19,6 +19,9 @@ import { useTheme } from "@/components/ThemeProvider";
 import { play, setMuted as setSoundMuted, startMusic, stopMusic, type Sfx } from "@/lib/sound-engine";
 import { HostGameStage, useRevealAutoAdvance } from "@/components/host/HostGameStage";
 import { HostOnboarding } from "@/components/host/HostOnboarding";
+import { useHostStageMode } from "@/hooks/useHostStageMode";
+import { useHostHotkeys } from "@/hooks/useHostHotkeys";
+
 
 export const Route = createFileRoute("/host")({
   head: () => ({
@@ -45,6 +48,9 @@ const MUTE_KEY = "btd:muted";
 function HostPage() {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
+  const { isFullscreen, toggleFullscreen } = useHostStageMode();
+  useHostHotkeys(toggleFullscreen);
+
   const createRoomFn = useServerFn(createRoom);
   const endRoomFn = useServerFn(endRoom);
   const heartbeatFn = useServerFn(heartbeatHost);
@@ -305,15 +311,27 @@ function HostPage() {
     return (
       <main className="relative h-dvh w-screen overflow-hidden">
         <HostGameStage room={room} />
-        <button
-          onClick={endAndStartNewRoom}
-          className="fixed right-4 top-4 z-50 rounded-full border border-white/20 bg-black/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-white shadow-lg backdrop-blur transition hover:bg-black/80"
-        >
-          End · new room
-        </button>
+        <div className="fixed right-4 top-4 z-50 flex gap-2">
+          {!isFullscreen && (
+            <button
+              onClick={toggleFullscreen}
+              className="rounded-full border border-white/20 bg-black/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-white shadow-lg backdrop-blur transition hover:bg-black/80"
+              title="Fullscreen (F)"
+            >
+              ⛶ Fullscreen
+            </button>
+          )}
+          <button
+            onClick={endAndStartNewRoom}
+            className="rounded-full border border-white/20 bg-black/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-white shadow-lg backdrop-blur transition hover:bg-black/80"
+          >
+            End · new room
+          </button>
+        </div>
       </main>
     );
   }
+
 
 
   return (
@@ -352,11 +370,21 @@ function HostPage() {
           <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.35em] text-amber-200/80">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-400" />
             <span>Host view</span>
+            {!isFullscreen && (
+              <button
+                onClick={toggleFullscreen}
+                className="ml-1 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-[10px] text-white/70 backdrop-blur hover:bg-white/10"
+                title="Fullscreen (F)"
+              >
+                ⛶ Fullscreen
+              </button>
+            )}
             <Link to="/admin" className="ml-1 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-[10px] text-white/70 backdrop-blur hover:bg-white/10">
               Admin
             </Link>
           </div>
         </header>
+
 
         {error && (
           <div className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-4 text-sm text-rose-100">
@@ -571,7 +599,13 @@ function HostPage() {
             )}
           </div>
         </section>
+
+        <div className="text-center text-[10px] uppercase tracking-[0.3em] text-white/40">
+          <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">F</kbd> fullscreen · <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">Enter</kbd> advance · <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">Space</kbd> pause · works on Firestick
+        </div>
+
       </div>
+
 
       <AnimatePresence>
         {paused && (

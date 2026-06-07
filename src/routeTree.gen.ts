@@ -14,6 +14,7 @@ import { Route as PlayRouteImport } from './routes/play'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as JoinRouteImport } from './routes/join'
 import { Route as HostRouteImport } from './routes/host'
+import { Route as HRouteImport } from './routes/h'
 import { Route as DevRouteImport } from './routes/dev'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
@@ -46,6 +47,11 @@ const JoinRoute = JoinRouteImport.update({
 const HostRoute = HostRouteImport.update({
   id: '/host',
   path: '/host',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HRoute = HRouteImport.update({
+  id: '/h',
+  path: '/h',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DevRoute = DevRouteImport.update({
@@ -94,6 +100,7 @@ const ApiPublicHooksQuestionQualityAlertRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dev': typeof DevRoute
+  '/h': typeof HRoute
   '/host': typeof HostRoute
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
@@ -108,6 +115,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dev': typeof DevRoute
+  '/h': typeof HRoute
   '/host': typeof HostRoute
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
@@ -124,6 +132,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/dev': typeof DevRoute
+  '/h': typeof HRoute
   '/host': typeof HostRoute
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
@@ -140,6 +149,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dev'
+    | '/h'
     | '/host'
     | '/join'
     | '/login'
@@ -154,6 +164,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/dev'
+    | '/h'
     | '/host'
     | '/join'
     | '/login'
@@ -169,6 +180,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/dev'
+    | '/h'
     | '/host'
     | '/join'
     | '/login'
@@ -185,6 +197,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   DevRoute: typeof DevRoute
+  HRoute: typeof HRoute
   HostRoute: typeof HostRoute
   JoinRoute: typeof JoinRoute
   LoginRoute: typeof LoginRoute
@@ -228,6 +241,13 @@ declare module '@tanstack/react-router' {
       path: '/host'
       fullPath: '/host'
       preLoaderRoute: typeof HostRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/h': {
+      id: '/h'
+      path: '/h'
+      fullPath: '/h'
+      preLoaderRoute: typeof HRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dev': {
@@ -311,6 +331,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   DevRoute: DevRoute,
+  HRoute: HRoute,
   HostRoute: HostRoute,
   JoinRoute: JoinRoute,
   LoginRoute: LoginRoute,

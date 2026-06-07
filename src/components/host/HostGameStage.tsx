@@ -615,6 +615,7 @@ export function HostGameStage({ room }: Props) {
         </div>
         <AIRoast roomCode={room.roomCode} hostSessionId={room.hostSessionId} />
         <button
+          data-host-primary="true"
           onClick={() => {
             play("whoosh");
             setPhaseFn({
@@ -740,6 +741,7 @@ export function HostGameStage({ room }: Props) {
               ⚔ Tied at {topScore} — {tied.map((p) => p.nickname).join(" & ")}
             </div>
             <button
+              data-host-primary="true"
               onClick={() => {
                 play("whoosh");
                 startSuddenDeathFn({
@@ -836,6 +838,7 @@ export function HostGameStage({ room }: Props) {
         <div className="relative mt-auto flex justify-center gap-2">
           {isFinal ? (
             <button
+              data-host-primary="true"
               onClick={() => {
                 play("whoosh");
                 startFinalRoundFn({
@@ -848,6 +851,7 @@ export function HostGameStage({ room }: Props) {
             </button>
           ) : (
             <button
+              data-host-primary="true"
               onClick={() =>
                 nextQuestionFn({
                   data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
@@ -868,6 +872,7 @@ export function HostGameStage({ room }: Props) {
     <div className="grid h-full place-items-center p-8">
       <div className="flex flex-col items-center gap-4">
         <button
+          data-host-primary="true"
           onClick={() => {
             play("whoosh");
             setPhaseFn({
