@@ -246,24 +246,71 @@ export function QuestionStage({
             phase === "reveal" && correctIndex !== null && i !== correctIndex;
           const locks = lockedByIndex[i];
 
+          // Stable tilt per cell so each drop looks different
+          const tilt = (i % 2 === 0 ? -1 : 1) * (10 + (i * 3) % 8);
+
           return (
             <div key={i} className="relative min-h-0">
-              {/* Stable card container — always rendered, never repositioned */}
+              {/* Ghost footprint — faded letter/label + lock avatars, shown only after the card has fallen */}
+              <div
+                className={`absolute inset-0 flex h-full w-full flex-col justify-between rounded-2xl border border-rose-500/20 bg-rose-950/15 p-3 backdrop-blur-sm transition-opacity duration-500 sm:p-4 ${
+                  dropped ? "opacity-100" : "opacity-0"
+                }`}
+                aria-hidden={!dropped}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="grid h-9 w-9 place-items-center rounded-full bg-white/5 font-display text-base font-black text-white/30 ring-1 ring-white/10 line-through decoration-rose-400/70 decoration-2 sm:h-10 sm:w-10 sm:text-lg">
+                    {LETTERS[i]}
+                  </div>
+                </div>
+                <div className="my-2 text-lg font-bold leading-tight text-white/25 line-through decoration-rose-400/60 sm:text-xl lg:text-2xl xl:text-3xl">
+                  {label}
+                </div>
+                <div className="flex min-h-[28px] flex-wrap items-center gap-1.5">
+                  {phase === "question" && dropped && locks.slice(0, 12).map((p) => (
+                    <div
+                      key={p.id}
+                      title={p.nickname}
+                      className="h-7 w-7 overflow-hidden rounded-full opacity-70 ring-2 ring-rose-400/40"
+                    >
+                      {p.avatar_url ? (
+                        <img src={p.avatar_url} alt={p.nickname} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="grid h-full w-full place-items-center bg-white/20 text-[10px] font-black text-white">
+                          {p.nickname.slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {phase === "question" && dropped && locks.length > 12 && (
+                    <div className="text-[10px] font-bold text-white/40">+{locks.length - 12}</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Falling card — animates off the bottom when dropped */}
               <motion.div
                 initial={false}
-                animate={{
-                  scale: !showAnswers ? 0.94 : isCorrect ? 1.04 : 1,
-                  opacity: !showAnswers ? 0 : dropped ? 0.15 : isWrongReveal ? 0.25 : 1,
-                  y: !showAnswers ? 16 : 0,
-                }}
-                transition={{ duration: 0.35, delay: showAnswers && reading ? i * 0.11 : 0, ease: [0.22, 1, 0.36, 1] }}
-
-                className={`relative flex h-full w-full min-h-0 flex-col justify-between overflow-hidden rounded-2xl border p-3 backdrop-blur-xl sm:p-4 ${
+                animate={
                   dropped
-                    ? "border-rose-500/30 bg-rose-950/20 grayscale"
-                    : isCorrect
-                      ? "border-amber-300/80 bg-gradient-to-br from-amber-400/25 to-amber-600/10 shadow-[0_0_80px_oklch(0.85_0.18_85/0.7)]"
-                      : "border-white/10 bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_20px_60px_rgba(0,0,0,0.5)]"
+                    ? { y: "140%", rotate: tilt, opacity: 0, scale: 0.96 }
+                    : {
+                        scale: !showAnswers ? 0.94 : isCorrect ? 1.04 : 1,
+                        opacity: !showAnswers ? 0 : isWrongReveal ? 0.25 : 1,
+                        y: !showAnswers ? 16 : 0,
+                        rotate: 0,
+                      }
+                }
+                transition={
+                  dropped
+                    ? { duration: 0.75, ease: [0.55, 0.06, 0.68, 0.19] }
+                    : { duration: 0.35, delay: showAnswers && reading ? i * 0.11 : 0, ease: [0.22, 1, 0.36, 1] }
+                }
+                style={{ transformOrigin: "50% 30%" }}
+                className={`relative flex h-full w-full min-h-0 flex-col justify-between overflow-hidden rounded-2xl border p-3 backdrop-blur-xl sm:p-4 ${
+                  isCorrect
+                    ? "border-amber-300/80 bg-gradient-to-br from-amber-400/25 to-amber-600/10 shadow-[0_0_80px_oklch(0.85_0.18_85/0.7)]"
+                    : "border-white/10 bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_20px_60px_rgba(0,0,0,0.5)]"
                 }`}
               >
                 <div className="flex items-start justify-between">
@@ -282,39 +329,9 @@ export function QuestionStage({
                   {label}
                 </div>
 
-
                 <div className="flex min-h-[28px] flex-wrap items-center gap-1.5">
                   {/* During the live question, peer picks are HIDDEN to prevent
-                      copying. Avatars only surface on the reveal, or on tiles
-                      that have already been eliminated. */}
-                  {phase === "question" && dropped && (
-                    <AnimatePresence mode="popLayout">
-                      {locks.slice(0, 12).map((p) => (
-                        <motion.div
-                          key={p.id}
-                          layout
-                          initial={{ scale: 0.6, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          exit={{ scale: 0.6, opacity: 0 }}
-                          transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                          title={p.nickname}
-                          className="h-7 w-7 overflow-hidden rounded-full ring-2 ring-rose-400/60 shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
-                        >
-                          {p.avatar_url ? (
-                            <img src={p.avatar_url} alt={p.nickname} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="grid h-full w-full place-items-center bg-white/20 text-[10px] font-black text-white">
-                              {p.nickname.slice(0, 1).toUpperCase()}
-                            </div>
-                          )}
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                  )}
-                  {phase === "question" && dropped && locks.length > 12 && (
-                    <div className="text-[10px] font-bold text-white/60">+{locks.length - 12}</div>
-                  )}
-
+                      copying. Avatars surface on reveal only. */}
                   {phase === "reveal" && !dropped &&
                     locks.slice(0, 12).map((p) => (
                       <div
@@ -345,16 +362,15 @@ export function QuestionStage({
                 </div>
               </motion.div>
 
-              {/* Shatter overlay — sits on top, never affects layout */}
+              {/* Debris burst — fires once when the card drops */}
               <AnimatePresence>
-                {dropped && (
-                  <ShatterOverlay key={`shatter-${i}`} letter={LETTERS[i]} label={label} />
-                )}
+                {dropped && <DropDebris key={`debris-${i}`} />}
               </AnimatePresence>
             </div>
           );
         })}
       </div>
+
 
 
 
