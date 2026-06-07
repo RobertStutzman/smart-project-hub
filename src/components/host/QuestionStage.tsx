@@ -31,6 +31,9 @@ type Props = {
 
 const LETTERS = ["A", "B", "C", "D"] as const;
 
+/** Duration of the falling-tile gravity animation. Drop SFX + debris fire at impact. */
+export const DROP_FALL_MS = 750;
+
 export function QuestionStage({
   questionText,
   answers,
