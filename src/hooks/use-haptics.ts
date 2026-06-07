@@ -12,8 +12,8 @@ export function vibrate(pattern: number | number[]) {
 }
 
 export const Haptics = {
-  tap: () => vibrate(15),
-  correct: () => vibrate([20, 40, 60]),
-  wrong: () => vibrate([80, 40, 80]),
-  drop: () => vibrate([200, 80, 200]),
+  tap: () => vibrate(18),
+  correct: () => vibrate([30, 50, 80, 50, 120]),
+  wrong: () => vibrate([120, 60, 120, 60, 200]),
+  drop: () => vibrate([250, 80, 250, 80, 350]),
 };
