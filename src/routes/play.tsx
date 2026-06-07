@@ -233,6 +233,12 @@ function PlayPage() {
     }
   }, [room?.phase, me?.last_answer_correct]);
 
+  useEffect(() => {
+    if (room?.phase === "final_wager" && !me?.final_locked_at) {
+      setWagerDraft((w) => Math.min(w, me?.score ?? 0));
+    }
+  }, [room?.phase, me?.score, me?.final_locked_at]);
+
   if (!session || !room) {
     return (
       <main className="grid min-h-screen place-items-center bg-background text-muted-foreground">
@@ -320,12 +326,6 @@ function PlayPage() {
       /* ignore */
     }
   };
-
-  useEffect(() => {
-    if (room?.phase === "final_wager" && !me?.final_locked_at) {
-      setWagerDraft((w) => Math.min(w, me?.score ?? 0));
-    }
-  }, [room?.phase, me?.score, me?.final_locked_at]);
 
   const sendWager = async () => {
     if (!session) return;
