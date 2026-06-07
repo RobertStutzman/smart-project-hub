@@ -352,9 +352,38 @@ export function HostGameStage({ room }: Props) {
     if (lastPhaseStingRef.current === key) return;
     lastPhaseStingRef.current = key;
     if (state.phase === "leaderboard") playEvent("leaderboard");
-    else if (state.phase === "final_intro") playEvent("final");
+    else if (state.phase === "final_intro") {
+      playEvent("final");
+      speakPersona(pickLine("final_hype", state.round_number));
+    }
     else if (state.phase === "ended") playEvent("victory");
-  }, [state?.phase]);
+  }, [state?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persona reactions on reveal — keyed off question id so a new line fires
+  // every reveal (the phase-sting ref above only fires on phase transitions).
+  const lastRevealReactionRef = useRef<string>("");
+  useEffect(() => {
+    if (!state || state.phase !== "reveal") return;
+    const qid = state.current_question_id;
+    if (!qid || lastRevealReactionRef.current === qid) return;
+    lastRevealReactionRef.current = qid;
+    const correctIdx = state.current_correct_index;
+    if (correctIdx === null) return;
+    const live = players.filter((p) => !p.is_audience && p.current_answer !== null);
+    if (live.length === 0) return;
+    const right = live.filter((p) => p.current_answer === correctIdx).length;
+    const wrong = live.length - right;
+    let moment: "all_correct" | "all_wrong" | "split_correct";
+    if (right === live.length) moment = "all_correct";
+    else if (wrong === live.length) moment = "all_wrong";
+    else moment = "split_correct";
+    // Small delay so the line lands after the reveal sting, not on top of it.
+    const id = window.setTimeout(() => {
+      speakPersona(pickLine(moment, qid));
+    }, 900);
+    return () => window.clearTimeout(id);
+  }, [state?.phase, state?.current_question_id, state?.current_correct_index, players]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   // ─── Final round orchestrator ─────────────────────────────────────────
   const finalAdvancedRef = useRef<string>("");
