@@ -10,7 +10,7 @@ import {
 } from "@/lib/player-session";
 import { supabase } from "@/integrations/supabase/client";
 import { SelfieCapture } from "@/components/SelfieCapture";
-import { playFunnySoundForId, getFunnySoundForId } from "@/lib/funny-sounds";
+import { playFunnySoundForId } from "@/lib/funny-sounds";
 
 const searchSchema = z.object({
   code: z.string().optional(),
