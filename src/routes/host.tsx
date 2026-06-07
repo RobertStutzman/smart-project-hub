@@ -80,7 +80,7 @@ function HostPage() {
   const [allCategories, setAllCategories] = useState<{ name: string; count: number }[]>([]);
   const [enabledCats, setEnabledCats] = useState<Set<string>>(new Set());
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [catSheetOpen, setCatSheetOpen] = useState(false);
+  
   const [allowLate, setAllowLate] = useState(true);
   const [teamMode, setTeamMode] = useState(false);
   const [muted, setMuted] = useState(false);
