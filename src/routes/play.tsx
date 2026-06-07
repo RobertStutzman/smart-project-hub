@@ -306,10 +306,12 @@ function PlayPage() {
 
   const pick = async (i: 0 | 1 | 2 | 3) => {
     if (!session) return;
+    Haptics.tap();
     try {
       await lockFn({
         data: { roomCode: session.roomCode, sessionId: session.sessionId, answerIndex: i },
       });
+      Haptics.correct();
     } catch {
       /* ignore */
     }
@@ -490,14 +492,7 @@ function PlayPage() {
                 </button>
               )}
 
-            {room.phase === "final_intro" ? (
-              <div className="grid flex-1 place-items-center rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-500/20 via-black to-black p-6 text-center">
-                <div>
-                  <div className="text-[10px] font-bold uppercase tracking-[0.5em] text-amber-300">One question. All on the line.</div>
-                  <div className="mt-3 font-display text-5xl font-black text-amber-200 [animation:scale-in_0.5s_ease-out]">Final Round</div>
-                </div>
-              </div>
-            ) : room.phase === "final_wager" ? (
+            {room.phase === "final_wager" || room.phase === "final_intro" ? (
               <div className="flex flex-1 flex-col gap-4 rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-500/15 via-card/40 to-black p-5">
                 <div className="text-center">
                   <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300">Place your wager</div>
@@ -583,7 +578,7 @@ function PlayPage() {
               <>
                 <div className="flex items-center justify-between rounded-2xl border border-border bg-card/30 px-4 py-2 backdrop-blur">
                   <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-                    {room.wildcard === "roast" ? "Roast vote · check TV" : "Check TV for question"}
+                    {room.wildcard === "roast" ? "Roast vote · check TV" : `Q · Round ${room.round_number}`}
                   </div>
                   {reading ? (
                     <div className="font-mono text-xl font-black text-amber-300">
@@ -604,6 +599,30 @@ function PlayPage() {
                     </div>
                   ) : null}
                 </div>
+
+                {/* Question text on phone */}
+                {room.current_question_text && room.wildcard !== "roast" && (
+                  <div className="rounded-2xl border border-border bg-card/40 px-4 py-3 text-center backdrop-blur">
+                    <div className="line-clamp-4 text-base font-bold leading-snug text-foreground">
+                      {room.current_question_text}
+                    </div>
+                  </div>
+                )}
+
+                {/* LOCKED IN confirmation */}
+                {room.phase === "question" &&
+                  me?.current_answer !== null &&
+                  me?.current_answer !== undefined && (
+                    <div className="flex items-center justify-center gap-2 rounded-full border-2 border-emerald-400/70 bg-emerald-500/20 px-4 py-2 text-center font-bold text-emerald-100 shadow-[0_0_30px_oklch(0.7_0.2_150/0.4)] animate-scale-in">
+                      <span className="grid h-7 w-7 place-items-center rounded-full bg-emerald-400 font-display text-sm font-black text-emerald-950">
+                        {["A", "B", "C", "D"][me.current_answer]}
+                      </span>
+                      <span className="text-sm uppercase tracking-[0.2em]">
+                        ✓ Locked · {me?.nickname ?? session.nickname}
+                      </span>
+                    </div>
+                  )}
+
                 <div
                   className={`min-h-0 flex-1 transition ${
                     buttonsScrambled ? "rotate-1 scale-[1.02] blur-sm" : ""
@@ -627,23 +646,6 @@ function PlayPage() {
                     droppedIndexes={room.dropped_indexes ?? []}
                     selectedIndex={me?.current_answer ?? null}
                     onPick={(i) => void pick(i)}
-                    avatarsByIndex={
-                      room.phase === "question"
-                        ? [0, 1, 2, 3].map((idx) =>
-                            allPlayers
-                              .filter(
-                                (p) =>
-                                  p.session_id !== session?.sessionId &&
-                                  p.current_answer === idx,
-                              )
-                              .map((p) => ({
-                                id: p.id,
-                                nickname: p.nickname,
-                                avatar_url: p.avatar_url,
-                              })),
-                          )
-                        : undefined
-                    }
                   />
                 </div>
 

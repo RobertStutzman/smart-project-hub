@@ -57,10 +57,10 @@ type Props = {
 // Elapsed seconds (from question_started_at) at which each wrong answer drops.
 // Driven off elapsed time so the elimination sequence ALWAYS plays out,
 // even when every player locks in immediately.
-const DROP_AT_ELAPSED_S = [4, 8, 11];
+const DROP_AT_ELAPSED_S = [9, 15, 20];
 // After the final wrong answer drops, hold on the lone correct answer
 // for this long before triggering endQuestion / reveal.
-const FINAL_HOLD_MS = 1500;
+const FINAL_HOLD_MS = 2500;
 
 export function HostGameStage({ room }: Props) {
   const [state, setState] = useState<RoomState | null>(null);
@@ -220,7 +220,6 @@ export function HostGameStage({ room }: Props) {
 
     if ((remainingS <= 0 || finalHoldDone) && !endedRef.current) {
       endedRef.current = true;
-      playEvent("reveal");
       endQuestionFn({
         data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
       })
@@ -261,12 +260,21 @@ export function HostGameStage({ room }: Props) {
     else stopMusic();
   }, [state?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Round intro sting — fires when a new round's first question starts
+  // Round intro sting — only when transitioning INTO question phase from a non-question phase
   const lastRoundStingRef = useRef<number>(0);
+  const prevPhaseRef = useRef<string>("");
   useEffect(() => {
     if (!state) return;
     const r = state.round_number ?? 0;
-    if (state.phase === "question" && r > 0 && r !== lastRoundStingRef.current) {
+    const prev = prevPhaseRef.current;
+    prevPhaseRef.current = state.phase;
+    const enteringFromBreak = prev === "lobby" || prev === "leaderboard" || prev === "";
+    if (
+      state.phase === "question" &&
+      r > 0 &&
+      r !== lastRoundStingRef.current &&
+      enteringFromBreak
+    ) {
       lastRoundStingRef.current = r;
       playEvent("round_intro");
     }
@@ -290,20 +298,7 @@ export function HostGameStage({ room }: Props) {
     if (!state) return;
     const phase = state.phase;
 
-    // Intro → wager after 5s
-    if (phase === "final_intro") {
-      const key = `intro-${state.id}`;
-      if (finalAdvancedRef.current === key) return;
-      const id = window.setTimeout(() => {
-        finalAdvancedRef.current = key;
-        setPhaseFn({
-          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "final_wager" },
-        }).catch(() => {});
-      }, 5000);
-      return () => window.clearTimeout(id);
-    }
-
-    // Wager → start question after 20s OR when all live players locked
+    // Wager → start question after 30s OR when all live players locked
     if (phase === "final_wager") {
       const live = players.filter((p) => !p.is_audience);
       const allLocked = live.length > 0 && live.every((p) => !!p.final_locked_at);
@@ -316,10 +311,10 @@ export function HostGameStage({ room }: Props) {
         }).catch(() => {});
       };
       if (allLocked) {
-        const id = window.setTimeout(fire, 800);
+        const id = window.setTimeout(fire, 1500);
         return () => window.clearTimeout(id);
       }
-      const id = window.setTimeout(fire, 20000);
+      const id = window.setTimeout(fire, 30000);
       return () => window.clearTimeout(id);
     }
 
@@ -390,6 +385,7 @@ export function HostGameStage({ room }: Props) {
           droppedIndexes={state.dropped_indexes ?? []}
           correctIndex={state.phase === "reveal" ? state.current_correct_index : null}
           secondsLeft={remainingS}
+          totalS={state.question_duration_ms / 1000}
           readSecondsLeft={state.phase === "question" ? readSecondsLeft : 0}
           phase={state.phase as "question" | "reveal"}
           players={players.filter((p) => !p.is_audience)}
@@ -508,6 +504,7 @@ export function HostGameStage({ room }: Props) {
           droppedIndexes={[]}
           correctIndex={null}
           secondsLeft={remainingS}
+          totalS={state.question_duration_ms / 1000}
           phase="question"
           players={players.filter((p) => !p.is_audience)}
           mediaUrl={(state as { current_media_url?: string | null }).current_media_url ?? null}
@@ -729,7 +726,7 @@ export function useRevealAutoAdvance(
           data: { roomCode, hostSessionId },
         }).catch(() => {});
       }
-    }, 8000);
+    }, 6000);
     return () => window.clearTimeout(id);
   }, [phase, roundNumber, roomCode, hostSessionId, setPhaseFn, nextQuestionFn]);
 }
