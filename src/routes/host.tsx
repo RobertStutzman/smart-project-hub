@@ -3,9 +3,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { QRCodeSVG } from "qrcode.react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Lock, Pause, Play, Settings as SettingsIcon, X } from "lucide-react";
+import { Pause, Play, Settings as SettingsIcon, Shuffle, X } from "lucide-react";
 import { toast } from "sonner";
-import { createRoom, endRoom, heartbeatHost, setCategory, setRoomConfig, toggleTeamMode } from "@/lib/rooms.functions";
+import {
+  createRoom,
+  endRoom,
+  heartbeatHost,
+  listCategories,
+  setEnabledCategories,
+  setRoomConfig,
+  toggleTeamMode,
+} from "@/lib/rooms.functions";
 import { setPhase } from "@/lib/game.functions";
 import {
   loadHostSession,
@@ -13,7 +21,7 @@ import {
   newId,
 } from "@/lib/player-session";
 import { supabase } from "@/integrations/supabase/client";
-import { CATEGORIES, type Category } from "@/lib/categories";
+import { DEFAULT_OFF_CATEGORIES, emojiForCategory } from "@/lib/categories";
 import { THEMES, THEME_META, type ThemeName } from "@/lib/theme";
 import { useTheme } from "@/components/ThemeProvider";
 import { play, setMuted as setSoundMuted, startMusic, stopMusic, type Sfx } from "@/lib/sound-engine";
