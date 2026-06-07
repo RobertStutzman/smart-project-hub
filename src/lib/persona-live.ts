@@ -194,8 +194,8 @@ const FALLBACK_MOMENT: Record<LiveMoment, Parameters<typeof pickLine>[0]> = {
   leader_changed: "leader_changed",
   streak: "streak_milestone",
   elimination: "elimination",
-  comeback: "first_blood", // closest fit; "comeback" isn't a baked pool
-  round_recap: "split_correct",
+  comeback: "comeback",
+  round_recap: "round_recap",
   welcome: "intro_hype",
   final_showdown: "final_hype",
   winner: "credits_open",
