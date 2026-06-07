@@ -175,3 +175,48 @@ export function prewarmElfLines(lines: string[], preset: Preset = "hype") {
     void fetchAudio(text, preset);
   }
 }
+
+/**
+ * Play an arbitrary audio URL through the same single-line voice queue used
+ * by speakAsElf. Use this for question prompts and DYK explanations so they
+ * never overlap a persona reaction (or each other).
+ */
+export function playVoiceUrl(
+  url: string,
+  opts: {
+    volume?: number;
+    interrupt?: boolean;
+    onStart?: () => void;
+    onEnd?: () => void;
+  } = {},
+): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  const volume = opts.volume ?? 1.0;
+
+  const task = async () => {
+    if (opts.interrupt) cancelElfSpeech();
+    await new Promise<void>((resolve) => {
+      const audio = new Audio(url);
+      audio.volume = volume;
+      let started = false;
+      const cleanup = () => {
+        if (currentAudio === audio) currentAudio = null;
+        if (started) {
+          try { opts.onEnd?.(); } catch { /* ignore */ }
+        }
+        resolve();
+      };
+      audio.addEventListener("ended", cleanup);
+      audio.addEventListener("pause", cleanup);
+      audio.addEventListener("error", cleanup);
+      currentAudio = audio;
+      audio.play().then(() => {
+        started = true;
+        try { opts.onStart?.(); } catch { /* ignore */ }
+      }).catch(cleanup);
+    });
+  };
+
+  queue = queue.then(task, task);
+  return queue;
+}

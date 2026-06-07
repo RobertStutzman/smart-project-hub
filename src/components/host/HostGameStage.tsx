@@ -20,6 +20,7 @@ import { AIRoast } from "./AIRoast";
 import { IntroStage } from "./IntroStage";
 import { CreditsStage } from "./CreditsStage";
 import { pickLine, speakPersona } from "@/lib/host-persona";
+import { playVoiceUrl } from "@/lib/elf-voice";
 import { play, playEvent, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
 import { FinalWagerStage, FinalRevealStage } from "./FinalStages";
 import { WinnerSpotlight } from "./WinnerSpotlight";
@@ -210,21 +211,15 @@ export function HostGameStage({ room }: Props) {
     const delay = Math.max(0, startMs - Date.now());
 
     const timer = window.setTimeout(() => {
-      // Also wait for any in-flight speech synthesis to finish
-      const speak = () => {
-        const audio = new Audio(url);
-        audio.volume = 1.0;
-        questionTtsAudioRef.current = audio;
-        duckMusic(true);
-        const undock = () => duckMusic(false);
-        audio.addEventListener("ended", undock);
-        audio.addEventListener("pause", undock);
-        audio.play().catch(() => {
-          duckMusic(false);
-        });
-      };
-      speak();
-
+      // Route through the shared voice queue with interrupt — question prompt
+      // is the main event and should jump any in-flight persona line.
+      void playVoiceUrl(url, {
+        interrupt: true,
+        onStart: () => duckMusic(true),
+        onEnd: () => duckMusic(false),
+      });
+      // Keep ref non-null so the cleanup path below still no-ops safely.
+      questionTtsAudioRef.current = null;
     }, delay);
 
     return () => window.clearTimeout(timer);
@@ -269,16 +264,12 @@ export function HostGameStage({ room }: Props) {
 
     // Match QuestionStage's tiles→fullscreen flip (~2200ms).
     const timer = window.setTimeout(() => {
-      const audio = new Audio(url);
-      audio.volume = 1.0;
-      explanationTtsAudioRef.current = audio;
-      duckMusic(true);
-      const undock = () => duckMusic(false);
-      audio.addEventListener("ended", undock);
-      audio.addEventListener("pause", undock);
-      audio.play().catch(() => {
-        duckMusic(false);
+      // Queue behind any in-flight persona reaction so they don't overlap.
+      void playVoiceUrl(url, {
+        onStart: () => duckMusic(true),
+        onEnd: () => duckMusic(false),
       });
+      explanationTtsAudioRef.current = null;
     }, 3800);
 
     return () => window.clearTimeout(timer);

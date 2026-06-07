@@ -1,28 +1,67 @@
-## Goal
+# Bake more variety + stop voice overlap
 
-Make Vox talk noticeably more — extra moments wired in + 3× the line pool — and make sure his zinger lands before the "Did you know?" narration on reveal.
+Two changes: more lines (less repetition across games), and a single shared voice queue (no more talking over itself).
 
-## Changes
+## 1. Expand persona line pools (~3x)
 
-### 1. `src/lib/host-persona.ts` — bigger pools + new moments
-- Expand every existing moment from 3 → ~10 lines.
-- Confirm/keep these moments: `intro_hype`, `all_correct`, `all_wrong`, `split_correct`, `first_blood`, `streak_milestone`, `final_hype`, `credits_open`, `leader_changed`, `elimination`.
-- Add one new moment: `question_open` (short hype on each new question, e.g. "Here we go." "Lock it in." "Don't think — feel.") — ~10 lines.
+File: `src/lib/host-persona.ts`
 
-### 2. `src/components/host/HostGameStage.tsx` — wire new moments
-- **`question_open`**: when `phase` flips to `"question"` and `current_question_id` changes, fire one short `speakPersona(pickLine("question_open", qid), { preset: "hype" })` ~250ms after the splash so it overlaps the answer tiles, not the question prompt VO. Skip if it would overlap the question-prompt TTS that's already playing.
-- **`first_blood`**: when the first non-audience player flips from `current_answer === null` to a correct answer (within the same question id), speak a single `first_blood` line. Debounce: fires at most once per question id; ignore if reveal already passed.
-- **`leader_changed`**: track the top scorer's session_id between reveals; when it changes (and we're past round 1), speak a `leader_changed` line during the brief gap before next question (after reveal+DYK finish).
-- Keep existing reveal reaction logic but make it **queue AFTER** the DYK narration finishes instead of firing at 900ms. Implementation: stop scheduling the persona line at +900ms; instead, after the DYK audio ends (existing `useEffect` already plays it), enqueue `speakAsElf(persona)` so it lands right after. If there's no DYK URL, fall back to the current 900ms timer.
+Grow every moment from ~10 lines to **~25 lines** of new, on-character Vox banter. Final totals per moment (target):
 
-### 3. Persona pack bake
-- The admin "Bake persona pack" button (`generatePersonaPack` in `admin-sounds.tsx`) already pre-bakes every line in `LINES`. After expanding pools, the user clicks **Bake persona pack** once and all new lines get cached to storage (free playback forever, no per-game cap charge).
+- `intro_hype`: 25
+- `question_open`: 25
+- `all_correct`, `all_wrong`, `split_correct`: 25 each
+- `first_blood`: 25
+- `streak_milestone`: 25
+- `elimination`: 25
+- `leader_changed`: 25
+- `final_hype`: 25
+- `credits_open`: 25
+
+Total ≈ **275 lines** (up from ~112). Across a 12-question game with 4–6 persona moments fired per question, the chance of repeating the same line within one game drops to near zero, and repeats across 3–4 back-to-back games become rare.
+
+Keep `pickLine()` as-is (seeded mod), but switch the seed to mix in `Date.now()` modulo a daily bucket so two games on the same evening don't land on the same line for the same `qid`.
+
+**Re-bake step:** after expansion, the user clicks **Bake persona pack** in `/admin-sounds` once. That triggers one ElevenLabs call per new line (~160 new calls), stores MP3s to the persona-pack bucket, and every future game pulls them free from storage. No per-game cap is touched.
+
+## 2. Single shared voice queue (no overlap)
+
+File: `src/lib/elf-voice.ts` (extend), `src/components/host/HostGameStage.tsx` (refactor 2 effects)
+
+**Problem today:** `speakAsElf` has its own promise queue, but the question-prompt TTS and the "Did you know?" explanation TTS are played via raw `new Audio(url).play()` in `HostGameStage`. Those two paths are *not* in the queue, so a persona line fired on `question_open` can stomp on the question read, and a `leader_changed` line can collide with the tail of a DYK clip.
+
+**Fix:** promote the elf-voice queue into a small "voice bus" used by every speaking surface.
+
+In `elf-voice.ts`, export a new helper:
+
+```ts
+// Plays a pre-existing URL through the same single-line queue.
+// Used for question prompts + DYK explanations.
+export function playVoiceUrl(url: string, opts?: { volume?: number; interrupt?: boolean; onStart?: () => void; onEnd?: () => void }): Promise<void>
+```
+
+It enqueues onto the same `queue: Promise<void>` `speakAsElf` already uses, so anything fired through either entrypoint waits its turn. `interrupt: true` cancels current playback (used for the question prompt — it should jump the line because it's the main event).
+
+In `HostGameStage.tsx`:
+- Replace the raw `new Audio(url)` block in the question-TTS effect (~line 212–226) with `playVoiceUrl(url, { interrupt: true, onStart: () => duckMusic(true), onEnd: () => duckMusic(false) })`. Drop `questionTtsAudioRef` — the queue handles cancellation via `cancelElfSpeech()` which `interrupt` already calls.
+- Replace the raw `new Audio(url)` block in the DYK explanation effect (~line 271–282) with `playVoiceUrl(url, { onStart: () => duckMusic(true), onEnd: () => duckMusic(false) })` (no interrupt — it queues politely after any in-flight persona line).
+- Keep the 3800ms `setTimeout` before the DYK call so the reveal animation has time to flip; the queue then guarantees the DYK waits if a `first_blood`/`split_correct` line is still finishing.
+
+**Result:** at any moment exactly one voice is playing. Persona reactions naturally land in the gaps; if a persona line and a question read race, the question read interrupts (because it's flagged `interrupt`) and the persona line is dropped from the queue cleanly.
 
 ## Out of scope
-- No DB migration.
-- No change to the per-game `TTS_DEFAULT_CAP=50` — pre-baked lines don't count against it.
-- No change to `IntroStage`, `CreditsStage`, `RoundRecapReel`, or admin TTS infra.
 
-## Files
-- `src/lib/host-persona.ts` — pool expansion + `question_open` moment.
-- `src/components/host/HostGameStage.tsx` — 3 new persona triggers + reveal reorder.
+- No DB / migration changes
+- No change to `TTS_DEFAULT_CAP` or persona-pack bucket layout
+- No new moments wired (`question_open`, `first_blood`, `leader_changed` etc. stay where they are)
+- Round intro / credits / SFX paths unchanged
+
+## Files touched
+
+- `src/lib/host-persona.ts` — expand `LINES`, tiny `pickLine` seed tweak
+- `src/lib/elf-voice.ts` — add `playVoiceUrl` reusing existing queue
+- `src/components/host/HostGameStage.tsx` — route question + DYK audio through `playVoiceUrl`
+
+## After implementation
+
+You'll need to click **Bake persona pack** in `/admin-sounds` once to pre-cache the ~160 new lines. After that, every line plays free from storage.
