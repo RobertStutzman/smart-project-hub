@@ -303,12 +303,12 @@ export function QuestionStage({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.5, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className="relative z-10 mx-auto w-full max-w-5xl max-h-[22vh] overflow-auto rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-400/20 via-amber-500/10 to-amber-600/[0.06] px-8 py-5 shadow-[0_20px_80px_-20px_rgba(251,191,36,0.45)] backdrop-blur-xl sm:px-10"
+            className="relative z-10 mx-auto w-full max-w-5xl max-h-[18vh] overflow-auto rounded-2xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-400/20 via-amber-500/10 to-amber-600/[0.06] px-5 py-3 shadow-[0_20px_80px_-20px_rgba(251,191,36,0.45)] backdrop-blur-xl sm:px-7 sm:py-4"
           >
-            <div className="text-sm font-bold uppercase tracking-[0.4em] text-amber-300">
+            <div className="text-xs font-bold uppercase tracking-[0.4em] text-amber-300">
               💡 Did you know?
             </div>
-            <div className="mt-3 text-xl font-semibold leading-snug text-white sm:text-2xl md:text-3xl">
+            <div className="mt-2 text-base font-semibold leading-snug text-white sm:text-lg lg:text-xl">
               {explanation}
             </div>
           </motion.div>
