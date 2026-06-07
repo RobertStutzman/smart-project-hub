@@ -21,6 +21,9 @@ import {
 import { bakeAllQuestionTTS } from "@/lib/announcer.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { CATEGORIES } from "@/lib/categories";
+import { listCategories } from "@/lib/rooms.functions";
+
+type CategoryOption = { name: string; count: number };
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -81,6 +84,29 @@ function AdminPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [editing, setEditing] = useState<DraftQuestion | null>(null);
   const [working, setWorking] = useState(false);
+  const [dbCategories, setDbCategories] = useState<CategoryOption[]>([]);
+  const listCategoriesFn = useServerFn(listCategories);
+
+  const mergedCategories = useMemo<CategoryOption[]>(() => {
+    const map = new Map<string, number>();
+    for (const c of CATEGORIES) {
+      if (c.name === "Mystery Mix") continue;
+      map.set(c.name, 0);
+    }
+    for (const c of dbCategories) map.set(c.name, c.count);
+    return Array.from(map.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [dbCategories]);
+
+  async function reloadCategories() {
+    try {
+      const res = await listCategoriesFn();
+      setDbCategories(res.categories);
+    } catch {
+      // ignore
+    }
+  }
 
   useEffect(() => {
     void (async () => {
@@ -103,16 +129,23 @@ function AdminPage() {
   async function reload() {
     const { questions } = await listFn();
     setItems(questions as Question[]);
+    await reloadCategories();
   }
 
   async function handleSave(q: DraftQuestion) {
     setWorking(true);
     try {
+      const cleanCategory = q.category.trim().replace(/\s+/g, " ");
+      if (!cleanCategory) {
+        toast.error("Category is required");
+        setWorking(false);
+        return;
+      }
       await upsertFn({
         data: {
           id: q.id,
           q: {
-            category: q.category,
+            category: cleanCategory,
             subcategory: q.subcategory,
             question_text: q.question_text,
             correct_answer: q.correct_answer,
@@ -228,7 +261,7 @@ function AdminPage() {
 
 
 
-        <AIGenerator generate={generateFn} bulkInsert={bulkFn} onInserted={reload} />
+        <AIGenerator generate={generateFn} bulkInsert={bulkFn} onInserted={reload} categories={mergedCategories} />
 
         <GeminiImporter bulkInsert={bulkFn} onInserted={reload} />
 
@@ -248,9 +281,9 @@ function AdminPage() {
                 className="rounded-full border border-border bg-background/60 px-3 py-2 text-sm"
               >
                 <option value="all">All categories</option>
-                {CATEGORIES.map((c) => (
+                {mergedCategories.map((c) => (
                   <option key={c.name} value={c.name}>
-                    {c.emoji} {c.name}
+                    {c.name}{c.count > 0 ? ` (${c.count})` : ""}
                   </option>
                 ))}
               </select>
@@ -326,6 +359,7 @@ function AdminPage() {
         <QuestionEditor
           draft={editing}
           busy={working}
+          categories={mergedCategories}
           onClose={() => setEditing(null)}
           onSave={handleSave}
         />
@@ -337,11 +371,13 @@ function AdminPage() {
 function QuestionEditor({
   draft,
   busy,
+  categories,
   onClose,
   onSave,
 }: {
   draft: DraftQuestion;
   busy: boolean;
+  categories: CategoryOption[];
   onClose: () => void;
   onSave: (q: DraftQuestion) => void;
 }) {
@@ -354,15 +390,21 @@ function QuestionEditor({
       >
         <h3 className="text-xl font-bold">{q.id ? "Edit question" : "New question"}</h3>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <select
-            value={q.category}
-            onChange={(e) => setQ({ ...q, category: e.target.value })}
-            className="rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
-          >
-            {CATEGORIES.map((c) => (
-              <option key={c.name} value={c.name}>{c.name}</option>
-            ))}
-          </select>
+          <div className="flex flex-col gap-1">
+            <input
+              list="admin-category-list"
+              value={q.category}
+              onChange={(e) => setQ({ ...q, category: e.target.value })}
+              placeholder="Category (type new or pick)"
+              className="rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
+            />
+            <datalist id="admin-category-list">
+              {categories.map((c) => (
+                <option key={c.name} value={c.name}>{c.count > 0 ? `${c.count} questions` : "new"}</option>
+              ))}
+            </datalist>
+            <span className="px-1 text-[10px] text-muted-foreground">Type a new name to create a category.</span>
+          </div>
           <input
             placeholder="Subcategory (optional)"
             value={q.subcategory ?? ""}
@@ -586,13 +628,15 @@ function AIGenerator({
   generate,
   bulkInsert,
   onInserted,
+  categories,
 }: {
   generate: ReturnType<typeof useServerFn<typeof generateQuestions>>;
   bulkInsert: ReturnType<typeof useServerFn<typeof bulkInsertQuestions>>;
   onInserted: () => Promise<void>;
+  categories: CategoryOption[];
 }) {
   const [prompt, setPrompt] = useState("10 hard 80s rock questions");
-  const [category, setCategory] = useState(CATEGORIES[0].name);
+  const [category, setCategory] = useState(categories[0]?.name ?? CATEGORIES[0].name);
   const [count, setCount] = useState(10);
   const [isPremium, setIsPremium] = useState(false);
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard" | "impossible" | "mixed">("mixed");
@@ -713,15 +757,18 @@ function AIGenerator({
           placeholder="e.g. 10 hard 80s rock questions"
           className="rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
         />
-        <select
+        <input
+          list="ai-generator-category-list"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
+          placeholder="Category"
           className="rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
-        >
-          {CATEGORIES.map((c) => (
-            <option key={c.name} value={c.name}>{c.name}</option>
+        />
+        <datalist id="ai-generator-category-list">
+          {categories.map((c) => (
+            <option key={c.name} value={c.name}>{c.count > 0 ? `${c.count} questions` : "new"}</option>
           ))}
-        </select>
+        </datalist>
         <select
           value={difficulty}
           onChange={(e) => setDifficulty(e.target.value as typeof difficulty)}
