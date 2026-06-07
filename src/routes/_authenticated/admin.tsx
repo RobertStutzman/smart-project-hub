@@ -1427,3 +1427,365 @@ function StreamerModeToggle() {
     </section>
   );
 }
+
+// ===== Gemini paste-in importer =====
+
+const DIFFICULTIES = ["easy", "medium", "hard", "impossible"] as const;
+type Diff = (typeof DIFFICULTIES)[number];
+
+type ParsedRow = {
+  ok: boolean;
+  error?: string;
+  raw: any;
+  row?: {
+    category: string;
+    subcategory: null;
+    question_text: string;
+    correct_answer: string;
+    wrong_1: string;
+    wrong_2: string;
+    wrong_3: string;
+    explanation: string | null;
+    difficulty: Diff;
+    media_url: null;
+    media_type: null;
+    is_premium: boolean;
+  };
+};
+
+function buildGeminiPrompt(category: string, count: number, difficulty: Diff | "mixed") {
+  const diffLine =
+    difficulty === "mixed"
+      ? "Vary difficulty across easy/medium/hard/impossible."
+      : `Every question must be "${difficulty}" difficulty.`;
+  return `You write trivia questions for a live multiplayer game. Generate ${count} questions in the category "${category}".
+
+Rules:
+- Exactly ONE correct answer + THREE plausible, distinct wrong answers (case-insensitive distinct).
+- Include a 1–2 sentence "explanation" (under 200 chars) — a fun fact a host would read after the reveal.
+- difficulty must be one of: easy | medium | hard | impossible. ${diffLine}
+  Calibration: easy = most adults know it; medium = casual fans; hard = real fans / trivia regulars; impossible = stumps almost everyone.
+- No duplicates. Crisp, unambiguous wording. Keep answers short.
+
+Return ONLY a JSON array (no prose, no markdown code fences) of objects matching this exact schema:
+[
+  {
+    "category": "${category}",
+    "question_text": "string",
+    "correct_answer": "string",
+    "wrong_1": "string",
+    "wrong_2": "string",
+    "wrong_3": "string",
+    "explanation": "string",
+    "difficulty": "easy" | "medium" | "hard" | "impossible"
+  }
+]`;
+}
+
+function stripCodeFences(s: string): string {
+  let t = s.trim();
+  // Remove ```json ... ``` or ``` ... ``` wrappers
+  t = t.replace(/^```(?:json|JSON)?\s*/i, "").replace(/```\s*$/i, "").trim();
+  return t;
+}
+
+function parseGeminiJson(text: string, fallbackCategory: string): ParsedRow[] {
+  const cleaned = stripCodeFences(text);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    // Try to find first [ ... ] block
+    const match = cleaned.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error("Couldn't parse JSON. Make sure you pasted a JSON array.");
+    parsed = JSON.parse(match[0]);
+  }
+  const arr: any[] = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray((parsed as any)?.questions)
+      ? (parsed as any).questions
+      : [];
+  if (!arr.length) throw new Error("No questions found in the pasted JSON.");
+
+  return arr.map((raw): ParsedRow => {
+    const errs: string[] = [];
+    const get = (k: string) => (typeof raw?.[k] === "string" ? raw[k].trim() : "");
+    const category = get("category") || fallbackCategory;
+    const question_text = get("question_text");
+    const correct_answer = get("correct_answer");
+    const wrong_1 = get("wrong_1");
+    const wrong_2 = get("wrong_2");
+    const wrong_3 = get("wrong_3");
+    const explanation = get("explanation") || null;
+    const difficultyRaw = (get("difficulty") || "medium").toLowerCase();
+
+    if (question_text.length < 3) errs.push("question_text too short");
+    for (const [k, v] of [
+      ["correct_answer", correct_answer],
+      ["wrong_1", wrong_1],
+      ["wrong_2", wrong_2],
+      ["wrong_3", wrong_3],
+    ] as const) {
+      if (!v) errs.push(`${k} missing`);
+    }
+    if (!DIFFICULTIES.includes(difficultyRaw as Diff)) errs.push(`bad difficulty "${difficultyRaw}"`);
+    const norm = (s: string) => s.trim().toLowerCase();
+    const set = new Set([norm(correct_answer), norm(wrong_1), norm(wrong_2), norm(wrong_3)]);
+    if (set.size !== 4) errs.push("answers not distinct");
+
+    if (errs.length) return { ok: false, error: errs.join("; "), raw };
+    return {
+      ok: true,
+      raw,
+      row: {
+        category,
+        subcategory: null,
+        question_text,
+        correct_answer,
+        wrong_1,
+        wrong_2,
+        wrong_3,
+        explanation,
+        difficulty: difficultyRaw as Diff,
+        media_url: null,
+        media_type: null,
+        is_premium: false,
+      },
+    };
+  });
+}
+
+function GeminiImporter({
+  bulkInsert,
+  onInserted,
+}: {
+  bulkInsert: ReturnType<typeof useServerFn<typeof bulkInsertQuestions>>;
+  onInserted: () => Promise<void>;
+}) {
+  const bakeFn = useServerFn(bakeAllQuestionTTS);
+  const [category, setCategory] = useState(CATEGORIES[0].name);
+  const [count, setCount] = useState(10);
+  const [difficulty, setDifficulty] = useState<Diff | "mixed">("mixed");
+  const [pasted, setPasted] = useState("");
+  const [parsed, setParsed] = useState<ParsedRow[] | null>(null);
+  const [skip, setSkip] = useState<Set<number>>(new Set());
+  const [bakeTts, setBakeTts] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  const prompt = useMemo(() => buildGeminiPrompt(category, count, difficulty), [category, count, difficulty]);
+
+  function copyPrompt() {
+    navigator.clipboard.writeText(prompt).then(
+      () => toast.success("Prompt copied — paste into Gemini"),
+      () => toast.error("Couldn't copy to clipboard"),
+    );
+  }
+
+  function doValidate() {
+    try {
+      const rows = parseGeminiJson(pasted, category);
+      setParsed(rows);
+      setSkip(new Set());
+      const valid = rows.filter((r) => r.ok).length;
+      toast.success(`Parsed ${rows.length} — ${valid} valid, ${rows.length - valid} with issues`);
+    } catch (e) {
+      setParsed(null);
+      toast.error((e as Error).message);
+    }
+  }
+
+  async function doImport() {
+    if (!parsed) return;
+    const toInsert = parsed
+      .map((r, i) => ({ r, i }))
+      .filter(({ r, i }) => r.ok && !skip.has(i))
+      .map(({ r }) => r.row!);
+    if (!toInsert.length) {
+      toast.error("Nothing to import.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await bulkInsert({ data: { rows: toInsert } });
+      toast.success(`Imported ${res.inserted} questions`);
+      await onInserted();
+      if (bakeTts) {
+        toast.info("Generating voice narration… this may take a minute.");
+        try {
+          const b = await bakeFn({ data: { limit: Math.max(toInsert.length, 50) } });
+          toast.success(`Voice baked: ${b.baked} new, ${b.skipped} already done${b.errors.length ? `, ${b.errors.length} failed` : ""}`);
+        } catch (e) {
+          toast.error(`TTS bake failed: ${(e as Error).message}`);
+        }
+      }
+      setPasted("");
+      setParsed(null);
+      setSkip(new Set());
+    } catch (e) {
+      toast.error(`Import failed: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const validCount = parsed?.filter((r, i) => r.ok && !skip.has(i)).length ?? 0;
+
+  return (
+    <section className="rounded-3xl border border-border bg-card/40 p-6 backdrop-blur">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold">Import from Gemini (free)</h2>
+          <p className="text-sm text-muted-foreground">
+            Generate questions for free in Gemini, then paste the JSON here. No credits used.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <label className="text-sm">
+          <div className="mb-1 text-muted-foreground">Category</div>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="w-full rounded-lg border border-border bg-background/60 px-3 py-2"
+          >
+            {CATEGORIES.map((c) => (
+              <option key={c.name} value={c.name}>
+                {c.emoji} {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm">
+          <div className="mb-1 text-muted-foreground">Count</div>
+          <input
+            type="number"
+            min={1}
+            max={100}
+            value={count}
+            onChange={(e) => setCount(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
+            className="w-full rounded-lg border border-border bg-background/60 px-3 py-2"
+          />
+        </label>
+        <label className="text-sm">
+          <div className="mb-1 text-muted-foreground">Difficulty</div>
+          <select
+            value={difficulty}
+            onChange={(e) => setDifficulty(e.target.value as Diff | "mixed")}
+            className="w-full rounded-lg border border-border bg-background/60 px-3 py-2"
+          >
+            <option value="mixed">Mixed</option>
+            {DIFFICULTIES.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="mt-4">
+        <div className="mb-1 flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">Prompt to paste into Gemini</div>
+          <button
+            onClick={copyPrompt}
+            className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground"
+          >
+            Copy prompt
+          </button>
+        </div>
+        <pre className="max-h-40 overflow-auto rounded-lg border border-border bg-background/40 p-3 text-xs whitespace-pre-wrap">
+          {prompt}
+        </pre>
+      </div>
+
+      <div className="mt-4">
+        <div className="mb-1 text-sm text-muted-foreground">
+          Paste Gemini&rsquo;s JSON response here
+        </div>
+        <textarea
+          value={pasted}
+          onChange={(e) => setPasted(e.target.value)}
+          rows={8}
+          placeholder='[ { "category": "...", "question_text": "...", "correct_answer": "...", ... } ]'
+          className="w-full rounded-lg border border-border bg-background/60 px-3 py-2 font-mono text-xs"
+        />
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          onClick={doValidate}
+          disabled={!pasted.trim() || busy}
+          className="rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-card/60 disabled:opacity-50"
+        >
+          Validate
+        </button>
+        <button
+          onClick={doImport}
+          disabled={!validCount || busy}
+          className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+        >
+          {busy ? "Importing…" : `Import ${validCount} question${validCount === 1 ? "" : "s"}`}
+        </button>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={bakeTts}
+            onChange={(e) => setBakeTts(e.target.checked)}
+          />
+          Generate voice narration after import
+        </label>
+      </div>
+
+      {parsed && (
+        <div className="mt-4 max-h-80 overflow-auto rounded-lg border border-border bg-background/30">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 bg-background/80">
+              <tr className="text-left">
+                <th className="px-2 py-2 w-8"></th>
+                <th className="px-2 py-2 w-8">#</th>
+                <th className="px-2 py-2">Question</th>
+                <th className="px-2 py-2">Correct</th>
+                <th className="px-2 py-2">Diff</th>
+                <th className="px-2 py-2">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {parsed.map((r, i) => (
+                <tr
+                  key={i}
+                  className={`border-t border-border/40 ${r.ok ? "" : "bg-destructive/10"}`}
+                >
+                  <td className="px-2 py-1.5">
+                    <input
+                      type="checkbox"
+                      disabled={!r.ok}
+                      checked={r.ok && !skip.has(i)}
+                      onChange={(e) => {
+                        const next = new Set(skip);
+                        if (e.target.checked) next.delete(i);
+                        else next.add(i);
+                        setSkip(next);
+                      }}
+                    />
+                  </td>
+                  <td className="px-2 py-1.5 text-muted-foreground">{i + 1}</td>
+                  <td className="px-2 py-1.5">{r.row?.question_text ?? String(r.raw?.question_text ?? "—")}</td>
+                  <td className="px-2 py-1.5">{r.row?.correct_answer ?? "—"}</td>
+                  <td className="px-2 py-1.5">{r.row?.difficulty ?? "—"}</td>
+                  <td className="px-2 py-1.5">
+                    {r.ok ? (
+                      <span className="text-emerald-400">✓ ok</span>
+                    ) : (
+                      <span className="text-destructive">✕ {r.error}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
