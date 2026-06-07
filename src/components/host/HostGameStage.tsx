@@ -23,6 +23,7 @@ import { pickLine, speakPersona } from "@/lib/host-persona";
 import { playVoiceUrl } from "@/lib/elf-voice";
 import { speakAboutPlayer, setLiveRoomId, resetLiveCap } from "@/lib/persona-live";
 import { play, playEvent, playRandomDrop, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
+import { playFunnySoundForId, preloadFunnyBank } from "@/lib/funny-sounds";
 import { FinalWagerStage, FinalRevealStage } from "./FinalStages";
 import { WinnerSpotlight } from "./WinnerSpotlight";
 import { RoundRecapReel } from "./RoundRecapReel";
@@ -89,8 +90,28 @@ export function HostGameStage({ room }: Props) {
   const droppedRef = useRef<Set<number>>(new Set());
   const dropSfxTimersRef = useRef<number[]>([]);
   const endedRef = useRef(false);
+  const announcedJoinsRef = useRef<Set<string>>(new Set());
   const [recapDoneForRound, setRecapDoneForRound] = useState<number>(-1);
   const leaderboardAutoAdvanceRef = useRef<string>("");
+
+  // Preload the funny-sound bank once so the first wrong drop is instant.
+  useEffect(() => {
+    preloadFunnyBank();
+  }, []);
+
+  // When a new (non-audience) player joins, play their assigned funny noise
+  // so they (and the room) immediately learn their signature sound.
+  useEffect(() => {
+    for (const p of players) {
+      if (p.is_audience) continue;
+      const key = p.session_id ?? p.id;
+      if (!key || announcedJoinsRef.current.has(key)) continue;
+      announcedJoinsRef.current.add(key);
+      // Only chirp on actual joins, not on the very first hydration burst.
+      // We mark all current players as "announced" on the first pass below.
+      playFunnySoundForId(key);
+    }
+  }, [players]);
 
   const nextQuestionFn = useServerFn(nextQuestion);
   const dropWrongFn = useServerFn(dropWrongAnswer);
@@ -150,7 +171,15 @@ export function HostGameStage({ room }: Props) {
         )
         .eq("room_id", room.id)
         .order("created_at", { ascending: true });
-      if (!cancelled && ps) setPlayers(ps as Player[]);
+      if (!cancelled && ps) {
+        // Mark pre-existing players as already-announced so the host page
+        // doesn't honk for every player on a refresh / mid-game open.
+        for (const p of ps as Player[]) {
+          const key = (p as Player).session_id ?? (p as Player).id;
+          if (key) announcedJoinsRef.current.add(key);
+        }
+        setPlayers(ps as Player[]);
+      }
     };
     void load();
 
@@ -343,7 +372,25 @@ export function HostGameStage({ room }: Props) {
         dropSfxTimersRef.current.push(sfxId);
         dropWrongFn({
           data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
-        }).catch(() => {});
+        })
+          .then((res) => {
+            const droppedIndex = res?.dropped;
+            if (droppedIndex == null) return;
+            // Play each guilty player's signature funny noise as their tile
+            // hits the ground. Stagger slightly so multiple players overlap
+            // into chaotic comedy instead of one wall of sound.
+            const guilty = players.filter(
+              (p) => !p.is_audience && p.current_answer === droppedIndex,
+            );
+            guilty.forEach((p, i) => {
+              const tid = window.setTimeout(
+                () => playFunnySoundForId(p.session_id ?? p.id),
+                DROP_FALL_MS + i * 120,
+              );
+              dropSfxTimersRef.current.push(tid);
+            });
+          })
+          .catch(() => {});
       }
     });
 
