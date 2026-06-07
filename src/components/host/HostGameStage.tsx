@@ -504,6 +504,20 @@ export function HostGameStage({ room }: Props) {
         }).catch(() => {});
       }
     }
+
+    // Ended → auto-roll credits after 20s if host doesn't click
+    if (phase === "ended") {
+      const key = `ended-${state.id}`;
+      if (finalAdvancedRef.current === key) return;
+      const id = window.setTimeout(() => {
+        finalAdvancedRef.current = key;
+        play("whoosh");
+        setPhaseFn({
+          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "credits" },
+        }).catch(() => {});
+      }, 20000);
+      return () => window.clearTimeout(id);
+    }
   }, [state, now, players, setPhaseFn, startFinalQuestionFn, scoreFinalRoundFn, endGameFn, resolveSuddenDeathFn, room.roomCode, room.hostSessionId]);
 
   // Wager lock-in thud — fires when a new player locks
