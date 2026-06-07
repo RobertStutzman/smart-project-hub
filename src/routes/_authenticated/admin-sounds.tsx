@@ -244,6 +244,9 @@ function EventsPanel({
 
       <QuestionVoiceoversPanel />
 
+      <TTSCacheStatsPanel />
+
+
 
 
 
