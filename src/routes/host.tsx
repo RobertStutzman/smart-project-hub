@@ -370,11 +370,21 @@ function HostPage() {
           <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.35em] text-amber-200/80">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-400" />
             <span>Host view</span>
+            {!isFullscreen && (
+              <button
+                onClick={toggleFullscreen}
+                className="ml-1 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-[10px] text-white/70 backdrop-blur hover:bg-white/10"
+                title="Fullscreen (F)"
+              >
+                ⛶ Fullscreen
+              </button>
+            )}
             <Link to="/admin" className="ml-1 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-[10px] text-white/70 backdrop-blur hover:bg-white/10">
               Admin
             </Link>
           </div>
         </header>
+
 
         {error && (
           <div className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-4 text-sm text-rose-100">
