@@ -124,6 +124,7 @@ export function HostGameStage({ room }: Props) {
     })();
     return () => {
       cancelled = true;
+      setLiveRoomId(null);
       void import("@/lib/elf-voice").then(({ setActiveRoomId }) => setActiveRoomId(null));
     };
   }, [room.id]);
