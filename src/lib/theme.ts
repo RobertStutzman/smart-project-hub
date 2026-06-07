@@ -1,10 +1,8 @@
-export const THEMES = ["fellowship", "synthwave", "sanctuary"] as const;
+export const THEMES = ["fellowship"] as const;
 export type ThemeName = (typeof THEMES)[number];
 
 export const THEME_META: Record<ThemeName, { label: string; description: string }> = {
   fellowship: { label: "Fellowship", description: "Parchment & emerald" },
-  synthwave: { label: "Synthwave", description: "Neon & VHS scanlines" },
-  sanctuary: { label: "Sanctuary", description: "Royal purple & gold" },
 };
 
 const KEY = "btd:theme";

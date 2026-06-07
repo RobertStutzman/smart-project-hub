@@ -11,12 +11,14 @@ function apply(contrast: boolean, dyslexic: boolean) {
 }
 
 export function AccessibilityToggle() {
-  const [contrast, setContrast] = useState(false);
+  const [contrast, setContrast] = useState(true);
   const [dyslexic, setDyslexic] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const c = window.localStorage.getItem(CONTRAST_KEY) === "1";
+    const storedC = window.localStorage.getItem(CONTRAST_KEY);
+    const c = storedC === null ? true : storedC === "1";
+    if (storedC === null) window.localStorage.setItem(CONTRAST_KEY, "1");
     const d = window.localStorage.getItem(FONT_KEY) === "1";
     setContrast(c);
     setDyslexic(d);

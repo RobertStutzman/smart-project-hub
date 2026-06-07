@@ -65,77 +65,8 @@
   --body-font: "EB Garamond", Georgia, serif;
 }
 
-/* =========================================================
- * Synthwave theme (black / neon pink / cyan)
- * ========================================================= */
-[data-theme="synthwave"] {
-  --radius: 0.25rem;
-  --background: oklch(0.08 0.02 290);
-  --foreground: oklch(0.96 0.02 320);
-  --card: oklch(0.12 0.04 290);
-  --card-foreground: oklch(0.96 0.02 320);
-  --popover: oklch(0.12 0.04 290);
-  --popover-foreground: oklch(0.96 0.02 320);
-  --primary: oklch(0.7 0.3 340); /* hot pink */
-  --primary-foreground: oklch(0.1 0.02 290);
-  --secondary: oklch(0.18 0.06 290);
-  --secondary-foreground: oklch(0.96 0.02 320);
-  --muted: oklch(0.15 0.04 290);
-  --muted-foreground: oklch(0.7 0.06 320);
-  --accent: oklch(0.78 0.18 200); /* cyan */
-  --accent-foreground: oklch(0.1 0.02 290);
-  --destructive: oklch(0.65 0.25 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.55 0.2 340 / 0.5);
-  --input: oklch(0.2 0.04 290);
-  --ring: oklch(0.78 0.18 200);
-  --display-font: "Press Start 2P", "VT323", monospace;
-  --body-font: "VT323", "JetBrains Mono", monospace;
-}
 
-/* =========================================================
- * Sanctuary theme (royal purple / slate / gold)
- * ========================================================= */
-[data-theme="sanctuary"] {
-  --radius: 0.5rem;
-  --background: oklch(0.16 0.04 285);
-  --foreground: oklch(0.95 0.02 290);
-  --card: oklch(0.22 0.05 285);
-  --card-foreground: oklch(0.95 0.02 290);
-  --popover: oklch(0.22 0.05 285);
-  --popover-foreground: oklch(0.95 0.02 290);
-  --primary: oklch(0.62 0.18 300);
-  --primary-foreground: oklch(0.98 0.01 290);
-  --secondary: oklch(0.28 0.05 285);
-  --secondary-foreground: oklch(0.95 0.02 290);
-  --muted: oklch(0.25 0.04 285);
-  --muted-foreground: oklch(0.72 0.04 290);
-  --accent: oklch(0.78 0.14 85); /* gold */
-  --accent-foreground: oklch(0.18 0.04 285);
-  --destructive: oklch(0.62 0.22 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.4 0.06 285);
-  --input: oklch(0.28 0.05 285);
-  --ring: oklch(0.62 0.18 300);
-  --display-font: "Cinzel", "Trajan Pro", Georgia, serif;
-  --body-font: "Cormorant Garamond", Georgia, serif;
-}
 
-[data-theme="synthwave"]::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent 0,
-    transparent 2px,
-    rgba(255, 255, 255, 0.03) 3px,
-    transparent 4px
-  );
-  z-index: 1;
-  mix-blend-mode: overlay;
-}
 
 @layer base {
   * {
