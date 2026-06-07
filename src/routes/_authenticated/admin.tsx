@@ -359,6 +359,7 @@ function AdminPage() {
         <QuestionEditor
           draft={editing}
           busy={working}
+          categories={mergedCategories}
           onClose={() => setEditing(null)}
           onSave={handleSave}
         />
@@ -370,11 +371,13 @@ function AdminPage() {
 function QuestionEditor({
   draft,
   busy,
+  categories,
   onClose,
   onSave,
 }: {
   draft: DraftQuestion;
   busy: boolean;
+  categories: CategoryOption[];
   onClose: () => void;
   onSave: (q: DraftQuestion) => void;
 }) {
@@ -387,15 +390,21 @@ function QuestionEditor({
       >
         <h3 className="text-xl font-bold">{q.id ? "Edit question" : "New question"}</h3>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <select
-            value={q.category}
-            onChange={(e) => setQ({ ...q, category: e.target.value })}
-            className="rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
-          >
-            {CATEGORIES.map((c) => (
-              <option key={c.name} value={c.name}>{c.name}</option>
-            ))}
-          </select>
+          <div className="flex flex-col gap-1">
+            <input
+              list="admin-category-list"
+              value={q.category}
+              onChange={(e) => setQ({ ...q, category: e.target.value })}
+              placeholder="Category (type new or pick)"
+              className="rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
+            />
+            <datalist id="admin-category-list">
+              {categories.map((c) => (
+                <option key={c.name} value={c.name}>{c.count > 0 ? `${c.count} questions` : "new"}</option>
+              ))}
+            </datalist>
+            <span className="px-1 text-[10px] text-muted-foreground">Type a new name to create a category.</span>
+          </div>
           <input
             placeholder="Subcategory (optional)"
             value={q.subcategory ?? ""}
