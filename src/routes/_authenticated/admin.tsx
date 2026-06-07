@@ -1869,7 +1869,7 @@ function GeminiImporter({
             checked={bakeTts}
             onChange={(e) => setBakeTts(e.target.checked)}
           />
-          Generate voice narration after import
+          Generate Elf voice (prompt + Did You Know) after import
         </label>
       </div>
 
