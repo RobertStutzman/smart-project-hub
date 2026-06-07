@@ -279,7 +279,7 @@ export function HostGameStage({ room }: Props) {
       audio.play().catch(() => {
         duckMusic(false);
       });
-    }, 2200);
+    }, 3800);
 
     return () => window.clearTimeout(timer);
   }, [state?.current_question_id, state?.current_explanation_tts_url, state?.phase]);
@@ -399,10 +399,9 @@ export function HostGameStage({ room }: Props) {
       play("whoosh");
       const displayRound = Math.min(4, Math.ceil(q / 5));
       const isRoundStart = q === 1 || q === 6 || q === 11 || q === 16;
-      const phrases = ["Next!", "Here we go!", "Lock in!", "Keep going!"];
       const text = isRoundStart
         ? (q === 1 ? "Round 1! First question!" : `Round ${displayRound}!`)
-        : phrases[q % phrases.length];
+        : pickLine("question_open", q);
       duckMusic(true);
       import("@/lib/elf-voice").then(({ speakAsElf }) => {
         speakAsElf(text, { interrupt: true, preset: "hype" }).finally(() => duckMusic(false));
@@ -483,6 +482,50 @@ export function HostGameStage({ room }: Props) {
     }, 900);
     return () => window.clearTimeout(id);
   }, [state?.phase, state?.current_question_id, state?.current_correct_index, players]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // First-blood: first live player to lock a correct answer in this question.
+  const firstBloodFiredRef = useRef<string>("");
+  useEffect(() => {
+    if (!state || state.phase !== "question") return;
+    const qid = state.current_question_id;
+    const correctIdx = state.current_correct_index;
+    if (!qid || correctIdx === null) return;
+    if (firstBloodFiredRef.current === qid) return;
+    const firstCorrect = players
+      .filter((p) => !p.is_audience && p.current_answer === correctIdx && p.current_answer_locked_at)
+      .sort((a, b) => {
+        const ta = new Date(a.current_answer_locked_at!).getTime();
+        const tb = new Date(b.current_answer_locked_at!).getTime();
+        return ta - tb;
+      })[0];
+    if (!firstCorrect) return;
+    firstBloodFiredRef.current = qid;
+    speakPersona(`${firstCorrect.nickname}! ${pickLine("first_blood", qid)}`);
+  }, [state?.phase, state?.current_question_id, state?.current_correct_index, players]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Leader-changed: when leaderboard phase opens, compare top scorer to prior round.
+  const lastLeaderRef = useRef<string | null>(null);
+  const leaderAnnouncedForRoundRef = useRef<number>(0);
+  useEffect(() => {
+    if (!state || state.phase !== "leaderboard") return;
+    const round = state.round_number ?? 0;
+    if (round < 2) return; // skip round 1, no prior leader
+    if (leaderAnnouncedForRoundRef.current === round) return;
+    const top = [...players]
+      .filter((p) => !p.is_audience)
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0];
+    if (!top) return;
+    leaderAnnouncedForRoundRef.current = round;
+    const prev = lastLeaderRef.current;
+    lastLeaderRef.current = top.session_id;
+    if (prev && prev !== top.session_id) {
+      // Delay so it lands after DYK / reveal audio finishes.
+      const id = window.setTimeout(() => {
+        speakPersona(`${top.nickname} takes the lead! ${pickLine("leader_changed", round)}`);
+      }, 1200);
+      return () => window.clearTimeout(id);
+    }
+  }, [state?.phase, state?.round_number, players]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
 
