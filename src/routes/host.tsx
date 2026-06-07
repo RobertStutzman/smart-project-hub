@@ -395,8 +395,9 @@ function HostPage() {
 
 
           {/* RIGHT — players + controls */}
-          <div className="flex flex-col gap-5">
+          <div className="flex min-h-0 flex-col gap-5 overflow-y-auto">
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur">
+
               <div className="mb-4 flex items-baseline justify-between">
                 <h2 className="text-xl font-bold text-white">Players</h2>
                 <span className="text-sm text-white/60">{players.length} in lobby</span>
