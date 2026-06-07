@@ -41,8 +41,41 @@ export function QuestionStage({
   explanation,
   mediaUrl,
   mediaType,
+  questionNumber = 1,
 }: Props) {
   const reading = readSecondsLeft > 0 && phase === "question";
+
+  // Phased intro derived from readSecondsLeft (3.5s total budget).
+  //   Phase 1 (badge):     readSecondsLeft > 2.7  (~0–800ms)
+  //   Phase 2 (question):  readSecondsLeft 1.6–2.7 (~800–1900ms)
+  //   Phase 3 (answers):   readSecondsLeft 0–1.6  (~1900–3500ms)
+  //   Phase 4 (play):      readSecondsLeft <= 0
+  const introPhase: 1 | 2 | 3 | 4 = !reading
+    ? 4
+    : readSecondsLeft > 2.7
+      ? 1
+      : readSecondsLeft > 1.6
+        ? 2
+        : 3;
+  const showBadge = introPhase === 1;
+  const showQuestion = introPhase >= 2;
+  const showAnswers = introPhase >= 3;
+
+  // Soft tick SFX as each answer lands during the stagger.
+  const tickedRef = useRef<string>("");
+  useEffect(() => {
+    if (!showAnswers) {
+      tickedRef.current = "";
+      return;
+    }
+    const key = `${questionText}-${answers.join("|")}`;
+    if (tickedRef.current === key) return;
+    tickedRef.current = key;
+    for (let i = 0; i < answers.length; i++) {
+      window.setTimeout(() => play("tick"), 700 + i * 110);
+    }
+  }, [showAnswers, questionText, answers]);
+
   // Heartbeat pulse + screen shake on each new drop
   const [pulse, setPulse] = useState(false);
   useEffect(() => {
