@@ -554,8 +554,9 @@ function HostPage() {
         {/* HERO — join + room code + QR (fills the middle, no scroll) */}
         <section className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[2svh] text-center">
           <div className="text-[clamp(0.7rem,1.6svh,1rem)] font-bold uppercase tracking-[0.5em] text-amber-200/80">
-            Join at <span className="font-mono normal-case tracking-normal text-white">{origin || "…"}/join</span>
+            Game PIN
           </div>
+
 
           <div className="bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text font-mono text-[clamp(4rem,22svh,12rem)] font-black leading-none tracking-[0.12em] text-transparent drop-shadow-[0_8px_30px_rgba(251,191,36,0.35)]">
             {creating || !room ? "····" : room.roomCode}
