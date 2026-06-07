@@ -230,6 +230,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
         status: "playing",
         phase: "question",
         current_question_id: q.id,
+        current_category: (q as { category?: string | null }).category ?? null,
         current_question_text: q.question_text,
         current_answers: answers,
         current_correct_index: correctIndex,
@@ -247,6 +248,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
         roast_candidates: null,
       })
       .eq("id", room.id);
+
     if (error) throw new Error(error.message);
 
     return { ok: true, questionId: q.id, wildcard };
