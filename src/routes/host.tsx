@@ -541,6 +541,8 @@ function HostPage() {
       {showPaywall && (
         <PaywallModal category={showPaywall} onClose={() => setShowPaywall(null)} />
       )}
+
+      <HostOnboarding />
     </main>
   );
 }
