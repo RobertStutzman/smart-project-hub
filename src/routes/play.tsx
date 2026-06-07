@@ -534,7 +534,7 @@ function PlayPage() {
                         labels={(room.current_answers ?? ["", "", "", ""]) as [string, string, string, string]}
                         droppedIndexes={[]}
                         selectedIndex={me?.current_answer ?? null}
-                        onPick={(i) => void pickAnswer(i)}
+                        onPick={(i) => void pick(i)}
                       />
                     </div>
                   </>
