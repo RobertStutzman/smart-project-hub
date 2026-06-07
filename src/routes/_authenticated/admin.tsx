@@ -84,6 +84,29 @@ function AdminPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [editing, setEditing] = useState<DraftQuestion | null>(null);
   const [working, setWorking] = useState(false);
+  const [dbCategories, setDbCategories] = useState<CategoryOption[]>([]);
+  const listCategoriesFn = useServerFn(listCategories);
+
+  const mergedCategories = useMemo<CategoryOption[]>(() => {
+    const map = new Map<string, number>();
+    for (const c of CATEGORIES) {
+      if (c.name === "Mystery Mix") continue;
+      map.set(c.name, 0);
+    }
+    for (const c of dbCategories) map.set(c.name, c.count);
+    return Array.from(map.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [dbCategories]);
+
+  async function reloadCategories() {
+    try {
+      const res = await listCategoriesFn();
+      setDbCategories(res.categories);
+    } catch {
+      // ignore
+    }
+  }
 
   useEffect(() => {
     void (async () => {
