@@ -98,6 +98,7 @@ function PlayPage() {
   const [me, setMe] = useState<Me | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [eliminatedFlash, setEliminatedFlash] = useState(false);
+  const [wagerDraft, setWagerDraft] = useState<number>(0);
   const lastDroppedSig = useRef("");
 
   useEffect(() => {
@@ -320,7 +321,6 @@ function PlayPage() {
     }
   };
 
-  const [wagerDraft, setWagerDraft] = useState<number>(0);
   useEffect(() => {
     if (room?.phase === "final_wager" && !me?.final_locked_at) {
       setWagerDraft((w) => Math.min(w, me?.score ?? 0));
