@@ -539,6 +539,7 @@ export const setPhase = createServerFn({ method: "POST" })
         "final_wager",
         "final_question",
         "final_reveal",
+        "sudden_death",
       ]),
     }).parse,
   )
