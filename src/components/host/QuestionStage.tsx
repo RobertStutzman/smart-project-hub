@@ -240,13 +240,14 @@ export function QuestionStage({
             <div key={i} className="relative min-h-0">
               {/* Stable card container — always rendered, never repositioned */}
               <motion.div
-                initial={{ scale: 0.96, opacity: 0, y: 8 }}
+                initial={false}
                 animate={{
-                  scale: isCorrect ? 1.04 : 1,
-                  opacity: dropped ? 0.15 : isWrongReveal ? 0.25 : 1,
-                  y: 0,
+                  scale: !showAnswers ? 0.94 : isCorrect ? 1.04 : 1,
+                  opacity: !showAnswers ? 0 : dropped ? 0.15 : isWrongReveal ? 0.25 : 1,
+                  y: !showAnswers ? 16 : 0,
                 }}
-                transition={{ duration: 0.3 }}
+                transition={{ duration: 0.35, delay: showAnswers && reading ? i * 0.11 : 0, ease: [0.22, 1, 0.36, 1] }}
+
                 className={`relative flex h-full w-full min-h-0 flex-col justify-between overflow-hidden rounded-2xl border p-3 backdrop-blur-xl sm:p-4 ${
                   dropped
                     ? "border-rose-500/30 bg-rose-950/20 grayscale"
