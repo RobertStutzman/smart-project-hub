@@ -299,7 +299,9 @@ function HostPage() {
 
   useEffect(() => {
     if (!room) return;
-    // Load soundboard clips once, then start lobby music.
+    // Load soundboard clips once, then start crowd + drumroll ambience.
+    // Game-show music is deferred until host starts the game (phase=intro),
+    // where HostGameStage triggers climaxAndHandoff.
     let cancelled = false;
     void (async () => {
       try {
@@ -319,14 +321,24 @@ function HostPage() {
       } catch {
         /* ignore — fall back to synth */
       } finally {
-        if (!cancelled) startMusic("lobby", 600);
+        if (!cancelled) {
+          const ambience = await import("@/lib/ambience-engine");
+          ambience.resetAmbience();
+          ambience.startCrowd();
+          // Drumroll fades in shortly after crowd for layered buildup.
+          window.setTimeout(() => {
+            if (!cancelled) ambience.startDrumroll();
+          }, 1200);
+        }
       }
     })();
     return () => {
       cancelled = true;
       stopMusic();
+      void import("@/lib/ambience-engine").then((m) => m.stopAllAmbience());
     };
   }, [room?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   // Subscribe to audience soundboard broadcasts → play SFX from TV speakers
   useEffect(() => {
