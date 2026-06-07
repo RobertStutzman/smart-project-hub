@@ -358,6 +358,27 @@ export const previewAnnouncerLine = createServerFn({ method: "POST" })
     return { audioBase64 };
   });
 
+// Persona voice — live Vox catchphrases, intro/credits narration, dynamic roasts.
+// No admin gate; any authenticated host can call during a game.
+const PERSONA_PRESETS = {
+  hype: { stability: 0.2, similarity_boost: 0.75, style: 0.9, use_speaker_boost: true, speed: 1.0 },
+  calm: { stability: 0.5, similarity_boost: 0.75, style: 0.4, use_speaker_boost: true, speed: 1.0 },
+} as const;
+
+export const speakPersonaLine = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      text: z.string().min(1).max(600),
+      preset: z.enum(["hype", "calm"]).optional(),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const settings = PERSONA_PRESETS[data.preset ?? "hype"];
+    const audio = await generateTTS(data.text, settings);
+    return { audioBase64: Buffer.from(audio).toString("base64") };
+  });
+
 
 // ──────────────────────────────────────────────────────────────────────────
 // Question voiceovers — pre-bake The Elf reading each question's prompt
