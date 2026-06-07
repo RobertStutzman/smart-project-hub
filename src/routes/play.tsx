@@ -690,6 +690,32 @@ function PlayPage() {
                     G̷L̷I̷T̷C̷H̷E̷D̷
                   </div>
                 )}
+                {room.phase === "reveal" && me?.last_answer_correct !== null && me?.last_answer_correct !== undefined && (
+                  <div
+                    className={`flex items-center justify-between gap-3 rounded-2xl border-2 px-4 py-3 backdrop-blur animate-scale-in ${
+                      me.last_answer_correct
+                        ? "border-emerald-400/70 bg-emerald-500/15 shadow-[0_0_30px_oklch(0.7_0.2_150/0.4)]"
+                        : "border-rose-400/70 bg-rose-500/15"
+                    }`}
+                  >
+                    <div>
+                      <div className={`text-[10px] font-black uppercase tracking-[0.35em] ${me.last_answer_correct ? "text-emerald-200" : "text-rose-200"}`}>
+                        {me.last_answer_correct ? "✓ Correct" : "✗ Wrong"}
+                      </div>
+                      <div className="mt-0.5 text-sm font-semibold text-foreground/85">
+                        {me.last_answer_correct ? "Nice lock-in." : "Shake it off."}
+                      </div>
+                    </div>
+                    <div className="text-right leading-none">
+                      <div className={`font-mono text-3xl font-black ${(me.current_round_score ?? 0) > 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                        {(me.current_round_score ?? 0) > 0 ? "+" : ""}{me.current_round_score ?? 0}
+                      </div>
+                      <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.25em] text-muted-foreground">
+                        score {me.score}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {room.phase === "reveal" &&
                   room.current_explanation &&
                   room.current_explanation.trim().length > 0 && (
@@ -703,11 +729,27 @@ function PlayPage() {
                     </div>
                   )}
               </>
+            ) : room.phase === "leaderboard" ? (
+              <div className="grid flex-1 place-items-center rounded-3xl border border-border bg-card/40 p-6 text-center backdrop-blur animate-scale-in">
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-[0.35em] text-amber-300/80">
+                    Standings on TV
+                  </div>
+                  <div className="mt-3 font-mono text-6xl font-black text-foreground">{me?.score ?? 0}</div>
+                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground">your score</div>
+                  {(me?.streak_count ?? 0) >= 2 && (
+                    <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-amber-300/15 px-3 py-1 text-sm font-bold text-amber-300">
+                      🔥 {me?.streak_count} in a row
+                    </div>
+                  )}
+                  <div className="mt-5 text-xs uppercase tracking-[0.25em] text-muted-foreground animate-pulse">
+                    Next round incoming…
+                  </div>
+                </div>
+              </div>
             ) : (
               <div className="grid flex-1 place-items-center rounded-2xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
-                {room.phase === "leaderboard"
-                  ? "See the TV for standings — next round soon."
-                  : "Waiting for the host to start…"}
+                Waiting for the host to start…
               </div>
             )}
           </>
