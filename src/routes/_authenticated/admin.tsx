@@ -18,6 +18,7 @@ import {
   signQuestionMedia,
   upsertQuestion,
 } from "@/lib/admin.functions";
+import { bakeAllQuestionTTS } from "@/lib/announcer.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { CATEGORIES } from "@/lib/categories";
 
