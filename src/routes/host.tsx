@@ -318,7 +318,7 @@ function HostPage() {
 
   return (
     <main
-      className="relative min-h-screen overflow-hidden text-white"
+      className="relative h-dvh overflow-hidden text-white"
       style={{
         background:
           "radial-gradient(ellipse 90% 60% at 50% 30%, oklch(0.22 0.04 270 / 0.95), oklch(0.06 0.02 270) 80%)",
@@ -341,7 +341,7 @@ function HostPage() {
         }}
       />
 
-      <div className="relative mx-auto flex min-h-screen max-w-7xl flex-col gap-6 p-6 lg:p-10">
+      <div className="relative mx-auto flex h-full min-h-0 max-w-7xl flex-col gap-6 p-6 lg:p-10">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <button
             onClick={() => navigate({ to: "/" })}
@@ -364,7 +364,8 @@ function HostPage() {
           </div>
         )}
 
-        <section className="grid flex-1 gap-6 lg:grid-cols-[1.2fr_1fr]">
+        <section className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[1.2fr_1fr]">
+
           {/* LEFT — brand + room code + QR */}
           <div className="flex flex-col items-center justify-center rounded-3xl border border-white/10 bg-white/[0.04] p-10 text-center backdrop-blur">
             <h1 className="font-display text-5xl font-black leading-[0.95] tracking-tight text-white drop-shadow-[0_4px_40px_rgba(0,0,0,0.7)] sm:text-6xl">
@@ -394,8 +395,9 @@ function HostPage() {
 
 
           {/* RIGHT — players + controls */}
-          <div className="flex flex-col gap-5">
+          <div className="flex min-h-0 flex-col gap-5 overflow-y-auto">
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur">
+
               <div className="mb-4 flex items-baseline justify-between">
                 <h2 className="text-xl font-bold text-white">Players</h2>
                 <span className="text-sm text-white/60">{players.length} in lobby</span>
