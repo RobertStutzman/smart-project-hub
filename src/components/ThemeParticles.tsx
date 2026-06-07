@@ -35,17 +35,15 @@ export function ThemeParticles() {
 
     type Ember = { x: number; y: number; vy: number; r: number; hue: number; a: number };
     const embers: Ember[] = [];
-    if (theme === "fellowship") {
-      for (let i = 0; i < 80; i++) {
-        embers.push({
-          x: Math.random() * w,
-          y: Math.random() * h,
-          vy: 0.2 + Math.random() * 0.6,
-          r: 0.5 + Math.random() * 1.8,
-          hue: 30 + Math.random() * 25,
-          a: 0.2 + Math.random() * 0.6,
-        });
-      }
+    for (let i = 0; i < 80; i++) {
+      embers.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        vy: 0.2 + Math.random() * 0.6,
+        r: 0.5 + Math.random() * 1.8,
+        hue: 30 + Math.random() * 25,
+        a: 0.2 + Math.random() * 0.6,
+      });
     }
 
     let raf = 0;
