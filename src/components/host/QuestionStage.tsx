@@ -121,6 +121,19 @@ export function QuestionStage({
   }
   const lockedCount = players.filter((p) => p.current_answer !== null).length;
 
+  // Two-beat reveal: 'tiles' (~2.2s) -> 'fullscreen' (correct answer + did you know).
+  const [revealStage, setRevealStage] = useState<"tiles" | "fullscreen">("tiles");
+  useEffect(() => {
+    if (phase !== "reveal") {
+      setRevealStage("tiles");
+      return;
+    }
+    const id = window.setTimeout(() => setRevealStage("fullscreen"), 2200);
+    return () => window.clearTimeout(id);
+  }, [phase, questionNumber]);
+  const showFullscreenReveal =
+    phase === "reveal" && revealStage === "fullscreen" && correctIndex != null;
+
   return (
     <motion.div
       className="relative flex h-full min-h-0 flex-col gap-3 overflow-hidden p-4 sm:gap-4 sm:p-5"
