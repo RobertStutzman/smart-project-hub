@@ -205,70 +205,36 @@ export function QuestionStage({
         <QuestionVideo src={mediaUrl} autoStart={!reading} />
       )}
 
-      {/* Pre-roll sequence: Question N → 3 → 2 → 1 → GO */}
+      {/* Dim + "QUESTION N" badge during phase 1 of the transition */}
       <AnimatePresence>
-        {reading && (() => {
-          const left = effectiveReadSecondsLeft;
-          let label: string | null = null;
-          let sub: string | null = null;
-          let dim = false;
-          let isNumber = false;
-          let isGo = false;
-          if (left > 4.5) { label = `Question ${questionNumber}`; sub = "Get ready"; dim = true; }
-          else if (left > 3.5) { label = "3"; isNumber = true; }
-          else if (left > 2.5) { label = "2"; isNumber = true; }
-          else if (left > 1.5) { label = "1"; isNumber = true; }
-          else if (left > 0.5) { label = "GO!"; isGo = true; }
-          if (!label) return null;
-          return (
+        {showBadge && (
+          <motion.div
+            key={`badge-${questionNumber}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="pointer-events-none absolute inset-0 z-30 grid place-items-center bg-black/55 backdrop-blur-md"
+          >
             <motion.div
-              key={`pre-${label}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className={`pointer-events-none absolute inset-0 z-30 grid place-items-center ${
-                dim ? "bg-black/55 backdrop-blur-md" : ""
-              }`}
+              initial={{ opacity: 0, y: 20, scale: 0.92 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -16, scale: 1.04 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              className="text-center"
             >
-              <motion.div
-                key={`inner-${label}`}
-                initial={{ opacity: 0, scale: 0.6 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 1.4 }}
-                transition={{ duration: 0.3, ease: [0.2, 1.4, 0.4, 1] }}
-                className="text-center"
-              >
-                {sub && (
-                  <div className="text-[11px] font-bold uppercase tracking-[0.5em] text-amber-300/80">
-                    {sub}
-                  </div>
-                )}
-                <div
-                  className={`font-display font-black uppercase leading-none tracking-tight text-transparent drop-shadow-[0_10px_50px_rgba(0,0,0,0.7)] ${
-                    isNumber ? "text-[22vw]" : isGo ? "text-[18vw]" : "mt-3 text-5xl sm:text-6xl lg:text-7xl"
-                  }`}
-                  style={{
-                    backgroundImage: isGo
-                      ? "linear-gradient(180deg, oklch(0.97 0.20 130) 0%, oklch(0.65 0.22 145) 100%)"
-                      : "linear-gradient(180deg, oklch(0.98 0.10 90) 0%, oklch(0.72 0.22 60) 100%)",
-                    WebkitBackgroundClip: "text",
-                    backgroundClip: "text",
-                    filter: isNumber || isGo
-                      ? "drop-shadow(0 12px 50px oklch(0.85 0.22 70 / 0.65))"
-                      : undefined,
-                    color: dim ? "white" : undefined,
-                    WebkitTextFillColor: dim && !isNumber && !isGo ? "white" : undefined,
-                  }}
-                >
-                  {label}
-                </div>
-                {dim && <div className="mx-auto mt-4 h-[2px] w-16 rounded-full bg-amber-300" />}
-              </motion.div>
+              <div className="text-[11px] font-bold uppercase tracking-[0.5em] text-amber-300/80">
+                Get ready
+              </div>
+              <div className="mt-3 font-display text-5xl font-black uppercase tracking-tight text-white drop-shadow-[0_8px_40px_rgba(0,0,0,0.6)] sm:text-6xl lg:text-7xl">
+                Question {questionNumber}
+              </div>
+              <div className="mx-auto mt-4 h-[2px] w-16 rounded-full bg-amber-300" />
             </motion.div>
-          );
-        })()}
+          </motion.div>
+        )}
       </AnimatePresence>
+
 
 
       {/* Answer panels — fixed 2x2 grid; cells NEVER reflow when shattered */}
