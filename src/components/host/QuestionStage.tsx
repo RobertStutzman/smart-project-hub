@@ -358,45 +358,21 @@ export function QuestionStage({
 }
 
 function ShatterOverlay(_props: { letter: string; label: string }) {
-  // 6 shards exploding outward — animate once, then a calm static ✕ stays.
-  const shards = [
-    { x: -120, y: -90, r: -25 },
-    { x: 110, y: -110, r: 30 },
-    { x: -140, y: 60, r: -40 },
-    { x: 130, y: 80, r: 35 },
-    { x: 0, y: -160, r: 12 },
-    { x: 0, y: 140, r: -18 },
-  ];
+  // Simple, calm ✕ stamp over the eliminated tile. No screen-flooding shards.
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-visible rounded-2xl">
-      {shards.map((s, idx) => (
-        <motion.div
-          key={idx}
-          initial={{ x: 0, y: 0, rotate: 0, opacity: 1 }}
-          animate={{ x: s.x, y: s.y, rotate: s.r, opacity: 0 }}
-          transition={{ duration: 0.7, ease: "easeOut" }}
-          className="absolute inset-0 rounded-2xl border border-white/20 bg-white/[0.08] backdrop-blur-md"
-          style={{
-            clipPath: `polygon(${20 + idx * 12}% 0%, ${60 + idx * 5}% 0%, 100% ${
-              30 + idx * 8
-            }%, ${70 - idx * 5}% 100%, 0% ${60 - idx * 4}%)`,
-          }}
-        />
-      ))}
-      {/* persistent wrong stamp — animates in once, then stays */}
+    <div className="pointer-events-none absolute inset-0 grid place-items-center overflow-hidden rounded-2xl">
       <motion.div
-        initial={{ scale: 1.6, opacity: 0 }}
-        animate={{ scale: 1, opacity: 0.85 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className="absolute inset-0 grid place-items-center"
+        initial={{ scale: 1.6, opacity: 0, rotate: -8 }}
+        animate={{ scale: 1, opacity: 0.9, rotate: 0 }}
+        transition={{ duration: 0.35, ease: "easeOut" }}
+        className="font-display text-8xl font-black text-rose-400 drop-shadow-[0_0_30px_rgba(244,63,94,0.8)]"
       >
-        <div className="font-display text-7xl font-black text-rose-400/80 drop-shadow-[0_0_30px_rgba(244,63,94,0.8)]">
-          ✕
-        </div>
+        ✕
       </motion.div>
     </div>
   );
 }
+
 
 
 function PointsTicker({ secondsLeft, max }: { secondsLeft: number; max: number }) {
