@@ -645,6 +645,7 @@ export const startFinalRound = createServerFn({ method: "POST" })
       wrong_1: string;
       wrong_2: string;
       wrong_3: string;
+      category?: string | null;
     } | null = null;
     // Fallback chain for the final round (prefer staying in the selected category):
     //   1. impossible/hard in current category
