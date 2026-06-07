@@ -17,6 +17,7 @@ import { Route as HostRouteImport } from './routes/host'
 import { Route as DevRouteImport } from './routes/dev'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedAdminTtsRouteImport } from './routes/_authenticated/admin-tts'
 import { Route as AuthenticatedAdminSoundsRouteImport } from './routes/_authenticated/admin-sounds'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 
@@ -59,6 +60,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAdminTtsRoute = AuthenticatedAdminTtsRouteImport.update({
+  id: '/admin-tts',
+  path: '/admin-tts',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedAdminSoundsRoute =
   AuthenticatedAdminSoundsRouteImport.update({
     id: '/admin-sounds',
@@ -81,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/preview-question': typeof PreviewQuestionRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
+  '/admin-tts': typeof AuthenticatedAdminTtsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -92,6 +99,7 @@ export interface FileRoutesByTo {
   '/preview-question': typeof PreviewQuestionRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
+  '/admin-tts': typeof AuthenticatedAdminTtsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -105,6 +113,7 @@ export interface FileRoutesById {
   '/preview-question': typeof PreviewQuestionRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/admin-sounds': typeof AuthenticatedAdminSoundsRoute
+  '/_authenticated/admin-tts': typeof AuthenticatedAdminTtsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -118,6 +127,7 @@ export interface FileRouteTypes {
     | '/preview-question'
     | '/admin'
     | '/admin-sounds'
+    | '/admin-tts'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -129,6 +139,7 @@ export interface FileRouteTypes {
     | '/preview-question'
     | '/admin'
     | '/admin-sounds'
+    | '/admin-tts'
   id:
     | '__root__'
     | '/'
@@ -141,6 +152,7 @@ export interface FileRouteTypes {
     | '/preview-question'
     | '/_authenticated/admin'
     | '/_authenticated/admin-sounds'
+    | '/_authenticated/admin-tts'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -212,6 +224,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/admin-tts': {
+      id: '/_authenticated/admin-tts'
+      path: '/admin-tts'
+      fullPath: '/admin-tts'
+      preLoaderRoute: typeof AuthenticatedAdminTtsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin-sounds': {
       id: '/_authenticated/admin-sounds'
       path: '/admin-sounds'
@@ -232,11 +251,13 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAdminSoundsRoute: typeof AuthenticatedAdminSoundsRoute
+  AuthenticatedAdminTtsRoute: typeof AuthenticatedAdminTtsRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAdminSoundsRoute: AuthenticatedAdminSoundsRoute,
+  AuthenticatedAdminTtsRoute: AuthenticatedAdminTtsRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
@@ -256,3 +277,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
