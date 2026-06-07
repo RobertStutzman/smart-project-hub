@@ -400,6 +400,22 @@ function HostPage() {
                 <h2 className="text-xl font-bold text-white">Players</h2>
                 <span className="text-sm text-white/60">{players.length} in lobby</span>
               </div>
+              {teamMode && players.length > 0 && (
+                <div className="mb-3 grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex items-center justify-between rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 py-2">
+                    <span className="font-bold uppercase tracking-wider text-rose-200">🔴 Red</span>
+                    <span className="tabular-nums text-white">
+                      {players.filter((p) => p.team === "red").length} players · {players.filter((p) => p.team === "red").reduce((s, p) => s + (p.score ?? 0), 0)} pts
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border border-sky-400/40 bg-sky-500/10 px-3 py-2">
+                    <span className="font-bold uppercase tracking-wider text-sky-200">🔵 Blue</span>
+                    <span className="tabular-nums text-white">
+                      {players.filter((p) => p.team === "blue").length} players · {players.filter((p) => p.team === "blue").reduce((s, p) => s + (p.score ?? 0), 0)} pts
+                    </span>
+                  </div>
+                </div>
+              )}
               {players.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-white/15 p-6 text-center text-sm text-white/60">
                   Waiting for players to join…
