@@ -10,7 +10,9 @@ export type Sfx =
   | "airhorn"
   | "crickets"
   | "boo"
-  | "sadTrombone";
+  | "sadTrombone"
+  | "shutterClose"
+  | "shutterOpen";
 
 export type GameEvent =
   | "lobby_music"
