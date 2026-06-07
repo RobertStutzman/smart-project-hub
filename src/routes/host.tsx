@@ -726,19 +726,24 @@ function HostPage() {
                   ) : (
                     allCategories.map((c) => {
                       const checked = enabledCats.has(c.name);
+                      const empty = c.count === 0;
                       return (
                         <button
                           key={c.name}
-                          onClick={() => toggleCategory(c.name)}
+                          onClick={() => { if (!empty) toggleCategory(c.name); }}
+                          disabled={empty}
+                          title={empty ? "No questions in this category yet. Add some on /admin." : undefined}
                           className={`relative flex items-center gap-2 rounded-lg border p-2 text-left transition ${
-                            checked
-                              ? "border-amber-300/60 bg-amber-300/15 text-amber-100"
-                              : "border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/10"
+                            empty
+                              ? "cursor-not-allowed border-white/5 bg-white/[0.02] text-white/30"
+                              : checked
+                                ? "border-amber-300/60 bg-amber-300/15 text-amber-100"
+                                : "border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/10"
                           }`}
                         >
                           <span className="text-lg leading-none">{emojiForCategory(c.name)}</span>
                           <span className="flex-1 text-xs font-semibold leading-tight">{c.name}</span>
-                          <span className="text-[10px] text-white/40">{c.count}</span>
+                          <span className="text-[10px] text-white/40">{empty ? "empty" : c.count}</span>
                         </button>
                       );
                     })
