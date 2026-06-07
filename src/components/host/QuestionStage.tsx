@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { play } from "@/lib/sound-engine";
+import { ShatteredFaces } from "./ShatteredFaces";
 
 type Player = {
   id: string;
   nickname: string;
   avatar_url: string | null;
   current_answer: number | null;
+  is_audience?: boolean;
 };
 
 type Props = {
