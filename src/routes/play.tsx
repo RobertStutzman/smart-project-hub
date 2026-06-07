@@ -545,9 +545,25 @@ function PlayPage() {
               </div>
             ) : room.phase === "question" || room.phase === "reveal" ? (
               <>
-                <div className="flex items-center justify-between rounded-2xl border border-border bg-card/30 px-4 py-2 backdrop-blur">
-                  <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-                    {room.wildcard === "roast" ? "Roast vote · check TV" : `Q · Round ${room.round_number}`}
+                <div
+                  className={`flex items-center justify-between rounded-2xl border px-4 py-2 backdrop-blur ${
+                    room.wildcard === "lightning"
+                      ? "border-rose-400/60 bg-rose-500/15 animate-pulse"
+                      : "border-border bg-card/30"
+                  }`}
+                >
+                  <div
+                    className={`text-[10px] uppercase tracking-[0.25em] ${
+                      room.wildcard === "lightning"
+                        ? "font-black text-rose-200"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {room.wildcard === "lightning"
+                      ? "⚡ Lightning · 2× pts · 8s"
+                      : room.wildcard === "roast"
+                        ? "Roast vote · check TV"
+                        : `Q · Round ${room.round_number}`}
                   </div>
                   {reading ? (
                     <div className="font-mono text-xl font-black text-amber-300">
