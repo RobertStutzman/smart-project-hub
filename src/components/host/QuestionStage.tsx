@@ -476,67 +476,65 @@ export function QuestionStage({
   );
 }
 
-function ShatterOverlay(_props: { letter: string; label: string }) {
-  // Contained-to-tile elimination beat: SVG slash draws on, "OUT" stamp punches in,
-  // rose embers drift up. No flash layer, no stage shake.
-  const embers = Array.from({ length: 8 });
+function DropDebris() {
+  // Debris burst that fires once when an answer tile drops off the board:
+  // a few rectangular shards spin outward + rose embers drift up.
+  const shards = Array.from({ length: 7 });
+  const embers = Array.from({ length: 10 });
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
-      {/* Diagonal slash */}
-      <svg
-        className="absolute inset-0 h-full w-full"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-      >
-        <motion.line
-          x1="6"
-          y1="14"
-          x2="94"
-          y2="86"
-          stroke="oklch(0.72 0.22 20)"
-          strokeWidth="5"
-          strokeLinecap="round"
-          initial={{ pathLength: 0, opacity: 0 }}
-          animate={{ pathLength: 1, opacity: 1 }}
-          transition={{ duration: 0.28, ease: [0.65, 0, 0.35, 1] }}
-          style={{
-            filter:
-              "drop-shadow(0 0 8px rgba(244,63,94,0.85)) drop-shadow(0 0 18px rgba(244,63,94,0.5))",
-          }}
-        />
-      </svg>
-
-      {/* Stamped OUT badge */}
+    <div className="pointer-events-none absolute inset-0 z-20 overflow-visible">
+      {/* Impact flash */}
       <motion.div
-        initial={{ scale: 2.2, opacity: 0, rotate: -22 }}
-        animate={{ scale: [2.2, 0.9, 1.05, 1], opacity: [0, 1, 1, 0.95], rotate: -12 }}
-        transition={{ duration: 0.55, times: [0, 0.35, 0.55, 1], ease: "easeOut" }}
-        className="absolute inset-0 grid place-items-center"
-      >
-        <div
-          className="rounded-md border-[3px] border-rose-400 bg-rose-950/60 px-4 py-1 font-display text-5xl font-black uppercase tracking-[0.2em] text-rose-200 shadow-[0_0_30px_rgba(244,63,94,0.6)] sm:text-6xl"
-          style={{ textShadow: "0 2px 0 rgba(0,0,0,0.6)" }}
-        >
-          Out
-        </div>
-      </motion.div>
-
-      {/* Rose embers */}
-      {embers.map((_, i) => {
-        const xStart = 20 + ((i * 11) % 70);
-        const drift = (i % 2 === 0 ? -1 : 1) * (8 + (i % 3) * 6);
-        const delay = 0.05 + (i % 4) * 0.04;
+        initial={{ opacity: 0.55, scale: 0.6 }}
+        animate={{ opacity: 0, scale: 1.4 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="absolute inset-x-0 bottom-0 mx-auto h-16 w-3/4 rounded-full"
+        style={{
+          background:
+            "radial-gradient(ellipse 60% 50% at 50% 100%, oklch(0.72 0.22 20 / 0.7), transparent 70%)",
+          filter: "blur(6px)",
+        }}
+      />
+      {/* Rectangular shards spinning outward */}
+      {shards.map((_, i) => {
+        const angle = -90 + (i - shards.length / 2) * 22 + (i * 7) % 11;
+        const dist = 60 + (i * 13) % 40;
+        const rad = (angle * Math.PI) / 180;
+        const x = Math.cos(rad) * dist;
+        const y = Math.sin(rad) * dist;
         return (
           <motion.span
-            key={i}
-            initial={{ opacity: 0, x: `${xStart}%`, y: "70%", scale: 0.6 }}
+            key={`s-${i}`}
+            initial={{ x: 0, y: 0, opacity: 1, rotate: 0, scale: 1 }}
+            animate={{
+              x,
+              y: y + 40,
+              opacity: 0,
+              rotate: (i % 2 ? 1 : -1) * (180 + i * 30),
+              scale: 0.4,
+            }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute left-1/2 top-1/2 block h-2 w-3 rounded-sm bg-rose-300/80"
+            style={{ filter: "drop-shadow(0 0 6px rgba(244,63,94,0.8))" }}
+          />
+        );
+      })}
+      {/* Rose embers drifting up */}
+      {embers.map((_, i) => {
+        const xStart = 18 + ((i * 11) % 72);
+        const drift = (i % 2 === 0 ? -1 : 1) * (10 + (i % 3) * 8);
+        const delay = 0.04 + (i % 4) * 0.05;
+        return (
+          <motion.span
+            key={`e-${i}`}
+            initial={{ opacity: 0, x: `${xStart}%`, y: "80%", scale: 0.6 }}
             animate={{
               opacity: [0, 1, 0],
-              y: "10%",
+              y: "5%",
               x: `${xStart + drift}%`,
-              scale: [0.6, 1, 0.4],
+              scale: [0.5, 1, 0.3],
             }}
-            transition={{ duration: 0.7, delay, ease: "easeOut" }}
+            transition={{ duration: 0.8, delay, ease: "easeOut" }}
             className="absolute block h-1.5 w-1.5 rounded-full bg-rose-300"
             style={{ filter: "drop-shadow(0 0 6px rgba(244,63,94,0.9))" }}
           />
@@ -545,6 +543,7 @@ function ShatterOverlay(_props: { letter: string; label: string }) {
     </div>
   );
 }
+
 
 
 
