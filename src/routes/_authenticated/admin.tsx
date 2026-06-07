@@ -628,13 +628,15 @@ function AIGenerator({
   generate,
   bulkInsert,
   onInserted,
+  categories,
 }: {
   generate: ReturnType<typeof useServerFn<typeof generateQuestions>>;
   bulkInsert: ReturnType<typeof useServerFn<typeof bulkInsertQuestions>>;
   onInserted: () => Promise<void>;
+  categories: CategoryOption[];
 }) {
   const [prompt, setPrompt] = useState("10 hard 80s rock questions");
-  const [category, setCategory] = useState(CATEGORIES[0].name);
+  const [category, setCategory] = useState(categories[0]?.name ?? CATEGORIES[0].name);
   const [count, setCount] = useState(10);
   const [isPremium, setIsPremium] = useState(false);
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard" | "impossible" | "mixed">("mixed");
