@@ -90,8 +90,28 @@ export function HostGameStage({ room }: Props) {
   const droppedRef = useRef<Set<number>>(new Set());
   const dropSfxTimersRef = useRef<number[]>([]);
   const endedRef = useRef(false);
+  const announcedJoinsRef = useRef<Set<string>>(new Set());
   const [recapDoneForRound, setRecapDoneForRound] = useState<number>(-1);
   const leaderboardAutoAdvanceRef = useRef<string>("");
+
+  // Preload the funny-sound bank once so the first wrong drop is instant.
+  useEffect(() => {
+    preloadFunnyBank();
+  }, []);
+
+  // When a new (non-audience) player joins, play their assigned funny noise
+  // so they (and the room) immediately learn their signature sound.
+  useEffect(() => {
+    for (const p of players) {
+      if (p.is_audience) continue;
+      const key = p.session_id ?? p.id;
+      if (!key || announcedJoinsRef.current.has(key)) continue;
+      announcedJoinsRef.current.add(key);
+      // Only chirp on actual joins, not on the very first hydration burst.
+      // We mark all current players as "announced" on the first pass below.
+      playFunnySoundForId(key);
+    }
+  }, [players]);
 
   const nextQuestionFn = useServerFn(nextQuestion);
   const dropWrongFn = useServerFn(dropWrongAnswer);
