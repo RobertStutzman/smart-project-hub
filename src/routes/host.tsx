@@ -71,6 +71,7 @@ function HostPage() {
   const [origin, setOrigin] = useState("");
   const [roomPhase, setRoomPhase] = useState<string>("lobby");
   const [roundNumber, setRoundNumber] = useState<number>(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const initRef = useRef(false);
 
   // Hydration-safe origin + persisted mute pref
