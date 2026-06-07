@@ -16,6 +16,9 @@ import { Leaderboard } from "./Leaderboard";
 import { ShatteredFaces } from "./ShatteredFaces";
 import { TwitchPanel } from "./TwitchPanel";
 import { AIRoast } from "./AIRoast";
+import { IntroStage } from "./IntroStage";
+import { CreditsStage } from "./CreditsStage";
+import { pickLine, speakPersona } from "@/lib/host-persona";
 import { play, playEvent, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
 
 type RoomState = {
@@ -48,6 +51,10 @@ type Player = {
   final_wager: number;
   final_answer: number | null;
   final_locked_at: string | null;
+  best_streak: number;
+  fastest_count: number;
+  correct_count: number;
+  wrong_count: number;
 };
 
 type Props = {
@@ -100,7 +107,7 @@ export function HostGameStage({ room }: Props) {
       const { data: ps } = await supabase
         .from("players")
         .select(
-          "id, nickname, score, avatar_url, current_answer, current_round_score, current_round_fastest, streak_count, is_audience, final_wager, final_answer, final_locked_at",
+          "id, nickname, score, avatar_url, current_answer, current_round_score, current_round_fastest, streak_count, is_audience, final_wager, final_answer, final_locked_at, best_streak, fastest_count, correct_count, wrong_count",
         )
         .eq("room_id", room.id)
         .order("created_at", { ascending: true });
