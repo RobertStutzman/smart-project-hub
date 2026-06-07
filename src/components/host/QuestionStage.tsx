@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { play } from "@/lib/sound-engine";
 import { ShatteredFaces } from "./ShatteredFaces";
+import { ShutterTransition } from "./ShutterTransition";
 
 type Player = {
   id: string;
