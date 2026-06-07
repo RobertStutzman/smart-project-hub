@@ -714,6 +714,7 @@ export const startFinalRound = createServerFn({ method: "POST" })
         status: "playing",
         phase: "final_intro",
         current_question_id: q.id,
+        current_category: q.category ?? null,
         current_question_text: q.question_text,
         current_answers: answers,
         current_correct_index: correctIndex,
