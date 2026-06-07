@@ -73,6 +73,7 @@ type Me = {
   final_answer: number | null;
   final_locked_at: string | null;
   comeback_bonus: boolean;
+  team: "red" | "blue" | null;
   session_id: string;
 };
 
@@ -137,7 +138,7 @@ function PlayPage() {
       const { data: p } = await supabase
         .from("players")
         .select(
-          "id, session_id, nickname, avatar_url, score, streak_count, is_audience, current_answer, current_answer_locked_at, current_round_score, last_answer_correct, used_2x, pending_2x, correct_count, wrong_count, fastest_count, best_streak, total_response_ms, answered_count, final_wager, final_answer, final_locked_at, comeback_bonus",
+          "id, session_id, nickname, avatar_url, score, streak_count, is_audience, current_answer, current_answer_locked_at, current_round_score, last_answer_correct, used_2x, pending_2x, correct_count, wrong_count, fastest_count, best_streak, total_response_ms, answered_count, final_wager, final_answer, final_locked_at, comeback_bonus, team",
         )
         .eq("room_id", r.id)
         .eq("session_id", session.sessionId)
@@ -383,7 +384,19 @@ function PlayPage() {
               <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                 {isAudience ? "Audience" : "Player"}
               </div>
-              <div className="text-xl font-bold">{me?.nickname ?? session.nickname}</div>
+              <div className="flex items-center gap-2">
+                <div className="text-xl font-bold">{me?.nickname ?? session.nickname}</div>
+                {me?.team === "red" && (
+                  <span className="rounded-full border border-rose-400/50 bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-200">
+                    🔴 Red Team
+                  </span>
+                )}
+                {me?.team === "blue" && (
+                  <span className="rounded-full border border-sky-400/50 bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-200">
+                    🔵 Blue Team
+                  </span>
+                )}
+              </div>
             </div>
             {!isAudience && (
               <div className="text-right">
