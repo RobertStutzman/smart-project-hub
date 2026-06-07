@@ -80,7 +80,7 @@ export function QuestionStage({
           : undefined
       }
       transition={{ duration: 0.5 }}
-      className="relative flex h-full flex-col gap-6 overflow-hidden p-6"
+      className="relative flex h-full min-h-0 flex-col gap-3 overflow-hidden p-4 sm:gap-4 sm:p-5"
       style={{
         background:
           "radial-gradient(ellipse 90% 60% at 50% 35%, oklch(0.22 0.04 270 / 0.9), oklch(0.08 0.02 270) 75%)",
