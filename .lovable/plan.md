@@ -1,49 +1,78 @@
-## Current state
+## Goal
 
-Every baked pool in `src/lib/host-persona.ts` already has **25 lines** (11 pools × 25 = 275 baked lines). The bottleneck for variety isn't the existing pools — it's that several "in-the-room" moments have no baked pool at all and fall back to a poorly-fitting one.
+Replace the silent opening with layered, high-quality ambience that builds anticipation from landing → host lobby → game start, then hands off to the existing game-show music.
 
-Live Tier-1 templates in `persona-live.ts` are also thin (4–7 per moment).
+## Audio assets (generated via ElevenLabs SFX)
 
-## Plan
+Generate three new MP3 assets once and commit them to `src/assets/audio/`:
 
-### 1. Expand existing baked pools: 25 → 40 lines each
-`src/lib/host-persona.ts` — add 15 fresh lines to each of the 11 existing moments:
-`intro_hype`, `question_open`, `all_correct`, `all_wrong`, `split_correct`, `first_blood`, `streak_milestone`, `elimination`, `leader_changed`, `final_hype`, `credits_open`.
+1. `crowd-ambience.mp3` — 20s loop. Murmuring TV-game-show studio audience, warm, distant, no claps. Plays loud enough to feel alive but never masks UI.
+2. `drumroll-build.mp3` — 12s. Soft snare roll that crescendos, with a tom hit on the last beat. Designed to loop seamlessly until the game starts, then resolve.
+3. `cymbal-swell.mp3` — 2s. Cymbal swell + impact hit for the handoff into game-show music.
 
-Tone guardrails (match existing Vox voice): under ~8 words, dry/snarky, no emojis, no player names, no apostrophe-heavy contractions that trip TTS.
+These are static assets — no runtime ElevenLabs call. If a future user wants to swap them, they can use the existing soundboard upload flow.
 
-### 2. Add 4 new baked pools for moments that currently borrow a wrong one
-Extend the `Moment` union and `LINES` map with:
+## Where each layer plays
 
-- `comeback` — generic "someone clawed back" (Tier 3 fallback for live comeback). 30 lines.
-- `round_recap` — generic round-end zing when MVP can't be named. 30 lines.
-- `idle_interject` — dead-air filler between questions ("Don't make me start humming."). 30 lines.
-- `round_transition` — between-round stingers ("Round 2. Heating up."). 30 lines.
+```text
+/  (landing page)
+  └── crowd ambience starts on first user interaction
+      (autoplay needs a gesture — fade in on first click/scroll/keypress)
 
-Update `FALLBACK_MOMENT` map in `src/lib/persona-live.ts` so `comeback` → `comeback` and `round_recap` → `round_recap` (currently they wrongly point at `first_blood` and `split_correct`).
+/host  (lobby, room code visible, players joining)
+  └── crowd ambience continues (cross-route persistence via singleton)
+  └── drumroll-build layer fades in, looping underneath
 
-### 3. Expand live Tier-1 templates in `persona-live.ts`
-Bump every `TEMPLATES[...]` array from 4–7 lines to **10 lines each**. Update `LIVE_COUNTS` in `src/lib/host-moments.ts` to match so the admin panel shows the new counts.
+Host clicks "Start game" → IntroStage
+  └── drumroll climax + cymbal-swell stinger
+  └── crowd ambience fades out
+  └── existing startMusic("lobby") / game-show track takes over (unchanged)
+```
 
-### 4. Register new moments in the admin Sounds page
-`src/lib/host-moments.ts` — add registry entries for `comeback`, `round_recap`, `idle_interject`, `round_transition` so they appear in the Host Moments panel with Preview buttons.
+## Implementation
 
-### 5. Re-bake
-After the file edits, you click **🎭 Bake persona catchphrases** once. The bake server fn skips already-cached lines, so it only hits ElevenLabs for the ~165 new baked lines (~1 ElevenLabs request each, ~2–3 min total).
+### 1. `src/lib/ambience-engine.ts` (new)
 
-## Cost / scope
+Small singleton that survives route changes (sits outside React tree, imported by both routes). Exposes:
 
-- ElevenLabs calls: ~165 new (one-time, then cached forever unless text changes).
-- No DB changes, no gameplay logic changes, no new UI surfaces — admin panel auto-picks up new moments via the registry.
+- `startCrowd()` — lazy-creates an `HTMLAudioElement` for crowd-ambience.mp3, loops, fades in to ~0.18 volume. No-op if already playing or if `setMuted(true)`.
+- `startDrumroll()` — adds drumroll-build.mp3 layered on top, loops, fades in to ~0.22.
+- `climaxAndHandoff()` — plays cymbal-swell, fades crowd + drumroll to 0 over ~600ms, then stops them.
+- `stopAll()` — hard stop (used on unmount of host flow / mute toggle).
 
-## Files
+Respects the existing `setMuted` state from `sound-engine.ts` by reading a shared mute flag (export a getter from sound-engine).
 
-- Edit: `src/lib/host-persona.ts` (expand 11 pools, add 4 new pools, extend `Moment` union)
-- Edit: `src/lib/persona-live.ts` (expand `TEMPLATES`, fix `FALLBACK_MOMENT` for comeback/round_recap)
-- Edit: `src/lib/host-moments.ts` (update `LIVE_COUNTS`, add 4 new registry entries)
+### 2. `src/routes/index.tsx`
+
+- On mount, attach a one-time `pointerdown`/`keydown` listener that calls `startCrowd()` then removes itself (browser autoplay policy).
+- Add a small muted/unmuted toggle in the corner so users can silence it. Persists in `localStorage` under the same key the host page uses (`bd_muted`) so the state carries across.
+
+### 3. `src/routes/host.tsx`
+
+In the existing effect at line 300-329:
+
+- Before `startMusic("lobby", 600)`, call `startCrowd()` (idempotent — no-op if landing already started it) and `startDrumroll()`.
+- Do NOT start the existing lobby music yet — defer it until the host clicks Start.
+- When the host transitions to `IntroStage` (the existing "begin game" handler in `host.tsx` / `HostGameStage.tsx`), call `ambience.climaxAndHandoff()` and then `startMusic("lobby", 600)` as today. The existing welcome clip stays in place but plays alongside crowd instead of in silence.
+
+### 4. `src/components/host/IntroStage.tsx`
+
+No structural change. The cymbal swell from step 3 lines up with the title card fade-in. Optionally add a 200ms delay before `play("whoosh")` so the cymbal lands first.
+
+### 5. Mute integration
+
+Extend `setMuted` in `sound-engine.ts` to also call `ambience.stopAll()`. The existing mute button in host.tsx then silences everything in one place.
 
 ## Out of scope
 
-- Wiring `idle_interject` / `round_transition` into actual gameplay triggers — this plan only writes the lines and bakes them. Hooking them into `HostGameStage` is a separate pass.
-- Editing lines from the admin UI.
-- Changing the Tier 1/2/3 cap.
+- No changes to host persona TTS, shutter transitions, or the existing game-show music.
+- No changes to the soundboard admin page; new files are static assets, not user-uploadable events.
+- No changes to player/audience routes — ambience is host-TV only (plus landing page).
+
+## Files touched
+
+- new: `src/lib/ambience-engine.ts`
+- new: `src/assets/audio/crowd-ambience.mp3`, `drumroll-build.mp3`, `cymbal-swell.mp3`
+- edited: `src/routes/index.tsx` (gesture-gated crowd start + mute toggle)
+- edited: `src/routes/host.tsx` (layer crowd + drumroll in lobby, climax on game start)
+- edited: `src/lib/sound-engine.ts` (mute hook into ambience)
