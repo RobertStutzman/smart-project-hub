@@ -242,6 +242,7 @@ export const generateQuestions = createServerFn({ method: "POST" })
           },
         ],
         tool_choice: { type: "function", function: { name: "emit_questions" } },
+        max_completion_tokens: 8192,
       }),
     });
 
@@ -249,10 +250,16 @@ export const generateQuestions = createServerFn({ method: "POST" })
     if (res.status === 402) throw new Error("AI credits exhausted — add funds in Cloud → Usage.");
     if (!res.ok) throw new Error(`AI gateway error ${res.status}`);
     const json = await res.json();
+    const finishReason = json?.choices?.[0]?.finish_reason;
     const args =
       json?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-    if (!args) throw new Error("AI did not return structured output");
-    const parsed = JSON.parse(args) as {
+    if (!args) {
+      if (finishReason === "length") {
+        throw new Error("AI output was cut off — try a smaller count or a shorter prompt.");
+      }
+      throw new Error("AI did not return structured output — try rephrasing the prompt or lowering the count.");
+    }
+    let parsed: {
       questions: Array<{
         question_text: string;
         correct_answer: string;
@@ -263,6 +270,11 @@ export const generateQuestions = createServerFn({ method: "POST" })
         difficulty?: "easy" | "medium" | "hard" | "impossible";
       }>;
     };
+    try {
+      parsed = JSON.parse(args);
+    } catch {
+      throw new Error("AI output was cut off mid-JSON — try a smaller count or shorter prompt.");
+    }
     const fallbackDifficulty =
       data.difficulty === "mixed" ? "medium" : data.difficulty;
     const all = parsed.questions.map((q) => sanitizeQuestion({
