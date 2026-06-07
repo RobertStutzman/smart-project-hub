@@ -95,6 +95,23 @@ export const joinRoom = createServerFn({ method: "POST" })
       throw new Error("This room is no longer accepting new players.");
     }
 
+    // Determine team assignment if team mode is on (balance counts)
+    let team: "red" | "blue" | null = null;
+    const { data: roomFull } = await supabaseAdmin
+      .from("rooms")
+      .select("team_mode")
+      .eq("id", room.id)
+      .maybeSingle();
+    if ((roomFull as { team_mode?: boolean } | null)?.team_mode) {
+      const { data: existingPlayers } = await supabaseAdmin
+        .from("players")
+        .select("team")
+        .eq("room_id", room.id)
+        .eq("is_audience", false);
+      const red = (existingPlayers ?? []).filter((p) => (p as { team?: string }).team === "red").length;
+      const blue = (existingPlayers ?? []).filter((p) => (p as { team?: string }).team === "blue").length;
+      team = red <= blue ? "red" : "blue";
+    }
 
     const { data: player, error: playerErr } = await supabaseAdmin
       .from("players")
@@ -102,12 +119,59 @@ export const joinRoom = createServerFn({ method: "POST" })
         room_id: room.id,
         nickname: data.nickname,
         session_id: data.sessionId,
+        team,
       })
       .select("id")
       .single();
     if (playerErr) throw new Error(playerErr.message);
     return { roomId: room.id, playerId: player.id, resumed: false };
   });
+
+export const toggleTeamMode = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      hostSessionId: z.string().min(8).max(128),
+      enabled: z.boolean(),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const { data: room } = await supabaseAdmin
+      .from("rooms")
+      .select("id")
+      .eq("room_code", data.roomCode)
+      .eq("host_session_id", data.hostSessionId)
+      .maybeSingle();
+    if (!room) throw new Error("Room not found");
+
+    await supabaseAdmin
+      .from("rooms")
+      .update({ team_mode: data.enabled })
+      .eq("id", room.id);
+
+    if (data.enabled) {
+      // Auto-assign existing non-audience players alternating red/blue
+      const { data: players } = await supabaseAdmin
+        .from("players")
+        .select("id")
+        .eq("room_id", room.id)
+        .eq("is_audience", false)
+        .order("created_at", { ascending: true });
+      for (let i = 0; i < (players ?? []).length; i++) {
+        await supabaseAdmin
+          .from("players")
+          .update({ team: i % 2 === 0 ? "red" : "blue" })
+          .eq("id", (players ?? [])[i].id);
+      }
+    } else {
+      await supabaseAdmin
+        .from("players")
+        .update({ team: null })
+        .eq("room_id", room.id);
+    }
+    return { ok: true };
+  });
+
 
 export const heartbeatPlayer = createServerFn({ method: "POST" })
   .inputValidator(
