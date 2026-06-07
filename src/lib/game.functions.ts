@@ -155,7 +155,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
 
     async function fetchPool(difficulty: string | null, useCategory: boolean) {
       let qQuery = supabaseAdmin.from("questions").select("*");
-      if (useCategory && room.current_category)
+      if (useCategory && room.current_category && room.current_category !== "Mystery Mix")
         qQuery = qQuery.eq("category", room.current_category);
       if (difficulty) qQuery = qQuery.eq("difficulty", difficulty);
       if (usedIds.length > 0) qQuery = qQuery.not("id", "in", `(${usedIds.join(",")})`);
@@ -654,7 +654,7 @@ export const startFinalRound = createServerFn({ method: "POST" })
     ];
     for (const attempt of attempts) {
       let qQuery = supabaseAdmin.from("questions").select("*");
-      if (attempt.useCategory && room.current_category)
+      if (attempt.useCategory && room.current_category && room.current_category !== "Mystery Mix")
         qQuery = qQuery.eq("category", room.current_category);
       if (attempt.difficulties)
         qQuery = qQuery.in("difficulty", attempt.difficulties);

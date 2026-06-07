@@ -1686,7 +1686,7 @@ function GeminiImporter({
             onChange={(e) => setCategory(e.target.value)}
             className="w-full rounded-lg border border-border bg-background/60 px-3 py-2"
           >
-            {CATEGORIES.map((c) => (
+            {CATEGORIES.filter((c) => c.name !== "Mystery Mix").map((c) => (
               <option key={c.name} value={c.name}>
                 {c.emoji} {c.name}
               </option>
