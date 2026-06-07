@@ -13,7 +13,7 @@ import {
   startSuddenDeath,
   resolveSuddenDeath,
 } from "@/lib/game.functions";
-import { QuestionStage } from "./QuestionStage";
+import { QuestionStage, DROP_FALL_MS } from "./QuestionStage";
 import { Leaderboard } from "./Leaderboard";
 import { TwitchPanel } from "./TwitchPanel";
 import { AIRoast } from "./AIRoast";
