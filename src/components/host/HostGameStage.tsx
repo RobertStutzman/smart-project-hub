@@ -24,6 +24,8 @@ import { play, playEvent, startMusic, stopMusic, duckMusic } from "@/lib/sound-e
 import { FinalWagerStage, FinalRevealStage } from "./FinalStages";
 import { WinnerSpotlight } from "./WinnerSpotlight";
 import { RoundRecapReel } from "./RoundRecapReel";
+import { RoundSplash } from "./RoundSplash";
+import { QRCodeSVG } from "qrcode.react";
 
 type RoomState = {
   id: string;
@@ -608,6 +610,7 @@ export function HostGameStage({ room }: Props) {
           mediaType={(state as { current_media_type?: string | null }).current_media_type ?? null}
           questionNumber={state.round_number ?? 1}
         />
+        <RoundSplash round={state.round_number ?? 1} />
 
       </>
     );
