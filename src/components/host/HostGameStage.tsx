@@ -21,6 +21,7 @@ import { CreditsStage } from "./CreditsStage";
 import { pickLine, speakPersona } from "@/lib/host-persona";
 import { play, playEvent, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
 import { useCountUp, useStaggeredReveal, useRevealStages } from "@/hooks/useFinalRoundFx";
+import { FinalWagerStage, FinalRevealStage } from "./FinalStages";
 
 type RoomState = {
   id: string;
