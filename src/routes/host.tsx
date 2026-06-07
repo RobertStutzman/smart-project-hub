@@ -630,46 +630,57 @@ function HostPage() {
               </div>
 
               <div className="mb-5">
-                <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-amber-200/80">
-                  Pick a category
-                </h3>
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-amber-200/80">
+                    Categories
+                  </h3>
+                  <div className="flex gap-2 text-[10px] uppercase tracking-widest">
+                    <button
+                      onClick={() => persistEnabled(new Set(allCategories.map((c) => c.name)))}
+                      className="text-white/60 hover:text-amber-200"
+                    >
+                      All
+                    </button>
+                    <span className="text-white/20">·</span>
+                    <button
+                      onClick={() => persistEnabled(new Set())}
+                      className="text-white/60 hover:text-amber-200"
+                    >
+                      None
+                    </button>
+                  </div>
+                </div>
+                <p className="mb-2 text-[11px] leading-snug text-white/50">
+                  Questions are pulled at random from whatever's checked. Leave them all on for the full Surprise Mix.
+                </p>
                 <div className="grid grid-cols-2 gap-2">
-                  {CATEGORIES.map((c) => {
-                    const isActive = c.name === activeCategory;
-                    return (
-                      <button
-                        key={c.name}
-                        onClick={() => {
-                          if (c.isPremium) {
-                            setShowPaywall(c);
-                            return;
-                          }
-                          if (!room) return;
-                          setActiveCategory(c.name);
-                          setCategoryFn({
-                            data: {
-                              roomCode: room.roomCode,
-                              hostSessionId: room.hostSessionId,
-                              category: c.name,
-                            },
-                          }).catch((e) => setError((e as Error).message));
-                        }}
-                        className={`relative flex flex-col items-start gap-1 rounded-lg border p-2 text-left transition ${
-                          isActive
-                            ? "border-amber-300/60 bg-amber-300/15 text-amber-100"
-                            : "border-white/10 bg-white/[0.04] text-white/85 hover:bg-white/10"
-                        }`}
-                      >
-                        <span className="text-xl leading-none">{c.emoji}</span>
-                        <span className="text-xs font-semibold leading-tight">{c.name}</span>
-                        {c.isPremium && (
-                          <Lock className="absolute right-2 top-2 h-3.5 w-3.5 text-accent" />
-                        )}
-                      </button>
-                    );
-                  })}
+                  {allCategories.length === 0 ? (
+                    <div className="col-span-2 rounded-lg border border-dashed border-white/10 p-3 text-xs text-white/40">
+                      Loading categories…
+                    </div>
+                  ) : (
+                    allCategories.map((c) => {
+                      const checked = enabledCats.has(c.name);
+                      return (
+                        <button
+                          key={c.name}
+                          onClick={() => toggleCategory(c.name)}
+                          className={`relative flex items-center gap-2 rounded-lg border p-2 text-left transition ${
+                            checked
+                              ? "border-amber-300/60 bg-amber-300/15 text-amber-100"
+                              : "border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/10"
+                          }`}
+                        >
+                          <span className="text-lg leading-none">{emojiForCategory(c.name)}</span>
+                          <span className="flex-1 text-xs font-semibold leading-tight">{c.name}</span>
+                          <span className="text-[10px] text-white/40">{c.count}</span>
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               </div>
+
 
               <div className="mb-5">
                 <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-amber-200/80">
