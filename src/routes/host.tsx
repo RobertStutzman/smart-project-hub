@@ -309,7 +309,7 @@ function HostPage() {
 
   if (room && roomPhase !== "lobby") {
     return (
-      <main className="relative h-dvh w-screen overflow-hidden">
+      <main className="fixed inset-0 overflow-hidden">
         <HostGameStage room={room} />
         <div className="fixed right-4 top-4 z-50 flex gap-2">
           {!isFullscreen && (
