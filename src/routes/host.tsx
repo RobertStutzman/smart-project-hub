@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { QRCodeSVG } from "qrcode.react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Lock, Pause, Play } from "lucide-react";
+import { Lock, Pause, Play, Settings as SettingsIcon, X } from "lucide-react";
 import { toast } from "sonner";
 import { createRoom, endRoom, heartbeatHost, setCategory, setRoomConfig, toggleTeamMode } from "@/lib/rooms.functions";
 import { nextQuestion } from "@/lib/game.functions";
