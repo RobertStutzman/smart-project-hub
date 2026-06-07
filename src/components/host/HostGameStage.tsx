@@ -837,9 +837,16 @@ export function HostGameStage({ room }: Props) {
           <Leaderboard players={livePlayers} />
         </div>
 
-        <div className="relative mt-auto flex justify-center gap-2">
+        <div className="relative mt-auto flex flex-col items-center gap-3">
           <div className="rounded-full border border-amber-300/35 bg-white/5 px-6 py-2.5 text-center font-display text-sm font-bold uppercase tracking-[0.25em] text-amber-200 backdrop-blur">
-            {isFinal ? "Final round incoming…" : "Next question incoming…"}
+            {isFinal ? "Final round incoming…" : `Round ${recapRoundDisplay + 1} incoming…`}
+          </div>
+          <div className="h-1 w-64 overflow-hidden rounded-full bg-white/10">
+            <div
+              key={`bar-${completedQuestionNumber}`}
+              className="h-full bg-gradient-to-r from-amber-300 to-amber-500"
+              style={{ animation: "recap-bar 4500ms linear forwards" }}
+            />
           </div>
         </div>
       </div>
