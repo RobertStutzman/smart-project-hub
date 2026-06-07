@@ -223,6 +223,8 @@ function AdminPage() {
 
         <AIGenerator generate={generateFn} bulkInsert={bulkFn} onInserted={reload} />
 
+        <GeminiImporter bulkInsert={bulkFn} onInserted={reload} />
+
         <ExplanationBackfill onUpdated={reload} />
 
         <DuplicateAnswersRepair onUpdated={reload} />
