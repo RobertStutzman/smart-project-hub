@@ -1,24 +1,76 @@
-## 1. Replace the lame ✕ with a real elimination beat
+# Next playtest pass
 
-`ShatterOverlay` in `src/components/host/QuestionStage.tsx:403-417` is currently a single rose-colored ✕ that fades in. Punching it up while staying inside the tile (no stage shake — per your earlier feedback):
+Six tracks based on what you flagged. I'll do them in this order so each one builds on the last and we can stop after any track if you want to playtest.
 
-- **Tile jolt**: a one-shot 120ms shake on the answer tile (`x: [0,-6,6,-4,4,0]`), then it locks into the existing dropped/grayscale state. Localized to the tile only.
-- **Crack-out slash**: an SVG slash that draws diagonally across the tile in ~250ms using `pathLength` from 0→1, then holds. Rose-glow stroke with a tiny chromatic-aberration shadow so it pops on the TV.
-- **Stamped "OUT" badge**: a rotated `-12deg` "OUT" stamp scales in from 1.8→1 with a hard 60ms snap, then settles to a slight tilt. Uppercase display font, rose with a black inner shadow so it reads at distance.
-- **Rose ember puff**: ~8 small particles drift up & fade over 600ms inside the tile (cheap CSS — absolute divs animated with framer-motion, no canvas).
-- **Audio sting**: keep the existing `play("wrong")` cue; add a short `play("eliminate")` whoosh if a slot is wired in `sound_event_assignments`. If no slot exists, no-op.
+## 1. Jackbox-style pre-game lobby (priority — #4)
 
-All animation is scoped to the dropped tile via `AnimatePresence` keyed on `dropped-${i}`. Total visual time ~700ms, then it sits as the grayed-out dropped state already does. No screen-wide flash, no shake (those got vetoed).
+The current "lobby" is just the host admin screen with a Start button — that's why it felt like the game appeared out of nowhere. Jackbox-style means the TV itself is the lobby, with hype.
 
-## 2. Phone vibrations — status check
+**TV side (host.tsx lobby view):**
+- Big room code + join URL/QR front and center, animated
+- Live "players joining" rail: avatars pop in with a sound + bounce as each player joins
+- Player count chip: "3 of 8 in" with a pulsing dot
+- Idle loop tips/jokes cycling at the bottom ("Phones out, thumbs warm…")
+- Start button only enables when ≥1 player is in; replaced by a host-only floating control instead of the current admin panel UI
+- When host hits Start: a 3-2-1 "Get ready" countdown plays on TV with a stinger, THEN the existing IntroStage cold-open runs
 
-Good news: **they're already wired up.** `src/hooks/use-haptics.ts` calls `navigator.vibrate` and `src/routes/play.tsx:225,236,238` already fires on wrong answer, correct reveal, and elimination drop. Plus tap haptics on button presses.
+**Phone side (play.tsx waiting state):**
+- After join: "You're in!" confirmation with avatar + nickname locked in
+- "Waiting for host…" with the player count from the room
+- Little idle animation so the screen isn't dead
 
-Bad news about iOS: **iPhone Safari does not support the Vibration API at all** — there is no JS hook to trigger Taptic Engine from a web page. Chrome/Firefox on iOS also can't (Apple's restriction). Android Chrome/Firefox/Samsung Internet works fine.
+## 2. Recap flow polish (#1)
 
-If you're testing on iPhone, that's why nothing buzzes — it's a platform limitation, not our bug. If you want, I can:
-- **A.** Strengthen the Android patterns so they're more noticeable on devices that do support it (longer / more dramatic for `wrong` and `drop`).
-- **B.** Add a subtle on-screen "buzz" pulse + a short red flash inside the player's answer chip for iOS users so they get *some* tactile-feeling feedback (visual proxy).
-- **C.** Both.
+- Add a thin progress bar across the bottom of the standings screen showing the 4.5s auto-advance countdown ("Next round in 4…3…2…1")
+- Subtle "Round 2 starting" label fades in as the bar fills
+- Optional host override: tapping space skips the wait
 
-Implementing the elimination animation regardless. **Which of A / B / C do you want for vibrations?**
+## 3. Final round QA + juice (#2)
+
+- Walk through the wager → final question → reveal → winner spotlight → credits chain in code, fix any dead ends
+- Make sure the wager screen on phones is obvious and time-bounded
+- Punch up WinnerSpotlight: confetti + winner avatar zoom + score callout, hold long enough to celebrate
+- Verify credits roll auto-returns to lobby or sits cleanly
+
+## 4. Player-side polish (#3)
+
+- Lock-in feedback: stronger vibration pattern + visual "Locked!" stamp on the answer card
+- Right/wrong feedback after reveal: green pulse + double vibration on correct, red flash (contained to card, not whole screen) + long vibration on wrong (we did this — verify it survived recent edits)
+- Between-question state: show running score + streak count + a "Get ready…" pulse instead of going blank
+- Make sure haptics fire on lock-in too, not just on reveal
+
+## 5. Host taunts + hype (#5)
+
+- Wire announcer TTS into more moments using existing host-persona lines:
+  - Wrong-answer taunt after reveal (occasional, not every Q)
+  - Streak hype at 3+ correct in a row
+  - "Fastest finger" callout during recap reel
+  - First-place callouts on leaderboard
+- Rate-limit so it doesn't talk over itself or get annoying
+
+## 6. Admin tooling polish (#6)
+
+I'll do a quick audit of admin-questions, admin-sounds, admin-tts and propose specific fixes in a follow-up — this one needs your input on what's actually missing. Likely candidates: bulk question import, sound preview-on-hover, question stats visibility, room list/cleanup.
+
+---
+
+## Technical notes
+
+- Lobby revamp lives in `src/routes/host.tsx` (TV lobby JSX) + `src/routes/play.tsx` (phone waiting state). Countdown becomes a new `CountdownStage` component or a new `phase: "countdown"` before `"intro"`.
+- Recap countdown bar: small addition inside the leaderboard branch of `HostGameStage.tsx`, driven by the existing 4500ms timer.
+- Player polish: `src/hooks/use-haptics.ts` already exists; verify it's called from `play.tsx` on lock-in + reveal.
+- Taunts: extend `src/lib/announcer.functions.ts` calls from `HostGameStage.tsx` reveal/leaderboard branches, gate with a `useRef` rate-limiter.
+- No DB schema changes needed. The `lobby` phase already exists; we're just making the TV render it instead of the admin panel when a room is live.
+
+---
+
+## Suggested order to build & test
+
+1. Lobby + countdown (biggest visible win, #4)
+2. Recap progress bar (#1, tiny)
+3. Player-side polish (#3, also small but impactful)
+4. Host taunts (#5)
+5. Final round QA (#2, needs a full playthrough to verify)
+6. Admin polish (#6, after you tell me what's annoying you there)
+
+Want me to do all 6 in one go, or stop after #1-3 so you can playtest before I touch the rest?

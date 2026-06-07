@@ -393,12 +393,21 @@ export function HostGameStage({ room }: Props) {
     if (right === live.length) moment = "all_correct";
     else if (wrong === live.length) moment = "all_wrong";
     else moment = "split_correct";
+    // Streak hype takes priority over the generic reaction when someone is on ≥3.
+    const topStreaker = [...players]
+      .filter((p) => !p.is_audience && p.current_answer === correctIdx)
+      .sort((a, b) => (b.streak_count ?? 0) - (a.streak_count ?? 0))[0];
+    const streakLine =
+      topStreaker && (topStreaker.streak_count ?? 0) >= 3
+        ? `${topStreaker.nickname} on ${topStreaker.streak_count} in a row! ${pickLine("streak_milestone", qid)}`
+        : null;
     // Small delay so the line lands after the reveal sting, not on top of it.
     const id = window.setTimeout(() => {
-      speakPersona(pickLine(moment, qid));
+      speakPersona(streakLine ?? pickLine(moment, qid));
     }, 900);
     return () => window.clearTimeout(id);
   }, [state?.phase, state?.current_question_id, state?.current_correct_index, players]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
 
   // ─── Final round orchestrator ─────────────────────────────────────────
@@ -837,9 +846,16 @@ export function HostGameStage({ room }: Props) {
           <Leaderboard players={livePlayers} />
         </div>
 
-        <div className="relative mt-auto flex justify-center gap-2">
+        <div className="relative mt-auto flex flex-col items-center gap-3">
           <div className="rounded-full border border-amber-300/35 bg-white/5 px-6 py-2.5 text-center font-display text-sm font-bold uppercase tracking-[0.25em] text-amber-200 backdrop-blur">
-            {isFinal ? "Final round incoming…" : "Next question incoming…"}
+            {isFinal ? "Final round incoming…" : `Round ${recapRoundDisplay + 1} incoming…`}
+          </div>
+          <div className="h-1 w-64 overflow-hidden rounded-full bg-white/10">
+            <div
+              key={`bar-${completedQuestionNumber}`}
+              className="h-full bg-gradient-to-r from-amber-300 to-amber-500"
+              style={{ animation: "recap-bar 4500ms linear forwards" }}
+            />
           </div>
         </div>
       </div>
