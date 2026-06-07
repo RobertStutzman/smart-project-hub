@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { play } from "@/lib/sound-engine";
+import { ShatteredFaces } from "./ShatteredFaces";
 
 type Player = {
   id: string;
   nickname: string;
   avatar_url: string | null;
   current_answer: number | null;
+  is_audience?: boolean;
 };
 
 type Props = {
@@ -410,6 +412,27 @@ export function QuestionStage({
           {lockedCount} / {players.length}
         </div>
       </div>
+
+      {/* Wrong-answer face overlay — fires on reveal */}
+      <ShatteredFaces
+        victims={
+          phase === "reveal" && correctIndex != null
+            ? players
+                .filter(
+                  (p) =>
+                    !p.is_audience &&
+                    p.current_answer != null &&
+                    p.current_answer !== correctIndex,
+                )
+                .map((p) => ({
+                  id: p.id,
+                  nickname: p.nickname,
+                  avatar_url: p.avatar_url,
+                }))
+            : []
+        }
+        triggerKey={phase === "reveal" ? `${questionNumber}-reveal` : ""}
+      />
     </motion.div>
   );
 }
