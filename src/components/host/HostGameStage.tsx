@@ -93,6 +93,8 @@ export function HostGameStage({ room }: Props) {
   const endGameFn = useServerFn(endGame);
   const startFinalRoundFn = useServerFn(startFinalRound);
   const startFinalQuestionFn = useServerFn(startFinalQuestion);
+  const startSuddenDeathFn = useServerFn(startSuddenDeath);
+  const resolveSuddenDeathFn = useServerFn(resolveSuddenDeath);
   const scoreFinalRoundFn = useServerFn(scoreFinalRound);
 
   // Load pre-baked persona pack URLs into the Elf voice cache once on mount,
