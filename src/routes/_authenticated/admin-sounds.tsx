@@ -141,7 +141,34 @@ function EventsPanel({
 }) {
   const setEventFn = useServerFn(setEventAssignment);
   const generatePackFn = useServerFn(generateAnnouncerPack);
+  const generatePersonaFn = useServerFn(generatePersonaPack);
   const [generating, setGenerating] = useState(false);
+  const [generatingPersona, setGeneratingPersona] = useState(false);
+
+  async function handleGeneratePersona() {
+    if (
+      !window.confirm(
+        "Pre-bake the 30 Vox catchphrases to storage? This calls ElevenLabs once per line (~1500 chars total) and saves them so gameplay doesn't hit the API. Takes ~1 minute. Safe to re-run.",
+      )
+    )
+      return;
+    setGeneratingPersona(true);
+    try {
+      const res = await generatePersonaFn();
+      if (res.errors.length) {
+        toast.warning(
+          `Baked ${res.generated.length}/${res.total}. Errors: ${res.errors.join("; ")}`,
+        );
+      } else {
+        toast.success(`Baked ${res.generated.length} persona catchphrases`);
+      }
+      await onChange();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setGeneratingPersona(false);
+    }
+  }
 
   async function handleAssign(event: SoundEvent, clipId: string | null) {
     try {
