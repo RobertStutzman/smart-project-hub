@@ -14,6 +14,7 @@ import { Haptics } from "@/hooks/use-haptics";
 import { play, startMusic, stopMusic } from "@/lib/sound-engine";
 import { AccessibilityToggle } from "@/components/AccessibilityToggle";
 import { PlayerWagerStage } from "@/components/play/PlayerWagerStage";
+import { PlayerVictoryScreen } from "@/components/play/PlayerVictoryScreen";
 import { t } from "@/lib/i18n";
 
 export const Route = createFileRoute("/play")({
@@ -413,39 +414,18 @@ function PlayPage() {
         {isAudience ? (
           <AudienceSoundboard roomCode={session.roomCode} />
         ) : room.phase === "ended" ? (
-          <div className="flex flex-1 items-center justify-center overflow-auto py-2">
-            {me && (
-              <MemeScorecard
-                stats={{
-                  nickname: me.nickname,
-                  avatar_url: me.avatar_url,
-                  score: me.score,
-                  rank:
-                    rankedAsc.length > 0
-                      ? rankedAsc.length - rankedAsc.findIndex((p) => p.session_id === session.sessionId)
-                      : 1,
-                  totalPlayers: rankedAsc.length || 1,
-                  correct: me.correct_count,
-                  wrong: me.wrong_count,
-                  bestStreak: me.best_streak,
-                  fastestCount: me.fastest_count,
-                  avgResponseMs:
-                    me.answered_count > 0 ? Math.round(me.total_response_ms / me.answered_count) : 0,
-                  badge: computeBadge({
-                    rank:
-                      rankedAsc.length > 0
-                        ? rankedAsc.length - rankedAsc.findIndex((p) => p.session_id === session.sessionId)
-                        : 1,
-                    fastestCount: me.fastest_count,
-                    wrong: me.wrong_count,
-                    correct: me.correct_count,
-                    bestStreak: me.best_streak,
-                  }),
-                  roomCode: session.roomCode,
-                }}
-              />
-            )}
-          </div>
+          me ? (
+            <PlayerVictoryScreen
+              me={me}
+              rank={
+                rankedAsc.length > 0
+                  ? rankedAsc.length - rankedAsc.findIndex((p) => p.session_id === session.sessionId)
+                  : 1
+              }
+              totalPlayers={rankedAsc.length || 1}
+              roomCode={session.roomCode}
+            />
+          ) : null
         ) : (
           <>
             {/* Saboteur secret hint */}
