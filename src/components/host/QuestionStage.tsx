@@ -333,7 +333,7 @@ export function QuestionStage({
                 }
                 transition={
                   dropped
-                    ? { duration: 0.75, ease: [0.55, 0.06, 0.68, 0.19] }
+                    ? { duration: DROP_FALL_MS / 1000, ease: [0.55, 0.06, 0.68, 0.19] }
                     : { duration: 0.35, delay: showAnswers && reading ? i * 0.11 : 0, ease: [0.22, 1, 0.36, 1] }
                 }
                 style={{ transformOrigin: "50% 30%" }}
