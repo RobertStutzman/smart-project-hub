@@ -194,7 +194,7 @@ export function QuestionStage({
                   y: 0,
                 }}
                 transition={{ duration: 0.3 }}
-                className={`relative flex h-full w-full flex-col justify-between overflow-hidden rounded-2xl border p-6 backdrop-blur-xl ${
+                className={`relative flex h-full w-full min-h-0 flex-col justify-between overflow-hidden rounded-2xl border p-3 backdrop-blur-xl sm:p-4 ${
                   dropped
                     ? "border-rose-500/30 bg-rose-950/20 grayscale"
                     : isCorrect
@@ -204,7 +204,7 @@ export function QuestionStage({
               >
                 <div className="flex items-start justify-between">
                   <div
-                    className={`grid h-11 w-11 place-items-center rounded-full font-display text-xl font-black ${
+                    className={`grid h-9 w-9 place-items-center rounded-full font-display text-base font-black sm:h-10 sm:w-10 sm:text-lg ${
                       isCorrect
                         ? "bg-amber-300 text-amber-950"
                         : "bg-white/10 text-white/90 ring-1 ring-white/20"
@@ -214,9 +214,10 @@ export function QuestionStage({
                   </div>
                 </div>
 
-                <div className="my-4 text-2xl font-bold leading-tight text-white sm:text-3xl">
+                <div className="my-2 text-lg font-bold leading-tight text-white sm:text-xl lg:text-2xl xl:text-3xl">
                   {label}
                 </div>
+
 
                 <div className="flex min-h-[28px] flex-wrap items-center gap-1.5">
                   {/* During the live question, peer picks are HIDDEN to prevent
