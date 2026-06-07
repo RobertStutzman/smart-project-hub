@@ -872,6 +872,7 @@ export function HostGameStage({ room }: Props) {
     <div className="grid h-full place-items-center p-8">
       <div className="flex flex-col items-center gap-4">
         <button
+          data-host-primary="true"
           onClick={() => {
             play("whoosh");
             setPhaseFn({
