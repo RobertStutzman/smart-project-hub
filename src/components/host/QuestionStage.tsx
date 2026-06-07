@@ -131,11 +131,7 @@ export function QuestionStage({
           {phase === "question" && !reading && (
             <PointsTicker secondsLeft={secondsLeft} max={totalS} />
           )}
-          {reading ? (
-            <div className="grid h-16 w-16 place-items-center rounded-full border-4 border-amber-300/60 bg-amber-400/10 font-mono text-2xl font-black text-amber-200 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)] sm:h-20 sm:w-20 sm:text-3xl">
-              {Math.ceil(readSecondsLeft)}
-            </div>
-          ) : (
+          {reading ? null : (
             <TimerRing seconds={secondsLeft} max={totalS} active={phase === "question"} />
           )}
         </div>
@@ -169,6 +165,40 @@ export function QuestionStage({
       {mediaUrl && mediaType === "video" && phase === "question" && (
         <QuestionVideo src={mediaUrl} autoStart={!reading} />
       )}
+
+      {/* HUGE next-question countdown overlay */}
+      <AnimatePresence>
+        {reading && (
+          <motion.div
+            key={`countdown-${Math.ceil(readSecondsLeft)}`}
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.4 }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            className="pointer-events-none absolute inset-0 z-30 grid place-items-center"
+          >
+            <div className="text-center">
+              <div className="font-display text-sm font-bold uppercase tracking-[0.5em] text-amber-300/90 sm:text-base">
+                Next question
+              </div>
+              <div
+                className="font-display font-black leading-none text-transparent drop-shadow-[0_10px_60px_rgba(251,191,36,0.6)]"
+                style={{
+                  fontSize: "clamp(8rem, 28vw, 22rem)",
+                  backgroundImage:
+                    "linear-gradient(180deg, oklch(0.97 0.12 90), oklch(0.75 0.20 60))",
+                  WebkitBackgroundClip: "text",
+                  backgroundClip: "text",
+                }}
+              >
+                {Math.ceil(readSecondsLeft)}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+
 
       {/* Answer panels — fixed 2x2 grid; cells NEVER reflow when shattered */}
       <div
