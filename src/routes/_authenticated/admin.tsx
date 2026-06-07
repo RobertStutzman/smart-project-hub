@@ -1695,14 +1695,17 @@ function GeminiImporter({
         </label>
         <label className="text-sm">
           <div className="mb-1 text-muted-foreground">
-            {difficulty === "mixed" ? `Per difficulty (× 4 = ${count * 4} total)` : "Count"}
+            {difficulty === "mixed" ? `Per difficulty (× 4 = ${count * 4} total, max 20)` : "Count (max 20)"}
           </div>
           <input
             type="number"
             min={1}
-            max={100}
+            max={difficulty === "mixed" ? 5 : 20}
             value={count}
-            onChange={(e) => setCount(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
+            onChange={(e) => {
+              const cap = difficulty === "mixed" ? 5 : 20;
+              setCount(Math.max(1, Math.min(cap, Number(e.target.value) || 1)));
+            }}
             className="w-full rounded-lg border border-border bg-background/60 px-3 py-2"
           />
         </label>
