@@ -19,7 +19,9 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedAdminTtsRouteImport } from './routes/_authenticated/admin-tts'
 import { Route as AuthenticatedAdminSoundsRouteImport } from './routes/_authenticated/admin-sounds'
+import { Route as AuthenticatedAdminQuestionsRouteImport } from './routes/_authenticated/admin-questions'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as ApiPublicHooksQuestionQualityAlertRouteImport } from './routes/api/public/hooks/question-quality-alert'
 
 const PreviewQuestionRoute = PreviewQuestionRouteImport.update({
   id: '/preview-question',
@@ -71,11 +73,23 @@ const AuthenticatedAdminSoundsRoute =
     path: '/admin-sounds',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminQuestionsRoute =
+  AuthenticatedAdminQuestionsRouteImport.update({
+    id: '/admin-questions',
+    path: '/admin-questions',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const ApiPublicHooksQuestionQualityAlertRoute =
+  ApiPublicHooksQuestionQualityAlertRouteImport.update({
+    id: '/api/public/hooks/question-quality-alert',
+    path: '/api/public/hooks/question-quality-alert',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -86,8 +100,10 @@ export interface FileRoutesByFullPath {
   '/play': typeof PlayRoute
   '/preview-question': typeof PreviewQuestionRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/admin-tts': typeof AuthenticatedAdminTtsRoute
+  '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -98,8 +114,10 @@ export interface FileRoutesByTo {
   '/play': typeof PlayRoute
   '/preview-question': typeof PreviewQuestionRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/admin-tts': typeof AuthenticatedAdminTtsRoute
+  '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -112,8 +130,10 @@ export interface FileRoutesById {
   '/play': typeof PlayRoute
   '/preview-question': typeof PreviewQuestionRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/_authenticated/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/_authenticated/admin-tts': typeof AuthenticatedAdminTtsRoute
+  '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -126,8 +146,10 @@ export interface FileRouteTypes {
     | '/play'
     | '/preview-question'
     | '/admin'
+    | '/admin-questions'
     | '/admin-sounds'
     | '/admin-tts'
+    | '/api/public/hooks/question-quality-alert'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -138,8 +160,10 @@ export interface FileRouteTypes {
     | '/play'
     | '/preview-question'
     | '/admin'
+    | '/admin-questions'
     | '/admin-sounds'
     | '/admin-tts'
+    | '/api/public/hooks/question-quality-alert'
   id:
     | '__root__'
     | '/'
@@ -151,8 +175,10 @@ export interface FileRouteTypes {
     | '/play'
     | '/preview-question'
     | '/_authenticated/admin'
+    | '/_authenticated/admin-questions'
     | '/_authenticated/admin-sounds'
     | '/_authenticated/admin-tts'
+    | '/api/public/hooks/question-quality-alert'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -164,6 +190,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PlayRoute: typeof PlayRoute
   PreviewQuestionRoute: typeof PreviewQuestionRoute
+  ApiPublicHooksQuestionQualityAlertRoute: typeof ApiPublicHooksQuestionQualityAlertRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -238,6 +265,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSoundsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin-questions': {
+      id: '/_authenticated/admin-questions'
+      path: '/admin-questions'
+      fullPath: '/admin-questions'
+      preLoaderRoute: typeof AuthenticatedAdminQuestionsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin': {
       id: '/_authenticated/admin'
       path: '/admin'
@@ -245,17 +279,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/public/hooks/question-quality-alert': {
+      id: '/api/public/hooks/question-quality-alert'
+      path: '/api/public/hooks/question-quality-alert'
+      fullPath: '/api/public/hooks/question-quality-alert'
+      preLoaderRoute: typeof ApiPublicHooksQuestionQualityAlertRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedAdminQuestionsRoute: typeof AuthenticatedAdminQuestionsRoute
   AuthenticatedAdminSoundsRoute: typeof AuthenticatedAdminSoundsRoute
   AuthenticatedAdminTtsRoute: typeof AuthenticatedAdminTtsRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedAdminQuestionsRoute: AuthenticatedAdminQuestionsRoute,
   AuthenticatedAdminSoundsRoute: AuthenticatedAdminSoundsRoute,
   AuthenticatedAdminTtsRoute: AuthenticatedAdminTtsRoute,
 }
@@ -273,7 +316,19 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PlayRoute: PlayRoute,
   PreviewQuestionRoute: PreviewQuestionRoute,
+  ApiPublicHooksQuestionQualityAlertRoute:
+    ApiPublicHooksQuestionQualityAlertRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
