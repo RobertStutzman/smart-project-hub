@@ -1,24 +1,26 @@
-## Two bugs
+## Two fixes
 
-After the first 5 questions, the recap reel shows "Recap · Round 5" and then freezes. Causes:
+### 1. Persona catchphrases never play in-game
 
-**1. Recap label is mislabeled.** `state.round_number` increments per *question* (1..15), not per *round*. The leaderboard fires at the end of every 5 questions (`QUESTIONS_PER_ROUND = 5` in `HostGameStage.tsx:923`), so the end of the first 5-question round legitimately shows `round_number = 5`. The recap displays that value verbatim → "Round 5" instead of "Round 1".
+`speakPersonaLine` in `src/lib/announcer.functions.ts:408` is gated by `.middleware([requireSupabaseAuth])`. The host page lives at `src/routes/host.tsx` — outside `_authenticated/` — so the host has no Supabase session. The middleware rejects every call with `Unauthorized`, and `elf-voice.ts:77` swallows the error in a silent `catch`. Result: bake worked (admin is authed), playback never fires.
 
-**2. Recap never completes (frozen).** In `RoundRecapReel.tsx:49-57`, the timer effect depends on `[triggerKey, onDone]`. The parent (`HostGameStage.tsx:804`) passes `onDone={() => setRecapDoneForRound(state.round_number ?? 0)}` — a new function identity on every render. Realtime subscriptions (players, room) fire frequent re-renders → the effect re-runs → all timers (including `onDone`) are cleared and restarted from beat 0. With even modest activity the reel can never finish. After the first 5-question round we also have lots of score/streak updates landing right around this time, so the freeze is consistent.
+**Fix:** drop the auth middleware from `speakPersonaLine` only. The function already self-protects:
+- text is `z.string().min(1).max(600)`
+- per-room TTS cap (`tts_calls_count` / `getTtsCap()`) prevents runaway spend
+- cache + hash lookups keep generation rare
 
-Symptom matches exactly: beat 0 renders ("Recap · Round 5"), beats 1/2 never appear, `onDone` never fires, leaderboard never shows.
+Leave the other admin/bake server fns (`generatePersonaPack`, `generateAnnouncerPack`, analytics, etc.) auth-protected. No DB schema change.
 
-## Fix
+### 2. Admin Sounds top buttons unreadable
 
-Both fixes are frontend-only.
+In `src/routes/_authenticated/admin-sounds.tsx:221-234`, both action buttons render the controls in `🎭 Bake persona catchphrases` / `🎙️ Generate AI announcer pack`:
+- Bake: `text-amber-200` on `bg-amber-500/10` — near-invisible against the dark card.
+- Generate: black text on a bright `from-amber-400 to-pink-500` gradient — glares.
 
-**A. `src/components/host/RoundRecapReel.tsx`**
-- Stabilize the timer: stash `onDone` in a ref and depend only on `[triggerKey]` in the effect. This prevents re-render churn from resetting beats.
-
-**B. `src/components/host/HostGameStage.tsx`**
-- Compute a display round number `recapRoundDisplay = Math.ceil((state.round_number ?? 0) / QUESTIONS_PER_ROUND)` and pass that as `roundNumber` to `<RoundRecapReel>`. Keep `triggerKey` as `state.round_number` so it still re-fires per leaderboard milestone.
-- Also fix the standings header just below (line 826) to use the same computed value so it reads "Round 1 — Standings" instead of "Round 5 — Standings". Preserve the "— Final" suffix logic (still keyed off `isFinal` which uses raw `round_number >= 15`).
+**Fix:** restyle both with solid dark surfaces + high-contrast white text so the labels are legible without screaming. Keep the existing emoji icons and disabled states.
+- Bake: solid `bg-amber-600 hover:bg-amber-500 text-white`, subtle ring.
+- Generate: solid `bg-pink-600 hover:bg-pink-500 text-white` (drop the gradient; keep it as the visually dominant primary).
 
 ## Out of scope
 
-Not touching: question-picker logic, leaderboard auto-advance behavior (host still clicks "Next question →"), or the `QUESTIONS_PER_ROUND` value itself.
+Not auditing every other persona/announcer entry point, not touching the TTS cap or cache, not redesigning the rest of the admin page.

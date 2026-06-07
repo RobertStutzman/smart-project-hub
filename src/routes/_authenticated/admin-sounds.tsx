@@ -221,14 +221,14 @@ function EventsPanel({
           <button
             onClick={() => void handleGeneratePersona()}
             disabled={generatingPersona}
-            className="rounded-full border border-amber-400/40 bg-amber-500/10 px-5 py-2 text-sm font-bold text-amber-200 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-full bg-amber-600 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-amber-400/30 transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {generatingPersona ? "Baking…" : "🎭 Bake persona catchphrases"}
           </button>
           <button
             onClick={() => void handleGenerate()}
             disabled={generating}
-            className="rounded-full bg-gradient-to-r from-amber-400 to-pink-500 px-5 py-2 text-sm font-bold text-black shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-full bg-pink-600 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-pink-400/30 transition hover:bg-pink-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {generating ? "Generating… (1-2 min)" : "🎙️ Generate AI announcer pack"}
           </button>
