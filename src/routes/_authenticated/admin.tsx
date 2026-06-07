@@ -1454,16 +1454,47 @@ type ParsedRow = {
 };
 
 function buildGeminiPrompt(category: string, count: number, difficulty: Diff | "mixed") {
-  const diffLine =
-    difficulty === "mixed"
-      ? "Vary difficulty across easy/medium/hard/impossible."
-      : `Every question must be "${difficulty}" difficulty.`;
+  if (difficulty === "mixed") {
+    const total = count * 4;
+    return `You write trivia questions for a live multiplayer game. Generate exactly ${total} questions in the category "${category}", split evenly across all four difficulty levels.
+
+Required distribution (must be exact):
+- ${count} questions with "difficulty": "easy"
+- ${count} questions with "difficulty": "medium"
+- ${count} questions with "difficulty": "hard"
+- ${count} questions with "difficulty": "impossible"
+
+Calibration:
+- easy = most adults know it
+- medium = casual fans know it
+- hard = real fans / trivia regulars
+- impossible = stumps almost everyone, super obscure detail
+
+Rules:
+- Exactly ONE correct answer + THREE plausible, distinct wrong answers (case-insensitive distinct).
+- Include a 1–2 sentence "explanation" (under 200 chars) — a fun fact a host would read after the reveal.
+- No duplicates. Crisp, unambiguous wording. Keep answers short.
+
+Return ONLY a JSON array of ${total} objects (no prose, no markdown code fences) matching this exact schema:
+[
+  {
+    "category": "${category}",
+    "question_text": "string",
+    "correct_answer": "string",
+    "wrong_1": "string",
+    "wrong_2": "string",
+    "wrong_3": "string",
+    "explanation": "string",
+    "difficulty": "easy" | "medium" | "hard" | "impossible"
+  }
+]`;
+  }
   return `You write trivia questions for a live multiplayer game. Generate ${count} questions in the category "${category}".
 
 Rules:
 - Exactly ONE correct answer + THREE plausible, distinct wrong answers (case-insensitive distinct).
 - Include a 1–2 sentence "explanation" (under 200 chars) — a fun fact a host would read after the reveal.
-- difficulty must be one of: easy | medium | hard | impossible. ${diffLine}
+- Every question must be "${difficulty}" difficulty.
   Calibration: easy = most adults know it; medium = casual fans; hard = real fans / trivia regulars; impossible = stumps almost everyone.
 - No duplicates. Crisp, unambiguous wording. Keep answers short.
 
@@ -1657,7 +1688,9 @@ function GeminiImporter({
           </select>
         </label>
         <label className="text-sm">
-          <div className="mb-1 text-muted-foreground">Count</div>
+          <div className="mb-1 text-muted-foreground">
+            {difficulty === "mixed" ? `Per difficulty (× 4 = ${count * 4} total)` : "Count"}
+          </div>
           <input
             type="number"
             min={1}
