@@ -47,6 +47,7 @@ type RoomState = {
   glitch_active_until: string | null;
   glitch_used: boolean;
   round_number: number;
+  sudden_death_session_ids: string[] | null;
 };
 
 type Me = {
@@ -71,6 +72,8 @@ type Me = {
   final_wager: number;
   final_answer: number | null;
   final_locked_at: string | null;
+  comeback_bonus: boolean;
+  session_id: string;
 };
 
 type LobbyPlayer = {
@@ -120,7 +123,7 @@ function PlayPage() {
       const { data: r } = await supabase
         .from("rooms")
         .select(
-          "id, status, phase, current_category, current_question_text, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, is_paused, host_last_seen_at, wildcard, saboteur_session_id, glitch_active_until, glitch_used, round_number",
+          "id, status, phase, current_category, current_question_text, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, is_paused, host_last_seen_at, wildcard, saboteur_session_id, glitch_active_until, glitch_used, round_number, sudden_death_session_ids",
         )
         .eq("room_code", session.roomCode)
         .maybeSingle();
@@ -134,7 +137,7 @@ function PlayPage() {
       const { data: p } = await supabase
         .from("players")
         .select(
-          "id, nickname, avatar_url, score, streak_count, is_audience, current_answer, current_answer_locked_at, current_round_score, last_answer_correct, used_2x, pending_2x, correct_count, wrong_count, fastest_count, best_streak, total_response_ms, answered_count, final_wager, final_answer, final_locked_at",
+          "id, session_id, nickname, avatar_url, score, streak_count, is_audience, current_answer, current_answer_locked_at, current_round_score, last_answer_correct, used_2x, pending_2x, correct_count, wrong_count, fastest_count, best_streak, total_response_ms, answered_count, final_wager, final_answer, final_locked_at, comeback_bonus",
         )
         .eq("room_id", r.id)
         .eq("session_id", session.sessionId)
