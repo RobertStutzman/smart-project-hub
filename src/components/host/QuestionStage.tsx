@@ -138,6 +138,33 @@ export function QuestionStage({
   const showFullscreenReveal =
     phase === "reveal" && revealStage === "fullscreen" && correctIndex != null;
 
+  // Per-cell "has the falling tile hit the floor?" gate — debris fires at impact.
+  const [impacted, setImpacted] = useState<boolean[]>([false, false, false, false]);
+  useEffect(() => {
+    // Reset impact flags whenever the question changes.
+    setImpacted([false, false, false, false]);
+  }, [questionNumber]);
+  useEffect(() => {
+    const timers: number[] = [];
+    droppedIndexes.forEach((i) => {
+      if (impacted[i]) return;
+      timers.push(
+        window.setTimeout(() => {
+          setImpacted((prev) => {
+            if (prev[i]) return prev;
+            const next = [...prev];
+            next[i] = true;
+            return next;
+          });
+        }, DROP_FALL_MS),
+      );
+    });
+    return () => {
+      for (const t of timers) window.clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [droppedIndexes.join(",")]);
+
   return (
     <motion.div
       className="relative flex h-full min-h-0 flex-col gap-3 overflow-hidden p-4 sm:gap-4 sm:p-5"
