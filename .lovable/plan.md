@@ -1,30 +1,53 @@
-## Two changes
+Tackling your list one item per fix. Each is small and targeted.
 
-### 1. Live points countdown
-**Today:** points are awarded at reveal as `round((remainingTime / totalTime) * 1000)` (capped at 1000, +10% if streak ≥ 3, ×2 if pending 2x, +25% rubber-band — none of which players see). So if you lock at 0 s remaining, you get 0. At full time, 1000. Nobody currently sees the meter ticking down.
+## 1. Phone shows your name + a clear "locked in" reaction
+On `play.tsx`, when you tap an answer, the only feedback today is the avatar moving on the TV. Change:
+- Add `Haptics.tap()` + `play("lock")` in `pick()` (currently silent).
+- When `me.current_answer !== null` during a question, show a big "✓ LOCKED — {nickname}" pill at the top of the answer grid with the answer letter, in your team color.
+- On lock, briefly flash a green ring around the screen edge.
 
-**Add:** a live "Lock now: **873**" ticker on both host and player screens, visible only during `phase === "question"`.
+## 2. Question text back on the phone
+Replace the "Check TV for question" placeholder during the `question` phase with the actual `room.current_question_text` (smaller font, 3-line clamp). Keep the timer/points pill above it.
 
-- Math (client-side, no DB change): `Math.max(0, Math.round((remainingS / totalS) * 1000))`. Recomputed every 100 ms using the same `now` clock both surfaces already poll.
-- Host (`QuestionStage.tsx`): drop it next to the existing seconds-remaining display in the top status bar — big, monospaced, color-shifts amber → rose as it drops below 400, then 150.
-- Player (`play.tsx`): smaller chip above the answer grid. **Once the player has locked an answer, freeze the ticker on the value at lock time** (computed from `current_answer_locked_at`) so they see exactly what they're banking — instead of watching it keep ticking down on a number they already locked in.
-- Bonuses (streak/2x) are intentionally hidden from this number to keep the spoiler-free "rubber-band" surprise and the existing 2x reveal moment intact. If you want 2x to multiply the ticker (so the player sees their gamble in real time), say the word.
+## 3. Hide other players' picks until reveal
+- Host `QuestionStage.tsx`: stop rendering `locks` avatars under each answer during `phase === "question"`. Only show them on the `reveal` phase, AND in the meantime only show avatars on already-`dropped` answers (so you can see who got eliminated).
+- Phone `play.tsx`: remove the live `avatarsByIndex` peer-pick avatars on `AnswerGrid` during `question` phase; keep the count of locks via the "Locked X/Y" progress bar only.
 
-### 2. Real-time avatars on answer tiles when players pick
-**Today:** `QuestionStage.tsx` renders the per-tile avatar chips inside `phase === "reveal"` (line 214) — so during the actual question, you can't see who picked what or who switched.
+## 4. Slower timer + breathing room between eliminations
+- `nextQuestion` and final round: `question_duration_ms` 15000 → **25000**.
+- `HostGameStage` `DROP_AT_ELAPSED_S` [4, 8, 11] → **[9, 15, 20]** (drops every ~6s, last drop 5s before time-up).
+- `FINAL_HOLD_MS` 1500 → **2500** so the lone correct answer holds longer before the reveal cuts in.
+- `useRevealAutoAdvance` reveal hold 8000 → **6000** between questions (faster pacing between, slower within).
+- Update `PointsTicker`/`PlayerPointsTicker` `max` to read from `room.question_duration_ms / 1000` instead of the hard-coded `15`.
 
-**Add:** render the avatar chips on each answer tile during `phase === "question"` too. When a player changes their pick, their avatar disappears from the old tile and appears on the new tile (driven by Realtime updates to `players.current_answer`, which both host and player already subscribe to).
+## 5. Stop the duplicate announcer sounds per question
+HostGameStage currently fires:
+- TTS audio (per question)
+- `playEvent("round_intro")` on the first question of each round
+- `playEvent("reveal")` + `playEvent("correct"|"wrong")` on endQuestion
+- `playEvent("leaderboard"|"final"|"victory")` on phase stings
+…all of which can stack with the question TTS still playing. Fix:
+- Guard `round_intro` so it only fires when `state.phase` transitions from `lobby`/`leaderboard` to `question` (not on every question of a round).
+- Skip `playEvent("reveal")` entirely (the correct/wrong sting already plays right after — it's a duplicate).
+- Before starting question TTS, stop any currently-playing event sound via a single shared `currentAnnouncerRef` so only one announcer voice is audible at a time.
 
-- Visual treatment during `question` phase: just the avatar circle (no nickname pill, no color — that would spoil right vs. wrong). Slight `motion.div` fade-in / fade-out using the existing `framer-motion` import, keyed by player id, so the swap reads as "Sam slid over."
-- At `phase === "reveal"`, the existing nickname-pill chips take over (correct = amber, wrong = rose). No change to that.
-- Player screen (`play.tsx` answer grid): same treatment — show other players' avatars on each tile in real time so kids see "everyone else moved to B" social pressure. (If you want this host-only and keep the player screen clean, say so.)
-- Show up to 8 avatars per tile during the question (smaller than the reveal chips), then "+N" overflow.
+## 6. Final round actually works on the phone
+Today: host starts the final round → room goes to `final_intro` for 5s, then `final_wager`. If the host's `HostGameStage` is not mounted (or the player joined mid-intro / phase update missed), the phone is stranded on a "Final Round" placeholder with no controls.
 
-## Out of scope
-- Surfacing 2x / streak / rubber-band in the live points number (keeps surprises).
-- Animating the score-bank itself at reveal — separate ask if you want it.
+Fix:
+- `startFinalRound` server fn: set phase directly to **`final_wager`** (drop the `final_intro` dead-time entirely). The TV still shows the "Final Round" cinematic for 3s as an overlay on top of the wager scene — driven by a local `setTimeout` in `HostGameStage`, not by a DB phase. Phones always see the wager UI immediately.
+- Remove the `final_intro → final_wager` setTimeout from `HostGameStage` orchestrator (no longer needed).
+- On phone, also accept `final_intro` as a valid wager phase (fallback) so existing in-flight rooms unstick.
+- Increase final wager window 20s → **30s** in HostGameStage orchestrator.
 
-## Files touched
-- `src/components/host/QuestionStage.tsx` — add points ticker, move avatar chips out of the reveal-only branch and add a question-phase variant.
-- `src/routes/play.tsx` — add points ticker (freezes on lock) + avatar overlays on the answer grid.
-- No DB / server changes. No new dependencies.
+## 7. Browser/TV view fits on screen
+`HostGameStage` `QuestionStage` renders 4xl–6xl headlines + 2xl/3xl answer text + a points ticker + timer ring + media + explanation, all inside `h-full` with no shrink. On a 720p browser tab this overflows. Fix:
+- Add `overflow-hidden min-h-0` to the root motion.div and `min-h-0` to the answer grid (already there) — but also clamp question heading to `text-3xl sm:text-5xl` (down from `text-4xl sm:text-6xl`) and clamp media to `max-h-[28vh]` (down from 36vh).
+- Make the points ticker + timer ring `scale-90` on viewports under 1024px.
+- Wrap the explanation in `max-h-[20vh] overflow-auto` so a long fun-fact never pushes answers off-screen.
+
+## What I won't touch
+- Scoring math, wildcard rules, leaderboard layout, admin page, sounds admin, selfie flow.
+- Database schema (all changes are render/timing/server-fn behavior).
+
+After approval I'll do all 7 in one pass, then sanity-check the build.
