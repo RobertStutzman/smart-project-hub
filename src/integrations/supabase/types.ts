@@ -435,6 +435,36 @@ export type Database = {
         }
         Relationships: []
       }
+      tts_call_log: {
+        Row: {
+          char_count: number
+          created_at: string
+          id: string
+          outcome: string
+          preset: string
+          room_id: string | null
+          text_hash: string
+        }
+        Insert: {
+          char_count?: number
+          created_at?: string
+          id?: string
+          outcome: string
+          preset: string
+          room_id?: string | null
+          text_hash: string
+        }
+        Update: {
+          char_count?: number
+          created_at?: string
+          id?: string
+          outcome?: string
+          preset?: string
+          room_id?: string | null
+          text_hash?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
