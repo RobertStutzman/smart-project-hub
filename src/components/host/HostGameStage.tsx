@@ -186,6 +186,12 @@ export function HostGameStage({ room }: Props) {
     for (const t of dropSfxTimersRef.current) window.clearTimeout(t);
     dropSfxTimersRef.current = [];
   }, [state?.question_started_at]);
+  useEffect(() => {
+    return () => {
+      for (const t of dropSfxTimersRef.current) window.clearTimeout(t);
+      dropSfxTimersRef.current = [];
+    };
+  }, []);
 
   // Play The Elf reading the question whenever a new one lands
   const questionTtsAudioRef = useRef<HTMLAudioElement | null>(null);
