@@ -20,6 +20,7 @@ import { AIRoast } from "./AIRoast";
 import { IntroStage } from "./IntroStage";
 import { CreditsStage } from "./CreditsStage";
 import { pickLine, speakPersona } from "@/lib/host-persona";
+import { playVoiceUrl } from "@/lib/elf-voice";
 import { play, playEvent, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
 import { FinalWagerStage, FinalRevealStage } from "./FinalStages";
 import { WinnerSpotlight } from "./WinnerSpotlight";
