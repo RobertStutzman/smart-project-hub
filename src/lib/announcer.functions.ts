@@ -385,6 +385,26 @@ function hashTtsKey(preset: string, text: string): string {
   return createHash("sha256").update(`${preset}::${text}`).digest("hex");
 }
 
+async function logTtsCall(row: {
+  room_id?: string | null;
+  preset: string;
+  text_hash: string;
+  char_count: number;
+  outcome: "cache_hit" | "generated" | "cap_skipped" | "error";
+}) {
+  try {
+    await supabaseAdmin.from("tts_call_log").insert({
+      room_id: row.room_id ?? null,
+      preset: row.preset,
+      text_hash: row.text_hash,
+      char_count: row.char_count,
+      outcome: row.outcome,
+    });
+  } catch {
+    /* best-effort logging — never break a voice line */
+  }
+}
+
 export const speakPersonaLine = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
@@ -398,6 +418,8 @@ export const speakPersonaLine = createServerFn({ method: "POST" })
     const preset = data.preset ?? "hype";
     const text = data.text;
     const hash = hashTtsKey(preset, text);
+    const charCount = text.length;
+    const roomId = data.roomId ?? null;
 
     // 1. Cache hit?
     const { data: cached } = await supabaseAdmin
@@ -420,6 +442,7 @@ export const speakPersonaLine = createServerFn({ method: "POST" })
         .from(TTS_CACHE_BUCKET)
         .createSignedUrl(cached.storage_path, 60 * 60 * 24 * 7);
       if (signed?.signedUrl) {
+        void logTtsCall({ room_id: roomId, preset, text_hash: hash, char_count: charCount, outcome: "cache_hit" });
         return { audioUrl: signed.signedUrl, cached: true };
       }
     }
@@ -434,6 +457,7 @@ export const speakPersonaLine = createServerFn({ method: "POST" })
       const cap = getTtsCap();
       const count = room?.tts_calls_count ?? 0;
       if (count >= cap) {
+        void logTtsCall({ room_id: roomId, preset, text_hash: hash, char_count: charCount, outcome: "cap_skipped" });
         return { skipped: true as const, reason: "cap" as const, count, cap };
       }
       // Reserve a slot up front so concurrent calls don't all squeak through
@@ -444,8 +468,14 @@ export const speakPersonaLine = createServerFn({ method: "POST" })
     }
 
     // 3. Generate via ElevenLabs
-    const settings = PERSONA_PRESETS[preset];
-    const audio = await generateTTS(text, settings);
+    let audio: ArrayBuffer;
+    try {
+      const settings = PERSONA_PRESETS[preset];
+      audio = await generateTTS(text, settings);
+    } catch (err) {
+      void logTtsCall({ room_id: roomId, preset, text_hash: hash, char_count: charCount, outcome: "error" });
+      throw err;
+    }
 
     // 4. Upload to storage
     const path = `${TTS_CACHE_PREFIX}/${hash}.mp3`;
@@ -457,6 +487,7 @@ export const speakPersonaLine = createServerFn({ method: "POST" })
       });
     if (upErr) {
       // Fall back to base64 if storage upload fails
+      void logTtsCall({ room_id: roomId, preset, text_hash: hash, char_count: charCount, outcome: "generated" });
       return { audioBase64: Buffer.from(audio).toString("base64") };
     }
 
@@ -478,11 +509,13 @@ export const speakPersonaLine = createServerFn({ method: "POST" })
     const { data: signed } = await supabaseAdmin.storage
       .from(TTS_CACHE_BUCKET)
       .createSignedUrl(path, 60 * 60 * 24 * 7);
+    void logTtsCall({ room_id: roomId, preset, text_hash: hash, char_count: charCount, outcome: "generated" });
     if (signed?.signedUrl) {
       return { audioUrl: signed.signedUrl, cached: false };
     }
     return { audioBase64: Buffer.from(audio).toString("base64") };
   });
+
 
 export const getTTSCacheStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
