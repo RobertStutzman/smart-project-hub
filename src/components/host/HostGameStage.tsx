@@ -385,6 +385,7 @@ export function HostGameStage({ room }: Props) {
           droppedIndexes={state.dropped_indexes ?? []}
           correctIndex={state.phase === "reveal" ? state.current_correct_index : null}
           secondsLeft={remainingS}
+          totalS={state.question_duration_ms / 1000}
           readSecondsLeft={state.phase === "question" ? readSecondsLeft : 0}
           phase={state.phase as "question" | "reveal"}
           players={players.filter((p) => !p.is_audience)}
@@ -503,6 +504,7 @@ export function HostGameStage({ room }: Props) {
           droppedIndexes={[]}
           correctIndex={null}
           secondsLeft={remainingS}
+          totalS={state.question_duration_ms / 1000}
           phase="question"
           players={players.filter((p) => !p.is_audience)}
           mediaUrl={(state as { current_media_url?: string | null }).current_media_url ?? null}
