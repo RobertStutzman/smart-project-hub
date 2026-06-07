@@ -757,11 +757,8 @@ function HostPage() {
         )}
       </AnimatePresence>
 
-      {showPaywall && (
-        <PaywallModal category={showPaywall} onClose={() => setShowPaywall(null)} />
-      )}
-
       {showHowTo && <HowToPlay onComplete={finishHowTo} />}
+
 
     </main>
   );
