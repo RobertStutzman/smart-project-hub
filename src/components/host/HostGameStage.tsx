@@ -190,21 +190,8 @@ export function HostGameStage({ room }: Props) {
           duckMusic(false);
         });
       };
-      if (typeof window !== "undefined" && "speechSynthesis" in window && window.speechSynthesis.speaking) {
-        const waitId = window.setInterval(() => {
-          if (!window.speechSynthesis.speaking) {
-            window.clearInterval(waitId);
-            speak();
-          }
-        }, 100);
-        // Hard cap: don't wait more than 2s
-        window.setTimeout(() => {
-          window.clearInterval(waitId);
-          if (!questionTtsAudioRef.current) speak();
-        }, 2000);
-      } else {
-        speak();
-      }
+      speak();
+
     }, delay);
 
     return () => window.clearTimeout(timer);
