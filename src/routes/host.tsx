@@ -335,10 +335,14 @@ function HostPage() {
 
   return (
     <main
-      className="relative h-dvh overflow-hidden text-white"
+      className="relative min-h-[100svh] w-full overflow-y-auto text-white"
       style={{
         background:
           "radial-gradient(ellipse 90% 60% at 50% 30%, oklch(0.22 0.04 270 / 0.95), oklch(0.06 0.02 270) 80%)",
+        paddingTop: "max(env(safe-area-inset-top), 0px)",
+        paddingBottom: "max(env(safe-area-inset-bottom), 0px)",
+        paddingLeft: "max(env(safe-area-inset-left), 0px)",
+        paddingRight: "max(env(safe-area-inset-right), 0px)",
       }}
     >
       {/* film grain */}
@@ -358,7 +362,32 @@ function HostPage() {
         }}
       />
 
-      <div className="relative mx-auto flex h-full min-h-0 max-w-7xl flex-col gap-3 p-4 sm:p-5 lg:gap-4 lg:p-6">
+      {/* FIXED TV-SAFE JOIN PANEL — always visible, overscan-safe */}
+      <aside
+        className="pointer-events-none fixed z-40 flex flex-col items-center"
+        style={{
+          top: "calc(env(safe-area-inset-top, 0px) + 4vh)",
+          right: "calc(env(safe-area-inset-right, 0px) + 4vw)",
+        }}
+      >
+        <div className="pointer-events-auto flex flex-col items-center rounded-2xl border border-white/15 bg-black/55 p-3 shadow-[0_10px_60px_rgba(0,0,0,0.55)] backdrop-blur">
+          <div className="text-[9px] font-bold uppercase tracking-[0.4em] text-amber-200/80">Join at</div>
+          <div className="mt-0.5 font-mono text-[11px] text-white/80">{origin || "…"}/join</div>
+          <div className="mt-1 bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text font-mono text-[clamp(2rem,5.5vw,3.25rem)] font-black leading-none tracking-[0.12em] text-transparent">
+            {creating || !room ? "····" : room.roomCode}
+          </div>
+          {joinUrl && (
+            <div className="mt-2 inline-block rounded-lg bg-white p-2 ring-1 ring-white/20">
+              <QRCodeSVG value={joinUrl} size={144} level="M" includeMargin={false} />
+            </div>
+          )}
+        </div>
+      </aside>
+
+      <div
+        className="relative mx-auto flex min-h-[100svh] max-w-7xl flex-col gap-3 p-4 sm:p-5 lg:gap-4 lg:p-6"
+        style={{ paddingRight: "calc(env(safe-area-inset-right, 0px) + 4vw + 210px)" }}
+      >
         <header className="flex flex-wrap items-center justify-between gap-3">
           <button
             onClick={() => navigate({ to: "/" })}
@@ -391,32 +420,22 @@ function HostPage() {
           </div>
         )}
 
-        <section className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[1.05fr_1fr]">
+        <section className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[1fr_1.1fr]">
 
-          {/* LEFT — brand + room code + QR */}
-          <div className="flex min-h-0 flex-col items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center backdrop-blur sm:p-5 lg:p-6">
-            <h1 className="font-display text-[clamp(2.25rem,7vh,4.5rem)] font-black leading-[0.9] tracking-tight text-white drop-shadow-[0_4px_40px_rgba(0,0,0,0.7)]">
+          {/* LEFT — brand + scan hint (QR is pinned top-right) */}
+          <div className="flex min-h-0 flex-col items-center justify-center gap-4 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center backdrop-blur sm:p-5 lg:p-6">
+            <h1 className="font-display text-[clamp(2rem,6vh,4rem)] font-black leading-[0.9] tracking-tight text-white drop-shadow-[0_4px_40px_rgba(0,0,0,0.7)]">
               Beat the{" "}
               <span className="bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text text-transparent">
                 Drop
               </span>
             </h1>
-
-            <div className="mx-auto mt-3 h-[2px] w-20 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
-
-            <div className="mt-5 text-[10px] font-bold uppercase tracking-[0.45em] text-amber-200/80">
-              Room code
-            </div>
-            <div className="mt-2 bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text font-mono text-[clamp(3.4rem,15vh,8rem)] font-black leading-none tracking-[0.12em] text-transparent drop-shadow-[0_8px_30px_rgba(251,191,36,0.35)]">
-              {creating || !room ? "····" : room.roomCode}
-            </div>
-
-
-            {joinUrl && (
-              <div className="mt-4 inline-block rounded-xl bg-white p-3 shadow-[0_0_40px_oklch(0.85_0.18_85/0.32)] ring-1 ring-white/20">
-                <QRCodeSVG value={joinUrl} size={190} level="M" includeMargin={false} />
-              </div>
-            )}
+            <div className="h-[2px] w-20 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
+            <p className="max-w-sm text-sm text-white/70">
+              Players: scan the QR in the top-right, or visit{" "}
+              <span className="font-mono text-amber-200">{origin || "…"}/join</span>{" "}
+              and enter the room code.
+            </p>
           </div>
 
 
