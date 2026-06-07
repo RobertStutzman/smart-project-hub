@@ -153,10 +153,11 @@ export const nextQuestion = createServerFn({ method: "POST" })
     const leastUsed = DIFFICULTIES.filter((d) => counts[d] === minCount);
     const targetDifficulty = leastUsed[Math.floor(Math.random() * leastUsed.length)];
 
-    async function fetchPool(difficulty: string | null, useCategory: boolean) {
+    async function fetchPool(difficulty: string | null, useEnabledCategories: boolean) {
       let qQuery = supabaseAdmin.from("questions").select("*");
-      if (useCategory && room.current_category && room.current_category !== "Mystery Mix")
-        qQuery = qQuery.eq("category", room.current_category);
+      const enabled = (room as { enabled_categories?: string[] | null }).enabled_categories;
+      if (useEnabledCategories && enabled && enabled.length > 0)
+        qQuery = qQuery.in("category", enabled);
       if (difficulty) qQuery = qQuery.eq("difficulty", difficulty);
       if (usedIds.length > 0) qQuery = qQuery.not("id", "in", `(${usedIds.join(",")})`);
       // Global rotation: least-used first, then oldest-used (nulls = never used → top).
@@ -166,6 +167,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
         .limit(12);
       return data ?? [];
     }
+
 
     // Prefer staying inside the selected category: target difficulty in category →
     // any difficulty in category → target difficulty any category → anything.
