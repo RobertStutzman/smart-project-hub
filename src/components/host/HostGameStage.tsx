@@ -565,19 +565,16 @@ export function HostGameStage({ room }: Props) {
       comebackFiredForRoundRef.current = round;
       const prevMap = prevRankBySessionRef.current;
       type ComebackCandidate = { nickname: string; ranksClimbed: number };
-      let bestComeback: ComebackCandidate | null = null;
+      const candidates: ComebackCandidate[] = [];
       ranked.slice(0, 3).forEach((p, idx) => {
         const newRank = idx + 1;
         const prevRank = prevMap.get(p.session_id);
         if (prevRank && prevRank - newRank >= 3) {
-          const climbed = prevRank - newRank;
-          const current: ComebackCandidate | null = bestComeback;
-          if (!current || climbed > current.ranksClimbed) {
-            bestComeback = { nickname: p.nickname, ranksClimbed: climbed };
-          }
+          candidates.push({ nickname: p.nickname, ranksClimbed: prevRank - newRank });
         }
       });
-      const cb: ComebackCandidate | null = bestComeback;
+      candidates.sort((a, b) => b.ranksClimbed - a.ranksClimbed);
+      const cb = candidates[0];
       if (cb) {
         const id = window.setTimeout(() => {
           void speakAboutPlayer({
