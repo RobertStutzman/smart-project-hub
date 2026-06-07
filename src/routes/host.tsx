@@ -334,16 +334,14 @@ function HostPage() {
 
 
 
+  const canStart = !!room && !!activeCategory && players.length > 0;
+
   return (
     <main
-      className="relative min-h-[100svh] w-full overflow-y-auto text-white"
+      className="relative h-[100svh] w-full overflow-hidden text-white"
       style={{
         background:
           "radial-gradient(ellipse 90% 60% at 50% 30%, oklch(0.22 0.04 270 / 0.95), oklch(0.06 0.02 270) 80%)",
-        paddingTop: "max(env(safe-area-inset-top), 0px)",
-        paddingBottom: "max(env(safe-area-inset-bottom), 0px)",
-        paddingLeft: "max(env(safe-area-inset-left), 0px)",
-        paddingRight: "max(env(safe-area-inset-right), 0px)",
       }}
     >
       {/* film grain */}
@@ -363,267 +361,282 @@ function HostPage() {
         }}
       />
 
-      {/* FIXED TV-SAFE JOIN PANEL — always visible, overscan-safe */}
-      <aside
-        className="pointer-events-none fixed z-40 flex flex-col items-center"
+      {/* TV-safe wrapper: 3% inset on all sides for overscan + safe areas */}
+      <div
+        className="relative flex h-full flex-col"
         style={{
-          top: "calc(env(safe-area-inset-top, 0px) + 4vh)",
-          right: "calc(env(safe-area-inset-right, 0px) + 4vw)",
+          paddingTop: "calc(env(safe-area-inset-top, 0px) + 3svh)",
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 3svh)",
+          paddingLeft: "calc(env(safe-area-inset-left, 0px) + 3vw)",
+          paddingRight: "calc(env(safe-area-inset-right, 0px) + 3vw)",
         }}
       >
-        <div className="pointer-events-auto flex flex-col items-center rounded-2xl border border-white/15 bg-black/55 p-3 shadow-[0_10px_60px_rgba(0,0,0,0.55)] backdrop-blur">
-          <div className="text-[9px] font-bold uppercase tracking-[0.4em] text-amber-200/80">Join at</div>
-          <div className="mt-0.5 font-mono text-[11px] text-white/80">{origin || "…"}/join</div>
-          <div className="mt-1 bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text font-mono text-[clamp(2rem,5.5vw,3.25rem)] font-black leading-none tracking-[0.12em] text-transparent">
-            {creating || !room ? "····" : room.roomCode}
-          </div>
-          {joinUrl && (
-            <div className="mt-2 inline-block rounded-lg bg-white p-2 ring-1 ring-white/20">
-              <QRCodeSVG value={joinUrl} size={144} level="M" includeMargin={false} />
-            </div>
-          )}
-        </div>
-      </aside>
-
-      <div
-        className="relative mx-auto flex min-h-[100svh] max-w-7xl flex-col gap-3 p-4 sm:p-5 lg:gap-4 lg:p-6"
-        style={{ paddingRight: "calc(env(safe-area-inset-right, 0px) + 4vw + 210px)" }}
-      >
-        <header className="flex flex-wrap items-center justify-between gap-3">
+        {/* TOP BAR */}
+        <header className="flex flex-none items-center justify-between gap-3">
           <button
             onClick={() => navigate({ to: "/" })}
-            className="text-sm text-white/60 hover:text-white"
+            className="text-xs text-white/60 hover:text-white"
           >
             ← Home
           </button>
-          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.35em] text-amber-200/80">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-400" />
-            <span>Host view</span>
+          <div className="font-display text-base font-black tracking-tight text-white/90">
+            Beat the{" "}
+            <span className="bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text text-transparent">
+              Drop
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
             {!isFullscreen && (
               <button
                 onClick={toggleFullscreen}
-                className="ml-1 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-[10px] text-white/70 backdrop-blur hover:bg-white/10"
+                className="rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-[10px] uppercase tracking-widest text-white/70 backdrop-blur hover:bg-white/10"
                 title="Fullscreen (F)"
               >
-                ⛶ Fullscreen
+                ⛶
               </button>
             )}
-            <Link to="/admin" className="ml-1 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-[10px] text-white/70 backdrop-blur hover:bg-white/10">
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-[10px] uppercase tracking-widest text-white/70 backdrop-blur hover:bg-white/10"
+              title="Settings"
+            >
+              <SettingsIcon className="h-3 w-3" /> Settings
+            </button>
+            <Link to="/admin" className="rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-[10px] uppercase tracking-widest text-white/70 backdrop-blur hover:bg-white/10">
               Admin
             </Link>
           </div>
         </header>
 
-
         {error && (
-          <div className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-4 text-sm text-rose-100">
+          <div className="mt-3 flex-none rounded-xl border border-rose-400/40 bg-rose-500/10 p-3 text-sm text-rose-100">
             {error}
           </div>
         )}
 
-        <section className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[1fr_1.1fr]">
-
-          {/* LEFT — brand + scan hint (QR is pinned top-right) */}
-          <div className="flex min-h-0 flex-col items-center justify-center gap-4 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-center backdrop-blur sm:p-5 lg:p-6">
-            <h1 className="font-display text-[clamp(2rem,6vh,4rem)] font-black leading-[0.9] tracking-tight text-white drop-shadow-[0_4px_40px_rgba(0,0,0,0.7)]">
-              Beat the{" "}
-              <span className="bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text text-transparent">
-                Drop
-              </span>
-            </h1>
-            <div className="h-[2px] w-20 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
-            <p className="max-w-sm text-sm text-white/70">
-              Players: scan the QR in the top-right, or visit{" "}
-              <span className="font-mono text-amber-200">{origin || "…"}/join</span>{" "}
-              and enter the room code.
-            </p>
+        {/* HERO — join + room code + QR (fills the middle, no scroll) */}
+        <section className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[2svh] text-center">
+          <div className="text-[clamp(0.7rem,1.6svh,1rem)] font-bold uppercase tracking-[0.5em] text-amber-200/80">
+            Join at <span className="font-mono normal-case tracking-normal text-white">{origin || "…"}/join</span>
           </div>
 
+          <div className="bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text font-mono text-[clamp(4rem,22svh,12rem)] font-black leading-none tracking-[0.12em] text-transparent drop-shadow-[0_8px_30px_rgba(251,191,36,0.35)]">
+            {creating || !room ? "····" : room.roomCode}
+          </div>
 
+          {joinUrl && (
+            <div
+              className="inline-block rounded-xl bg-white p-[1svh] shadow-[0_0_40px_oklch(0.85_0.18_85/0.32)] ring-1 ring-white/20"
+              style={{ width: "clamp(140px, 28svh, 240px)", height: "clamp(140px, 28svh, 240px)" }}
+            >
+              <QRCodeSVG value={joinUrl} size={256} level="M" includeMargin={false} style={{ width: "100%", height: "100%" }} />
+            </div>
+          )}
 
-          {/* RIGHT — players + controls */}
-          <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
-            <div className="min-h-0 rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur">
+          {activeCategory && (
+            <div className="text-[clamp(0.7rem,1.4svh,0.95rem)] text-white/60">
+              Category: <span className="font-semibold text-amber-200">{activeCategory}</span>
+            </div>
+          )}
+        </section>
 
-              <div className="mb-3 flex items-baseline justify-between">
-                <h2 className="text-lg font-bold text-white">Players</h2>
-                <span className="text-sm text-white/60">{players.length} in lobby</span>
-              </div>
-              {teamMode && players.length > 0 && (
-                <div className="mb-3 grid grid-cols-2 gap-2 text-xs">
-                  <div className="flex items-center justify-between rounded-lg border border-rose-400/40 bg-rose-500/10 px-3 py-2">
-                    <span className="font-bold uppercase tracking-wider text-rose-200">🔴 Red</span>
-                    <span className="tabular-nums text-white">
-                      {players.filter((p) => p.team === "red").length} players · {players.filter((p) => p.team === "red").reduce((s, p) => s + (p.score ?? 0), 0)} pts
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border border-sky-400/40 bg-sky-500/10 px-3 py-2">
-                    <span className="font-bold uppercase tracking-wider text-sky-200">🔵 Blue</span>
-                    <span className="tabular-nums text-white">
-                      {players.filter((p) => p.team === "blue").length} players · {players.filter((p) => p.team === "blue").reduce((s, p) => s + (p.score ?? 0), 0)} pts
-                    </span>
-                  </div>
-                </div>
-              )}
+        {/* PLAYER ROW */}
+        <section className="flex flex-none flex-col items-center gap-[1.5svh]">
+          <div className="flex flex-wrap items-center justify-center gap-2" style={{ maxHeight: "12svh", overflow: "hidden" }}>
+            <AnimatePresence>
               {players.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-white/15 p-4 text-center text-sm text-white/60">
-                  Waiting for players to join…
+                <div className="text-[clamp(0.75rem,1.6svh,1rem)] text-white/50">
+                  Waiting for players…
                 </div>
               ) : (
-                <ul className="grid max-h-[18vh] grid-cols-2 gap-2 overflow-hidden">
-                  <AnimatePresence>
-                    {players.map((p) => {
-                      const teamBg =
-                        p.team === "red"
-                          ? "border-rose-400/40 bg-rose-500/10"
-                          : p.team === "blue"
-                            ? "border-sky-400/40 bg-sky-500/10"
-                            : "border-white/10 bg-white/[0.04]";
-                      const teamDot =
-                        p.team === "red"
-                          ? "bg-rose-400"
-                          : p.team === "blue"
-                            ? "bg-sky-400"
-                            : null;
-                      return (
-                        <motion.li
-                          key={p.id}
-                          initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.9 }}
-                          transition={{ duration: 0.25 }}
-                          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm text-white ${teamBg}`}
-                        >
-                          <span className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-primary to-accent text-xs font-bold text-primary-foreground">
-                            {p.nickname.slice(0, 1).toUpperCase()}
-                          </span>
-                          <span className="truncate font-medium">{p.nickname}</span>
-                          {teamDot && <span className={`ml-auto h-2.5 w-2.5 rounded-full ${teamDot}`} />}
-                        </motion.li>
-                      );
-                    })}
-                  </AnimatePresence>
-                </ul>
+                players.map((p) => {
+                  const ring =
+                    p.team === "red"
+                      ? "ring-rose-400/60"
+                      : p.team === "blue"
+                        ? "ring-sky-400/60"
+                        : "ring-white/20";
+                  return (
+                    <motion.div
+                      key={p.id}
+                      initial={{ opacity: 0, y: 10, scale: 0.8 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ duration: 0.25 }}
+                      className={`flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] py-1 pl-1 pr-3 backdrop-blur ring-1 ${ring}`}
+                    >
+                      <span className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-primary to-accent text-xs font-bold text-primary-foreground">
+                        {p.nickname.slice(0, 1).toUpperCase()}
+                      </span>
+                      <span className="text-[clamp(0.75rem,1.5svh,0.95rem)] font-medium text-white">
+                        {p.nickname}
+                      </span>
+                    </motion.div>
+                  );
+                })
               )}
-            </div>
+            </AnimatePresence>
+          </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur">
-              <h2 className="mb-2 text-base font-bold text-white">Host controls</h2>
-              <div className="flex flex-col gap-2 text-sm text-white/80">
-                <Toggle
-                  label="Allow late joiners"
-                  on={allowLate}
-                  onChange={setAllowLate}
-                />
-                <Toggle
-                  label="Team mode (red vs blue)"
-                  on={teamMode}
-                  onChange={(next) => {
-                    setTeamMode(next);
-                    if (room) {
-                      toggleTeamModeFn({
-                        data: {
-                          roomCode: room.roomCode,
-                          hostSessionId: room.hostSessionId,
-                          enabled: next,
-                        },
-                      }).catch((e) => toast.error((e as Error).message));
-                    }
-                  }}
-                />
-                <Toggle label="Mute audio" on={muted} onChange={toggleMute} />
-                <div className="flex items-center justify-between">
-                  <span>Theme</span>
-                  <div className="flex gap-1">
-                    {THEMES.map((t) => (
+          <button
+            data-host-primary={canStart ? "true" : undefined}
+            onClick={() => {
+              if (!canStart) {
+                setSettingsOpen(true);
+                return;
+              }
+              play("whoosh");
+              nextQuestionFn({
+                data: { roomCode: room!.roomCode, hostSessionId: room!.hostSessionId },
+              }).catch((e) => setError((e as Error).message));
+            }}
+            className={`rounded-2xl px-[clamp(1.5rem,4vw,3rem)] py-[clamp(0.6rem,1.8svh,1rem)] text-[clamp(1rem,2.4svh,1.5rem)] font-black uppercase tracking-wider shadow-lg transition ${
+              canStart
+                ? "bg-gradient-to-b from-amber-300 to-amber-500 text-black hover:brightness-110"
+                : "border border-white/15 bg-white/[0.06] text-white/70 hover:bg-white/10"
+            }`}
+          >
+            {canStart
+              ? "▶ Start the show"
+              : !activeCategory
+                ? "⚙ Pick a category"
+                : "Waiting for players…"}
+          </button>
+
+          <div className="text-[clamp(0.55rem,1.1svh,0.7rem)] uppercase tracking-[0.3em] text-white/30">
+            <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">F</kbd> fullscreen ·{" "}
+            <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">Enter</kbd> start ·{" "}
+            <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">Space</kbd> pause
+          </div>
+        </section>
+      </div>
+
+      {/* SETTINGS SHEET — slide-in from right */}
+      <AnimatePresence>
+        {settingsOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSettingsOpen(false)}
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.aside
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 260 }}
+              className="fixed right-0 top-0 z-50 flex h-[100svh] w-full max-w-md flex-col overflow-y-auto border-l border-white/10 bg-[oklch(0.10_0.02_270)] p-5 shadow-2xl"
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-bold text-white">Settings</h2>
+                <button
+                  onClick={() => setSettingsOpen(false)}
+                  className="rounded-full p-2 text-white/60 hover:bg-white/10 hover:text-white"
+                  aria-label="Close settings"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="mb-5">
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-amber-200/80">
+                  Pick a category
+                </h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {CATEGORIES.map((c) => {
+                    const isActive = c.name === activeCategory;
+                    return (
                       <button
-                        key={t}
-                        onClick={() => setTheme(t as ThemeName)}
-                        className={`rounded-full border px-3 py-1 text-xs transition ${
-                          theme === t
+                        key={c.name}
+                        onClick={() => {
+                          if (c.isPremium) {
+                            setShowPaywall(c);
+                            return;
+                          }
+                          if (!room) return;
+                          setActiveCategory(c.name);
+                          setCategoryFn({
+                            data: {
+                              roomCode: room.roomCode,
+                              hostSessionId: room.hostSessionId,
+                              category: c.name,
+                            },
+                          }).catch((e) => setError((e as Error).message));
+                        }}
+                        className={`relative flex flex-col items-start gap-1 rounded-lg border p-2 text-left transition ${
+                          isActive
                             ? "border-amber-300/60 bg-amber-300/15 text-amber-100"
-                            : "border-white/15 text-white/70 hover:bg-white/10"
+                            : "border-white/10 bg-white/[0.04] text-white/85 hover:bg-white/10"
                         }`}
                       >
-                        {THEME_META[t as ThemeName].label}
+                        <span className="text-xl leading-none">{c.emoji}</span>
+                        <span className="text-xs font-semibold leading-tight">{c.name}</span>
+                        {c.isPremium && (
+                          <Lock className="absolute right-2 top-2 h-3.5 w-3.5 text-accent" />
+                        )}
                       </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="mt-1 flex items-center justify-between rounded-lg border border-dashed border-white/15 p-2 text-xs text-white/60">
-                  Press <kbd className="rounded bg-white/10 px-2 py-0.5 font-mono text-white/80">Space</kbd> to {paused ? "resume" : "pause"}
-                  {paused ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                    );
+                  })}
                 </div>
               </div>
-            </div>
 
-            <div className="min-h-0 rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur">
-              <h2 className="mb-2 text-base font-bold text-white">Pick a category</h2>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {CATEGORIES.map((c) => {
-                  const isActive = c.name === activeCategory;
-                  return (
-                    <button
-                      key={c.name}
-                      onClick={() => {
-                        if (c.isPremium) {
-                          setShowPaywall(c);
-                          return;
-                        }
-                        if (!room) return;
-                        setActiveCategory(c.name);
-                        setCategoryFn({
+              <div className="mb-5">
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-amber-200/80">
+                  Game options
+                </h3>
+                <div className="flex flex-col gap-2 text-sm text-white/80">
+                  <Toggle label="Allow late joiners" on={allowLate} onChange={setAllowLate} />
+                  <Toggle
+                    label="Team mode (red vs blue)"
+                    on={teamMode}
+                    onChange={(next) => {
+                      setTeamMode(next);
+                      if (room) {
+                        toggleTeamModeFn({
                           data: {
                             roomCode: room.roomCode,
                             hostSessionId: room.hostSessionId,
-                            category: c.name,
+                            enabled: next,
                           },
-                        }).catch((e) => setError((e as Error).message));
-                      }}
-                      className={`relative flex flex-col items-start gap-1 rounded-lg border p-2 text-left transition ${
-                        isActive
+                        }).catch((e) => toast.error((e as Error).message));
+                      }
+                    }}
+                  />
+                  <Toggle label="Mute audio" on={muted} onChange={toggleMute} />
+                </div>
+              </div>
+
+              <div className="mb-5">
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-amber-200/80">
+                  Theme
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {THEMES.map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setTheme(t as ThemeName)}
+                      className={`rounded-full border px-3 py-1.5 text-xs transition ${
+                        theme === t
                           ? "border-amber-300/60 bg-amber-300/15 text-amber-100"
-                          : "border-white/10 bg-white/[0.04] text-white/85 hover:bg-white/10"
+                          : "border-white/15 text-white/70 hover:bg-white/10"
                       }`}
                     >
-                      <span className="text-xl leading-none">{c.emoji}</span>
-                      <span className="text-xs font-semibold leading-tight">{c.name}</span>
-                      {c.isPremium && (
-                        <Lock className="absolute right-2 top-2 h-3.5 w-3.5 text-accent" />
-                      )}
+                      {THEME_META[t as ThemeName].label}
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <button
-              onClick={() => {
-                if (!room || !activeCategory || players.length === 0) return;
-                play("whoosh");
-                nextQuestionFn({
-                  data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
-                }).catch((e) => setError((e as Error).message));
-              }}
-              disabled={!room || !activeCategory || players.length === 0}
-              className="rounded-xl bg-primary px-5 py-3 text-lg font-bold text-primary-foreground shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              ▶ Start game
-            </button>
-            {(!activeCategory || players.length === 0) && (
-              <div className="text-center text-xs text-muted-foreground">
-                {players.length === 0 && "Waiting for at least one player. "}
-                {!activeCategory && "Pick a category to begin."}
+              <div className="mt-auto rounded-lg border border-dashed border-white/15 p-3 text-xs text-white/60">
+                Press <kbd className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-white/80">Space</kbd> to {paused ? "resume" : "pause"} · <kbd className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-white/80">Enter</kbd> to start
               </div>
-            )}
-          </div>
-        </section>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
 
-        <div className="text-center text-[10px] uppercase tracking-[0.3em] text-white/40">
-          <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">F</kbd> fullscreen · <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">Enter</kbd> advance · <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">Space</kbd> pause · works on Firestick
-        </div>
-
-      </div>
 
 
       <AnimatePresence>
