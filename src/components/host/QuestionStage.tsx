@@ -401,17 +401,79 @@ export function QuestionStage({
 }
 
 function ShatterOverlay(_props: { letter: string; label: string }) {
-  // Simple, calm ✕ stamp over the eliminated tile. No screen-flooding shards.
+  // Contained-to-tile elimination beat: SVG slash draws on, "OUT" stamp punches in,
+  // rose embers drift up. No screen-wide flash, no stage shake.
+  const embers = Array.from({ length: 8 });
   return (
-    <div className="pointer-events-none absolute inset-0 grid place-items-center overflow-hidden rounded-2xl">
+    <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+      {/* Rose flash that fades fast */}
       <motion.div
-        initial={{ scale: 1.6, opacity: 0, rotate: -8 }}
-        animate={{ scale: 1, opacity: 0.9, rotate: 0 }}
-        transition={{ duration: 0.35, ease: "easeOut" }}
-        className="font-display text-8xl font-black text-rose-400 drop-shadow-[0_0_30px_rgba(244,63,94,0.8)]"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: [0, 0.55, 0] }}
+        transition={{ duration: 0.45, ease: "easeOut", times: [0, 0.25, 1] }}
+        className="absolute inset-0 bg-rose-500/40 mix-blend-screen"
+      />
+
+      {/* Diagonal slash */}
+      <svg
+        className="absolute inset-0 h-full w-full"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
       >
-        ✕
+        <motion.line
+          x1="6"
+          y1="14"
+          x2="94"
+          y2="86"
+          stroke="oklch(0.72 0.22 20)"
+          strokeWidth="5"
+          strokeLinecap="round"
+          initial={{ pathLength: 0, opacity: 0 }}
+          animate={{ pathLength: 1, opacity: 1 }}
+          transition={{ duration: 0.28, ease: [0.65, 0, 0.35, 1] }}
+          style={{
+            filter:
+              "drop-shadow(0 0 8px rgba(244,63,94,0.85)) drop-shadow(0 0 18px rgba(244,63,94,0.5))",
+          }}
+        />
+      </svg>
+
+      {/* Stamped OUT badge */}
+      <motion.div
+        initial={{ scale: 2.2, opacity: 0, rotate: -22 }}
+        animate={{ scale: [2.2, 0.9, 1.05, 1], opacity: [0, 1, 1, 0.95], rotate: -12 }}
+        transition={{ duration: 0.55, times: [0, 0.35, 0.55, 1], ease: "easeOut" }}
+        className="absolute inset-0 grid place-items-center"
+      >
+        <div
+          className="rounded-md border-[3px] border-rose-400 bg-rose-950/60 px-4 py-1 font-display text-5xl font-black uppercase tracking-[0.2em] text-rose-200 shadow-[0_0_30px_rgba(244,63,94,0.6)] sm:text-6xl"
+          style={{ textShadow: "0 2px 0 rgba(0,0,0,0.6)" }}
+        >
+          Out
+        </div>
       </motion.div>
+
+      {/* Rose embers */}
+      {embers.map((_, i) => {
+        const xStart = 20 + ((i * 11) % 70);
+        const drift = (i % 2 === 0 ? -1 : 1) * (8 + (i % 3) * 6);
+        const delay = 0.05 + (i % 4) * 0.04;
+        return (
+          <motion.span
+            key={i}
+            initial={{ opacity: 0, x: `${xStart}%`, y: "70%", scale: 0.6 }}
+            animate={{
+              opacity: [0, 1, 0],
+              y: "10%",
+              x: `${xStart + drift}%`,
+              scale: [0.6, 1, 0.4],
+            }}
+            transition={{ duration: 0.7, delay, ease: "easeOut" }}
+            className="absolute block h-1.5 w-1.5 rounded-full bg-rose-300"
+            style={{ filter: "drop-shadow(0 0 6px rgba(244,63,94,0.9))" }}
+          />
+        );
+      })}
     </div>
   );
 }
