@@ -80,7 +80,7 @@ export function QuestionStage({
           : undefined
       }
       transition={{ duration: 0.5 }}
-      className="relative flex h-full flex-col gap-6 overflow-hidden p-6"
+      className="relative flex h-full min-h-0 flex-col gap-3 overflow-hidden p-4 sm:gap-4 sm:p-5"
       style={{
         background:
           "radial-gradient(ellipse 90% 60% at 50% 35%, oklch(0.22 0.04 270 / 0.9), oklch(0.08 0.02 270) 75%)",
@@ -132,7 +132,7 @@ export function QuestionStage({
             <PointsTicker secondsLeft={secondsLeft} max={totalS} />
           )}
           {reading ? (
-            <div className="grid h-20 w-20 place-items-center rounded-full border-4 border-amber-300/60 bg-amber-400/10 font-mono text-3xl font-black text-amber-200 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)] sm:h-24 sm:w-24 sm:text-4xl">
+            <div className="grid h-16 w-16 place-items-center rounded-full border-4 border-amber-300/60 bg-amber-400/10 font-mono text-2xl font-black text-amber-200 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)] sm:h-20 sm:w-20 sm:text-3xl">
               {Math.ceil(readSecondsLeft)}
             </div>
           ) : (
@@ -145,12 +145,12 @@ export function QuestionStage({
       {/* Question */}
       <div className="relative z-10 mx-auto max-w-5xl text-center">
         <h2
-          className="font-display text-3xl font-black leading-[1.05] text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.6)] sm:text-5xl"
+          className="font-display text-2xl font-black leading-[1.05] text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.6)] sm:text-3xl lg:text-4xl xl:text-5xl"
           style={{ textWrap: "balance" as never }}
         >
           {questionText}
         </h2>
-        <div className="mx-auto mt-4 h-[2px] w-24 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
+        <div className="mx-auto mt-2 h-[2px] w-24 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
       </div>
 
       {/* Media (image / audio) */}
@@ -159,7 +159,7 @@ export function QuestionStage({
           <img
             src={mediaUrl}
             alt=""
-            className="max-h-[28vh] w-auto rounded-2xl border border-white/10 object-contain shadow-[0_20px_80px_-20px_rgba(0,0,0,0.7)]"
+            className="max-h-[22vh] w-auto rounded-2xl border border-white/10 object-contain shadow-[0_20px_80px_-20px_rgba(0,0,0,0.7)]"
           />
         </div>
       )}
@@ -172,7 +172,7 @@ export function QuestionStage({
 
       {/* Answer panels — fixed 2x2 grid; cells NEVER reflow when shattered */}
       <div
-        className={`relative z-10 grid flex-1 grid-cols-2 grid-rows-2 gap-4 transition-all duration-300 ${
+        className={`relative z-10 grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-3 transition-all duration-300 ${
           reading ? "scale-[0.98] opacity-40 blur-[2px]" : ""
         }`}
       >
@@ -194,7 +194,7 @@ export function QuestionStage({
                   y: 0,
                 }}
                 transition={{ duration: 0.3 }}
-                className={`relative flex h-full w-full flex-col justify-between overflow-hidden rounded-2xl border p-6 backdrop-blur-xl ${
+                className={`relative flex h-full w-full min-h-0 flex-col justify-between overflow-hidden rounded-2xl border p-3 backdrop-blur-xl sm:p-4 ${
                   dropped
                     ? "border-rose-500/30 bg-rose-950/20 grayscale"
                     : isCorrect
@@ -204,7 +204,7 @@ export function QuestionStage({
               >
                 <div className="flex items-start justify-between">
                   <div
-                    className={`grid h-11 w-11 place-items-center rounded-full font-display text-xl font-black ${
+                    className={`grid h-9 w-9 place-items-center rounded-full font-display text-base font-black sm:h-10 sm:w-10 sm:text-lg ${
                       isCorrect
                         ? "bg-amber-300 text-amber-950"
                         : "bg-white/10 text-white/90 ring-1 ring-white/20"
@@ -214,9 +214,10 @@ export function QuestionStage({
                   </div>
                 </div>
 
-                <div className="my-4 text-2xl font-bold leading-tight text-white sm:text-3xl">
+                <div className="my-2 text-lg font-bold leading-tight text-white sm:text-xl lg:text-2xl xl:text-3xl">
                   {label}
                 </div>
+
 
                 <div className="flex min-h-[28px] flex-wrap items-center gap-1.5">
                   {/* During the live question, peer picks are HIDDEN to prevent
@@ -302,12 +303,12 @@ export function QuestionStage({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.5, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className="relative z-10 mx-auto w-full max-w-5xl max-h-[22vh] overflow-auto rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-400/20 via-amber-500/10 to-amber-600/[0.06] px-8 py-5 shadow-[0_20px_80px_-20px_rgba(251,191,36,0.45)] backdrop-blur-xl sm:px-10"
+            className="relative z-10 mx-auto w-full max-w-5xl max-h-[18vh] overflow-auto rounded-2xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-400/20 via-amber-500/10 to-amber-600/[0.06] px-5 py-3 shadow-[0_20px_80px_-20px_rgba(251,191,36,0.45)] backdrop-blur-xl sm:px-7 sm:py-4"
           >
-            <div className="text-sm font-bold uppercase tracking-[0.4em] text-amber-300">
+            <div className="text-xs font-bold uppercase tracking-[0.4em] text-amber-300">
               💡 Did you know?
             </div>
-            <div className="mt-3 text-xl font-semibold leading-snug text-white sm:text-2xl md:text-3xl">
+            <div className="mt-2 text-base font-semibold leading-snug text-white sm:text-lg lg:text-xl">
               {explanation}
             </div>
           </motion.div>
@@ -391,7 +392,7 @@ function PointsTicker({ secondsLeft, max }: { secondsLeft: number; max: number }
       <div className="text-[9px] font-bold uppercase tracking-[0.35em] text-white/50">
         Lock now
       </div>
-      <div className={`font-mono text-3xl font-black tabular-nums ${color} drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)]`}>
+      <div className={`font-mono text-xl font-black tabular-nums sm:text-2xl lg:text-3xl ${color} drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)]`}>
         {points}
       </div>
     </div>
@@ -410,7 +411,7 @@ function TimerRing({ seconds, max, active }: { seconds: number; max: number; act
       ? "oklch(0.78 0.18 75)"
       : "oklch(0.78 0.15 200)";
   return (
-    <div className={`relative h-24 w-24 ${danger && active ? "animate-pulse" : ""}`}>
+    <div className={`relative h-16 w-16 sm:h-20 sm:w-20 lg:h-24 lg:w-24 ${danger && active ? "animate-pulse" : ""}`}>
       <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
         <circle cx="50" cy="50" r={r} fill="none" stroke="oklch(1 0 0 / 0.08)" strokeWidth="6" />
         <circle
@@ -429,7 +430,7 @@ function TimerRing({ seconds, max, active }: { seconds: number; max: number; act
           }}
         />
       </svg>
-      <div className="absolute inset-0 grid place-items-center font-mono text-2xl font-black text-white">
+      <div className="absolute inset-0 grid place-items-center font-mono text-lg font-black text-white sm:text-xl lg:text-2xl">
         {Math.max(0, Math.ceil(seconds))}
       </div>
     </div>

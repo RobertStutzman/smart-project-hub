@@ -16,7 +16,7 @@ import { Leaderboard } from "./Leaderboard";
 import { ShatteredFaces } from "./ShatteredFaces";
 import { TwitchPanel } from "./TwitchPanel";
 import { AIRoast } from "./AIRoast";
-import { play, playEvent, startMusic, stopMusic } from "@/lib/sound-engine";
+import { play, playEvent, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
 
 type RoomState = {
   id: string;
@@ -163,10 +163,15 @@ export function HostGameStage({ room }: Props) {
       questionTtsAudioRef.current = null;
     }
     const audio = new Audio(url);
-    audio.volume = 0.9;
+    audio.volume = 1.0;
     questionTtsAudioRef.current = audio;
+    duckMusic(true);
+    const undock = () => duckMusic(false);
+    audio.addEventListener("ended", undock);
+    audio.addEventListener("pause", undock);
     audio.play().catch(() => {
       // Autoplay may be blocked before first user gesture; silently ignore.
+      duckMusic(false);
     });
   }, [state?.current_question_id, state?.current_question_tts_url, state?.phase]);
 

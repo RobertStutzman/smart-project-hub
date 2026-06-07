@@ -226,7 +226,7 @@ function HostPage() {
         if (welcomes.length > 0) {
           const pick = welcomes[Math.floor(Math.random() * welcomes.length)];
           const audio = new Audio(pick.url);
-          audio.volume = pick.volume;
+          audio.volume = Math.min(pick.volume, 0.9);
           audio.play().catch(() => {});
         }
       } catch {
@@ -298,13 +298,13 @@ function HostPage() {
 
   if (room && roomPhase !== "lobby") {
     return (
-      <main className="relative min-h-screen">
+      <main className="relative h-dvh w-screen overflow-hidden">
         <HostGameStage room={room} />
         <button
           onClick={endAndStartNewRoom}
-          className="fixed right-4 top-4 z-50 rounded-full border border-white/20 bg-black/60 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white shadow-lg backdrop-blur transition hover:bg-black/80"
+          className="fixed right-4 top-4 z-50 rounded-full border border-white/20 bg-black/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-white shadow-lg backdrop-blur transition hover:bg-black/80"
         >
-          End game · new room
+          End · new room
         </button>
       </main>
     );
