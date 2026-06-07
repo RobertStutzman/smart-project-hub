@@ -925,3 +925,104 @@ export const getQuestionTTSStats = createServerFn({ method: "GET" })
       .not("tts_path", "is", null);
     return { total: total ?? 0, baked: baked ?? 0 };
   });
+
+// ──────────────────────────────────────────────────────────────────────────
+// Explanation voiceovers — pre-bake The Elf reading each "Did you know?"
+// ──────────────────────────────────────────────────────────────────────────
+
+const EXPLANATION_TTS_PREFIX = "explanation-tts";
+
+async function bakeOneExplanation(
+  q: { id: string; explanation: string | null; explanation_tts_text_hash?: string | null; explanation_tts_path?: string | null },
+  force = false,
+): Promise<"baked" | "skipped"> {
+  const text = (q.explanation ?? "").trim();
+  if (!text) return "skipped";
+  const hash = hashText(text);
+  if (!force && q.explanation_tts_path && q.explanation_tts_text_hash === hash) return "skipped";
+
+  const audio = await generateTTS(text, QUESTION_VOICE_SETTINGS);
+  const path = `${EXPLANATION_TTS_PREFIX}/${q.id}.mp3`;
+  const { error: upErr } = await supabaseAdmin.storage
+    .from("question-media")
+    .upload(path, new Uint8Array(audio), {
+      contentType: "audio/mpeg",
+      upsert: true,
+    });
+  if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+
+  const { error: dbErr } = await supabaseAdmin
+    .from("questions")
+    .update({ explanation_tts_path: path, explanation_tts_text_hash: hash })
+    .eq("id", q.id);
+  if (dbErr) throw new Error(`DB update failed: ${dbErr.message}`);
+  return "baked";
+}
+
+export const bakeExplanationTTS = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({ questionId: z.string().uuid(), force: z.boolean().optional() }).parse,
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { data: q, error } = await supabaseAdmin
+      .from("questions")
+      .select("id, explanation, explanation_tts_path, explanation_tts_text_hash")
+      .eq("id", data.questionId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!q) throw new Error("Question not found");
+    const result = await bakeOneExplanation(q, data.force ?? false);
+    return { result };
+  });
+
+export const bakeAllExplanationTTS = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({ force: z.boolean().optional(), limit: z.number().int().min(1).max(500).optional() }).parse,
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    let query = supabaseAdmin
+      .from("questions")
+      .select("id, explanation, explanation_tts_path, explanation_tts_text_hash")
+      .not("explanation", "is", null)
+      .neq("explanation", "");
+    if (!data.force) query = query.is("explanation_tts_path", null);
+    const { data: rows, error } = await query.limit(data.limit ?? 100);
+    if (error) throw new Error(error.message);
+    const list = rows ?? [];
+
+    let baked = 0;
+    let skipped = 0;
+    const errors: { id: string; message: string }[] = [];
+    for (const q of list) {
+      try {
+        const r = await bakeOneExplanation(q, data.force ?? false);
+        if (r === "baked") baked += 1;
+        else skipped += 1;
+      } catch (e) {
+        errors.push({ id: q.id, message: (e as Error).message });
+      }
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    return { baked, skipped, errors, total: list.length };
+  });
+
+export const getExplanationTTSStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    const { count: total } = await supabaseAdmin
+      .from("questions")
+      .select("id", { count: "exact", head: true })
+      .not("explanation", "is", null)
+      .neq("explanation", "");
+    const { count: baked } = await supabaseAdmin
+      .from("questions")
+      .select("id", { count: "exact", head: true })
+      .not("explanation_tts_path", "is", null);
+    return { total: total ?? 0, baked: baked ?? 0 };
+  });
+

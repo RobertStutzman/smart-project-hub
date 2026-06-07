@@ -38,6 +38,16 @@ async function resolveQuestionTTS(ttsPath: string | null | undefined): Promise<s
   return data.signedUrl;
 }
 
+async function resolveExplanationTTS(ttsPath: string | null | undefined): Promise<string | null> {
+  if (!ttsPath) return null;
+  const { data, error } = await supabaseAdmin.storage
+    .from("question-media")
+    .createSignedUrl(ttsPath, 60 * 60);
+  if (error || !data) return null;
+  return data.signedUrl;
+}
+
+
 async function getRoomByHost(roomCode: string, hostSessionId: string) {
   const { data, error } = await supabaseAdmin
     .from("rooms")
@@ -223,6 +233,9 @@ export const nextQuestion = createServerFn({ method: "POST" })
       (q as { media_type?: string | null }).media_type,
     );
     const ttsUrl = await resolveQuestionTTS((q as { tts_path?: string | null }).tts_path);
+    const explanationTtsUrl = await resolveExplanationTTS(
+      (q as { explanation_tts_path?: string | null }).explanation_tts_path,
+    );
 
     const { error } = await supabaseAdmin
       .from("rooms")
@@ -238,6 +251,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
         current_media_url: media.url,
         current_media_type: media.type,
         current_question_tts_url: ttsUrl,
+        current_explanation_tts_url: explanationTtsUrl,
         question_started_at: new Date(Date.now() + 6000).toISOString(),
         question_duration_ms: wildcard === "lightning" ? LIGHTNING_DURATION_MS : 25000,
         dropped_indexes: [],
@@ -707,6 +721,9 @@ export const startFinalRound = createServerFn({ method: "POST" })
       (q as { media_type?: string | null }).media_type,
     );
     const finalTtsUrl = await resolveQuestionTTS((q as { tts_path?: string | null }).tts_path);
+    const finalExplanationTtsUrl = await resolveExplanationTTS(
+      (q as { explanation_tts_path?: string | null }).explanation_tts_path,
+    );
 
     const { error } = await supabaseAdmin
       .from("rooms")
@@ -722,6 +739,7 @@ export const startFinalRound = createServerFn({ method: "POST" })
         current_media_url: finalMedia.url,
         current_media_type: finalMedia.type,
         current_question_tts_url: finalTtsUrl,
+        current_explanation_tts_url: finalExplanationTtsUrl,
         question_started_at: null,
         question_duration_ms: 25000,
         dropped_indexes: [],
@@ -987,6 +1005,7 @@ export const startSuddenDeath = createServerFn({ method: "POST" })
         current_media_url: null,
         current_media_type: null,
         current_question_tts_url: null,
+        current_explanation_tts_url: null,
         question_started_at: new Date(Date.now() + 2500).toISOString(),
         question_duration_ms: 12000,
         dropped_indexes: [],
