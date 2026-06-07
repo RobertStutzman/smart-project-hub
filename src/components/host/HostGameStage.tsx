@@ -467,13 +467,18 @@ export function HostGameStage({ room }: Props) {
     const topStreaker = [...players]
       .filter((p) => !p.is_audience && p.current_answer === correctIdx)
       .sort((a, b) => (b.streak_count ?? 0) - (a.streak_count ?? 0))[0];
-    const streakLine =
-      topStreaker && (topStreaker.streak_count ?? 0) >= 3
-        ? `${topStreaker.nickname} on ${topStreaker.streak_count} in a row! ${pickLine("streak_milestone", qid)}`
-        : null;
+    const hasStreak = topStreaker && (topStreaker.streak_count ?? 0) >= 3;
     // Small delay so the line lands after the reveal sting, not on top of it.
     const id = window.setTimeout(() => {
-      speakPersona(streakLine ?? pickLine(moment, qid));
+      if (hasStreak && topStreaker) {
+        void speakAboutPlayer({
+          nickname: topStreaker.nickname,
+          moment: "streak",
+          streak: topStreaker.streak_count ?? 3,
+        });
+      } else {
+        void speakPersona(pickLine(moment, qid));
+      }
     }, 900);
     return () => window.clearTimeout(id);
   }, [state?.phase, state?.current_question_id, state?.current_correct_index, players]); // eslint-disable-line react-hooks/exhaustive-deps
