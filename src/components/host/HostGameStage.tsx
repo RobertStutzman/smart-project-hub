@@ -183,6 +183,8 @@ export function HostGameStage({ room }: Props) {
   useEffect(() => {
     droppedRef.current = new Set();
     endedRef.current = false;
+    for (const t of dropSfxTimersRef.current) window.clearTimeout(t);
+    dropSfxTimersRef.current = [];
   }, [state?.question_started_at]);
 
   // Play The Elf reading the question whenever a new one lands
