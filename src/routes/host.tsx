@@ -423,11 +423,11 @@ function HostPage() {
 
 
           {/* RIGHT — players + controls */}
-          <div className="flex min-h-0 flex-col gap-5 overflow-y-auto">
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur">
+          <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
+            <div className="min-h-0 rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur">
 
-              <div className="mb-4 flex items-baseline justify-between">
-                <h2 className="text-xl font-bold text-white">Players</h2>
+              <div className="mb-3 flex items-baseline justify-between">
+                <h2 className="text-lg font-bold text-white">Players</h2>
                 <span className="text-sm text-white/60">{players.length} in lobby</span>
               </div>
               {teamMode && players.length > 0 && (
@@ -447,11 +447,11 @@ function HostPage() {
                 </div>
               )}
               {players.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-white/15 p-6 text-center text-sm text-white/60">
+                <div className="rounded-xl border border-dashed border-white/15 p-4 text-center text-sm text-white/60">
                   Waiting for players to join…
                 </div>
               ) : (
-                <ul className="grid grid-cols-2 gap-2">
+                <ul className="grid max-h-[18vh] grid-cols-2 gap-2 overflow-hidden">
                   <AnimatePresence>
                     {players.map((p) => {
                       const teamBg =
@@ -488,9 +488,9 @@ function HostPage() {
               )}
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur">
-              <h2 className="mb-3 text-lg font-bold text-white">Host controls</h2>
-              <div className="flex flex-col gap-3 text-sm text-white/80">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur">
+              <h2 className="mb-2 text-base font-bold text-white">Host controls</h2>
+              <div className="flex flex-col gap-2 text-sm text-white/80">
                 <Toggle
                   label="Allow late joiners"
                   on={allowLate}
@@ -531,15 +531,15 @@ function HostPage() {
                     ))}
                   </div>
                 </div>
-                <div className="mt-1 flex items-center justify-between rounded-xl border border-dashed border-white/15 p-2 text-xs text-white/60">
+                <div className="mt-1 flex items-center justify-between rounded-lg border border-dashed border-white/15 p-2 text-xs text-white/60">
                   Press <kbd className="rounded bg-white/10 px-2 py-0.5 font-mono text-white/80">Space</kbd> to {paused ? "resume" : "pause"}
                   {paused ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
                 </div>
               </div>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur">
-              <h2 className="mb-3 text-lg font-bold text-white">Pick a category</h2>
+            <div className="min-h-0 rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur">
+              <h2 className="mb-2 text-base font-bold text-white">Pick a category</h2>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {CATEGORIES.map((c) => {
                   const isActive = c.name === activeCategory;
@@ -561,14 +561,14 @@ function HostPage() {
                           },
                         }).catch((e) => setError((e as Error).message));
                       }}
-                      className={`relative flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition ${
+                      className={`relative flex flex-col items-start gap-1 rounded-lg border p-2 text-left transition ${
                         isActive
                           ? "border-amber-300/60 bg-amber-300/15 text-amber-100"
                           : "border-white/10 bg-white/[0.04] text-white/85 hover:bg-white/10"
                       }`}
                     >
-                      <span className="text-2xl">{c.emoji}</span>
-                      <span className="text-sm font-semibold">{c.name}</span>
+                      <span className="text-xl leading-none">{c.emoji}</span>
+                      <span className="text-xs font-semibold leading-tight">{c.name}</span>
                       {c.isPremium && (
                         <Lock className="absolute right-2 top-2 h-3.5 w-3.5 text-accent" />
                       )}
@@ -587,7 +587,7 @@ function HostPage() {
                 }).catch((e) => setError((e as Error).message));
               }}
               disabled={!room || !activeCategory || players.length === 0}
-              className="rounded-2xl bg-primary px-6 py-5 text-xl font-bold text-primary-foreground shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-xl bg-primary px-5 py-3 text-lg font-bold text-primary-foreground shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
             >
               ▶ Start game
             </button>
