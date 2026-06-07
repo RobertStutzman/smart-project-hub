@@ -352,7 +352,34 @@ function HostPage() {
 
   const livePlayers = players.filter((p) => !p.is_audience);
   const audienceMembers = players.filter((p) => p.is_audience);
-  const canStart = !!room && !!activeCategory && livePlayers.length > 0;
+  const canStart = !!room && livePlayers.length > 0;
+  const mixLabel = enabledCats.size === 0 || enabledCats.size === allCategories.length
+    ? `🎲 Surprise Mix · all ${allCategories.length || ""} categories`.trim()
+    : `🎲 Surprise Mix · ${enabledCats.size} of ${allCategories.length} on`;
+
+  function persistEnabled(next: Set<string>) {
+    setEnabledCats(next);
+    try {
+      window.localStorage.setItem(CATEGORIES_KEY, JSON.stringify(Array.from(next)));
+    } catch {}
+    if (room) {
+      const all = allCategories.length > 0 && next.size === allCategories.length;
+      setEnabledCategoriesFn({
+        data: {
+          roomCode: room.roomCode,
+          hostSessionId: room.hostSessionId,
+          categories: all ? null : Array.from(next),
+        },
+      }).catch((e) => toast.error((e as Error).message));
+    }
+  }
+
+  function toggleCategory(name: string) {
+    const next = new Set(enabledCats);
+    if (next.has(name)) next.delete(name);
+    else next.add(name);
+    persistEnabled(next);
+  }
 
   function actuallyStart() {
     if (!room) return;
