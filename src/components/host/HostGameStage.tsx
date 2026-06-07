@@ -85,15 +85,18 @@ export function HostGameStage({ room }: Props) {
   const startFinalQuestionFn = useServerFn(startFinalQuestion);
   const scoreFinalRoundFn = useServerFn(scoreFinalRound);
 
-  // Load pre-baked persona pack URLs into the Elf voice cache once on mount.
+  // Load pre-baked persona pack URLs into the Elf voice cache once on mount,
+  // and register this room so the server-side per-game ElevenLabs cap counter
+  // charges the right game.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [{ getPersonaCacheMap }, { initPersonaCache }] = await Promise.all([
+        const [{ getPersonaCacheMap }, { initPersonaCache, setActiveRoomId }] = await Promise.all([
           import("@/lib/announcer.functions"),
           import("@/lib/elf-voice"),
         ]);
+        setActiveRoomId(room.id);
         const res = await getPersonaCacheMap();
         if (!cancelled && res?.map) initPersonaCache(res.map);
       } catch {
@@ -102,8 +105,9 @@ export function HostGameStage({ room }: Props) {
     })();
     return () => {
       cancelled = true;
+      void import("@/lib/elf-voice").then(({ setActiveRoomId }) => setActiveRoomId(null));
     };
-  }, []);
+  }, [room.id]);
 
 
   // Shatter trigger: increments per drop event so ShatteredFaces re-fires
