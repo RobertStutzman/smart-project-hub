@@ -131,11 +131,7 @@ export function QuestionStage({
           {phase === "question" && !reading && (
             <PointsTicker secondsLeft={secondsLeft} max={totalS} />
           )}
-          {reading ? (
-            <div className="grid h-16 w-16 place-items-center rounded-full border-4 border-amber-300/60 bg-amber-400/10 font-mono text-2xl font-black text-amber-200 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)] sm:h-20 sm:w-20 sm:text-3xl">
-              {Math.ceil(readSecondsLeft)}
-            </div>
-          ) : (
+          {reading ? null : (
             <TimerRing seconds={secondsLeft} max={totalS} active={phase === "question"} />
           )}
         </div>
