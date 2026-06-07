@@ -659,8 +659,9 @@ export const startFinalRound = createServerFn({ method: "POST" })
     ];
     for (const attempt of attempts) {
       let qQuery = supabaseAdmin.from("questions").select("*");
-      if (attempt.useCategory && room.current_category && room.current_category !== "Mystery Mix")
-        qQuery = qQuery.eq("category", room.current_category);
+      const enabled = (room as { enabled_categories?: string[] | null }).enabled_categories;
+      if (attempt.useCategory && enabled && enabled.length > 0)
+        qQuery = qQuery.in("category", enabled);
       if (attempt.difficulties)
         qQuery = qQuery.in("difficulty", attempt.difficulties);
       if (usedIds.length > 0)
