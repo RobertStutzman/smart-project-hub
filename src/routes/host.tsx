@@ -65,7 +65,8 @@ function HostPage() {
   const createRoomFn = useServerFn(createRoom);
   const endRoomFn = useServerFn(endRoom);
   const heartbeatFn = useServerFn(heartbeatHost);
-  const setCategoryFn = useServerFn(setCategory);
+  const listCategoriesFn = useServerFn(listCategories);
+  const setEnabledCategoriesFn = useServerFn(setEnabledCategories);
   const setConfigFn = useServerFn(setRoomConfig);
   const toggleTeamModeFn = useServerFn(toggleTeamMode);
   const setPhaseFn = useServerFn(setPhase);
@@ -74,8 +75,10 @@ function HostPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showPaywall, setShowPaywall] = useState<Category | null>(null);
+  const [allCategories, setAllCategories] = useState<{ name: string; count: number }[]>([]);
+  const [enabledCats, setEnabledCats] = useState<Set<string>>(new Set());
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [catSheetOpen, setCatSheetOpen] = useState(false);
   const [allowLate, setAllowLate] = useState(true);
   const [teamMode, setTeamMode] = useState(false);
   const [muted, setMuted] = useState(false);
