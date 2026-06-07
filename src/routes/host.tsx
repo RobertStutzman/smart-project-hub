@@ -50,6 +50,7 @@ function HostPage() {
   const heartbeatFn = useServerFn(heartbeatHost);
   const setCategoryFn = useServerFn(setCategory);
   const setConfigFn = useServerFn(setRoomConfig);
+  const toggleTeamModeFn = useServerFn(toggleTeamMode);
   const nextQuestionFn = useServerFn(nextQuestion);
 
   const [room, setRoom] = useState<{ id: string; roomCode: string; hostSessionId: string } | null>(null);
@@ -59,6 +60,7 @@ function HostPage() {
   const [showPaywall, setShowPaywall] = useState<Category | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [allowLate, setAllowLate] = useState(true);
+  const [teamMode, setTeamMode] = useState(false);
   const [muted, setMuted] = useState(false);
   const [paused, setPaused] = useState(false);
   const [origin, setOrigin] = useState("");
@@ -404,21 +406,36 @@ function HostPage() {
               ) : (
                 <ul className="grid grid-cols-2 gap-2">
                   <AnimatePresence>
-                    {players.map((p) => (
-                      <motion.li
-                        key={p.id}
-                        initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        transition={{ duration: 0.25 }}
-                        className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white"
-                      >
-                        <span className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-primary to-accent text-xs font-bold text-primary-foreground">
-                          {p.nickname.slice(0, 1).toUpperCase()}
-                        </span>
-                        <span className="truncate font-medium">{p.nickname}</span>
-                      </motion.li>
-                    ))}
+                    {players.map((p) => {
+                      const teamBg =
+                        p.team === "red"
+                          ? "border-rose-400/40 bg-rose-500/10"
+                          : p.team === "blue"
+                            ? "border-sky-400/40 bg-sky-500/10"
+                            : "border-white/10 bg-white/[0.04]";
+                      const teamDot =
+                        p.team === "red"
+                          ? "bg-rose-400"
+                          : p.team === "blue"
+                            ? "bg-sky-400"
+                            : null;
+                      return (
+                        <motion.li
+                          key={p.id}
+                          initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          transition={{ duration: 0.25 }}
+                          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm text-white ${teamBg}`}
+                        >
+                          <span className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-primary to-accent text-xs font-bold text-primary-foreground">
+                            {p.nickname.slice(0, 1).toUpperCase()}
+                          </span>
+                          <span className="truncate font-medium">{p.nickname}</span>
+                          {teamDot && <span className={`ml-auto h-2.5 w-2.5 rounded-full ${teamDot}`} />}
+                        </motion.li>
+                      );
+                    })}
                   </AnimatePresence>
                 </ul>
               )}
