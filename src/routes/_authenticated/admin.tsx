@@ -1682,6 +1682,7 @@ function GeminiImporter({
   onInserted: () => Promise<void>;
 }) {
   const bakeFn = useServerFn(bakeAllQuestionTTS);
+  const bakeExplanationFn = useServerFn(bakeAllExplanationTTS);
   const [category, setCategory] = useState(CATEGORIES[0].name);
   const [count, setCount] = useState(5);
   const [difficulty, setDifficulty] = useState<Diff | "mixed">("mixed");
