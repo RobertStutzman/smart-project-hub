@@ -16,7 +16,11 @@ type Moment =
   | "elimination"       // wrong answer dropped
   | "leader_changed"    // new #1 on leaderboard
   | "final_hype"        // entering final round
-  | "credits_open";     // outro credits start
+  | "credits_open"      // outro credits start
+  | "comeback"          // someone clawed back up the board
+  | "round_recap"       // generic round-end zing
+  | "idle_interject"    // dead-air filler between questions
+  | "round_transition"; // between-round stinger
 
 export const LINES: Record<Moment, string[]> = {
   intro_hype: [
