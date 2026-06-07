@@ -313,18 +313,15 @@ export function HostGameStage({ room }: Props) {
     ) {
       lastRoundStingRef.current = r;
       playEvent("round_intro");
-      // Brief voice announcement over the 3-2-1 countdown.
+      // Whoosh sting at the very start of the transition
+      play("whoosh");
+      // Snappy voice announcement before the question reveals.
       try {
         if (typeof window !== "undefined" && "speechSynthesis" in window) {
-          const phrases = [
-            "Okay, next question!",
-            "Here we go!",
-            "Get ready!",
-            "Lock in!",
-          ];
+          const phrases = ["Next!", "Here we go!", "Lock in!", "Round " + r + "!"];
           const text = r === 1 ? "First question!" : phrases[r % phrases.length];
           const u = new SpeechSynthesisUtterance(text);
-          u.rate = 1.05;
+          u.rate = 1.1;
           u.pitch = 1.0;
           u.volume = 1.0;
           duckMusic(true);
@@ -338,6 +335,7 @@ export function HostGameStage({ room }: Props) {
       }
     }
   }, [state?.phase, state?.round_number]);
+
 
   // Phase-driven event stings
   const lastPhaseStingRef = useRef<string>("");
