@@ -1,4 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { BootSequence, shouldShowBoot } from "@/components/BootSequence";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -20,8 +22,16 @@ export const Route = createFileRoute("/")({
 });
 
 function LandingPage() {
+  // Boot sequence — first visit per session. SSR-safe (defaults to false).
+  const [showBoot, setShowBoot] = useState(false);
+  useEffect(() => {
+    if (shouldShowBoot()) setShowBoot(true);
+  }, []);
+
   return (
-    <main
+    <>
+      {showBoot && <BootSequence onComplete={() => setShowBoot(false)} />}
+      <main
       className="relative min-h-screen overflow-hidden text-white"
       style={{
         background:
@@ -87,6 +97,7 @@ function LandingPage() {
         </div>
       </div>
     </main>
+    </>
   );
 }
 
