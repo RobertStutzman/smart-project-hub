@@ -757,15 +757,18 @@ function AIGenerator({
           placeholder="e.g. 10 hard 80s rock questions"
           className="rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
         />
-        <select
+        <input
+          list="ai-generator-category-list"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
+          placeholder="Category"
           className="rounded-xl border border-border bg-background/60 px-3 py-2 text-sm"
-        >
-          {CATEGORIES.map((c) => (
-            <option key={c.name} value={c.name}>{c.name}</option>
+        />
+        <datalist id="ai-generator-category-list">
+          {categories.map((c) => (
+            <option key={c.name} value={c.name}>{c.count > 0 ? `${c.count} questions` : "new"}</option>
           ))}
-        </select>
+        </datalist>
         <select
           value={difficulty}
           onChange={(e) => setDifficulty(e.target.value as typeof difficulty)}
