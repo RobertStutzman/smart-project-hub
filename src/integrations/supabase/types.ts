@@ -143,6 +143,8 @@ export type Database = {
           created_at: string
           difficulty: string
           explanation: string | null
+          explanation_tts_path: string | null
+          explanation_tts_text_hash: string | null
           id: string
           is_premium: boolean
           last_used_at: string | null
@@ -166,6 +168,8 @@ export type Database = {
           created_at?: string
           difficulty?: string
           explanation?: string | null
+          explanation_tts_path?: string | null
+          explanation_tts_text_hash?: string | null
           id?: string
           is_premium?: boolean
           last_used_at?: string | null
@@ -189,6 +193,8 @@ export type Database = {
           created_at?: string
           difficulty?: string
           explanation?: string | null
+          explanation_tts_path?: string | null
+          explanation_tts_text_hash?: string | null
           id?: string
           is_premium?: boolean
           last_used_at?: string | null
@@ -234,6 +240,7 @@ export type Database = {
           current_category: string | null
           current_correct_index: number | null
           current_explanation: string | null
+          current_explanation_tts_url: string | null
           current_media_type: string | null
           current_media_url: string | null
           current_question_id: string | null
@@ -269,6 +276,7 @@ export type Database = {
           current_category?: string | null
           current_correct_index?: number | null
           current_explanation?: string | null
+          current_explanation_tts_url?: string | null
           current_media_type?: string | null
           current_media_url?: string | null
           current_question_id?: string | null
@@ -304,6 +312,7 @@ export type Database = {
           current_category?: string | null
           current_correct_index?: number | null
           current_explanation?: string | null
+          current_explanation_tts_url?: string | null
           current_media_type?: string | null
           current_media_url?: string | null
           current_question_id?: string | null
