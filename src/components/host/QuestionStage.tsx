@@ -129,14 +129,14 @@ export function QuestionStage({
         </div>
         <div className="flex items-center gap-4">
           {phase === "question" && !reading && (
-            <PointsTicker secondsLeft={secondsLeft} max={15} />
+            <PointsTicker secondsLeft={secondsLeft} max={totalS} />
           )}
           {reading ? (
-            <div className="grid h-24 w-24 place-items-center rounded-full border-4 border-amber-300/60 bg-amber-400/10 font-mono text-4xl font-black text-amber-200 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)]">
+            <div className="grid h-20 w-20 place-items-center rounded-full border-4 border-amber-300/60 bg-amber-400/10 font-mono text-3xl font-black text-amber-200 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)] sm:h-24 sm:w-24 sm:text-4xl">
               {Math.ceil(readSecondsLeft)}
             </div>
           ) : (
-            <TimerRing seconds={secondsLeft} max={15} active={phase === "question"} />
+            <TimerRing seconds={secondsLeft} max={totalS} active={phase === "question"} />
           )}
         </div>
       </div>
