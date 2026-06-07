@@ -615,6 +615,7 @@ export function HostGameStage({ room }: Props) {
         </div>
         <AIRoast roomCode={room.roomCode} hostSessionId={room.hostSessionId} />
         <button
+          data-host-primary="true"
           onClick={() => {
             play("whoosh");
             setPhaseFn({
