@@ -366,12 +366,24 @@ export function QuestionStage({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.5, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className="relative z-10 mx-auto w-full max-w-5xl max-h-[18vh] overflow-auto rounded-2xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-400/20 via-amber-500/10 to-amber-600/[0.06] px-5 py-3 shadow-[0_20px_80px_-20px_rgba(251,191,36,0.45)] backdrop-blur-xl sm:px-7 sm:py-4"
+            className="relative z-10 mx-auto w-full max-w-5xl max-h-[16vh] overflow-auto rounded-2xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-400/20 via-amber-500/10 to-amber-600/[0.06] px-5 py-2.5 shadow-[0_20px_80px_-20px_rgba(251,191,36,0.45)] backdrop-blur-xl sm:px-7 sm:py-3"
           >
-            <div className="text-xs font-bold uppercase tracking-[0.4em] text-amber-300">
-              💡 Did you know?
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300 shrink-0">
+                💡 Did you know?
+              </div>
+              {correctIndex !== null && answers[correctIndex] && (
+                <div className="flex items-baseline gap-2 min-w-0">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-emerald-300/80 shrink-0">
+                    Answer
+                  </span>
+                  <span className="truncate font-display text-sm font-black text-emerald-200 sm:text-base">
+                    {LETTERS[correctIndex]}. {answers[correctIndex]}
+                  </span>
+                </div>
+              )}
             </div>
-            <div className="mt-2 text-base font-semibold leading-snug text-white sm:text-lg lg:text-xl">
+            <div className="mt-1.5 text-sm font-semibold leading-snug text-white sm:text-base lg:text-lg">
               {explanation}
             </div>
           </motion.div>
