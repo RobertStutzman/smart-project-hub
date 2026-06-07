@@ -3,10 +3,11 @@ import { useEffect } from "react";
 /**
  * Global keyboard / remote-control bindings for the host screen.
  *
- *   Space / Enter → click whichever button has [data-host-primary].
+ *   Enter         → click whichever button has [data-host-primary].
  *                   Firestick & TV-browser remote "OK" buttons map to Enter,
- *                   giving one-button gameplay.
+ *                   giving one-button gameplay. (Space is reserved for pause.)
  *   F             → toggle browser fullscreen (passed in from caller).
+
  *
  * Each phase tags its "advance" button with data-host-primary="true". The
  * hook just clicks the first visible one — no state-machine coupling.
