@@ -440,10 +440,21 @@ export const endQuestion = createServerFn({ method: "POST" })
       if (u) u.current_round_fastest = true;
     }
 
+    let qAnswered = 0;
+    let qCorrect = 0;
+    let qResponseMs = 0;
     for (const u of updates) {
       const orig = (players ?? []).find((x) => x.id === u.id);
       const fastestCount =
         (orig?.fastest_count ?? 0) + (u.current_round_fastest ? 1 : 0);
+      if (!isRoast && !isSaboteur && u.last_answer_correct !== null) {
+        qAnswered += 1;
+        if (u.last_answer_correct === true) qCorrect += 1;
+        const lockedMs = orig?.current_answer_locked_at
+          ? new Date(orig.current_answer_locked_at).getTime() - startMs
+          : null;
+        if (lockedMs !== null && lockedMs >= 0) qResponseMs += lockedMs;
+      }
       await supabaseAdmin
         .from("players")
         .update({
@@ -462,6 +473,24 @@ export const endQuestion = createServerFn({ method: "POST" })
           fastest_count: fastestCount,
         })
         .eq("id", u.id);
+    }
+
+    if (qAnswered > 0 && room.current_question_id) {
+      const { data: qRow } = await supabaseAdmin
+        .from("questions")
+        .select("times_answered, times_correct, total_response_ms")
+        .eq("id", room.current_question_id)
+        .maybeSingle();
+      if (qRow) {
+        await supabaseAdmin
+          .from("questions")
+          .update({
+            times_answered: ((qRow as { times_answered?: number }).times_answered ?? 0) + qAnswered,
+            times_correct: ((qRow as { times_correct?: number }).times_correct ?? 0) + qCorrect,
+            total_response_ms: ((qRow as { total_response_ms?: number }).total_response_ms ?? 0) + qResponseMs,
+          })
+          .eq("id", room.current_question_id);
+      }
     }
 
     await supabaseAdmin
