@@ -59,7 +59,7 @@ const CATEGORIES_KEY = "btd:enabled-categories";
 
 function HostPage() {
   const navigate = useNavigate();
-  const { theme, setTheme } = useTheme();
+  const { theme } = useTheme();
   const { isFullscreen, toggleFullscreen } = useHostStageMode();
   useHostHotkeys(toggleFullscreen);
 
