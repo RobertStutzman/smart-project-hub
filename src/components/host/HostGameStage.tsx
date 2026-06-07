@@ -332,7 +332,9 @@ export function HostGameStage({ room }: Props) {
     DROP_AT_ELAPSED_S.forEach((thresholdElapsed, idx) => {
       if (elapsedS >= thresholdElapsed && !droppedRef.current.has(idx)) {
         droppedRef.current.add(idx);
-        playRandomDrop();
+        // Sync SFX to the tile's impact moment (after the gravity fall).
+        const sfxId = window.setTimeout(() => playRandomDrop(), DROP_FALL_MS);
+        dropSfxTimersRef.current.push(sfxId);
         dropWrongFn({
           data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
         }).catch(() => {});
