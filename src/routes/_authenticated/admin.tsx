@@ -1601,7 +1601,7 @@ function GeminiImporter({
 }) {
   const bakeFn = useServerFn(bakeAllQuestionTTS);
   const [category, setCategory] = useState(CATEGORIES[0].name);
-  const [count, setCount] = useState(10);
+  const [count, setCount] = useState(5);
   const [difficulty, setDifficulty] = useState<Diff | "mixed">("mixed");
   const [pasted, setPasted] = useState("");
   const [parsed, setParsed] = useState<ParsedRow[] | null>(null);
