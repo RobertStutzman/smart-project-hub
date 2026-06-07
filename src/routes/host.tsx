@@ -780,26 +780,6 @@ function HostPage() {
                 </div>
               </div>
 
-              <div className="mb-5">
-                <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-amber-200/80">
-                  Theme
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {THEMES.map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setTheme(t as ThemeName)}
-                      className={`rounded-full border px-3 py-1.5 text-xs transition ${
-                        theme === t
-                          ? "border-amber-300/60 bg-amber-300/15 text-amber-100"
-                          : "border-white/15 text-white/70 hover:bg-white/10"
-                      }`}
-                    >
-                      {THEME_META[t as ThemeName].label}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
               <div className="mt-auto rounded-lg border border-dashed border-white/15 p-3 text-xs text-white/60">
                 Press <kbd className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-white/80">Space</kbd> to {paused ? "resume" : "pause"} · <kbd className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-white/80">Enter</kbd> to start
