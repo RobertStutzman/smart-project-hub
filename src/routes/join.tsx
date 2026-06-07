@@ -185,6 +185,13 @@ function JoinPage() {
               </button>
 
             </form>
+            <div className="mt-6 text-center text-xs text-muted-foreground">
+              All player slots full? <button
+                type="button"
+                onClick={() => navigate({ to: "/audience", search: { code: code || undefined } })}
+                className="font-semibold underline underline-offset-2 hover:text-foreground"
+              >Watch as audience</button>
+            </div>
           </div>
         ) : (
           <div className="my-auto">

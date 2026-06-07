@@ -20,6 +20,7 @@ import { play, setMuted as setSoundMuted, startMusic, stopMusic, type Sfx } from
 import { HostGameStage, useRevealAutoAdvance } from "@/components/host/HostGameStage";
 import { useHostStageMode } from "@/hooks/useHostStageMode";
 import { useHostHotkeys } from "@/hooks/useHostHotkeys";
+import { HowToPlay } from "@/components/HowToPlay";
 
 
 export const Route = createFileRoute("/host")({
@@ -40,7 +41,10 @@ type Player = {
   score: number;
   avatar_url: string | null;
   team: "red" | "blue" | null;
+  is_audience: boolean;
 };
+
+const HOWTO_KEY = "btd:howto-shown";
 
 const MUTE_KEY = "btd:muted";
 
@@ -72,6 +76,7 @@ function HostPage() {
   const [roomPhase, setRoomPhase] = useState<string>("lobby");
   const [roundNumber, setRoundNumber] = useState<number>(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showHowTo, setShowHowTo] = useState(false);
   const initRef = useRef(false);
 
   // Hydration-safe origin + persisted mute pref
@@ -334,7 +339,39 @@ function HostPage() {
 
 
 
-  const canStart = !!room && !!activeCategory && players.length > 0;
+  const livePlayers = players.filter((p) => !p.is_audience);
+  const audienceMembers = players.filter((p) => p.is_audience);
+  const canStart = !!room && !!activeCategory && livePlayers.length > 0;
+
+  function actuallyStart() {
+    if (!room) return;
+    play("whoosh");
+    setPhaseFn({
+      data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "intro" },
+    }).catch((e) => setError((e as Error).message));
+  }
+
+  function handleStartClick() {
+    if (!canStart) {
+      setSettingsOpen(true);
+      return;
+    }
+    const shown = typeof window !== "undefined" && window.sessionStorage.getItem(HOWTO_KEY) === "1";
+    if (shown) {
+      actuallyStart();
+      return;
+    }
+    setShowHowTo(true);
+  }
+
+  function finishHowTo() {
+    setShowHowTo(false);
+    try {
+      window.sessionStorage.setItem(HOWTO_KEY, "1");
+    } catch {}
+    actuallyStart();
+  }
+
 
   return (
     <main
@@ -442,18 +479,26 @@ function HostPage() {
 
         {/* PLAYER ROW */}
         <section className="flex flex-none flex-col items-center gap-[1.5svh]">
-          <div className="flex items-center gap-2 text-[clamp(0.65rem,1.3svh,0.85rem)] font-bold uppercase tracking-[0.35em] text-white/60">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-            {players.length} {players.length === 1 ? "player" : "players"} in
+          <div className="flex items-center gap-4 text-[clamp(0.65rem,1.3svh,0.85rem)] font-bold uppercase tracking-[0.35em] text-white/60">
+            <span className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+              {livePlayers.length} {livePlayers.length === 1 ? "player" : "players"}
+            </span>
+            {audienceMembers.length > 0 && (
+              <span className="flex items-center gap-2 text-accent">
+                <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                {audienceMembers.length} audience
+              </span>
+            )}
           </div>
           <div className="flex flex-wrap items-center justify-center gap-2" style={{ maxHeight: "12svh", overflow: "hidden" }}>
             <AnimatePresence>
-              {players.length === 0 ? (
+              {livePlayers.length === 0 ? (
                 <div className="text-[clamp(0.75rem,1.6svh,1rem)] text-white/50">
                   Waiting for players…
                 </div>
               ) : (
-                players.map((p) => {
+                livePlayers.map((p) => {
                   const ring =
                     p.team === "red"
                       ? "ring-rose-400/60"
@@ -490,16 +535,7 @@ function HostPage() {
                 ? { duration: 1.6, repeat: Infinity, ease: "easeInOut" }
                 : { duration: 0.2 }
             }
-            onClick={() => {
-              if (!canStart) {
-                setSettingsOpen(true);
-                return;
-              }
-              play("whoosh");
-              setPhaseFn({
-                data: { roomCode: room!.roomCode, hostSessionId: room!.hostSessionId, phase: "intro" },
-              }).catch((e) => setError((e as Error).message));
-            }}
+            onClick={handleStartClick}
             className={`rounded-2xl px-[clamp(1.5rem,4vw,3rem)] py-[clamp(0.6rem,1.8svh,1rem)] text-[clamp(1rem,2.4svh,1.5rem)] font-black uppercase tracking-wider shadow-lg transition ${
               canStart
                 ? "bg-gradient-to-b from-amber-300 to-amber-500 text-black shadow-[0_0_60px_oklch(0.85_0.18_85/0.45)] hover:brightness-110"
@@ -512,6 +548,7 @@ function HostPage() {
                 ? "⚙ Pick a category"
                 : "Waiting for players…"}
           </motion.button>
+
 
 
           <div className="text-[clamp(0.55rem,1.1svh,0.7rem)] uppercase tracking-[0.3em] text-white/30">
@@ -673,6 +710,8 @@ function HostPage() {
         <PaywallModal category={showPaywall} onClose={() => setShowPaywall(null)} />
       )}
 
+      {showHowTo && <HowToPlay onComplete={finishHowTo} />}
+
     </main>
   );
 }
@@ -710,7 +749,7 @@ function Toggle({
 async function loadPlayers(roomId: string): Promise<Player[]> {
   const { data } = await supabase
     .from("players")
-    .select("id, nickname, score, avatar_url, team")
+    .select("id, nickname, score, avatar_url, team, is_audience")
     .eq("room_id", roomId)
     .order("created_at", { ascending: true });
   return (data ?? []) as Player[];
