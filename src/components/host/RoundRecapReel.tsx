@@ -92,7 +92,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
         }}
       />
 
-      <div className="relative grid h-full place-items-center p-8">
+      <div className="relative grid h-full min-h-0 place-items-center overflow-hidden p-5 sm:p-7">
         <AnimatePresence mode="wait">
           {beat === 0 && (
             <motion.div
@@ -101,13 +101,13 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
               animate={{ opacity: 1, scale: 1, letterSpacing: "0.15em" }}
               exit={{ opacity: 0, scale: 0.92 }}
               transition={{ duration: 0.4, ease: "easeOut" }}
-              className="text-center"
+              className="max-w-full overflow-hidden text-center"
             >
               <div className="text-[11px] font-black uppercase tracking-[0.6em] text-amber-300/80">
                 Recap
               </div>
               <div
-                className="mt-2 font-display text-[18vw] font-black uppercase leading-none text-transparent sm:text-[14vw]"
+                 className="mt-2 max-w-full truncate font-display text-[clamp(4rem,13vw,9rem)] font-black uppercase leading-none text-transparent"
                 style={{
                   backgroundImage:
                     "linear-gradient(180deg, oklch(0.98 0.10 90) 0%, oklch(0.75 0.20 60) 100%)",
@@ -129,14 +129,14 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 120 }}
               transition={{ type: "spring", stiffness: 160, damping: 18 }}
-              className="flex items-center gap-6 text-left"
+              className="flex max-w-[92vw] items-center gap-5 overflow-hidden text-left sm:gap-6"
             >
               <Avatar p={fastest} />
               <div>
                 <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.4em] text-rose-300">
                   ⚡ Fastest finger
                 </div>
-                <div className="mt-1 font-display text-6xl font-black text-white">
+                 <div className="mt-1 max-w-[58vw] truncate font-display text-5xl font-black text-white sm:text-6xl">
                   {fastest.nickname}
                 </div>
                 {(fastest.current_round_score ?? 0) > 0 && (
@@ -155,14 +155,14 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.1 }}
               transition={{ type: "spring", stiffness: 180, damping: 16 }}
-              className="flex items-center gap-6 text-left"
+              className="flex max-w-[92vw] items-center gap-5 overflow-hidden text-left sm:gap-6"
             >
               <Avatar p={mvp} size="h-32 w-32" />
               <div>
                 <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.4em] text-amber-300">
                   ★ Round MVP
                 </div>
-                <div className="mt-1 font-display text-6xl font-black text-amber-200">
+                 <div className="mt-1 max-w-[58vw] truncate font-display text-5xl font-black text-amber-200 sm:text-6xl">
                   {mvp.nickname}
                 </div>
                 <div className="mt-1 font-mono text-3xl font-black text-emerald-300">

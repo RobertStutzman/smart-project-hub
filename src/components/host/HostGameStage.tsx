@@ -84,6 +84,7 @@ export function HostGameStage({ room }: Props) {
   const droppedRef = useRef<Set<number>>(new Set());
   const endedRef = useRef(false);
   const [recapDoneForRound, setRecapDoneForRound] = useState<number>(-1);
+  const leaderboardAutoAdvanceRef = useRef<string>("");
 
   const nextQuestionFn = useServerFn(nextQuestion);
   const dropWrongFn = useServerFn(dropWrongAnswer);
@@ -349,6 +350,30 @@ export function HostGameStage({ room }: Props) {
     }
     else if (state.phase === "ended") playEvent("victory");
   }, [state?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Leaderboard is a TV-only interstitial: show it briefly, then continue.
+  useEffect(() => {
+    if (!state || state.phase !== "leaderboard") return;
+    const completedQuestionNumber = state.round_number ?? 0;
+    if (completedQuestionNumber <= 0 || recapDoneForRound !== completedQuestionNumber) return;
+
+    const key = `${state.id}-${completedQuestionNumber}`;
+    const id = window.setTimeout(() => {
+      if (leaderboardAutoAdvanceRef.current === key) return;
+      leaderboardAutoAdvanceRef.current = key;
+      play("whoosh");
+      if (completedQuestionNumber >= FINAL_ROUND_NUMBER) {
+        startFinalRoundFn({
+          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+        }).catch(() => {});
+      } else {
+        nextQuestionFn({
+          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+        }).catch(() => {});
+      }
+    }, 4500);
+    return () => window.clearTimeout(id);
+  }, [state?.id, state?.phase, state?.round_number, recapDoneForRound, nextQuestionFn, startFinalRoundFn, room.roomCode, room.hostSessionId]);
 
   // Persona reactions on reveal — keyed off question id so a new line fires
   // every reveal (the phase-sting ref above only fires on phase transitions).
@@ -767,20 +792,18 @@ export function HostGameStage({ room }: Props) {
 
 
   if (state.phase === "leaderboard") {
-    const isFinal = (state.round_number ?? 0) >= 15;
+    const completedQuestionNumber = state.round_number ?? 0;
+    const isFinal = completedQuestionNumber >= FINAL_ROUND_NUMBER;
     const livePlayers = players.filter((p) => !p.is_audience);
-    const recapNeeded = recapDoneForRound !== (state.round_number ?? 0);
-    const recapRoundDisplay = Math.max(
-      1,
-      Math.ceil((state.round_number ?? 0) / QUESTIONS_PER_ROUND),
-    );
+    const recapNeeded = recapDoneForRound !== completedQuestionNumber;
+    const recapRoundDisplay = getCompletedRoundNumber(completedQuestionNumber);
     if (recapNeeded) {
       return (
         <RoundRecapReel
           players={livePlayers}
           roundNumber={recapRoundDisplay}
-          triggerKey={state.round_number ?? 0}
-          onDone={() => setRecapDoneForRound(state.round_number ?? 0)}
+          triggerKey={completedQuestionNumber}
+          onDone={() => setRecapDoneForRound(completedQuestionNumber)}
         />
       );
     }
@@ -815,32 +838,9 @@ export function HostGameStage({ room }: Props) {
         </div>
 
         <div className="relative mt-auto flex justify-center gap-2">
-          {isFinal ? (
-            <button
-              data-host-primary="true"
-              onClick={() => {
-                play("whoosh");
-                startFinalRoundFn({
-                  data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
-                }).catch(() => {});
-              }}
-              className="rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-8 py-3 font-display font-bold uppercase tracking-wider text-amber-950 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)] transition hover:scale-[1.03]"
-            >
-              ★ Start Final Round
-            </button>
-          ) : (
-            <button
-              data-host-primary="true"
-              onClick={() =>
-                nextQuestionFn({
-                  data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
-                }).catch(() => {})
-              }
-              className="rounded-full border border-amber-300/50 bg-white/5 px-8 py-3 font-display font-bold uppercase tracking-wider text-amber-200 backdrop-blur transition hover:bg-white/10"
-            >
-              Next question →
-            </button>
-          )}
+          <div className="rounded-full border border-amber-300/35 bg-white/5 px-6 py-2.5 text-center font-display text-sm font-bold uppercase tracking-[0.25em] text-amber-200 backdrop-blur">
+            {isFinal ? "Final round incoming…" : "Next question incoming…"}
+          </div>
         </div>
       </div>
     );
