@@ -43,33 +43,33 @@ export function AnswerGrid({
               play("tap");
               onPick(i as 0 | 1 | 2 | 3);
             }}
-            className={`relative flex h-full w-full flex-col justify-between overflow-hidden rounded-2xl border p-4 text-left backdrop-blur-xl transition active:scale-[0.97] ${
+            className={`relative flex h-full w-full flex-col justify-between overflow-hidden rounded-2xl border p-4 text-left transition active:scale-[0.97] ${
               dropped
-                ? "border-rose-500/30 bg-rose-950/20 opacity-40 grayscale"
+                ? "border-destructive/40 bg-destructive/10 text-foreground/50 opacity-50 grayscale"
                 : isCorrect
-                  ? "border-amber-300/80 bg-gradient-to-br from-amber-400/25 to-amber-600/10 shadow-[0_0_40px_oklch(0.85_0.18_85/0.6)]"
+                  ? "border-accent bg-accent/20 text-foreground shadow-[0_0_30px_color-mix(in_oklab,var(--accent)_50%,transparent)]"
                   : isWrongReveal
-                    ? "border-white/10 bg-white/[0.03] opacity-40"
+                    ? "border-border bg-card/40 text-foreground/40 opacity-60"
                     : selected
-                      ? "border-emerald-300/80 bg-emerald-500/15 shadow-[0_0_30px_oklch(0.7_0.2_150/0.5)] ring-2 ring-emerald-300"
-                      : "border-white/10 bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_30px_rgba(0,0,0,0.4)]"
+                      ? "border-primary bg-primary text-primary-foreground shadow-[0_0_30px_color-mix(in_oklab,var(--primary)_45%,transparent)] ring-2 ring-primary"
+                      : "border-border bg-card text-card-foreground shadow-sm hover:bg-card/80"
             }`}
           >
             <div className="flex items-start justify-between">
               <div
                 className={`grid h-9 w-9 place-items-center rounded-full font-display text-base font-black ${
                   isCorrect
-                    ? "bg-amber-300 text-amber-950"
+                    ? "bg-accent text-accent-foreground"
                     : selected
-                      ? "bg-emerald-300 text-emerald-950"
-                      : "bg-white/10 text-white/90 ring-1 ring-white/20"
+                      ? "bg-primary-foreground text-primary"
+                      : "bg-primary/15 text-primary ring-1 ring-primary/30"
                 }`}
               >
                 {letter}
               </div>
             </div>
 
-            <div className="my-2 line-clamp-4 text-base font-bold leading-tight text-white sm:text-lg">
+            <div className="my-2 line-clamp-4 text-base font-bold leading-tight sm:text-lg">
               {labels?.[i] ?? letter}
             </div>
 
@@ -79,25 +79,25 @@ export function AnswerGrid({
                   <div
                     key={p.id}
                     title={p.nickname}
-                    className="h-5 w-5 overflow-hidden rounded-full ring-1 ring-white/40 animate-scale-in"
+                    className="h-5 w-5 overflow-hidden rounded-full ring-1 ring-border animate-scale-in"
                   >
                     {p.avatar_url ? (
                       <img src={p.avatar_url} alt={p.nickname} className="h-full w-full object-cover" />
                     ) : (
-                      <div className="grid h-full w-full place-items-center bg-black/40 text-[9px] font-black text-white">
+                      <div className="grid h-full w-full place-items-center bg-muted text-[9px] font-black text-muted-foreground">
                         {p.nickname.slice(0, 1).toUpperCase()}
                       </div>
                     )}
                   </div>
                 ))}
                 {tileAvatars.length > 6 && (
-                  <div className="text-[10px] font-black text-white/70">+{tileAvatars.length - 6}</div>
+                  <div className="text-[10px] font-black text-muted-foreground">+{tileAvatars.length - 6}</div>
                 )}
               </div>
             )}
 
             {dropped && (
-              <div className="absolute inset-0 grid place-items-center text-6xl font-black text-rose-400/80 drop-shadow-[0_0_20px_rgba(244,63,94,0.7)]">
+              <div className="absolute inset-0 grid place-items-center text-6xl font-black text-destructive/70 drop-shadow">
                 ✕
               </div>
             )}
