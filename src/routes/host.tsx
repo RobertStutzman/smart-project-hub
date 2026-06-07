@@ -204,6 +204,50 @@ function HostPage() {
     }).catch(() => {});
   }, [theme, allowLate, room, setConfigFn]);
 
+  // Load the master category list once. Hydrate the host's saved enabled set
+  // from localStorage (or fall back to "everything except niche defaults").
+  // Then push that selection to the freshly-created room so the question
+  // picker server-side sees the right filter on the very first round.
+  useEffect(() => {
+    if (!room) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await listCategoriesFn();
+        if (cancelled) return;
+        const names = res.categories.map((c) => c.name);
+        setAllCategories(res.categories);
+        let initial: Set<string>;
+        try {
+          const raw = window.localStorage.getItem(CATEGORIES_KEY);
+          if (raw) {
+            const arr = JSON.parse(raw) as string[];
+            initial = new Set(arr.filter((n) => names.includes(n)));
+          } else {
+            initial = new Set(names.filter((n) => !DEFAULT_OFF_CATEGORIES.includes(n)));
+          }
+        } catch {
+          initial = new Set(names.filter((n) => !DEFAULT_OFF_CATEGORIES.includes(n)));
+        }
+        setEnabledCats(initial);
+        const all = initial.size === names.length;
+        setEnabledCategoriesFn({
+          data: {
+            roomCode: room.roomCode,
+            hostSessionId: room.hostSessionId,
+            categories: all ? null : Array.from(initial),
+          },
+        }).catch(() => {});
+      } catch {
+        /* ignore — server fn will fall back to "all categories" */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [room?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+
   // Apply mute to sound engine + drive lobby music on host TV
   useEffect(() => {
     setSoundMuted(muted);
