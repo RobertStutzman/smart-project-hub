@@ -45,6 +45,8 @@ function Avatar({ p, size = "h-28 w-28" }: { p: Player; size?: string }) {
 
 export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Props) {
   const [beat, setBeat] = useState(0);
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
 
   useEffect(() => {
     setBeat(0);
@@ -52,9 +54,9 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     for (let i = 1; i < TOTAL_BEATS; i++) {
       timers.push(window.setTimeout(() => setBeat(i), i * BEAT_MS));
     }
-    timers.push(window.setTimeout(onDone, TOTAL_BEATS * BEAT_MS));
+    timers.push(window.setTimeout(() => onDoneRef.current(), TOTAL_BEATS * BEAT_MS));
     return () => timers.forEach((t) => window.clearTimeout(t));
-  }, [triggerKey, onDone]);
+  }, [triggerKey]);
 
   // Compute highlights
   const ranked = [...players].sort(
