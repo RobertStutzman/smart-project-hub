@@ -392,7 +392,7 @@ function PointsTicker({ secondsLeft, max }: { secondsLeft: number; max: number }
       <div className="text-[9px] font-bold uppercase tracking-[0.35em] text-white/50">
         Lock now
       </div>
-      <div className={`font-mono text-3xl font-black tabular-nums ${color} drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)]`}>
+      <div className={`font-mono text-xl font-black tabular-nums sm:text-2xl lg:text-3xl ${color} drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)]`}>
         {points}
       </div>
     </div>
