@@ -368,6 +368,14 @@ export function HostGameStage({ room }: Props) {
     if (state.phase !== "lobby" && !ambienceHandedRef.current) {
       ambienceHandedRef.current = true;
       void import("@/lib/ambience-engine").then((m) => m.climaxAndHandoff());
+    } else if (state.phase === "lobby" && ambienceHandedRef.current) {
+      // Returning to lobby (play again) — re-arm ambience for next start.
+      ambienceHandedRef.current = false;
+      void import("@/lib/ambience-engine").then((m) => {
+        m.resetAmbience();
+        m.startCrowd();
+        window.setTimeout(() => m.startDrumroll(), 1200);
+      });
     }
     if (state.phase === "question" || state.phase === "final_question")
       startMusic("tense", 380);
