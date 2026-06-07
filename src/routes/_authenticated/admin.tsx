@@ -1713,7 +1713,12 @@ function GeminiImporter({
           <div className="mb-1 text-muted-foreground">Difficulty</div>
           <select
             value={difficulty}
-            onChange={(e) => setDifficulty(e.target.value as Diff | "mixed")}
+            onChange={(e) => {
+              const next = e.target.value as Diff | "mixed";
+              setDifficulty(next);
+              const cap = next === "mixed" ? 5 : 20;
+              setCount((c) => Math.min(c, cap));
+            }}
             className="w-full rounded-lg border border-border bg-background/60 px-3 py-2"
           >
             <option value="mixed">Mixed</option>
