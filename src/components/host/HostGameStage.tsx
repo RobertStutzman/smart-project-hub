@@ -441,10 +441,18 @@ export function HostGameStage({ room }: Props) {
       }
     }
 
-    // Reveal → ended after 7s
+    // Reveal → check for top-score tie. Tie → wait for host to trigger sudden death.
+    // No tie → end after 7s.
     if (phase === "final_reveal") {
-      const key = `reveal-${state.id}`;
+      const key = `reveal-${state.id}-${state.sudden_death_session_ids?.join(",") ?? ""}`;
       if (finalAdvancedRef.current === key) return;
+      const live = players.filter((p) => !p.is_audience);
+      const top = live.reduce((m, p) => Math.max(m, p.score), 0);
+      const tied = live.filter((p) => p.score === top);
+      if (tied.length > 1) {
+        // Don't auto-advance — host clicks "Sudden Death" button rendered below.
+        return;
+      }
       const id = window.setTimeout(() => {
         finalAdvancedRef.current = key;
         endGameFn({
@@ -453,7 +461,27 @@ export function HostGameStage({ room }: Props) {
       }, 7000);
       return () => window.clearTimeout(id);
     }
-  }, [state, now, players, setPhaseFn, startFinalQuestionFn, scoreFinalRoundFn, endGameFn, room.roomCode, room.hostSessionId]);
+
+    // Sudden death → resolve when timer ends OR all cohort have locked.
+    if (phase === "sudden_death" && state.question_started_at) {
+      const cohort = state.sudden_death_session_ids ?? [];
+      const startMs = new Date(state.question_started_at).getTime();
+      const remainingMs = state.question_duration_ms - (now - startMs);
+      const cohortPlayers = players.filter((p) => cohort.includes(p.session_id));
+      const allLocked =
+        cohortPlayers.length > 0 &&
+        cohortPlayers.every((p) => p.current_answer_locked_at !== null);
+      if (remainingMs <= 0 || allLocked) {
+        const key = `sd-${state.question_started_at}`;
+        if (finalAdvancedRef.current === key) return;
+        finalAdvancedRef.current = key;
+        play("whoosh");
+        resolveSuddenDeathFn({
+          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+        }).catch(() => {});
+      }
+    }
+  }, [state, now, players, setPhaseFn, startFinalQuestionFn, scoreFinalRoundFn, endGameFn, resolveSuddenDeathFn, room.roomCode, room.hostSessionId]);
 
   // Wager lock-in thud — fires when a new player locks
   const lastWagerLockedCountRef = useRef(0);
