@@ -113,9 +113,10 @@ function HostPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "rooms", filter: `id=eq.${room.id}` },
         (payload) => {
-          const next = payload.new as { phase?: string; round_number?: number } | undefined;
+          const next = payload.new as { phase?: string; round_number?: number; team_mode?: boolean } | undefined;
           if (next?.phase) setRoomPhase(next.phase);
           if (typeof next?.round_number === "number") setRoundNumber(next.round_number);
+          if (typeof next?.team_mode === "boolean") setTeamMode(next.team_mode);
         },
       )
       .subscribe();
@@ -448,6 +449,22 @@ function HostPage() {
                   label="Allow late joiners"
                   on={allowLate}
                   onChange={setAllowLate}
+                />
+                <Toggle
+                  label="Team mode (red vs blue)"
+                  on={teamMode}
+                  onChange={(next) => {
+                    setTeamMode(next);
+                    if (room) {
+                      toggleTeamModeFn({
+                        data: {
+                          roomCode: room.roomCode,
+                          hostSessionId: room.hostSessionId,
+                          enabled: next,
+                        },
+                      }).catch((e) => toast.error((e as Error).message));
+                    }
+                  }}
                 />
                 <Toggle label="Mute audio" on={muted} onChange={toggleMute} />
                 <div className="flex items-center justify-between">
