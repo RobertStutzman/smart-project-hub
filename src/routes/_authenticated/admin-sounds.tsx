@@ -23,6 +23,7 @@ import {
 import {
   bakeAllQuestionTTS,
   generateAnnouncerPack,
+  generatePersonaPack,
   getQuestionTTSStats,
   previewAnnouncerLine,
   WELCOME_LINES,
