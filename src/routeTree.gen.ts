@@ -20,6 +20,7 @@ import { Route as AudienceRouteImport } from './routes/audience'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsStreamerRouteImport } from './routes/settings.streamer'
+import { Route as ResultsRoomIdRouteImport } from './routes/results.$roomId'
 import { Route as AuthenticatedAdminTtsRouteImport } from './routes/_authenticated/admin-tts'
 import { Route as AuthenticatedAdminSoundsRouteImport } from './routes/_authenticated/admin-sounds'
 import { Route as AuthenticatedAdminQuestionsRouteImport } from './routes/_authenticated/admin-questions'
@@ -80,6 +81,11 @@ const SettingsStreamerRoute = SettingsStreamerRouteImport.update({
   path: '/settings/streamer',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResultsRoomIdRoute = ResultsRoomIdRouteImport.update({
+  id: '/results/$roomId',
+  path: '/results/$roomId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminTtsRoute = AuthenticatedAdminTtsRouteImport.update({
   id: '/admin-tts',
   path: '/admin-tts',
@@ -123,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/admin-tts': typeof AuthenticatedAdminTtsRoute
+  '/results/$roomId': typeof ResultsRoomIdRoute
   '/settings/streamer': typeof SettingsStreamerRoute
   '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
 }
@@ -140,6 +147,7 @@ export interface FileRoutesByTo {
   '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/admin-tts': typeof AuthenticatedAdminTtsRoute
+  '/results/$roomId': typeof ResultsRoomIdRoute
   '/settings/streamer': typeof SettingsStreamerRoute
   '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
 }
@@ -159,6 +167,7 @@ export interface FileRoutesById {
   '/_authenticated/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/_authenticated/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/_authenticated/admin-tts': typeof AuthenticatedAdminTtsRoute
+  '/results/$roomId': typeof ResultsRoomIdRoute
   '/settings/streamer': typeof SettingsStreamerRoute
   '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
 }
@@ -178,6 +187,7 @@ export interface FileRouteTypes {
     | '/admin-questions'
     | '/admin-sounds'
     | '/admin-tts'
+    | '/results/$roomId'
     | '/settings/streamer'
     | '/api/public/hooks/question-quality-alert'
   fileRoutesByTo: FileRoutesByTo
@@ -195,6 +205,7 @@ export interface FileRouteTypes {
     | '/admin-questions'
     | '/admin-sounds'
     | '/admin-tts'
+    | '/results/$roomId'
     | '/settings/streamer'
     | '/api/public/hooks/question-quality-alert'
   id:
@@ -213,6 +224,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin-questions'
     | '/_authenticated/admin-sounds'
     | '/_authenticated/admin-tts'
+    | '/results/$roomId'
     | '/settings/streamer'
     | '/api/public/hooks/question-quality-alert'
   fileRoutesById: FileRoutesById
@@ -228,6 +240,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PlayRoute: typeof PlayRoute
   PreviewQuestionRoute: typeof PreviewQuestionRoute
+  ResultsRoomIdRoute: typeof ResultsRoomIdRoute
   SettingsStreamerRoute: typeof SettingsStreamerRoute
   ApiPublicHooksQuestionQualityAlertRoute: typeof ApiPublicHooksQuestionQualityAlertRoute
 }
@@ -311,6 +324,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsStreamerRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/results/$roomId': {
+      id: '/results/$roomId'
+      path: '/results/$roomId'
+      fullPath: '/results/$roomId'
+      preLoaderRoute: typeof ResultsRoomIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin-tts': {
       id: '/_authenticated/admin-tts'
       path: '/admin-tts'
@@ -378,6 +398,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PlayRoute: PlayRoute,
   PreviewQuestionRoute: PreviewQuestionRoute,
+  ResultsRoomIdRoute: ResultsRoomIdRoute,
   SettingsStreamerRoute: SettingsStreamerRoute,
   ApiPublicHooksQuestionQualityAlertRoute:
     ApiPublicHooksQuestionQualityAlertRoute,
