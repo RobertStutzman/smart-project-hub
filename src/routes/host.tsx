@@ -19,6 +19,9 @@ import { useTheme } from "@/components/ThemeProvider";
 import { play, setMuted as setSoundMuted, startMusic, stopMusic, type Sfx } from "@/lib/sound-engine";
 import { HostGameStage, useRevealAutoAdvance } from "@/components/host/HostGameStage";
 import { HostOnboarding } from "@/components/host/HostOnboarding";
+import { useHostStageMode } from "@/hooks/useHostStageMode";
+import { useHostHotkeys } from "@/hooks/useHostHotkeys";
+
 
 export const Route = createFileRoute("/host")({
   head: () => ({
