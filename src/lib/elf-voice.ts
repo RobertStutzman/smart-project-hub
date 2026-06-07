@@ -9,6 +9,13 @@ type Preset = "hype" | "calm";
 // text → signed storage URL (pre-baked persona pack). Seeded once per session.
 const urlCache = new Map<string, string>();
 
+// Active game room (set by HostGameStage). Threaded to the server so the
+// per-game ElevenLabs call cap can charge the right room.
+let activeRoomId: string | null = null;
+export function setActiveRoomId(roomId: string | null) {
+  activeRoomId = roomId;
+}
+
 export function initPersonaCache(map: Record<string, string>) {
   for (const [text, url] of Object.entries(map)) {
     urlCache.set(text, url);
@@ -16,7 +23,8 @@ export function initPersonaCache(map: Record<string, string>) {
 }
 
 const CACHE_MAX = 64;
-const cache = new Map<string, string>(); // key -> base64 mp3
+const cache = new Map<string, string>(); // key -> base64 mp3 OR "url::<https...>"
+const URL_PREFIX = "url::";
 
 let currentAudio: HTMLAudioElement | null = null;
 let queue: Promise<void> = Promise.resolve();
@@ -39,15 +47,32 @@ function cacheSet(key: string, val: string) {
   cache.set(key, val);
 }
 
-async function fetchAudio(text: string, preset: Preset): Promise<string | null> {
+type FetchResult =
+  | { kind: "url"; url: string }
+  | { kind: "base64"; b64: string }
+  | { kind: "skipped" }
+  | null;
+
+async function fetchAudio(text: string, preset: Preset): Promise<FetchResult> {
   const key = `${preset}::${text}`;
   const hit = cacheGet(key);
-  if (hit) return hit;
+  if (hit) {
+    return hit.startsWith(URL_PREFIX)
+      ? { kind: "url", url: hit.slice(URL_PREFIX.length) }
+      : { kind: "base64", b64: hit };
+  }
   try {
-    const res = await speakPersonaLine({ data: { text, preset } });
-    if (res?.audioBase64) {
+    const res = await speakPersonaLine({
+      data: { text, preset, roomId: activeRoomId ?? undefined },
+    });
+    if (res && "skipped" in res && res.skipped) return { kind: "skipped" };
+    if (res && "audioUrl" in res && res.audioUrl) {
+      cacheSet(key, URL_PREFIX + res.audioUrl);
+      return { kind: "url", url: res.audioUrl };
+    }
+    if (res && "audioBase64" in res && res.audioBase64) {
       cacheSet(key, res.audioBase64);
-      return res.audioBase64;
+      return { kind: "base64", b64: res.audioBase64 };
     }
   } catch {
     /* silent fail — never crash the game */
