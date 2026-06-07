@@ -2,11 +2,9 @@ import { useEffect, useRef } from "react";
 import { useTheme } from "./ThemeProvider";
 
 /**
- * Full-viewport canvas particle layer that switches behavior per theme.
- * - fellowship: embers + dust drifting upward
- * - synthwave:  perspective grid sliding toward camera
- * - sanctuary:  slow diagonal light rays
- * Pauses while tab hidden and respects prefers-reduced-motion.
+ * Full-viewport canvas particle layer for the Fellowship theme.
+ * Embers + dust drifting upward. Pauses while tab hidden and respects
+ * prefers-reduced-motion.
  */
 export function ThemeParticles() {
   const { theme } = useTheme();
