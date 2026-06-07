@@ -21,6 +21,9 @@ import {
 import { bakeAllQuestionTTS } from "@/lib/announcer.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { CATEGORIES } from "@/lib/categories";
+import { listCategories } from "@/lib/rooms.functions";
+
+type CategoryOption = { name: string; count: number };
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
