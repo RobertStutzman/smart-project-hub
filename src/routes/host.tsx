@@ -5,7 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Lock, Pause, Play } from "lucide-react";
 import { toast } from "sonner";
-import { createRoom, endRoom, heartbeatHost, setCategory, setRoomConfig } from "@/lib/rooms.functions";
+import { createRoom, endRoom, heartbeatHost, setCategory, setRoomConfig, toggleTeamMode } from "@/lib/rooms.functions";
 import { nextQuestion } from "@/lib/game.functions";
 import {
   loadHostSession,
@@ -37,6 +37,7 @@ type Player = {
   nickname: string;
   score: number;
   avatar_url: string | null;
+  team: "red" | "blue" | null;
 };
 
 const MUTE_KEY = "btd:muted";
@@ -580,10 +581,10 @@ function Toggle({
 async function loadPlayers(roomId: string): Promise<Player[]> {
   const { data } = await supabase
     .from("players")
-    .select("id, nickname, score, avatar_url")
+    .select("id, nickname, score, avatar_url, team")
     .eq("room_id", roomId)
     .order("created_at", { ascending: true });
-  return data ?? [];
+  return (data ?? []) as Player[];
 }
 
 function PaywallModal({ category, onClose }: { category: Category; onClose: () => void }) {
