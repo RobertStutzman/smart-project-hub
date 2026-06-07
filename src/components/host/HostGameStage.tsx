@@ -114,6 +114,8 @@ export function HostGameStage({ room }: Props) {
           import("@/lib/elf-voice"),
         ]);
         setActiveRoomId(room.id);
+        setLiveRoomId(room.id);
+        resetLiveCap(room.id);
         const res = await getPersonaCacheMap();
         if (!cancelled && res?.map) initPersonaCache(res.map);
       } catch {
