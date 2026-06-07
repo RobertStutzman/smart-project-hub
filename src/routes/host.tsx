@@ -482,8 +482,14 @@ function HostPage() {
             </AnimatePresence>
           </div>
 
-          <button
+          <motion.button
             data-host-primary={canStart ? "true" : undefined}
+            animate={canStart ? { scale: [1, 1.04, 1] } : { scale: 1 }}
+            transition={
+              canStart
+                ? { duration: 1.6, repeat: Infinity, ease: "easeInOut" }
+                : { duration: 0.2 }
+            }
             onClick={() => {
               if (!canStart) {
                 setSettingsOpen(true);
@@ -496,16 +502,17 @@ function HostPage() {
             }}
             className={`rounded-2xl px-[clamp(1.5rem,4vw,3rem)] py-[clamp(0.6rem,1.8svh,1rem)] text-[clamp(1rem,2.4svh,1.5rem)] font-black uppercase tracking-wider shadow-lg transition ${
               canStart
-                ? "bg-gradient-to-b from-amber-300 to-amber-500 text-black hover:brightness-110"
+                ? "bg-gradient-to-b from-amber-300 to-amber-500 text-black shadow-[0_0_60px_oklch(0.85_0.18_85/0.45)] hover:brightness-110"
                 : "border border-white/15 bg-white/[0.06] text-white/70 hover:bg-white/10"
             }`}
           >
             {canStart
-              ? "▶ Start the show"
+              ? "▶ Press OK to start the show"
               : !activeCategory
                 ? "⚙ Pick a category"
                 : "Waiting for players…"}
-          </button>
+          </motion.button>
+
 
           <div className="text-[clamp(0.55rem,1.1svh,0.7rem)] uppercase tracking-[0.3em] text-white/30">
             <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">F</kbd> fullscreen ·{" "}
