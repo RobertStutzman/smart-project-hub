@@ -23,6 +23,7 @@ import {
 import {
   bakeAllQuestionTTS,
   generateAnnouncerPack,
+  generatePersonaPack,
   getQuestionTTSStats,
   previewAnnouncerLine,
   WELCOME_LINES,
@@ -140,7 +141,34 @@ function EventsPanel({
 }) {
   const setEventFn = useServerFn(setEventAssignment);
   const generatePackFn = useServerFn(generateAnnouncerPack);
+  const generatePersonaFn = useServerFn(generatePersonaPack);
   const [generating, setGenerating] = useState(false);
+  const [generatingPersona, setGeneratingPersona] = useState(false);
+
+  async function handleGeneratePersona() {
+    if (
+      !window.confirm(
+        "Pre-bake the 30 Vox catchphrases to storage? This calls ElevenLabs once per line (~1500 chars total) and saves them so gameplay doesn't hit the API. Takes ~1 minute. Safe to re-run.",
+      )
+    )
+      return;
+    setGeneratingPersona(true);
+    try {
+      const res = await generatePersonaFn();
+      if (res.errors.length) {
+        toast.warning(
+          `Baked ${res.generated.length}/${res.total}. Errors: ${res.errors.join("; ")}`,
+        );
+      } else {
+        toast.success(`Baked ${res.generated.length} persona catchphrases`);
+      }
+      await onChange();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setGeneratingPersona(false);
+    }
+  }
 
   async function handleAssign(event: SoundEvent, clipId: string | null) {
     try {
@@ -188,13 +216,22 @@ function EventsPanel({
           </div>
           <h2 className="text-2xl font-bold">What plays when</h2>
         </div>
-        <button
-          onClick={() => void handleGenerate()}
-          disabled={generating}
-          className="rounded-full bg-gradient-to-r from-amber-400 to-pink-500 px-5 py-2 text-sm font-bold text-black shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {generating ? "Generating… (1-2 min)" : "🎙️ Generate AI announcer pack"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => void handleGeneratePersona()}
+            disabled={generatingPersona}
+            className="rounded-full border border-amber-400/40 bg-amber-500/10 px-5 py-2 text-sm font-bold text-amber-200 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {generatingPersona ? "Baking…" : "🎭 Bake persona catchphrases"}
+          </button>
+          <button
+            onClick={() => void handleGenerate()}
+            disabled={generating}
+            className="rounded-full bg-gradient-to-r from-amber-400 to-pink-500 px-5 py-2 text-sm font-bold text-black shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {generating ? "Generating… (1-2 min)" : "🎙️ Generate AI announcer pack"}
+          </button>
+        </div>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
         Empty events fall back to the built-in synth sounds. The AI pack uses

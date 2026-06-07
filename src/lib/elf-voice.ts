@@ -1,9 +1,19 @@
 // Client-side helper: speak text in The Elf's voice via ElevenLabs.
-// In-memory LRU cache + single-line queue so repeat catchphrases are instant
-// and lines never overlap.
+// Strategy: check pre-baked storage URLs first (free), then in-memory base64
+// cache, then live ElevenLabs TTS as last resort. Single-line queue so lines
+// never overlap.
 import { speakPersonaLine } from "@/lib/announcer.functions";
 
 type Preset = "hype" | "calm";
+
+// text → signed storage URL (pre-baked persona pack). Seeded once per session.
+const urlCache = new Map<string, string>();
+
+export function initPersonaCache(map: Record<string, string>) {
+  for (const [text, url] of Object.entries(map)) {
+    urlCache.set(text, url);
+  }
+}
 
 const CACHE_MAX = 64;
 const cache = new Map<string, string>(); // key -> base64 mp3
@@ -75,6 +85,25 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
 
   const task = async () => {
     if (opts.interrupt) cancelElfSpeech();
+    // 1. Pre-baked URL (free, instant)
+    const url = urlCache.get(text);
+    if (url) {
+      await new Promise<void>((resolve) => {
+        const audio = new Audio(url);
+        audio.volume = volume;
+        const cleanup = () => {
+          if (currentAudio === audio) currentAudio = null;
+          resolve();
+        };
+        audio.addEventListener("ended", cleanup);
+        audio.addEventListener("pause", cleanup);
+        audio.addEventListener("error", cleanup);
+        currentAudio = audio;
+        audio.play().catch(cleanup);
+      });
+      return;
+    }
+    // 2. In-memory base64 cache → 3. Live ElevenLabs
     const b64 = await fetchAudio(text, preset);
     if (!b64) return;
     await new Promise<void>((resolve) => {

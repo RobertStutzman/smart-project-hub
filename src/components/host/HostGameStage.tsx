@@ -85,6 +85,27 @@ export function HostGameStage({ room }: Props) {
   const startFinalQuestionFn = useServerFn(startFinalQuestion);
   const scoreFinalRoundFn = useServerFn(scoreFinalRound);
 
+  // Load pre-baked persona pack URLs into the Elf voice cache once on mount.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [{ getPersonaCacheMap }, { initPersonaCache }] = await Promise.all([
+          import("@/lib/announcer.functions"),
+          import("@/lib/elf-voice"),
+        ]);
+        const res = await getPersonaCacheMap();
+        if (!cancelled && res?.map) initPersonaCache(res.map);
+      } catch {
+        /* silent — falls back to live TTS */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+
   // Shatter trigger: increments per drop event so ShatteredFaces re-fires
   const [shatterKey, setShatterKey] = useState("");
   const [shatterVictims, setShatterVictims] = useState<

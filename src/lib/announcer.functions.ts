@@ -2,10 +2,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { LINES as PERSONA_LINES } from "@/lib/host-persona";
 
 // Brian — deep, energetic hype-man (Jackbox-style host)
 const VOICE_ID = "e79twtVS2278lVZZQiAD";
 const FOLDER = "Announcer";
+const PERSONA_FOLDER = "Persona";
+const PERSONA_CATEGORY = "Persona";
 
 type ScriptLine = {
   slot: string;
@@ -377,6 +380,106 @@ export const speakPersonaLine = createServerFn({ method: "POST" })
     const settings = PERSONA_PRESETS[data.preset ?? "hype"];
     const audio = await generateTTS(data.text, settings);
     return { audioBase64: Buffer.from(audio).toString("base64") };
+  });
+
+// ──────────────────────────────────────────────────────────────────────────
+// Persona pack — pre-bake static Vox catchphrases to storage so gameplay
+// doesn't hit ElevenLabs for the hot lines.
+// ──────────────────────────────────────────────────────────────────────────
+
+async function ensurePersonaFolder() {
+  const { data } = await supabaseAdmin
+    .from("sound_folders")
+    .select("id")
+    .eq("name", PERSONA_FOLDER)
+    .maybeSingle();
+  if (!data) {
+    await supabaseAdmin
+      .from("sound_folders")
+      .insert({ name: PERSONA_FOLDER, sort_order: 1 });
+  }
+}
+
+function personaSlot(moment: string, idx: number) {
+  return `persona_${moment}_${idx}`;
+}
+
+export const generatePersonaPack = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    await ensurePersonaFolder();
+
+    const generated: string[] = [];
+    const errors: string[] = [];
+    const flat: { slot: string; text: string }[] = [];
+    for (const [moment, lines] of Object.entries(PERSONA_LINES)) {
+      lines.forEach((text, idx) => {
+        flat.push({ slot: personaSlot(moment, idx), text });
+      });
+    }
+
+    for (const item of flat) {
+      try {
+        const audio = await generateTTS(item.text, {
+          stability: 0.2,
+          similarity_boost: 0.75,
+          style: 0.9,
+          use_speaker_boost: true,
+          speed: 1.0,
+        });
+        const path = `persona/${item.slot}.mp3`;
+        const { error: upErr } = await supabaseAdmin.storage
+          .from("question-media")
+          .upload(path, new Uint8Array(audio), {
+            contentType: "audio/mpeg",
+            upsert: true,
+          });
+        if (upErr) throw new Error(upErr.message);
+
+        await supabaseAdmin.from("sound_clips").delete().eq("storage_path", path);
+        const { error: insErr } = await supabaseAdmin.from("sound_clips").insert({
+          slot: PERSONA_FOLDER,
+          category: PERSONA_CATEGORY,
+          label: item.text,
+          storage_path: path,
+          original_filename: `${item.slot}.mp3`,
+          is_active: true,
+          audience_visible: false,
+          volume: 1.0,
+          loop: false,
+        });
+        if (insErr) throw new Error(insErr.message);
+        generated.push(item.slot);
+        // Gentle rate limiting
+        await new Promise((r) => setTimeout(r, 200));
+      } catch (e) {
+        errors.push(`${item.slot}: ${(e as Error).message}`);
+      }
+    }
+
+    return { generated, errors, total: flat.length };
+  });
+
+export const getPersonaCacheMap = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { data, error } = await supabaseAdmin
+      .from("sound_clips")
+      .select("label, storage_path")
+      .eq("category", PERSONA_CATEGORY)
+      .eq("is_active", true);
+    if (error) return { map: {} as Record<string, string> };
+
+    const map: Record<string, string> = {};
+    for (const row of data ?? []) {
+      const { data: signed } = await supabaseAdmin.storage
+        .from("question-media")
+        .createSignedUrl(row.storage_path, 60 * 60 * 24 * 7); // 7 days
+      if (signed?.signedUrl) {
+        map[row.label] = signed.signedUrl;
+      }
+    }
+    return { map };
   });
 
 
