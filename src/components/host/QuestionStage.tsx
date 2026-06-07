@@ -411,7 +411,7 @@ function TimerRing({ seconds, max, active }: { seconds: number; max: number; act
       ? "oklch(0.78 0.18 75)"
       : "oklch(0.78 0.15 200)";
   return (
-    <div className={`relative h-24 w-24 ${danger && active ? "animate-pulse" : ""}`}>
+    <div className={`relative h-16 w-16 sm:h-20 sm:w-20 lg:h-24 lg:w-24 ${danger && active ? "animate-pulse" : ""}`}>
       <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
         <circle cx="50" cy="50" r={r} fill="none" stroke="oklch(1 0 0 / 0.08)" strokeWidth="6" />
         <circle
@@ -430,7 +430,7 @@ function TimerRing({ seconds, max, active }: { seconds: number; max: number; act
           }}
         />
       </svg>
-      <div className="absolute inset-0 grid place-items-center font-mono text-2xl font-black text-white">
+      <div className="absolute inset-0 grid place-items-center font-mono text-lg font-black text-white sm:text-xl lg:text-2xl">
         {Math.max(0, Math.ceil(seconds))}
       </div>
     </div>
