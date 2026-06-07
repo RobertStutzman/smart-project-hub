@@ -54,14 +54,11 @@ export function QuestionStage({
 
   // Trigger shake whenever droppedIndexes grows
   const [shakeKey, setShakeKey] = useState(0);
-  const [vignette, setVignette] = useState(false);
   useEffect(() => {
     if (droppedIndexes.length === 0) return;
     setShakeKey((k) => k + 1);
-    setVignette(true);
-    const id = window.setTimeout(() => setVignette(false), 600);
-    return () => window.clearTimeout(id);
   }, [droppedIndexes.length]);
+
 
   const lockedByIndex: Record<number, Player[]> = { 0: [], 1: [], 2: [], 3: [] };
   for (const p of players) {
