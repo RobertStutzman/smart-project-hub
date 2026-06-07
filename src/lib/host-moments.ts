@@ -22,15 +22,15 @@ export interface HostMomentMeta {
 // Kept here as constants so the admin UI doesn't have to import the
 // browser-only persona-live module (which pulls in elf-voice / audio).
 const LIVE_COUNTS: Record<string, number> = {
-  first_blood: 7,
-  leader_changed: 6,
-  streak: 6,
-  elimination: 6,
-  comeback: 5,
-  round_recap: 5,
-  welcome: 5,
-  final_showdown: 4,
-  winner: 5,
+  first_blood: 10,
+  leader_changed: 10,
+  streak: 10,
+  elimination: 10,
+  comeback: 10,
+  round_recap: 10,
+  welcome: 10,
+  final_showdown: 10,
+  winner: 10,
 };
 
 export const HOST_MOMENTS: HostMomentMeta[] = [
