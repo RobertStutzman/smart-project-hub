@@ -224,9 +224,7 @@ let duckActive = false;
 export function duckMusic(on: boolean) {
   duckActive = on;
   if (loopAudio) {
-    // Re-apply volume cap with current duck state.
-    const base = Math.min(loopAudio.volume / (on ? 1 : 0.25 || 1), 0.25);
-    loopAudio.volume = on ? Math.min(0.08, base) : Math.min(0.25, base);
+    loopAudio.volume = on ? 0.06 : 0.22;
   }
 }
 
