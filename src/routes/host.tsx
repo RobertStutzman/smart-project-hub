@@ -226,7 +226,7 @@ function HostPage() {
         if (welcomes.length > 0) {
           const pick = welcomes[Math.floor(Math.random() * welcomes.length)];
           const audio = new Audio(pick.url);
-          audio.volume = pick.volume;
+          audio.volume = Math.min(pick.volume, 0.9);
           audio.play().catch(() => {});
         }
       } catch {
