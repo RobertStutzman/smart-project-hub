@@ -34,6 +34,7 @@ type RoomState = {
   current_question_id: string | null;
   current_question_text: string | null;
   current_question_tts_url: string | null;
+  current_explanation_tts_url: string | null;
   current_answers: string[] | null;
   current_correct_index: number | null;
   current_explanation: string | null;
@@ -131,7 +132,7 @@ export function HostGameStage({ room }: Props) {
       const { data: r } = await supabase
         .from("rooms")
         .select(
-          "id, room_code, phase, current_question_id, current_question_text, current_question_tts_url, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number, sudden_death_session_ids",
+          "id, room_code, phase, current_question_id, current_question_text, current_question_tts_url, current_explanation_tts_url, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number, sudden_death_session_ids",
         )
         .eq("id", room.id)
         .maybeSingle();
@@ -243,6 +244,76 @@ export function HostGameStage({ room }: Props) {
       }
     };
   }, []);
+
+  // Play The Elf reading the "Did you know?" explanation once the full-screen
+  // reveal card appears (~2.2s after reveal phase starts, matching QuestionStage).
+  const explanationTtsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const lastPlayedExplanationIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const qid = state?.current_question_id ?? null;
+    const url = state?.current_explanation_tts_url ?? null;
+    const phase = state?.phase;
+    if (!qid || !url || phase !== "reveal") return;
+    if (lastPlayedExplanationIdRef.current === qid) return;
+    lastPlayedExplanationIdRef.current = qid;
+
+    // Stop any previous explanation read
+    if (explanationTtsAudioRef.current) {
+      try {
+        explanationTtsAudioRef.current.pause();
+      } catch {
+        /* ignore */
+      }
+      explanationTtsAudioRef.current = null;
+    }
+
+    // Match QuestionStage's tiles→fullscreen flip (~2200ms).
+    const timer = window.setTimeout(() => {
+      const audio = new Audio(url);
+      audio.volume = 1.0;
+      explanationTtsAudioRef.current = audio;
+      duckMusic(true);
+      const undock = () => duckMusic(false);
+      audio.addEventListener("ended", undock);
+      audio.addEventListener("pause", undock);
+      audio.play().catch(() => {
+        duckMusic(false);
+      });
+    }, 2200);
+
+    return () => window.clearTimeout(timer);
+  }, [state?.current_question_id, state?.current_explanation_tts_url, state?.phase]);
+
+  // Reset the "played explanation" gate when we leave reveal so the next
+  // question's explanation can play.
+  useEffect(() => {
+    if (state?.phase !== "reveal") {
+      lastPlayedExplanationIdRef.current = null;
+      if (explanationTtsAudioRef.current) {
+        try {
+          explanationTtsAudioRef.current.pause();
+        } catch {
+          /* ignore */
+        }
+        explanationTtsAudioRef.current = null;
+      }
+    }
+  }, [state?.phase]);
+
+  // Stop any lingering explanation read on unmount
+  useEffect(() => {
+    return () => {
+      if (explanationTtsAudioRef.current) {
+        try {
+          explanationTtsAudioRef.current.pause();
+        } catch {
+          /* ignore */
+        }
+        explanationTtsAudioRef.current = null;
+      }
+    };
+  }, []);
+
 
 
   // Orchestrator: schedule drops and end based on elapsed
