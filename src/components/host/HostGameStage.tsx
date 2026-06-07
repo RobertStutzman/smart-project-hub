@@ -493,6 +493,36 @@ export function HostGameStage({ room }: Props) {
     );
   }
 
+  if (state.phase === "intro") {
+    return (
+      <IntroStage
+        players={players.filter((p) => !p.is_audience).map((p) => ({
+          id: p.id,
+          nickname: p.nickname,
+          avatar_url: p.avatar_url,
+        }))}
+        onDone={() => {
+          nextQuestionFn({
+            data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+          }).catch(() => {});
+        }}
+      />
+    );
+  }
+
+  if (state.phase === "credits") {
+    return (
+      <CreditsStage
+        players={players}
+        onPlayAgain={() => {
+          setPhaseFn({
+            data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "lobby" },
+          }).catch(() => {});
+        }}
+      />
+    );
+  }
+
   if (state.phase === "ended") {
     const live = players.filter((p) => !p.is_audience).sort((a, b) => b.score - a.score);
     const winner = live[0];
@@ -506,6 +536,17 @@ export function HostGameStage({ room }: Props) {
             Players can tap "Export to socials" on their phones.
           </div>
           <AIRoast roomCode={room.roomCode} hostSessionId={room.hostSessionId} />
+          <button
+            onClick={() => {
+              play("whoosh");
+              setPhaseFn({
+                data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "credits" },
+              }).catch(() => {});
+            }}
+            className="mt-8 rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-8 py-3 font-display font-bold uppercase tracking-wider text-amber-950 shadow-[0_0_40px_oklch(0.85_0.18_85/0.5)] transition hover:scale-[1.03]"
+          >
+            🎬 Roll credits
+          </button>
         </div>
       </div>
     );
@@ -765,13 +806,28 @@ export function HostGameStage({ room }: Props) {
         <button
           onClick={() => {
             play("whoosh");
+            setPhaseFn({
+              data: {
+                roomCode: room.roomCode,
+                hostSessionId: room.hostSessionId,
+                phase: "intro",
+              },
+            }).catch(() => {});
+          }}
+          className="rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-10 py-5 font-display text-xl font-black uppercase tracking-wider text-amber-950 shadow-[0_0_50px_oklch(0.85_0.18_85/0.55)] transition hover:scale-[1.03]"
+        >
+          🎬 Start the show
+        </button>
+        <button
+          onClick={() => {
+            play("whoosh");
             nextQuestionFn({
               data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
             }).catch(() => {});
           }}
-          className="rounded-full bg-primary px-10 py-5 text-xl font-bold text-primary-foreground shadow-lg"
+          className="text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground"
         >
-          Start round
+          Skip intro · jump straight to question
         </button>
         <button
           onClick={() =>
