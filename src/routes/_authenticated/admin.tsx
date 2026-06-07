@@ -1682,6 +1682,7 @@ function GeminiImporter({
   onInserted: () => Promise<void>;
 }) {
   const bakeFn = useServerFn(bakeAllQuestionTTS);
+  const bakeExplanationFn = useServerFn(bakeAllExplanationTTS);
   const [category, setCategory] = useState(CATEGORIES[0].name);
   const [count, setCount] = useState(5);
   const [difficulty, setDifficulty] = useState<Diff | "mixed">("mixed");
@@ -1732,9 +1733,15 @@ function GeminiImporter({
         toast.info("Generating voice narration… this may take a minute.");
         try {
           const b = await bakeFn({ data: { limit: Math.max(toInsert.length, 50) } });
-          toast.success(`Voice baked: ${b.baked} new, ${b.skipped} already done${b.errors.length ? `, ${b.errors.length} failed` : ""}`);
+          toast.success(`Prompt voice baked: ${b.baked} new, ${b.skipped} already done${b.errors.length ? `, ${b.errors.length} failed` : ""}`);
         } catch (e) {
-          toast.error(`TTS bake failed: ${(e as Error).message}`);
+          toast.error(`Prompt TTS bake failed: ${(e as Error).message}`);
+        }
+        try {
+          const e2 = await bakeExplanationFn({ data: { limit: Math.max(toInsert.length, 50) } });
+          toast.success(`Did You Know baked: ${e2.baked} new, ${e2.skipped} already done${e2.errors.length ? `, ${e2.errors.length} failed` : ""}`);
+        } catch (e) {
+          toast.error(`Did You Know bake failed: ${(e as Error).message}`);
         }
       }
       setPasted("");
@@ -1862,7 +1869,7 @@ function GeminiImporter({
             checked={bakeTts}
             onChange={(e) => setBakeTts(e.target.checked)}
           />
-          Generate voice narration after import
+          Generate Elf voice (prompt + Did You Know) after import
         </label>
       </div>
 
