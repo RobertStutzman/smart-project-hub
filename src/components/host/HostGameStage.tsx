@@ -399,10 +399,9 @@ export function HostGameStage({ room }: Props) {
       play("whoosh");
       const displayRound = Math.min(4, Math.ceil(q / 5));
       const isRoundStart = q === 1 || q === 6 || q === 11 || q === 16;
-      const phrases = ["Next!", "Here we go!", "Lock in!", "Keep going!"];
       const text = isRoundStart
         ? (q === 1 ? "Round 1! First question!" : `Round ${displayRound}!`)
-        : phrases[q % phrases.length];
+        : pickLine("question_open", q);
       duckMusic(true);
       import("@/lib/elf-voice").then(({ speakAsElf }) => {
         speakAsElf(text, { interrupt: true, preset: "hype" }).finally(() => duckMusic(false));
