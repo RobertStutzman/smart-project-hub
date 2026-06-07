@@ -77,18 +77,16 @@ export function pickLine(moment: Moment, seed: string | number = Date.now()): st
   return pool[Math.abs(s) % pool.length];
 }
 
-/** Speak a persona line using the browser's speechSynthesis. */
-export function speakPersona(text: string, opts?: { rate?: number; pitch?: number; volume?: number }) {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-  try {
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = opts?.rate ?? 1.05;
-    u.pitch = opts?.pitch ?? 1.0;
-    u.volume = opts?.volume ?? 1.0;
-    // Don't cancel in-flight speech that the question-read pipeline is using;
-    // simply queue this line behind it.
-    window.speechSynthesis.speak(u);
-  } catch {
-    /* ignore */
-  }
+/** Speak a persona line in The Elf's voice (ElevenLabs). */
+export function speakPersona(text: string, opts?: { volume?: number; interrupt?: boolean; preset?: "hype" | "calm" }) {
+  if (typeof window === "undefined") return;
+  // Dynamic import keeps the server function reference out of any SSR path
+  // that imports host-persona purely for catchphrase strings.
+  void import("@/lib/elf-voice").then(({ speakAsElf }) => {
+    void speakAsElf(text, {
+      volume: opts?.volume ?? 1.0,
+      interrupt: opts?.interrupt ?? false,
+      preset: opts?.preset ?? "hype",
+    });
+  });
 }
