@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import { speakPersona } from "@/lib/host-persona";
 
 type Player = {
   id: string;
