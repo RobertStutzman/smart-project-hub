@@ -867,7 +867,10 @@ function TTSCacheStatsPanel() {
             <span className="font-bold text-foreground">{stats?.cap ?? "…"}</span>{" "}
             live ElevenLabs calls acts as a circuit breaker. Override with the{" "}
             <code className="rounded bg-muted px-1 py-0.5 text-xs">TTS_CAP_PER_GAME</code>{" "}
-            secret.
+            secret.{" "}
+            <Link to="/admin-tts" className="font-bold text-amber-300 underline">
+              Open observability dashboard →
+            </Link>
           </p>
         </div>
         <div className="text-right">
