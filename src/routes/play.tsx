@@ -9,7 +9,7 @@ import { useWakeLock } from "@/hooks/use-wake-lock";
 import { AnswerGrid } from "@/components/AnswerGrid";
 import { HeartbeatBackground } from "@/components/HeartbeatBackground";
 import { AudienceSoundboard } from "@/components/AudienceSoundboard";
-import { MemeScorecard, computeBadge } from "@/components/MemeScorecard";
+
 import { Haptics } from "@/hooks/use-haptics";
 import { play, startMusic, stopMusic } from "@/lib/sound-engine";
 import { AccessibilityToggle } from "@/components/AccessibilityToggle";
