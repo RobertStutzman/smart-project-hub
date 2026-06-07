@@ -444,6 +444,36 @@ export function HostGameStage({ room }: Props) {
     }
   }, [state, now, players, setPhaseFn, startFinalQuestionFn, scoreFinalRoundFn, endGameFn, room.roomCode, room.hostSessionId]);
 
+  // Wager lock-in thud — fires when a new player locks
+  const lastWagerLockedCountRef = useRef(0);
+  useEffect(() => {
+    if (state?.phase !== "final_wager") {
+      lastWagerLockedCountRef.current = 0;
+      return;
+    }
+    const locked = players.filter((p) => !p.is_audience && !!p.final_locked_at).length;
+    if (locked > lastWagerLockedCountRef.current) {
+      lastWagerLockedCountRef.current = locked;
+      play("drop");
+    }
+  }, [state?.phase, players]);
+
+  // Extra ticks under 3s during final question (heart-pound)
+  const lastFinalTickRef = useRef(0);
+  useEffect(() => {
+    if (state?.phase !== "final_question" || !state.question_started_at) return;
+    const startMs = new Date(state.question_started_at).getTime();
+    const remaining = state.question_duration_ms / 1000 - (now - startMs) / 1000;
+    if (remaining > 0 && remaining <= 3) {
+      const slot = Math.floor(remaining * 4); // 4 ticks/sec under 3s
+      if (slot !== lastFinalTickRef.current) {
+        lastFinalTickRef.current = slot;
+        play("tick");
+      }
+    }
+  }, [state?.phase, state?.question_started_at, state?.question_duration_ms, now]);
+
+
 
   if (!state) return null;
 
