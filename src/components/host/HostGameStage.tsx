@@ -795,11 +795,15 @@ export function HostGameStage({ room }: Props) {
     const isFinal = (state.round_number ?? 0) >= 15;
     const livePlayers = players.filter((p) => !p.is_audience);
     const recapNeeded = recapDoneForRound !== (state.round_number ?? 0);
+    const recapRoundDisplay = Math.max(
+      1,
+      Math.ceil((state.round_number ?? 0) / QUESTIONS_PER_ROUND),
+    );
     if (recapNeeded) {
       return (
         <RoundRecapReel
           players={livePlayers}
-          roundNumber={state.round_number ?? 0}
+          roundNumber={recapRoundDisplay}
           triggerKey={state.round_number ?? 0}
           onDone={() => setRecapDoneForRound(state.round_number ?? 0)}
         />
