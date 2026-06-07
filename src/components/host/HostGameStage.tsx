@@ -311,23 +311,13 @@ export function HostGameStage({ room }: Props) {
       // Whoosh sting at the very start of the transition
       play("whoosh");
       // Snappy voice announcement before the question reveals.
-      try {
-        if (typeof window !== "undefined" && "speechSynthesis" in window) {
-          const phrases = ["Next!", "Here we go!", "Lock in!", "Round " + r + "!"];
-          const text = r === 1 ? "First question!" : phrases[r % phrases.length];
-          const u = new SpeechSynthesisUtterance(text);
-          u.rate = 1.1;
-          u.pitch = 1.0;
-          u.volume = 1.0;
-          duckMusic(true);
-          u.onend = () => duckMusic(false);
-          u.onerror = () => duckMusic(false);
-          window.speechSynthesis.cancel();
-          window.speechSynthesis.speak(u);
-        }
-      } catch {
-        /* ignore */
-      }
+      const phrases = ["Next!", "Here we go!", "Lock in!", "Round " + r + "!"];
+      const text = r === 1 ? "First question!" : phrases[r % phrases.length];
+      duckMusic(true);
+      import("@/lib/elf-voice").then(({ speakAsElf }) => {
+        speakAsElf(text, { interrupt: true, preset: "hype" }).finally(() => duckMusic(false));
+      }).catch(() => duckMusic(false));
+
     }
   }, [state?.phase, state?.round_number]);
 
