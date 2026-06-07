@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import { speakPersona } from "@/lib/host-persona";
 
 type Player = {
   id: string;
@@ -71,6 +72,16 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     (a, b) => (b.streak_count ?? 0) - (a.streak_count ?? 0),
   )[0];
   const hasStreak = (streakKing?.streak_count ?? 0) >= 2;
+
+  // Voice callouts that match the reel beats.
+  useEffect(() => {
+    if (beat === 1 && fastest) {
+      speakPersona(`Fastest finger: ${fastest.nickname}!`);
+    } else if (beat === 2 && mvp) {
+      speakPersona(`Round MVP: ${mvp.nickname}.`);
+    }
+  }, [beat, fastest?.id, mvp?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-black text-white">
