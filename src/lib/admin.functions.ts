@@ -259,7 +259,7 @@ export const generateQuestions = createServerFn({ method: "POST" })
       }
       throw new Error("AI did not return structured output — try rephrasing the prompt or lowering the count.");
     }
-    const parsed = JSON.parse(args) as {
+    let parsed: {
       questions: Array<{
         question_text: string;
         correct_answer: string;
@@ -270,6 +270,11 @@ export const generateQuestions = createServerFn({ method: "POST" })
         difficulty?: "easy" | "medium" | "hard" | "impossible";
       }>;
     };
+    try {
+      parsed = JSON.parse(args);
+    } catch {
+      throw new Error("AI output was cut off mid-JSON — try a smaller count or shorter prompt.");
+    }
     const fallbackDifficulty =
       data.difficulty === "mixed" ? "medium" : data.difficulty;
     const all = parsed.questions.map((q) => sanitizeQuestion({
