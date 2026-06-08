@@ -654,6 +654,26 @@ export const LINES: Record<Moment, string[]> = {
     "Negative knowledge that round.",
     "Did nothing. Looked great doing it.",
   ],
+  last_to_lock: [
+    "Cutting it close, that one.",
+    "Last in. Living dangerously.",
+    "Buzzer-beater. Barely.",
+    "Squeaked it under the wire.",
+    "Last call locked. Heart rate noted.",
+    "Made it. By a whisker.",
+    "Final answer, final second.",
+    "Right on the buzzer. Audacious.",
+  ],
+  random_jab: [
+    "We see you back there.",
+    "Don't forget you exist.",
+    "Plotting something. Probably.",
+    "Quiet. Suspicious.",
+    "Lurking. Calculating. Mid.",
+    "Vibing. Not winning. Vibing.",
+    "Energy: present. Score: pending.",
+    "Showing up counts. Slightly.",
+  ],
 };
 
 /** Pick a deterministic-feeling line for a moment, with seed for variety. */
