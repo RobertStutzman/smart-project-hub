@@ -22,6 +22,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsStreamerRouteImport } from './routes/settings.streamer'
 import { Route as ResultsRoomIdRouteImport } from './routes/results.$roomId'
 import { Route as LegalTermsRouteImport } from './routes/legal.terms'
+import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
 import { Route as AuthenticatedAdminTtsRouteImport } from './routes/_authenticated/admin-tts'
 import { Route as AuthenticatedAdminSoundsRouteImport } from './routes/_authenticated/admin-sounds'
 import { Route as AuthenticatedAdminQuestionsRouteImport } from './routes/_authenticated/admin-questions'
@@ -92,6 +93,11 @@ const LegalTermsRoute = LegalTermsRouteImport.update({
   path: '/legal/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
+  id: '/legal/privacy',
+  path: '/legal/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminTtsRoute = AuthenticatedAdminTtsRouteImport.update({
   id: '/admin-tts',
   path: '/admin-tts',
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/admin-tts': typeof AuthenticatedAdminTtsRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
   '/results/$roomId': typeof ResultsRoomIdRoute
   '/settings/streamer': typeof SettingsStreamerRoute
@@ -154,6 +161,7 @@ export interface FileRoutesByTo {
   '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/admin-tts': typeof AuthenticatedAdminTtsRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
   '/results/$roomId': typeof ResultsRoomIdRoute
   '/settings/streamer': typeof SettingsStreamerRoute
@@ -175,6 +183,7 @@ export interface FileRoutesById {
   '/_authenticated/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/_authenticated/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/_authenticated/admin-tts': typeof AuthenticatedAdminTtsRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
   '/results/$roomId': typeof ResultsRoomIdRoute
   '/settings/streamer': typeof SettingsStreamerRoute
@@ -196,6 +205,7 @@ export interface FileRouteTypes {
     | '/admin-questions'
     | '/admin-sounds'
     | '/admin-tts'
+    | '/legal/privacy'
     | '/legal/terms'
     | '/results/$roomId'
     | '/settings/streamer'
@@ -215,6 +225,7 @@ export interface FileRouteTypes {
     | '/admin-questions'
     | '/admin-sounds'
     | '/admin-tts'
+    | '/legal/privacy'
     | '/legal/terms'
     | '/results/$roomId'
     | '/settings/streamer'
@@ -235,6 +246,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin-questions'
     | '/_authenticated/admin-sounds'
     | '/_authenticated/admin-tts'
+    | '/legal/privacy'
     | '/legal/terms'
     | '/results/$roomId'
     | '/settings/streamer'
@@ -252,6 +264,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PlayRoute: typeof PlayRoute
   PreviewQuestionRoute: typeof PreviewQuestionRoute
+  LegalPrivacyRoute: typeof LegalPrivacyRoute
   LegalTermsRoute: typeof LegalTermsRoute
   ResultsRoomIdRoute: typeof ResultsRoomIdRoute
   SettingsStreamerRoute: typeof SettingsStreamerRoute
@@ -351,6 +364,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LegalTermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/legal/privacy': {
+      id: '/legal/privacy'
+      path: '/legal/privacy'
+      fullPath: '/legal/privacy'
+      preLoaderRoute: typeof LegalPrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin-tts': {
       id: '/_authenticated/admin-tts'
       path: '/admin-tts'
@@ -418,6 +438,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PlayRoute: PlayRoute,
   PreviewQuestionRoute: PreviewQuestionRoute,
+  LegalPrivacyRoute: LegalPrivacyRoute,
   LegalTermsRoute: LegalTermsRoute,
   ResultsRoomIdRoute: ResultsRoomIdRoute,
   SettingsStreamerRoute: SettingsStreamerRoute,
