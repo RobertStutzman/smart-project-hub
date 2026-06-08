@@ -203,13 +203,16 @@ export const FINAL_WAGER_BED_URL: string = finalWagerBed.url;
 export const CREDITS_OUTRO_URL: string = creditsOutro.url;
 
 let creditsAudio: HTMLAudioElement | null = null;
+let creditsBaseVol: number | null = null;
 export function playCreditsMusic(volume = 0.32) {
   if (muted || typeof window === "undefined") return;
   stopCreditsMusic(0);
   try {
     creditsAudio = new Audio(creditsOutro.url);
     creditsAudio.loop = true;
-    creditsAudio.volume = Math.max(0, Math.min(1, volume));
+    const base = Math.max(0, Math.min(1, volume));
+    creditsBaseVol = base;
+    creditsAudio.volume = duckActive ? base * 0.35 : base;
     creditsAudio.play().catch(() => {});
   } catch {
     /* noop */
