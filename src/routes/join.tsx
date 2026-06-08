@@ -50,6 +50,21 @@ function JoinPage() {
   const [sessionId, setSessionId] = useState<string>("");
   const [flash, setFlash] = useState(false);
 
+  // Lobby chatter on first user gesture (autoplay policy).
+  useEffect(() => {
+    const start = () => {
+      void import("@/lib/ambience-engine").then((m) => m.startLobbyChatter());
+      window.removeEventListener("pointerdown", start);
+      window.removeEventListener("keydown", start);
+    };
+    window.addEventListener("pointerdown", start, { once: true });
+    window.addEventListener("keydown", start, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", start);
+      window.removeEventListener("keydown", start);
+    };
+  }, []);
+
   const trimmedNickname = nickname.trim();
   const codeOk = code.length === 4;
   const nickOk = trimmedNickname.length >= 1;
