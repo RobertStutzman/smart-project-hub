@@ -583,14 +583,34 @@ export function HostGameStage({ room }: Props) {
     return () => window.clearTimeout(id);
   }, [state?.phase, state?.current_question_id, state?.current_correct_index, players]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // First-blood: first live player to lock a correct answer in this question.
+  // ── Per-round name rotation so we don't just shout the fastest finger every Q
+  const SLOTS = ["first_blood", "last_to_lock", "first_blood", "random_jab", "last_to_lock"] as const;
+  type Slot = (typeof SLOTS)[number];
+  const rotationSlot = (q: number): Slot => SLOTS[((q - 1) % 5 + 5) % 5];
+
+  // Tracks which sessions already got a personalized line this round (clears
+  // each new round) and all-game (preference signal for random_jab).
+  const mentionedThisRoundRef = useRef<{ round: number; ids: Set<string> }>({ round: 0, ids: new Set() });
+  const mentionedThisGameRef = useRef<Set<string>>(new Set());
+  const markMentioned = (sessionId: string, q: number) => {
+    const roundIdx = Math.ceil(Math.max(1, q) / 5);
+    if (mentionedThisRoundRef.current.round !== roundIdx) {
+      mentionedThisRoundRef.current = { round: roundIdx, ids: new Set() };
+    }
+    mentionedThisRoundRef.current.ids.add(sessionId);
+    mentionedThisGameRef.current.add(sessionId);
+  };
+
+  // First-blood: fastest correct lock — only when the rotation slot calls for it.
   const firstBloodFiredRef = useRef<string>("");
   useEffect(() => {
     if (!state || state.phase !== "question") return;
     const qid = state.current_question_id;
     const correctIdx = state.current_correct_index;
+    const q = state.round_number ?? 0;
     if (!qid || correctIdx === null) return;
     if (firstBloodFiredRef.current === qid) return;
+    if (rotationSlot(q) !== "first_blood") return;
     const firstCorrect = players
       .filter((p) => !p.is_audience && p.current_answer === correctIdx && p.current_answer_locked_at)
       .sort((a, b) => {
@@ -600,8 +620,79 @@ export function HostGameStage({ room }: Props) {
       })[0];
     if (!firstCorrect) return;
     firstBloodFiredRef.current = qid;
+    markMentioned(firstCorrect.session_id, q);
     void speakAboutPlayer({ nickname: firstCorrect.nickname, moment: "first_blood" });
-  }, [state?.phase, state?.current_question_id, state?.current_correct_index, players]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [state?.phase, state?.current_question_id, state?.current_correct_index, state?.round_number, players]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reveal-time personalized callouts: elimination (priority), last_to_lock, random_jab.
+  // Fires AFTER the reveal-reaction line so they sequence cleanly through the shared voice queue.
+  const revealCalloutFiredRef = useRef<string>("");
+  useEffect(() => {
+    if (!state || state.phase !== "reveal") return;
+    const qid = state.current_question_id;
+    const correctIdx = state.current_correct_index;
+    const q = state.round_number ?? 0;
+    if (!qid || correctIdx === null) return;
+    if (revealCalloutFiredRef.current === qid) return;
+    const live = players.filter((p) => !p.is_audience);
+    if (live.length === 0) return;
+
+    // 1) Elimination override: a player who was on a 2+ streak just locked wrong.
+    const brokenStreaker = live
+      .filter(
+        (p) =>
+          p.current_answer !== null &&
+          p.current_answer !== correctIdx &&
+          (p.streak_count ?? 0) >= 2,
+      )
+      .sort((a, b) => (b.streak_count ?? 0) - (a.streak_count ?? 0))[0];
+
+    let pick: { nickname: string; sessionId: string; moment: "elimination" | "last_to_lock" | "random_jab" } | null = null;
+
+    if (brokenStreaker) {
+      pick = {
+        nickname: brokenStreaker.nickname,
+        sessionId: brokenStreaker.session_id,
+        moment: "elimination",
+      };
+    } else if (rotationSlot(q) === "last_to_lock") {
+      // Latest lock among everyone who actually answered (correct or wrong).
+      const answered = live.filter((p) => p.current_answer_locked_at);
+      const lastP = [...answered].sort((a, b) => {
+        const ta = new Date(a.current_answer_locked_at!).getTime();
+        const tb = new Date(b.current_answer_locked_at!).getTime();
+        return tb - ta;
+      })[0];
+      if (lastP) {
+        pick = { nickname: lastP.nickname, sessionId: lastP.session_id, moment: "last_to_lock" };
+      }
+    } else if (rotationSlot(q) === "random_jab") {
+      // Prefer a player NOT yet mentioned this game; fall back to this-round set.
+      const game = mentionedThisGameRef.current;
+      const roundSet = mentionedThisRoundRef.current.ids;
+      const candidates = live.filter((p) => !game.has(p.session_id));
+      const pool = candidates.length > 0
+        ? candidates
+        : live.filter((p) => !roundSet.has(p.session_id));
+      const finalPool = pool.length > 0 ? pool : live;
+      const seed = (qid.length * 17 + q * 31) >>> 0;
+      const chosen = finalPool[seed % finalPool.length];
+      if (chosen) {
+        pick = { nickname: chosen.nickname, sessionId: chosen.session_id, moment: "random_jab" };
+      }
+    }
+
+    if (!pick) return;
+    revealCalloutFiredRef.current = qid;
+    markMentioned(pick.sessionId, q);
+    // 1800ms — lands after the 900ms reaction line and its ~0.8s playback.
+    const id = window.setTimeout(() => {
+      void speakAboutPlayer({ nickname: pick!.nickname, moment: pick!.moment });
+    }, 1800);
+    return () => window.clearTimeout(id);
+  }, [state?.phase, state?.current_question_id, state?.current_correct_index, state?.round_number, players]); // eslint-disable-line react-hooks/exhaustive-deps
+
+
 
   // Leader-changed: when leaderboard phase opens, compare top scorer to prior round.
   const lastLeaderRef = useRef<string | null>(null);
