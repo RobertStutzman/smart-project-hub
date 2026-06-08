@@ -54,7 +54,7 @@ const TIPS = [
 ];
 
 export function BootSequence({ onComplete }: Props) {
-  const [stage, setStage] = useState<Stage>("splash");
+  const [stage, setStage] = useState<Stage>("gate");
   const [dismissing, setDismissing] = useState(false);
   const completedRef = useRef(false);
 
@@ -63,7 +63,7 @@ export function BootSequence({ onComplete }: Props) {
   // announcer VO finishing — whichever takes longer — so the cards stay on
   // screen for the full narration.
   useEffect(() => {
-    if (stage === "ready") return;
+    if (stage === "ready" || stage === "gate") return;
     let cancelled = false;
     const startedAt = performance.now();
     const baseMs = STAGE_DURATIONS[stage];
@@ -116,9 +116,21 @@ export function BootSequence({ onComplete }: Props) {
   }, [stage]);
 
   // Any key/click skips to the next stage; on "ready", finishes.
+  // On "gate", the first gesture unlocks audio (crowd ambience + VO prewarm)
+  // and starts the intro flow.
   useEffect(() => {
+    function unlockAudioAndStart() {
+      // Fire under the user gesture so the browser allows audio playback.
+      void startLobbyChatter();
+      prewarmElfLines([TIPS_VO], "hype");
+      setStage("splash");
+    }
     function advance() {
       if (completedRef.current) return;
+      if (stage === "gate") {
+        unlockAudioAndStart();
+        return;
+      }
       if (stage === "tips") cancelElfSpeech();
       if (stage === "ready") {
         complete();
