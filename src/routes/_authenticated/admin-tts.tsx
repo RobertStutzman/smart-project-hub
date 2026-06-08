@@ -7,6 +7,12 @@ import {
   getTtsTimeSeries,
   getTtsTopGames,
   getTTSCacheStats,
+  getPersonaPackStats,
+  getQuestionTTSStats,
+  getExplanationTTSStats,
+  generatePersonaPack,
+  bakeAllQuestionTTS,
+  bakeAllExplanationTTS,
 } from "@/lib/announcer.functions";
 
 export const Route = createFileRoute("/_authenticated/admin-tts")({
@@ -17,6 +23,7 @@ type Summary = Awaited<ReturnType<typeof getTtsSummary>>;
 type Series = Awaited<ReturnType<typeof getTtsTimeSeries>>;
 type TopGames = Awaited<ReturnType<typeof getTtsTopGames>>;
 type CacheStats = Awaited<ReturnType<typeof getTTSCacheStats>>;
+type PackStats = { total: number; baked: number };
 
 const RANGES: Array<{ key: "24h" | "7d" | "14d" | "30d"; label: string; days: number }> = [
   { key: "24h", label: "Last 24h", days: 1 },
