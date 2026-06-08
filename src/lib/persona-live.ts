@@ -18,6 +18,8 @@ export type LiveMoment =
   | "elimination"
   | "comeback"
   | "round_recap"
+  | "wooden_spoon"
+  | "goose_egg"
   | "welcome"
   | "final_showdown"
   | "winner";
@@ -142,6 +144,30 @@ const TEMPLATES: Record<LiveMoment, Template[]> = {
     (c) => `${c.nickname} ran away with it. Catch up.`,
     (c) => `Round ${c.roundNumber ?? "that"} MVP — ${c.nickname}. Annoying.`,
   ],
+  wooden_spoon: [
+    (c) => `Wooden spoon goes to ${c.nickname}. Try harder.`,
+    (c) => `${c.nickname}, the floor called. It misses you.`,
+    (c) => `Last place: ${c.nickname}. Somebody had to.`,
+    (c) => `${c.nickname} found a way. The wrong way.`,
+    (c) => `${c.nickname} — that round was a hate crime against trivia.`,
+    (c) => `Anchor of the round: ${c.nickname}. We salute you.`,
+    (c) => `${c.nickname} polished the floor that round. Slippery work.`,
+    (c) => `Dead last, big confidence — that's ${c.nickname}.`,
+    (c) => `${c.nickname}, the basement called. You moved in.`,
+    (c) => `${c.nickname} took the L with style. Barely.`,
+  ],
+  goose_egg: [
+    (c) => `Big zero for ${c.nickname}. Reflect on that.`,
+    (c) => `${c.nickname} brought a knife to a knowledge fight.`,
+    (c) => `Goose egg, ${c.nickname}. Lay another one.`,
+    (c) => `${c.nickname} scored nothing. Made memories.`,
+    (c) => `${c.nickname} — zero points, full commitment.`,
+    (c) => `${c.nickname} hung a donut. Cold.`,
+    (c) => `Stat line for ${c.nickname}: a perfect circle.`,
+    (c) => `${c.nickname} did nothing. Looked great doing it.`,
+    (c) => `Empty round from ${c.nickname}. Vibes intact.`,
+    (c) => `${c.nickname} contributed pure atmosphere.`,
+  ],
   welcome: [
     (c) => `Tonight we've got ${listNames(c)}. May the best brain win.`,
     (c) => `In the house: ${listNames(c)}. And friends. Let's go.`,
@@ -196,6 +222,8 @@ const FALLBACK_MOMENT: Record<LiveMoment, Parameters<typeof pickLine>[0]> = {
   elimination: "elimination",
   comeback: "comeback",
   round_recap: "round_recap",
+  wooden_spoon: "wooden_spoon",
+  goose_egg: "goose_egg",
   welcome: "intro_hype",
   final_showdown: "final_hype",
   winner: "credits_open",
