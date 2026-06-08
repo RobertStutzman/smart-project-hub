@@ -649,26 +649,61 @@ function PlayPage() {
               </div>
             ) : room.phase === "question" || room.phase === "reveal" ? (
               <>
-                <div
-                  className={`flex items-center justify-between rounded-2xl border px-4 py-2 backdrop-blur ${
-                    room.wildcard === "lightning"
-                      ? "border-rose-400/60 bg-rose-500/15 animate-pulse"
-                      : "border-border bg-card/30"
-                  }`}
-                >
-                  <div
-                    className={`text-[10px] uppercase tracking-[0.25em] ${
-                      room.wildcard === "lightning"
-                        ? "font-black text-rose-200"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {room.wildcard === "lightning"
-                      ? "⚡ Lightning · 2× pts · 8s"
-                      : room.wildcard === "roast"
-                        ? "Roast vote · check TV"
-                        : `Q${((room.round_number - 1) % 5) + 1} · Round ${Math.min(4, Math.ceil(room.round_number / 5))}`}
-                  </div>
+                {(() => {
+                  const WILDCARD_TOP: Record<
+                    string,
+                    { label: string; border: string; bg: string; text: string; pulse?: boolean }
+                  > = {
+                    lightning: {
+                      label: "⚡ Lightning · 2× pts · 8s",
+                      border: "border-rose-400/60",
+                      bg: "bg-rose-500/15",
+                      text: "text-rose-200",
+                      pulse: true,
+                    },
+                    double_or_nothing: {
+                      label: "💀 Double or Nothing · 2× / −150",
+                      border: "border-rose-400/60",
+                      bg: "bg-rose-500/15",
+                      text: "text-rose-200",
+                    },
+                    first_blood: {
+                      label: "🩸 First Blood · fastest only",
+                      border: "border-red-400/60",
+                      bg: "bg-red-500/15",
+                      text: "text-red-200",
+                    },
+                    underdog: {
+                      label: "🐢 Underdog · last place 2×",
+                      border: "border-emerald-400/60",
+                      bg: "bg-emerald-500/15",
+                      text: "text-emerald-200",
+                    },
+                    roast: {
+                      label: "Roast vote · check TV",
+                      border: "border-border",
+                      bg: "bg-card/30",
+                      text: "text-muted-foreground",
+                    },
+                  };
+                  const wc = room.wildcard ? WILDCARD_TOP[room.wildcard] : null;
+                  const label =
+                    wc?.label ??
+                    `Q${((room.round_number - 1) % 5) + 1} · Round ${Math.min(4, Math.ceil(room.round_number / 5))}`;
+                  return (
+                    <div
+                      className={`flex items-center justify-between rounded-2xl border px-4 py-2 backdrop-blur ${
+                        wc ? `${wc.border} ${wc.bg}` : "border-border bg-card/30"
+                      } ${wc?.pulse ? "animate-pulse" : ""}`}
+                    >
+                      <div
+                        className={`text-[10px] uppercase tracking-[0.25em] ${
+                          wc ? `font-black ${wc.text}` : "text-muted-foreground"
+                        }`}
+                      >
+                        {label}
+                      </div>
+
                   {reading ? (
                     <div className="font-mono text-xl font-black text-amber-300">
                       {Math.ceil(readSecondsLeft)}
