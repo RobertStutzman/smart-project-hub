@@ -168,7 +168,8 @@ function rampGain(g: GainNode, to: number, ms: number, ctx: AudioContext) {
 
 function getLoopBounds(layer: LoopLayer, buffer: AudioBuffer) {
   const start = Math.max(0, Math.min(layer.loopStart, buffer.duration - 0.5));
-  const end = Math.max(start + 0.5, Math.min(layer.loopEnd ?? buffer.duration, buffer.duration));
+  const requestedEnd = layer.loopEnd ?? buffer.duration - layer.loopEndTrim;
+  const end = Math.max(start + 0.5, Math.min(requestedEnd, buffer.duration));
   const duration = end - start;
   const crossfade = Math.min(layer.crossfadeSec, duration / 2.2);
   return {
@@ -246,31 +247,6 @@ function pumpScheduler(layer: LoopLayer) {
   layer.timer = window.setTimeout(() => pumpScheduler(layer), SCHEDULE_TICK_MS);
 }
 
-function startContinuousSource(layer: LoopLayer, ctx: AudioContext) {
-  if (!layer.buffer || !layer.gain) return;
-
-  const { start, duration } = getLoopBounds(layer, layer.buffer);
-  const src = ctx.createBufferSource();
-  src.buffer = layer.buffer;
-  src.loop = true;
-  src.loopStart = start;
-  src.loopEnd = start + duration;
-  src.connect(layer.gain);
-  src.onended = () => {
-    if (layer.source === src) layer.source = null;
-    layer.sources.delete(src);
-  };
-  layer.source = src;
-  layer.sources.add(src);
-
-  try {
-    src.start(ctx.currentTime, start);
-  } catch {
-    layer.source = null;
-    layer.sources.delete(src);
-  }
-}
-
 async function startLoop(layer: LoopLayer): Promise<boolean> {
   if (!isClient() || muted || handedOff) return false;
   const ctx = getCtx();
@@ -317,8 +293,7 @@ async function startLoop(layer: LoopLayer): Promise<boolean> {
   layer.playing = true;
   if (layer.timer != null) window.clearTimeout(layer.timer);
 
-  if (layer.continuous) startContinuousSource(layer, ctx);
-  else pumpScheduler(layer);
+  pumpScheduler(layer);
   rampGain(g, layer.target, FADE_MS, ctx);
   setBlocked(false);
   return true;
