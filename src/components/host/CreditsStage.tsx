@@ -1,7 +1,8 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
 import { HOST_NAME, pickLine, speakPersona } from "@/lib/host-persona";
-import { play } from "@/lib/sound-engine";
+import { play, playCreditsMusic, stopCreditsMusic } from "@/lib/sound-engine";
+import { pickAwardRoast, type AwardKey } from "@/lib/credits-awards";
 
 type Player = {
   id: string;
@@ -20,40 +21,166 @@ type Props = {
   onPlayAgain: () => void;
 };
 
-type Moment = { label: string; player: Player; detail?: string };
+type Award = {
+  key: AwardKey;
+  label: string;
+  emoji: string;
+  player: Player;
+  detail: string;
+  tint: string;
+};
 
-function deriveMoments(live: Player[]): Moment[] {
+function deriveAwards(live: Player[]): Award[] {
   if (live.length === 0) return [];
-  const out: Moment[] = [];
-  const byStreak = [...live].sort((a, b) => (b.best_streak ?? 0) - (a.best_streak ?? 0))[0];
-  if (byStreak && (byStreak.best_streak ?? 0) >= 3) {
-    out.push({ label: "Longest Streak", player: byStreak, detail: `${byStreak.best_streak} in a row 🔥` });
+  const out: Award[] = [];
+
+  const ranked = [...live].sort((a, b) => b.score - a.score);
+  const champ = ranked[0];
+  if (champ) {
+    out.push({
+      key: "champion",
+      label: "Tonight's Champion",
+      emoji: "👑",
+      player: champ,
+      detail: `${champ.score} pts`,
+      tint: "from-amber-200 to-amber-400",
+    });
   }
+
+  const byCorrect = [...live].sort((a, b) => (b.correct_count ?? 0) - (a.correct_count ?? 0))[0];
+  if (byCorrect && (byCorrect.correct_count ?? 0) >= 1 && byCorrect.id !== champ?.id) {
+    out.push({
+      key: "brain",
+      label: "Brain of the Night",
+      emoji: "🧠",
+      player: byCorrect,
+      detail: `${byCorrect.correct_count} correct`,
+      tint: "from-violet-200 to-violet-400",
+    });
+  }
+
   const byFast = [...live].sort((a, b) => (b.fastest_count ?? 0) - (a.fastest_count ?? 0))[0];
   if (byFast && (byFast.fastest_count ?? 0) >= 1) {
-    out.push({ label: "Fastest Finger", player: byFast, detail: `${byFast.fastest_count}× first to lock ⚡` });
+    out.push({
+      key: "fastest",
+      label: "Fastest Finger",
+      emoji: "⚡",
+      player: byFast,
+      detail: `${byFast.fastest_count}× first to lock`,
+      tint: "from-cyan-200 to-cyan-400",
+    });
   }
-  const byCorrect = [...live].sort((a, b) => (b.correct_count ?? 0) - (a.correct_count ?? 0))[0];
-  if (byCorrect && (byCorrect.correct_count ?? 0) >= 1) {
-    out.push({ label: "Brain of the Night", player: byCorrect, detail: `${byCorrect.correct_count} correct 🧠` });
+
+  const byStreak = [...live].sort((a, b) => (b.best_streak ?? 0) - (a.best_streak ?? 0))[0];
+  if (byStreak && (byStreak.best_streak ?? 0) >= 3) {
+    out.push({
+      key: "streak",
+      label: "Longest Streak",
+      emoji: "🔥",
+      player: byStreak,
+      detail: `${byStreak.best_streak} in a row`,
+      tint: "from-orange-200 to-orange-400",
+    });
   }
+
   const byWrong = [...live].sort((a, b) => (b.wrong_count ?? 0) - (a.wrong_count ?? 0))[0];
   if (byWrong && (byWrong.wrong_count ?? 0) >= 2) {
-    out.push({ label: "Most Confident Wrong", player: byWrong, detail: `${byWrong.wrong_count} wrong with conviction 💥` });
+    out.push({
+      key: "wrong",
+      label: "Most Confident Wrong",
+      emoji: "💥",
+      player: byWrong,
+      detail: `${byWrong.wrong_count} wrong with conviction`,
+      tint: "from-rose-200 to-rose-400",
+    });
   }
+
+  // Wooden spoon = lowest score, only if distinct from champ and there's spread
+  if (ranked.length >= 3) {
+    const last = ranked[ranked.length - 1];
+    if (last.id !== champ?.id && last.score < champ!.score) {
+      out.push({
+        key: "spoon",
+        label: "Wooden Spoon",
+        emoji: "🥄",
+        player: last,
+        detail: `${last.score} pts. Bless.`,
+        tint: "from-zinc-300 to-zinc-500",
+      });
+    }
+  }
+
   return out;
+}
+
+function PolaroidCard({ award, rotate }: { award: Award; rotate: number }) {
+  const { player } = award;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 30, rotate: rotate - 6, scale: 0.9 }}
+      whileInView={{ opacity: 1, y: 0, rotate, scale: 1 }}
+      viewport={{ once: true, margin: "-10%" }}
+      transition={{ type: "spring", stiffness: 140, damping: 16 }}
+      className="relative inline-block rounded-lg bg-[#f5ecd6] p-3 shadow-[0_18px_40px_-15px_rgba(0,0,0,0.65)]"
+      style={{ transform: `rotate(${rotate}deg)` }}
+    >
+      {/* tape */}
+      <div className="absolute -top-2 left-1/2 h-5 w-20 -translate-x-1/2 rotate-[-3deg] bg-yellow-200/70 mix-blend-multiply shadow-sm" />
+      <div className={`grid h-44 w-44 place-items-center overflow-hidden rounded bg-gradient-to-br ${award.tint}`}>
+        {player.avatar_url ? (
+          <img src={player.avatar_url} alt={player.nickname} className="h-full w-full object-cover" />
+        ) : (
+          <div className="font-display text-7xl font-black text-amber-950">
+            {player.nickname.slice(0, 1).toUpperCase()}
+          </div>
+        )}
+      </div>
+      <div className="mt-3 px-1 text-center">
+        <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-amber-900/70">
+          {award.emoji} {award.label}
+        </div>
+        <div className="mt-1 font-display text-2xl font-black uppercase tracking-tight text-amber-950">
+          {player.nickname}
+        </div>
+        <div className="text-xs italic text-amber-900/80">{award.detail}</div>
+      </div>
+    </motion.div>
+  );
 }
 
 export function CreditsStage({ players, onPlayAgain }: Props) {
   const live = useMemo(() => players.filter((p) => !p.is_audience), [players]);
   const ranked = useMemo(() => [...live].sort((a, b) => b.score - a.score), [live]);
   const winner = ranked[0];
-  const moments = useMemo(() => deriveMoments(live), [live]);
+  const awards = useMemo(() => deriveAwards(live), [live]);
+  const rotationsRef = useRef<number[]>([]);
+  if (rotationsRef.current.length !== awards.length) {
+    rotationsRef.current = awards.map((_, i) => ((i * 37) % 7) - 3);
+  }
 
+  // Music + opening line + scheduled award roasts.
   useEffect(() => {
     play("whoosh");
-    speakPersona(pickLine("credits_open", live.length));
-  }, [live.length]);
+    playCreditsMusic(0.3);
+    speakPersona(pickLine("credits_open", live.length), { interrupt: true });
+
+    // Schedule a Vox roast per award, paced so they don't overlap.
+    // Skip the champion (it overlaps the opening line); start at +5s.
+    const timers: number[] = [];
+    const toRoast = awards.filter((a) => a.key !== "champion");
+    toRoast.slice(0, 5).forEach((a, i) => {
+      const t = window.setTimeout(() => {
+        speakPersona(pickAwardRoast(a.key, a.player.nickname));
+      }, 5500 + i * 4800);
+      timers.push(t);
+    });
+
+    return () => {
+      timers.forEach((t) => window.clearTimeout(t));
+      stopCreditsMusic(800);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live.length, awards.length]);
 
   return (
     <div
@@ -73,12 +200,26 @@ export function CreditsStage({ players, onPlayAgain }: Props) {
         }}
       />
 
+      {/* Marquee lights border */}
+      <div className="pointer-events-none absolute inset-3 rounded-2xl border border-amber-300/20 shadow-[inset_0_0_60px_oklch(0.85_0.18_85/0.18)]" />
+
+      {/* Skip credits */}
+      <button
+        onClick={() => {
+          stopCreditsMusic(300);
+          onPlayAgain();
+        }}
+        className="absolute right-4 top-4 z-30 rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-white/70 backdrop-blur transition hover:bg-white/20 hover:text-white"
+      >
+        Skip ⏭
+      </button>
+
       {/* Scrolling credits column */}
       <motion.div
         initial={{ y: "30%" }}
-        animate={{ y: "-100%" }}
-        transition={{ duration: 32, ease: "linear" }}
-        className="absolute left-0 right-0 mx-auto flex w-full max-w-2xl flex-col items-center gap-12 px-8 pb-32 pt-32 text-center"
+        animate={{ y: "-110%" }}
+        transition={{ duration: 38, ease: "linear" }}
+        className="absolute left-0 right-0 mx-auto flex w-full max-w-3xl flex-col items-center gap-14 px-8 pb-32 pt-32 text-center"
       >
         {/* Winner card */}
         {winner && (
@@ -109,8 +250,27 @@ export function CreditsStage({ players, onPlayAgain }: Props) {
           </div>
         )}
 
+        {/* Funniest Moments — Polaroid wall */}
+        {awards.length > 0 && (
+          <div className="w-full">
+            <div className="text-[11px] font-bold uppercase tracking-[0.6em] text-amber-300/80">
+              Funniest Moments
+            </div>
+            <div className="mx-auto mt-2 flex items-center justify-center gap-2">
+              <div className="h-px w-12 bg-amber-300/40" />
+              <span className="text-amber-300/60">✦</span>
+              <div className="h-px w-12 bg-amber-300/40" />
+            </div>
+            <div className="mt-8 flex flex-wrap items-start justify-center gap-x-6 gap-y-8">
+              {awards.map((a, i) => (
+                <PolaroidCard key={a.key + a.player.id} award={a} rotate={rotationsRef.current[i] ?? 0} />
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Cast */}
-        <div className="w-full">
+        <div className="w-full max-w-md">
           <div className="text-[11px] font-bold uppercase tracking-[0.6em] text-amber-300/80">Cast</div>
           <div className="mx-auto mt-2 h-px w-24 bg-amber-300/40" />
           <div className="mt-6 flex flex-col gap-3">
@@ -133,31 +293,12 @@ export function CreditsStage({ players, onPlayAgain }: Props) {
           </div>
         </div>
 
-        {/* Funniest moments */}
-        {moments.length > 0 && (
-          <div className="w-full">
-            <div className="text-[11px] font-bold uppercase tracking-[0.6em] text-amber-300/80">
-              Funniest Moments
-            </div>
-            <div className="mx-auto mt-2 h-px w-24 bg-amber-300/40" />
-            <div className="mt-6 flex flex-col gap-4">
-              {moments.map((m) => (
-                <div key={m.label + m.player.id} className="text-center">
-                  <div className="text-xs uppercase tracking-[0.3em] text-white/50">{m.label}</div>
-                  <div className="mt-1 font-display text-2xl font-black text-white">{m.player.nickname}</div>
-                  {m.detail && <div className="text-sm text-white/60">{m.detail}</div>}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Producer credit */}
-        <div className="pt-8 text-center">
+        <div className="pt-4 text-center">
           <div className="text-[11px] uppercase tracking-[0.5em] text-white/40">Directed by</div>
           <div className="mt-2 font-display text-3xl font-black text-amber-200">{HOST_NAME}</div>
           <div className="mt-6 text-[10px] uppercase tracking-[0.4em] text-white/30">
-            Beat the Drop · A trivia bloodsport
+            Drop Trivia · A trivia bloodsport
           </div>
         </div>
       </motion.div>
@@ -166,11 +307,12 @@ export function CreditsStage({ players, onPlayAgain }: Props) {
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 18, duration: 0.6 }}
+        transition={{ delay: 22, duration: 0.6 }}
         className="absolute bottom-8 left-1/2 -translate-x-1/2"
       >
         <button
           onClick={() => {
+            stopCreditsMusic(300);
             play("whoosh");
             onPlayAgain();
           }}
