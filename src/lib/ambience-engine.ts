@@ -1,9 +1,8 @@
 // Layered ambience engine — survives route changes, runs alongside sound-engine.
 //
-// Looped layers (chatter, crowd) use Web Audio AudioBufferSourceNode with
-// loop=true for sample-accurate, gapless looping. HTMLAudioElement.loop has
-// an audible decode-gap between iterations on mp3 sources, which sounds
-// unprofessional. One-shots (drumroll, cymbal) stay as HTMLAudioElement.
+// Looped layers are scheduled through Web Audio with overlapping crossfades.
+// That avoids both HTMLAudioElement.loop decode gaps and source files that have
+// quiet tails baked into their endings.
 
 import crowdAsset from "@/assets/audio/crowd-ambience.mp3.asset.json";
 import drumAsset from "@/assets/audio/drumroll-build.mp3.asset.json";
@@ -15,6 +14,8 @@ const CROWD_TARGET = 0.18;
 const DRUM_TARGET = 0.22;
 const CYMBAL_VOL = 0.6;
 const FADE_MS = 800;
+const SCHEDULE_AHEAD_SEC = 24;
+const SCHEDULE_TICK_MS = 2000;
 
 let muted = false;
 let handedOff = false;
@@ -32,8 +33,9 @@ function getCtx(): AudioContext | null {
   if (!actx) {
     const Ctor =
       (window.AudioContext as typeof AudioContext | undefined) ??
-      ((window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext as typeof AudioContext | undefined);
+      ((window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext as
+        | typeof AudioContext
+        | undefined);
     if (!Ctor) return null;
     actx = new Ctor();
   }
@@ -51,7 +53,11 @@ function setBlocked(v: boolean) {
   if (v) console.warn("[ambience] autoplay blocked — waiting for user gesture");
   else console.info("[ambience] playback resumed");
   for (const cb of blockListeners) {
-    try { cb(v); } catch {}
+    try {
+      cb(v);
+    } catch {
+      /* ignore listener failures */
+    }
   }
 }
 
@@ -64,7 +70,7 @@ export function onAmbienceBlockedChange(cb: (blocked: boolean) => void) {
   return () => blockListeners.delete(cb);
 }
 
-// ─── Buffer cache + looped layer ────────────────────────────────────────
+// ─── Buffer cache + crossfaded loop layers ──────────────────────────────
 
 const bufferCache = new Map<string, Promise<AudioBuffer | null>>();
 
@@ -90,25 +96,122 @@ async function loadBuffer(url: string): Promise<AudioBuffer | null> {
 type LoopLayer = {
   url: string;
   target: number;
-  source: AudioBufferSourceNode | null;
+  loopStart: number;
+  loopEnd?: number;
+  crossfadeSec: number;
+  buffer: AudioBuffer | null;
   gain: GainNode | null;
-  /** True once the source has been started and not stopped. */
   playing: boolean;
+  nextStartTime: number;
+  timer: number | null;
+  sources: Set<AudioBufferSourceNode>;
 };
 
-function makeLoopLayer(url: string, target: number): LoopLayer {
-  return { url, target, source: null, gain: null, playing: false };
+function makeLoopLayer(
+  url: string,
+  target: number,
+  opts: { loopStart?: number; loopEnd?: number; crossfadeSec?: number } = {},
+): LoopLayer {
+  return {
+    url,
+    target,
+    loopStart: opts.loopStart ?? 0,
+    loopEnd: opts.loopEnd,
+    crossfadeSec: opts.crossfadeSec ?? 1.2,
+    buffer: null,
+    gain: null,
+    playing: false,
+    nextStartTime: 0,
+    timer: null,
+    sources: new Set(),
+  };
 }
 
-let chatter: LoopLayer = makeLoopLayer(chatterAsset.url, CHATTER_TARGET);
-let crowd: LoopLayer = makeLoopLayer(crowdAsset.url, CROWD_TARGET);
+const chatter: LoopLayer = makeLoopLayer(chatterAsset.url, CHATTER_TARGET, {
+  crossfadeSec: 1.6,
+});
+const crowd: LoopLayer = makeLoopLayer(crowdAsset.url, CROWD_TARGET, {
+  // The generated crowd file has a quiet tail; loop the energetic section and
+  // overlap it so the bed never audibly drops out at the wrap point.
+  loopStart: 0.2,
+  loopEnd: 14.8,
+  crossfadeSec: 2.5,
+});
+const drumroll: LoopLayer = makeLoopLayer(drumAsset.url, DRUM_TARGET, {
+  // The drumroll source contains several seconds of trailing silence. Treat it
+  // as a trimmed, crossfaded Web Audio loop instead of an HTML audio loop.
+  loopStart: 0.45,
+  loopEnd: 6.7,
+  crossfadeSec: 0.55,
+});
 
 function rampGain(g: GainNode, to: number, ms: number, ctx: AudioContext) {
   const now = ctx.currentTime;
   const cur = g.gain.value;
   g.gain.cancelScheduledValues(now);
   g.gain.setValueAtTime(cur, now);
-  g.gain.linearRampToValueAtTime(to, now + ms / 1000);
+  if (ms <= 0) g.gain.setValueAtTime(to, now);
+  else g.gain.linearRampToValueAtTime(to, now + ms / 1000);
+}
+
+function getLoopBounds(layer: LoopLayer, buffer: AudioBuffer) {
+  const start = Math.max(0, Math.min(layer.loopStart, buffer.duration - 0.5));
+  const end = Math.max(start + 0.5, Math.min(layer.loopEnd ?? buffer.duration, buffer.duration));
+  const duration = end - start;
+  const crossfade = Math.min(layer.crossfadeSec, duration / 3);
+  return {
+    start,
+    duration,
+    crossfade,
+    step: Math.max(0.25, duration - crossfade),
+  };
+}
+
+function scheduleSource(layer: LoopLayer, when: number) {
+  const ctx = getCtx();
+  if (!ctx || !layer.buffer || !layer.gain || !layer.playing) return;
+
+  const { start, duration, crossfade } = getLoopBounds(layer, layer.buffer);
+  const src = ctx.createBufferSource();
+  const srcGain = ctx.createGain();
+  src.buffer = layer.buffer;
+
+  const fadeInEnd = when + crossfade;
+  const fadeOutStart = Math.max(fadeInEnd, when + duration - crossfade);
+  const stopAt = when + duration;
+
+  srcGain.gain.setValueAtTime(0, when);
+  srcGain.gain.linearRampToValueAtTime(1, fadeInEnd);
+  srcGain.gain.setValueAtTime(1, fadeOutStart);
+  srcGain.gain.linearRampToValueAtTime(0, stopAt);
+
+  src.connect(srcGain).connect(layer.gain);
+  src.onended = () => layer.sources.delete(src);
+  layer.sources.add(src);
+
+  try {
+    src.start(when, start, duration);
+    src.stop(stopAt + 0.05);
+  } catch {
+    layer.sources.delete(src);
+  }
+}
+
+function pumpScheduler(layer: LoopLayer) {
+  const ctx = getCtx();
+  if (!ctx || !layer.playing || !layer.buffer || !layer.gain) return;
+
+  const { step } = getLoopBounds(layer, layer.buffer);
+  if (layer.nextStartTime < ctx.currentTime - 0.25) {
+    layer.nextStartTime = ctx.currentTime;
+  }
+
+  while (layer.nextStartTime < ctx.currentTime + SCHEDULE_AHEAD_SEC) {
+    scheduleSource(layer, layer.nextStartTime);
+    layer.nextStartTime += step;
+  }
+
+  layer.timer = window.setTimeout(() => pumpScheduler(layer), SCHEDULE_TICK_MS);
 }
 
 async function startLoop(layer: LoopLayer): Promise<boolean> {
@@ -146,18 +249,18 @@ async function startLoop(layer: LoopLayer): Promise<boolean> {
     return true;
   }
 
-  const src = ctx.createBufferSource();
-  src.buffer = buf;
-  src.loop = true;
   const g = ctx.createGain();
   g.gain.value = 0;
-  src.connect(g).connect(ctx.destination);
-  src.start(0);
+  g.connect(ctx.destination);
 
-  layer.source = src;
+  layer.buffer = buf;
   layer.gain = g;
+  layer.sources = new Set();
+  layer.nextStartTime = ctx.currentTime;
   layer.playing = true;
+  if (layer.timer != null) window.clearTimeout(layer.timer);
 
+  pumpScheduler(layer);
   rampGain(g, layer.target, FADE_MS, ctx);
   setBlocked(false);
   return true;
@@ -165,67 +268,29 @@ async function startLoop(layer: LoopLayer): Promise<boolean> {
 
 function stopLoop(layer: LoopLayer, fadeMs: number) {
   const ctx = getCtx();
-  if (!ctx || !layer.playing || !layer.gain || !layer.source) {
+  if (layer.timer != null && isClient()) window.clearTimeout(layer.timer);
+  layer.timer = null;
+
+  if (!ctx || !layer.playing || !layer.gain) {
     layer.playing = false;
-    layer.source = null;
     layer.gain = null;
+    layer.sources.clear();
     return;
   }
-  const src = layer.source;
+
   const g = layer.gain;
+  const stopAt = ctx.currentTime + fadeMs / 1000 + 0.05;
   rampGain(g, 0, fadeMs, ctx);
-  const stopAt = ctx.currentTime + fadeMs / 1000 + 0.02;
-  try {
-    src.stop(stopAt);
-  } catch {
-    /* already stopped */
+  for (const src of layer.sources) {
+    try {
+      src.stop(stopAt);
+    } catch {
+      /* already stopped */
+    }
   }
   layer.playing = false;
-  layer.source = null;
   layer.gain = null;
-}
-
-// ─── One-shot HTMLAudioElement layer for drumroll ───────────────────────
-
-type ElLayer = { el: HTMLAudioElement; target: number };
-let drum: ElLayer | null = null;
-
-function fadeEl(el: HTMLAudioElement, to: number, ms: number, onDone?: () => void) {
-  const from = el.volume;
-  const start = performance.now();
-  const step = (t: number) => {
-    const k = Math.min(1, (t - start) / ms);
-    el.volume = from + (to - from) * k;
-    if (k < 1) requestAnimationFrame(step);
-    else onDone?.();
-  };
-  requestAnimationFrame(step);
-}
-
-function ensureDrum(): ElLayer {
-  if (drum) return drum;
-  const el = new Audio(drumAsset.url);
-  el.loop = true;
-  el.preload = "auto";
-  el.volume = 0;
-  drum = { el, target: DRUM_TARGET };
-  return drum;
-}
-
-async function tryPlayDrum(layer: ElLayer): Promise<boolean> {
-  try {
-    const p = layer.el.play();
-    if (p && typeof p.then === "function") {
-      await p;
-    }
-    fadeEl(layer.el, layer.target, FADE_MS);
-    setBlocked(false);
-    return true;
-  } catch (err) {
-    console.warn("[ambience] drum play rejected:", (err as Error)?.name ?? err);
-    setBlocked(true);
-    return false;
-  }
+  layer.sources.clear();
 }
 
 // ─── Public API ─────────────────────────────────────────────────────────
@@ -242,9 +307,7 @@ export function startCrowd(): Promise<boolean> {
 
 export function startDrumroll(): Promise<boolean> {
   if (!isClient() || muted || handedOff) return Promise.resolve(false);
-  const layer = ensureDrum();
-  if (!layer.el.paused) return Promise.resolve(true);
-  return tryPlayDrum(layer);
+  return startLoop(drumroll);
 }
 
 /** Plays cymbal swell, fades out chatter + crowd + drumroll, ready for game-show music. */
@@ -258,34 +321,19 @@ export function climaxAndHandoff() {
   }
   stopLoop(chatter, 700);
   stopLoop(crowd, 700);
-  if (drum) {
-    const d = drum;
-    fadeEl(d.el, 0, 500, () => {
-      try { d.el.pause(); } catch {}
-    });
-    drum = null;
-  }
+  stopLoop(drumroll, 500);
 }
 
 export function stopAllAmbience() {
   stopLoop(chatter, 0);
   stopLoop(crowd, 0);
-  if (drum) {
-    try { drum.el.pause(); drum.el.currentTime = 0; } catch {}
-    drum = null;
-  }
+  stopLoop(drumroll, 0);
 }
 
 /** Fade out crowd + drumroll only; chatter persists as the pre-game layer. */
 export function stopLobbyBuildup() {
   stopLoop(crowd, 600);
-  if (drum) {
-    const d = drum;
-    fadeEl(d.el, 0, 500, () => {
-      try { d.el.pause(); d.el.currentTime = 0; } catch {}
-    });
-    drum = null;
-  }
+  stopLoop(drumroll, 500);
 }
 
 export function setAmbienceMuted(v: boolean) {
