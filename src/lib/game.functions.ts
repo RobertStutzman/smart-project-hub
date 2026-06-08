@@ -491,6 +491,20 @@ export const endQuestion = createServerFn({ method: "POST" })
       if (u) u.current_round_fastest = true;
     }
 
+    // First Blood: only the fastest correct player keeps their points; all
+    // other correct answers get zeroed (we leave penalties from wrong answers
+    // intact). Recompute total score to drop the now-stripped points.
+    if (isFirstBlood) {
+      for (const u of updates) {
+        if (u.last_answer_correct === true && u.id !== fastestPlayerId) {
+          const orig = (players ?? []).find((x) => x.id === u.id);
+          const prevTotal = orig?.score ?? 0;
+          u.current_round_score = 0;
+          u.score = Math.max(0, prevTotal);
+        }
+      }
+    }
+
     let qAnswered = 0;
     let qCorrect = 0;
     let qResponseMs = 0;
