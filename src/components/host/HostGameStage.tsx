@@ -564,7 +564,14 @@ export function HostGameStage({ room }: Props) {
     if (state.phase === "leaderboard") playEvent("leaderboard");
     else if (state.phase === "final_intro") {
       playEvent("final");
-      speakPersona(pickLine("final_hype", state.round_number));
+      // Let the cinematic sting breathe (~3s) before the persona line,
+      // so the announcer doesn't talk over itself.
+      const t = window.setTimeout(() => {
+        duckMusic(true);
+        Promise.resolve(speakPersona(pickLine("final_hype", state.round_number)))
+          .finally(() => duckMusic(false));
+      }, 3000);
+      return () => window.clearTimeout(t);
     }
     else if (state.phase === "ended") playEvent("victory");
   }, [state?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
