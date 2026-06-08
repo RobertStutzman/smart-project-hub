@@ -10,8 +10,10 @@ import {
 } from "@/lib/player-session";
 import { supabase } from "@/integrations/supabase/client";
 import { SelfieCapture } from "@/components/SelfieCapture";
+import { LegalFooter } from "@/components/LegalFooter";
 import { playFunnySoundById } from "@/lib/funny-sounds";
 import { useLobbyChatter } from "@/hooks/use-lobby-chatter";
+import { Link } from "@tanstack/react-router";
 
 const searchSchema = z.object({
   code: z.string().optional(),
