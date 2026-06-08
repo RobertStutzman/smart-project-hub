@@ -93,9 +93,13 @@ function HostPage() {
   const [showHowTo, setShowHowTo] = useState(false);
   const initRef = useRef(false);
   const playersRef = useRef<Player[]>([]);
+  const pausedRef = useRef(false);
   useEffect(() => {
     playersRef.current = players;
   }, [players]);
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
 
   // Hydration-safe origin + persisted mute pref
   useEffect(() => {
