@@ -189,7 +189,6 @@ export const LINES: Record<Moment, string[]> = {
     "Group brain: missing.",
     "All wrong. Equally wrong.",
     "The question is undefeated.",
-    "The question is undefeated.",
     "Donut for the table.",
     "Pristine wrongness, all of you.",
   ],
