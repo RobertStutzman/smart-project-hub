@@ -161,7 +161,7 @@ function HostPage() {
       .subscribe();
 
     const interval = setInterval(() => {
-      if (paused) return;
+      if (pausedRef.current) return;
       heartbeatFn({ data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId } }).catch(
         () => {},
       );
@@ -171,7 +171,7 @@ function HostPage() {
       void supabase.removeChannel(channel);
       clearInterval(interval);
     };
-  }, [room, heartbeatFn, paused]);
+  }, [room, heartbeatFn]);
 
   // Spacebar pause toggle
   useEffect(() => {
