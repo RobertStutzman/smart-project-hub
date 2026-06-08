@@ -735,13 +735,28 @@ function personaSlot(moment: string, idx: number) {
   return `persona_${moment}_${idx}`;
 }
 
+// Round-number callouts the host speaks via speakAsElf. Baking these
+// means `Round 3!` becomes a free URL hit instead of an ElevenLabs call.
+export const ROUND_CALLOUTS: string[] = (() => {
+  const out: string[] = ["Round 1! First question!"];
+  for (let n = 2; n <= 30; n++) out.push(`Round ${n}!`);
+  for (let n = 2; n <= 30; n++) out.push(`Round ${n} incoming…`);
+  out.push("Final round incoming…");
+  return out;
+})();
+
 export const generatePersonaPack = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator(
+    (input: unknown) => z.object({ force: z.boolean().optional() }).optional().parse(input) ?? {},
+  )
+  .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
     await ensurePersonaFolder();
+    const force = data?.force ?? false;
 
     const generated: string[] = [];
+    const skipped: string[] = [];
     const errors: string[] = [];
     const flat: { slot: string; text: string }[] = [];
     for (const [moment, lines] of Object.entries(PERSONA_LINES)) {
@@ -749,8 +764,26 @@ export const generatePersonaPack = createServerFn({ method: "POST" })
         flat.push({ slot: personaSlot(moment, idx), text });
       });
     }
+    ROUND_CALLOUTS.forEach((text, idx) => {
+      flat.push({ slot: personaSlot("round", idx), text });
+    });
+
+    // Skip lines already baked unless forced.
+    const existingLabels = new Set<string>();
+    if (!force) {
+      const { data: rows } = await supabaseAdmin
+        .from("sound_clips")
+        .select("label")
+        .eq("category", PERSONA_CATEGORY)
+        .eq("is_active", true);
+      for (const r of rows ?? []) existingLabels.add((r.label as string) ?? "");
+    }
 
     for (const item of flat) {
+      if (!force && existingLabels.has(item.text)) {
+        skipped.push(item.slot);
+        continue;
+      }
       try {
         const audio = await generateTTS(item.text, {
           stability: 0.2,
@@ -782,14 +815,33 @@ export const generatePersonaPack = createServerFn({ method: "POST" })
         });
         if (insErr) throw new Error(insErr.message);
         generated.push(item.slot);
-        // Gentle rate limiting
         await new Promise((r) => setTimeout(r, 200));
       } catch (e) {
         errors.push(`${item.slot}: ${(e as Error).message}`);
       }
     }
 
-    return { generated, errors, total: flat.length };
+    return {
+      generated: generated.length,
+      skipped: skipped.length,
+      errors,
+      total: flat.length,
+    };
+  });
+
+export const getPersonaPackStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    let total = 0;
+    for (const lines of Object.values(PERSONA_LINES)) total += lines.length;
+    total += ROUND_CALLOUTS.length;
+    const { count: baked } = await supabaseAdmin
+      .from("sound_clips")
+      .select("id", { count: "exact", head: true })
+      .eq("category", PERSONA_CATEGORY)
+      .eq("is_active", true);
+    return { total, baked: baked ?? 0 };
   });
 
 export const getPersonaCacheMap = createServerFn({ method: "GET" })

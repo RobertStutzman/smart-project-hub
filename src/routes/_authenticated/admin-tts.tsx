@@ -1,12 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   getTtsSummary,
   getTtsTimeSeries,
   getTtsTopGames,
   getTTSCacheStats,
+  getPersonaPackStats,
+  getQuestionTTSStats,
+  getExplanationTTSStats,
+  generatePersonaPack,
+  bakeAllQuestionTTS,
+  bakeAllExplanationTTS,
 } from "@/lib/announcer.functions";
 
 export const Route = createFileRoute("/_authenticated/admin-tts")({
@@ -17,6 +23,7 @@ type Summary = Awaited<ReturnType<typeof getTtsSummary>>;
 type Series = Awaited<ReturnType<typeof getTtsTimeSeries>>;
 type TopGames = Awaited<ReturnType<typeof getTtsTopGames>>;
 type CacheStats = Awaited<ReturnType<typeof getTTSCacheStats>>;
+type PackStats = { total: number; baked: number };
 
 const RANGES: Array<{ key: "24h" | "7d" | "14d" | "30d"; label: string; days: number }> = [
   { key: "24h", label: "Last 24h", days: 1 },
@@ -41,6 +48,9 @@ function TtsObservabilityPage() {
   const seriesFn = useServerFn(getTtsTimeSeries);
   const topGamesFn = useServerFn(getTtsTopGames);
   const cacheStatsFn = useServerFn(getTTSCacheStats);
+  const personaStatsFn = useServerFn(getPersonaPackStats);
+  const questionStatsFn = useServerFn(getQuestionTTSStats);
+  const explanationStatsFn = useServerFn(getExplanationTTSStats);
 
   const [rangeKey, setRangeKey] = useState<(typeof RANGES)[number]["key"]>("7d");
   const days = RANGES.find((r) => r.key === rangeKey)?.days ?? 7;
@@ -49,28 +59,37 @@ function TtsObservabilityPage() {
   const [series, setSeries] = useState<Series | null>(null);
   const [topGames, setTopGames] = useState<TopGames | null>(null);
   const [cache, setCache] = useState<CacheStats | null>(null);
+  const [personaPack, setPersonaPack] = useState<PackStats | null>(null);
+  const [questionPack, setQuestionPack] = useState<PackStats | null>(null);
+  const [explanationPack, setExplanationPack] = useState<PackStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
     setLoading(true);
     try {
       const seriesDays = Math.max(days, 14);
-      const [s, ts, tg, c] = await Promise.all([
+      const [s, ts, tg, c, pp, qp, ep] = await Promise.all([
         summaryFn({ data: { days } }),
         seriesFn({ data: { days: seriesDays } }),
         topGamesFn({ data: { days, limit: 20 } }),
         cacheStatsFn(),
+        personaStatsFn(),
+        questionStatsFn(),
+        explanationStatsFn(),
       ]);
       setSummary(s);
       setSeries(ts);
       setTopGames(tg);
       setCache(c);
+      setPersonaPack(pp);
+      setQuestionPack(qp);
+      setExplanationPack(ep);
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [summaryFn, seriesFn, topGamesFn, cacheStatsFn, days]);
+  }, [summaryFn, seriesFn, topGamesFn, cacheStatsFn, personaStatsFn, questionStatsFn, explanationStatsFn, days]);
 
   useEffect(() => {
     void reload();
@@ -121,6 +140,12 @@ function TtsObservabilityPage() {
           <div className="text-sm text-muted-foreground">Loading…</div>
         ) : (
           <div className="space-y-10">
+            <PreBakePanel
+              persona={personaPack}
+              question={questionPack}
+              explanation={explanationPack}
+              onChange={reload}
+            />
             <AlertsBanner summary={summary} topGames={topGames} days={days} />
             <SummaryCards summary={summary} />
             <TrendChart series={series} />
@@ -492,6 +517,218 @@ function TopCachedLines({ cache }: { cache: CacheStats | null }) {
               </li>
             ))
           )}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function PreBakePanel({
+  persona,
+  question,
+  explanation,
+  onChange,
+}: {
+  persona: PackStats | null;
+  question: PackStats | null;
+  explanation: PackStats | null;
+  onChange: () => Promise<void> | void;
+}) {
+  const generatePersonaFn = useServerFn(generatePersonaPack);
+  const bakeQuestionsFn = useServerFn(bakeAllQuestionTTS);
+  const bakeExplanationsFn = useServerFn(bakeAllExplanationTTS);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const runPersona = async (force: boolean) => {
+    if (busy) return;
+    const missing = persona ? persona.total - persona.baked : 0;
+    const count = force ? persona?.total ?? 0 : missing;
+    if (!force && missing === 0) {
+      toast.info("Persona pack fully baked.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Bake ${count} persona ${force ? "(force re-bake all)" : "missing"} lines? Calls ElevenLabs — may take a couple of minutes.`,
+      )
+    )
+      return;
+    setBusy("persona");
+    try {
+      const res = await generatePersonaFn({ data: { force } });
+      if (res.errors.length) {
+        toast.warning(
+          `Baked ${res.generated} / ${res.total} (${res.skipped} skipped, ${res.errors.length} errors)`,
+        );
+      } else {
+        toast.success(`Baked ${res.generated} persona lines (${res.skipped} skipped)`);
+      }
+      await onChange();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const runQuestions = async () => {
+    if (busy) return;
+    const missing = question ? question.total - question.baked : 0;
+    if (missing === 0) {
+      toast.info("Question reads fully baked.");
+      return;
+    }
+    if (!window.confirm(`Bake ${missing} missing question reads?`)) return;
+    setBusy("question");
+    try {
+      const res = await bakeQuestionsFn({ data: { limit: 500 } });
+      if (res.errors.length) {
+        toast.warning(`Baked ${res.baked} (${res.skipped} skipped, ${res.errors.length} errors)`);
+      } else {
+        toast.success(`Baked ${res.baked} question reads`);
+      }
+      await onChange();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const runExplanations = async () => {
+    if (busy) return;
+    const missing = explanation ? explanation.total - explanation.baked : 0;
+    if (missing === 0) {
+      toast.info("DYK explanations fully baked.");
+      return;
+    }
+    if (!window.confirm(`Bake ${missing} missing DYK explanations?`)) return;
+    setBusy("explanation");
+    try {
+      const res = await bakeExplanationsFn({ data: { limit: 500 } });
+      if (res.errors.length) {
+        toast.warning(`Baked ${res.baked} (${res.skipped} skipped, ${res.errors.length} errors)`);
+      } else {
+        toast.success(`Baked ${res.baked} explanations`);
+      }
+      await onChange();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const rows: Array<{
+    key: string;
+    label: string;
+    desc: string;
+    stats: PackStats | null;
+    actions: React.ReactNode;
+  }> = [
+    {
+      key: "persona",
+      label: "Vox persona pack",
+      desc: "Catchphrases + round callouts. Free URL hits at runtime once baked.",
+      stats: persona,
+      actions: (
+        <>
+          <button
+            onClick={() => runPersona(false)}
+            disabled={busy !== null}
+            className="rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground disabled:opacity-40"
+          >
+            {busy === "persona" ? "Baking…" : "Bake missing"}
+          </button>
+          <button
+            onClick={() => runPersona(true)}
+            disabled={busy !== null}
+            className="rounded-full border border-border px-4 py-1.5 text-xs font-bold hover:bg-card/60 disabled:opacity-40"
+          >
+            Force re-bake all
+          </button>
+        </>
+      ),
+    },
+    {
+      key: "question",
+      label: "Question reads",
+      desc: "Vox reads each question prompt aloud.",
+      stats: question,
+      actions: (
+        <button
+          onClick={runQuestions}
+          disabled={busy !== null}
+          className="rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground disabled:opacity-40"
+        >
+          {busy === "question" ? "Baking…" : "Bake missing"}
+        </button>
+      ),
+    },
+    {
+      key: "explanation",
+      label: "DYK explanations",
+      desc: "Post-reveal 'Did you know?' fun facts.",
+      stats: explanation,
+      actions: (
+        <button
+          onClick={runExplanations}
+          disabled={busy !== null}
+          className="rounded-full bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground disabled:opacity-40"
+        >
+          {busy === "explanation" ? "Baking…" : "Bake missing"}
+        </button>
+      ),
+    },
+  ];
+
+  return (
+    <section>
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <h2 className="font-display text-xl font-bold">Pre-bake content</h2>
+        <p className="text-xs text-muted-foreground">
+          Bake static lines once → every replay is free.
+        </p>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-border bg-card/40">
+        <ul className="divide-y divide-border/50">
+          {rows.map((r) => {
+            const total = r.stats?.total ?? 0;
+            const baked = r.stats?.baked ?? 0;
+            const missing = Math.max(0, total - baked);
+            const pct = total > 0 ? Math.min(100, (baked / total) * 100) : 0;
+            const done = missing === 0 && total > 0;
+            return (
+              <li key={r.key} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold">{r.label}</span>
+                    {done && (
+                      <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                        all baked
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">{r.desc}</div>
+                  <div className="mt-2 flex items-center gap-3">
+                    <div className="h-1.5 w-40 overflow-hidden rounded-full bg-muted/30">
+                      <div
+                        className="h-full bg-emerald-400/80"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className="font-mono text-xs">
+                      {fmtInt(baked)} / {fmtInt(total)}
+                      {missing > 0 && (
+                        <span className="text-amber-300"> · {fmtInt(missing)} missing</span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">{r.actions}</div>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </section>
