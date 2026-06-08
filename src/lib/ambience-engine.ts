@@ -52,6 +52,14 @@ function ensureLayer(
   return { el, target };
 }
 
+export function startLobbyChatter() {
+  if (!isClient() || muted || handedOff) return;
+  if (!chatter) {
+    chatter = ensureLayer(chatter, chatterAsset.url, CHATTER_TARGET);
+    fade(chatter, CHATTER_TARGET, FADE_MS);
+  }
+}
+
 export function startCrowd() {
   if (!isClient() || muted || handedOff) return;
   if (!crowd) {
@@ -68,7 +76,7 @@ export function startDrumroll() {
   }
 }
 
-/** Plays cymbal swell, fades out crowd + drumroll, ready for game-show music. */
+/** Plays cymbal swell, fades out chatter + crowd + drumroll, ready for game-show music. */
 export function climaxAndHandoff() {
   if (!isClient() || handedOff) return;
   handedOff = true;
@@ -76,6 +84,13 @@ export function climaxAndHandoff() {
     const swell = new Audio(cymbalAsset.url);
     swell.volume = CYMBAL_VOL;
     swell.play().catch(() => {});
+  }
+  if (chatter) {
+    const ch = chatter;
+    fade(ch, 0, 700, () => {
+      ch.el.pause();
+    });
+    chatter = null;
   }
   if (crowd) {
     const c = crowd;
@@ -94,13 +109,14 @@ export function climaxAndHandoff() {
 }
 
 export function stopAllAmbience() {
-  for (const l of [crowd, drum]) {
+  for (const l of [chatter, crowd, drum]) {
     if (!l) continue;
     try {
       l.el.pause();
       l.el.currentTime = 0;
     } catch {}
   }
+  chatter = null;
   crowd = null;
   drum = null;
 }
