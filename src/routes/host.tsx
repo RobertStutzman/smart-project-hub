@@ -329,6 +329,18 @@ function HostPage() {
           window.setTimeout(() => {
             if (!cancelled) ambience.startDrumroll();
           }, 1200);
+          // Fallback: if user landed on /host directly (no prior gesture),
+          // autoplay will be blocked. Retry silently on first interaction.
+          const retry = () => {
+            void import("@/lib/ambience-engine").then((m) => {
+              m.startCrowd();
+              window.setTimeout(() => m.startDrumroll(), 1200);
+            });
+            window.removeEventListener("pointerdown", retry);
+            window.removeEventListener("keydown", retry);
+          };
+          window.addEventListener("pointerdown", retry, { once: true });
+          window.addEventListener("keydown", retry, { once: true });
         }
       }
     })();
