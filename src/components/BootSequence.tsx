@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { play } from "@/lib/sound-engine";
-import { speakAsElf, cancelElfSpeech } from "@/lib/elf-voice";
+import { speakAsElf, cancelElfSpeech, prewarmElfLines } from "@/lib/elf-voice";
+import { startLobbyChatter } from "@/lib/ambience-engine";
 
 const TIPS_VO =
   "Here's the deal — answer fast, your score drops with the clock. Stack your two-times multiplier for the round that matters most. And in the final drop, wager it all and steal the win.";
