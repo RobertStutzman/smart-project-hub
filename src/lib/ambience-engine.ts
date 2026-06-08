@@ -33,8 +33,7 @@ function getCtx(): AudioContext | null {
   if (!actx) {
     const Ctor =
       (window.AudioContext as typeof AudioContext | undefined) ??
-      ((window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext as
+      ((window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext as
         | typeof AudioContext
         | undefined);
     if (!Ctor) return null;
