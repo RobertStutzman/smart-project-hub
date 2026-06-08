@@ -23,7 +23,7 @@ import { pickLine, speakPersona } from "@/lib/host-persona";
 import { playVoiceUrl } from "@/lib/elf-voice";
 import { speakAboutPlayer, setLiveRoomId, resetLiveCap } from "@/lib/persona-live";
 import { play, playEvent, playRandomDrop, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
-import { playFunnySoundForId, preloadFunnyBank } from "@/lib/funny-sounds";
+import { playFunnySoundById, preloadFunnyBank } from "@/lib/funny-sounds";
 import { FinalWagerStage, FinalRevealStage } from "./FinalStages";
 import { WinnerSpotlight } from "./WinnerSpotlight";
 import { RoundRecapReel } from "./RoundRecapReel";
@@ -69,6 +69,7 @@ type Player = {
   correct_count: number;
   wrong_count: number;
   comeback_bonus: boolean;
+  funny_sound_id: string | null;
 };
 
 type Props = {
@@ -109,7 +110,7 @@ export function HostGameStage({ room }: Props) {
       announcedJoinsRef.current.add(key);
       // Only chirp on actual joins, not on the very first hydration burst.
       // We mark all current players as "announced" on the first pass below.
-      playFunnySoundForId(key);
+      playFunnySoundById(p.funny_sound_id, key);
     }
   }, [players]);
 
@@ -167,7 +168,7 @@ export function HostGameStage({ room }: Props) {
       const { data: ps } = await supabase
         .from("players")
         .select(
-          "id, session_id, nickname, score, avatar_url, current_answer, current_answer_locked_at, current_round_score, current_round_fastest, streak_count, is_audience, final_wager, final_answer, final_locked_at, best_streak, fastest_count, correct_count, wrong_count, comeback_bonus",
+          "id, session_id, nickname, score, avatar_url, current_answer, current_answer_locked_at, current_round_score, current_round_fastest, streak_count, is_audience, final_wager, final_answer, final_locked_at, best_streak, fastest_count, correct_count, wrong_count, comeback_bonus, funny_sound_id",
         )
         .eq("room_id", room.id)
         .order("created_at", { ascending: true });
@@ -384,7 +385,7 @@ export function HostGameStage({ room }: Props) {
             );
             guilty.forEach((p, i) => {
               const tid = window.setTimeout(
-                () => playFunnySoundForId(p.session_id ?? p.id),
+                () => playFunnySoundById(p.funny_sound_id, p.session_id ?? p.id),
                 DROP_FALL_MS + i * 120,
               );
               dropSfxTimersRef.current.push(tid);

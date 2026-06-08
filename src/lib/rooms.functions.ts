@@ -1,6 +1,24 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { FUNNY_SOUND_IDS } from "@/lib/funny-sound-ids";
+
+async function assignFunnySoundId(roomId: string): Promise<string> {
+  const { data: used } = await supabaseAdmin
+    .from("players")
+    .select("funny_sound_id")
+    .eq("room_id", roomId)
+    .not("funny_sound_id", "is", null);
+  const usedSet = new Set(
+    (used ?? [])
+      .map((r) => (r as { funny_sound_id: string | null }).funny_sound_id)
+      .filter((v): v is string => Boolean(v)),
+  );
+  const remaining = FUNNY_SOUND_IDS.filter((id) => !usedSet.has(id));
+  const pool = remaining.length > 0 ? remaining : FUNNY_SOUND_IDS;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 
 const ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // no I/O for legibility
 
@@ -77,19 +95,33 @@ export const joinRoom = createServerFn({ method: "POST" })
 
     const { data: existing } = await supabaseAdmin
       .from("players")
-      .select("id, score, streak_count")
+      .select("id, score, streak_count, funny_sound_id")
       .eq("room_id", room.id)
       .eq("session_id", data.sessionId)
       .maybeSingle();
 
     if (existing) {
-      // Reconnect: just refresh nickname + heartbeat
-      await supabaseAdmin
-        .from("players")
-        .update({ nickname: data.nickname, last_seen_at: new Date().toISOString() })
-        .eq("id", existing.id);
-      return { roomId: room.id, playerId: existing.id, resumed: true };
+      // Reconnect: refresh nickname + heartbeat; backfill funny sound if missing.
+      let funnySoundId = (existing as { funny_sound_id: string | null }).funny_sound_id;
+      if (!funnySoundId) {
+        funnySoundId = await assignFunnySoundId(room.id);
+        await supabaseAdmin
+          .from("players")
+          .update({
+            nickname: data.nickname,
+            last_seen_at: new Date().toISOString(),
+            funny_sound_id: funnySoundId,
+          })
+          .eq("id", existing.id);
+      } else {
+        await supabaseAdmin
+          .from("players")
+          .update({ nickname: data.nickname, last_seen_at: new Date().toISOString() })
+          .eq("id", existing.id);
+      }
+      return { roomId: room.id, playerId: existing.id, resumed: true, funnySoundId };
     }
+
 
     if (!room.allow_late_joiners && room.status !== "lobby") {
       throw new Error("This room is no longer accepting new players.");
@@ -113,6 +145,8 @@ export const joinRoom = createServerFn({ method: "POST" })
       team = red <= blue ? "red" : "blue";
     }
 
+    const funnySoundId = await assignFunnySoundId(room.id);
+
     const { data: player, error: playerErr } = await supabaseAdmin
       .from("players")
       .insert({
@@ -120,11 +154,13 @@ export const joinRoom = createServerFn({ method: "POST" })
         nickname: data.nickname,
         session_id: data.sessionId,
         team,
+        funny_sound_id: funnySoundId,
       })
       .select("id")
       .single();
     if (playerErr) throw new Error(playerErr.message);
-    return { roomId: room.id, playerId: player.id, resumed: false };
+    return { roomId: room.id, playerId: player.id, resumed: false, funnySoundId };
+
   });
 
 export const toggleTeamMode = createServerFn({ method: "POST" })
