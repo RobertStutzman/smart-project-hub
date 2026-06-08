@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { HOST_NAME, pickLine, speakPersona } from "@/lib/host-persona";
 import { play, playCreditsMusic, stopCreditsMusic } from "@/lib/sound-engine";
 import { pickAwardRoast, type AwardKey } from "@/lib/credits-awards";
-import { derivePlayerHighlights } from "@/lib/player-highlights";
+import { derivePlayerHighlights, pickHighlightVox } from "@/lib/player-highlights";
 
 type Player = {
   id: string;
@@ -169,10 +169,27 @@ export function CreditsStage({ players, onPlayAgain }: Props) {
     // Skip the champion (it overlaps the opening line); start at +5s.
     const timers: number[] = [];
     const toRoast = awards.filter((a) => a.key !== "champion");
-    toRoast.slice(0, 5).forEach((a, i) => {
+    const awardSlice = toRoast.slice(0, 5);
+    awardSlice.forEach((a, i) => {
       const t = window.setTimeout(() => {
         speakPersona(pickAwardRoast(a.key, a.player.nickname));
       }, 5500 + i * 4800);
+      timers.push(t);
+    });
+
+    // Highlight-reel Vox: one short quip per top player, matching their
+    // caption category. Alternate best/worst so the reel feels varied.
+    // Starts after the last award roast and stays inside the 48s scroll.
+    const reelStart = 5500 + awardSlice.length * 4800 + 1500;
+    const ranked = [...live].sort((a, b) => b.score - a.score);
+    ranked.slice(0, 4).forEach((p, i) => {
+      const h = derivePlayerHighlights(p);
+      // Champion gets best; wooden-spoon-ish gets worst; alternate the middle.
+      const side: "best" | "worst" =
+        i === 0 ? "best" : i === ranked.length - 1 ? "worst" : i % 2 === 0 ? "best" : "worst";
+      const t = window.setTimeout(() => {
+        speakPersona(pickHighlightVox(h, p.nickname, side));
+      }, reelStart + i * 2800);
       timers.push(t);
     });
 
