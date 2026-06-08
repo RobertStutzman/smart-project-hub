@@ -256,7 +256,7 @@ function SplashStage() {
         transition={{ duration: 1.2, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
         className="relative font-display text-[clamp(3rem,11svh,8rem)] font-black leading-[0.95] tracking-tight"
       >
-        <span className="text-white drop-shadow[0_4px_40px_rgba(0,0,0,0.7)]">Beat the </span>
+        <span className="text-white drop-shadow-[0_4px_40px_rgba(0,0,0,0.7)]">Beat the </span>
         <span className="bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text text-transparent">
           Drop
         </span>
