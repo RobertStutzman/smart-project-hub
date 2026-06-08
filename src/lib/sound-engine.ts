@@ -356,6 +356,26 @@ export function stopMusic() {
   stopLoopAudio();
 }
 
+/**
+ * Hard-stop every non-ambience audio surface owned by this engine.
+ * Use at room-reset boundaries (end game → new room) so credits music,
+ * wager bed, loop music, pooled stings, and in-flight funny sounds can't
+ * bleed into the new lobby.
+ */
+export function silenceAllAudio() {
+  stopLoopAudio();
+  stopCreditsMusic(0);
+  stopWagerBed(0);
+  // Pooled one-shot stings (audience soundboard) — pause any still playing.
+  for (const a of stingPool.values()) {
+    try { a.pause(); a.currentTime = 0; } catch { /* ignore */ }
+  }
+  // Funny-sound pool lives in a separate module; silence via dynamic import.
+  if (typeof window !== "undefined") {
+    void import("./funny-sounds").then((m) => m.stopAllFunnySounds?.()).catch(() => {});
+  }
+}
+
 /** Fire a one-shot event clip if uploaded; otherwise fall back to a synth SFX. */
 export function playEvent(event: GameEvent) {
   if (muted) return;
