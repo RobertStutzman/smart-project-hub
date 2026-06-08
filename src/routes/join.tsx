@@ -50,18 +50,26 @@ function JoinPage() {
   const [sessionId, setSessionId] = useState<string>("");
   const [flash, setFlash] = useState(false);
 
-  // Lobby chatter on first user gesture (autoplay policy).
+  // Lobby chatter: autoplay attempt + gesture retry (autoplay-policy fallback).
   useEffect(() => {
-    const start = () => {
-      void import("@/lib/ambience-engine").then((m) => m.startLobbyChatter());
-      window.removeEventListener("pointerdown", start);
-      window.removeEventListener("keydown", start);
-    };
-    window.addEventListener("pointerdown", start, { once: true });
-    window.addEventListener("keydown", start, { once: true });
+    let cancelled = false;
+    let remove: (() => void) | undefined;
+    void import("@/lib/ambience-engine").then((m) => {
+      if (cancelled) return;
+      m.startLobbyChatter();
+      const retry = () => m.startLobbyChatter();
+      const events = ["pointerdown", "click", "touchstart", "keydown"] as const;
+      events.forEach((e) =>
+        window.addEventListener(e, retry, { capture: true, passive: true }),
+      );
+      remove = () =>
+        events.forEach((e) =>
+          window.removeEventListener(e, retry, { capture: true } as EventListenerOptions),
+        );
+    });
     return () => {
-      window.removeEventListener("pointerdown", start);
-      window.removeEventListener("keydown", start);
+      cancelled = true;
+      remove?.();
     };
   }, []);
 
