@@ -735,15 +735,12 @@ function personaSlot(moment: string, idx: number) {
   return `persona_${moment}_${idx}`;
 }
 
-// Round-number callouts the host speaks via speakAsElf. Baking these
-// means `Round 3!` becomes a free URL hit instead of an ElevenLabs call.
-export const ROUND_CALLOUTS: string[] = (() => {
-  const out: string[] = ["Round 1! First question!"];
-  for (let n = 2; n <= 30; n++) out.push(`Round ${n}!`);
-  for (let n = 2; n <= 30; n++) out.push(`Round ${n} incoming…`);
-  out.push("Final round incoming…");
-  return out;
-})();
+// Round/question callouts the host speaks via speakAsElf. Baking these
+// means each one becomes a free URL hit instead of an ElevenLabs call.
+// The canonical list lives in round-callouts.ts so the speaker and the
+// baker can never drift apart.
+import { ALL_ROUND_CALLOUTS } from "./round-callouts";
+export const ROUND_CALLOUTS: string[] = ALL_ROUND_CALLOUTS;
 
 export const generatePersonaPack = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

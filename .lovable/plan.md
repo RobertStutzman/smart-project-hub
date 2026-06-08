@@ -1,65 +1,68 @@
-## Where the credits go today
+# Fix Round & Question Announcements
 
-Cache infra is already solid:
-- 99% cache hit rate so far (383 hits / 4 generated)
-- 363/363 question reads pre-baked
-- Tier system caps personalized Vox lines at 30 per game, then falls back to baked catchphrases
-- Per-game generation cap = 50 (in `TTS_CAP_PER_GAME` env, default)
+You're right — I was treating each of the 21 questions as its own "round." The game is actually **4 rounds × 5 questions + final**, where the 5th question of each round is the wildcard (lightning / double-or-nothing / etc.). I'll rewrite the announcer logic to match that mental model and pre-bake the new lines so it stays free.
 
-**The real gap:** baked content coverage. The cache fills up *as games happen*, so the first time anyone hears a given catchphrase it burns credits.
+## Structure (already in code, just naming it correctly)
 
-| Pool | Total lines | Baked | Missing |
-|---|---|---|---|
-| Persona catchphrases (host-persona.ts, 18 moments) | ~720 | 30 | ~690 |
-| DYK explanations | 363 questions | 140 | 220 |
-| Round-number callouts ("Round 1! First question!", "Round 2!" … "Round 30!") | 31 | 0 | 31 |
+```text
+Round 1: Q1  Q2  Q3  Q4  Q5(wildcard)
+Round 2: Q6  Q7  Q8  Q9  Q10(wildcard)
+Round 3: Q11 Q12 Q13 Q14 Q15(wildcard)
+Round 4: Q16 Q17 Q18 Q19 Q20(wildcard)
+Final:   Q21
+```
 
-Baking all of it now is cheap (~60k chars ≈ ~$2 of the new 1.8M budget) and makes every future game ~100% cache hits for the static lines.
+Derive in HostGameStage from `state.round_number` (the absolute question index):
+- `roundIdx = Math.ceil(q / 5)` (1–4)
+- `qInRound = ((q - 1) % 5) + 1` (1–5)
+- `isWildcardSlot = qInRound === 5 && q < 21`
+- `isRoundOpener = qInRound === 1`
 
-## What I'll ship
+## What the host says
 
-### 1. Make `generatePersonaPack` idempotent and bake EVERYTHING
-Right now it deletes the row and re-uploads every time it runs (re-burns credits for already-baked lines). Change it to:
-- Skip lines whose `sound_clips` row already exists with a matching `storage_path` *and* whose audio file is present in storage.
-- Add a `force?: boolean` input for forced re-bake.
-- Insert a small `await sleep(150ms)` between calls (already does 200 — fine).
+Replace the current `baseText`/`NEXT_Q_LINES` block in `src/components/host/HostGameStage.tsx` (lines ~538–568) with a picker that chooses from variant pools so it doesn't sound robotic:
 
-### 2. Add round-number callouts to the persona pack
-Generate text variants once:
-- `"Round 1! First question!"`
-- `"Round 2!"` through `"Round 30!"`
-- Plus the recap variants the host already says: `"Round ${n} incoming…"`
+**Round opener (Q1 of each round)** — pick one:
+- Q1 of Round 1: "Round 1. Question 1. Here we go." / "Game on. Round 1, question 1." / "Round one. First question. Don't choke."
+- Q1 of Rounds 2–4: "Round N. Question 1." / "Round N kicks off. Question 1." / "New round. Question 1. Stay sharp."
 
-These get baked into the same persona cache, so `speakAsElf("Round 3!")` becomes a free URL hit.
+**Mid-round (Q2–Q4)** — rotate through variants, seeded by `q` so it's deterministic per game but feels mixed:
+- "Question N."
+- "Question N coming in."
+- "Onto question N."
+- "Next up — question N."
+- "Question N. Lock in."
+- "Here's question N."
+- "Question N. Eyes up."
 
-### 3. New `bakeAllExplanationTTS` runner (server fn already exists per-question — add the bulk version)
-Mirror of `bakeAllQuestionTTS`: select questions where `explanation IS NOT NULL AND explanation_tts_path IS NULL`, bake in a loop with 250ms delay, return `{baked, skipped, errors}`. Limit param up to 500.
+**Wildcard slot (Q5 of rounds 1–4)** — the existing `WILDCARD_CALLOUT` lines, prefixed with a question marker so players know it's still part of the round:
+- "Question 5 — and it's a wildcard. <Lightning round! Eight seconds, double points!>"
+- Variants: "Final question of the round, and it's a wildcard. …" / "Round N's wildcard. Question 5. …"
 
-### 4. Wire it into the admin TTS page (`/admin-tts`)
-Add a "Pre-bake content" panel above the observability tables:
-- **Persona pack** — shows "X / ~720 baked" with **Bake missing** and **Force re-bake all** buttons.
-- **Question reads** — already 363/363; show "All baked ✓" or a Bake-missing button if drift.
-- **DYK explanations** — shows "140 / 360 baked", **Bake missing** button.
-- Each button calls the corresponding server fn, shows a progress toast, then reloads counts.
+**Final (Q21)** — leave the existing `final_intro` / `final_hype` path alone.
 
-Also surface today's runtime cap (`TTS_CAP_PER_GAME`) with a note: "to change, update the env var" — I won't auto-bump it, since you mentioned you might downgrade later. Easy lever to pull yourself.
+The wildcard's *explanation* (the "Eight seconds, double points!" tail) stays in `WILDCARD_CALLOUT` so it always plays with the wildcard call.
 
-### 5. Small code-side glue
-- `HostGameStage` already speaks `"Round ${n}!"` via `speakAsElf` — no change needed; the persona-cache map lookup happens by exact text, and once those strings are baked the call becomes free.
-- Add the round-number string list to `host-persona.ts` (new exported `ROUND_CALLOUTS` array) so persona-pack baker picks them up generically.
+## Pre-baking (free TTS hits)
+
+In `src/lib/announcer.functions.ts`, rewrite `ROUND_CALLOUTS` to bake exactly the lines the new picker uses:
+
+- All round-opener variants for rounds 1–4 (≈12 lines)
+- All mid-round variants with N=2,3,4 (≈21 lines)
+- All wildcard-slot prefixes × 7 wildcard types (≈21 lines; full sentence baked so it's one URL hit per combo)
+
+That's ~55 baked strings instead of the current 60 "Round 1!…Round 30!" lines, and every one of them will actually get played. The existing `generatePersonaPack` already iterates `ROUND_CALLOUTS`, so nothing else changes — re-running "Bake missing" on `/admin-tts` picks them up.
+
+## Files touched
+
+- `src/components/host/HostGameStage.tsx` — replace the `baseText`/`NEXT_Q_LINES`/`WILDCARD_CALLOUT` block (~538–568) with the new picker that derives `roundIdx` / `qInRound` and pulls from variant pools (with a tiny deterministic shuffle keyed off `q`).
+- `src/lib/announcer.functions.ts` — replace `ROUND_CALLOUTS` (~740–746) with the new line set so the bake covers exactly what's spoken.
 
 ## Out of scope
 
-- Not changing the tier caps in `persona-live.ts` (15/30) — those control *personalized* lines, which by definition can't be cached.
-- Not touching the per-room cap. Easy env knob; leaving it to you.
-- Not pre-baking name-prefix lines like `"Sarah!"` — names are unknowable until players join, and the tier-2 cache already handles repeats within a session.
-- No DB schema changes. No new buckets. No new secrets.
+- Persona pack lines (catchphrases, recaps) — untouched
+- Game logic / scoring / wildcard rotation — untouched
+- DYK explanation TTS — untouched
+- Final-round intro — keeps existing `final_hype` path
 
-## Estimated one-time cost to bake everything
-
-- Persona pack (~690 new lines × ~35 chars) ≈ 24k chars
-- Round callouts (~30 lines × ~15 chars) ≈ 0.5k chars
-- DYK explanations (220 × ~150 chars) ≈ 33k chars
-- **Total ≈ 58k chars ≈ ~3% of one month of your 1.8M budget**
-
-After that, a typical game should burn near zero credits on static lines — only true personalized Tier-1 sentences (≤15 per game) generate.
+After this lands, you'll head to `/admin-tts` and click "Bake missing" on the persona pack one more time to capture the new ~55 lines (~3k chars, negligible).

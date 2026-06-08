@@ -14,6 +14,7 @@ import {
   resolveSuddenDeath,
 } from "@/lib/game.functions";
 import { QuestionStage, DROP_FALL_MS } from "./QuestionStage";
+import { getRoundCallout, type WildcardKind } from "@/lib/round-callouts";
 import { Leaderboard } from "./Leaderboard";
 import { TwitchPanel } from "./TwitchPanel";
 import { AIRoast } from "./AIRoast";
@@ -535,38 +536,16 @@ export function HostGameStage({ room }: Props) {
       lastRoundStingRef.current = q;
       playEvent("round_intro");
       play("whoosh");
-      const displayRound = Math.min(4, Math.ceil(q / 5));
-      const isGameStart = prev === "lobby" || prev === "";
-      const isNewRound = prev === "leaderboard";
-      const NEXT_Q_LINES = [
-        "Next question.",
-        "Onto the next question.",
-        `Question ${q} coming up.`,
-        "Here comes the next one.",
-        "Next one. Lock in.",
-        "Question incoming.",
-        "Onward. Next question.",
-      ];
-      const baseText = isGameStart
-        ? "Round 1! First question!"
-        : isNewRound
-          ? `Round ${displayRound}!`
-          : NEXT_Q_LINES[q % NEXT_Q_LINES.length];
-      const WILDCARD_CALLOUT: Record<string, string> = {
-        lightning: "Wildcard incoming — Lightning round! Eight seconds, double points!",
-        double_or_nothing: "Wildcard incoming — Double or Nothing! Right doubles, wrong costs you.",
-        first_blood: "Wildcard incoming — First Blood! Only the fastest correct answer scores.",
-        underdog: "Wildcard incoming — Underdog boost! Last place plays for double.",
-        saboteur: "Wildcard incoming — Saboteur round! Trust no one.",
-        glitch: "Wildcard incoming — Glitch round! Things are about to get weird.",
-        roast: "Wildcard incoming — Roast vote! Pick your victim.",
-      };
-      const wildcardLine = state.wildcard ? WILDCARD_CALLOUT[state.wildcard] : null;
-      const text = wildcardLine ? `${baseText} ${wildcardLine}` : baseText;
-      duckMusic(true);
-      import("@/lib/elf-voice").then(({ speakAsElf }) => {
-        speakAsElf(text, { interrupt: true, preset: "hype" }).finally(() => duckMusic(false));
-      }).catch(() => duckMusic(false));
+      const text = getRoundCallout({
+        questionNumber: q,
+        wildcard: (state.wildcard ?? null) as WildcardKind | null,
+      });
+      if (text) {
+        duckMusic(true);
+        import("@/lib/elf-voice").then(({ speakAsElf }) => {
+          speakAsElf(text, { interrupt: true, preset: "hype" }).finally(() => duckMusic(false));
+        }).catch(() => duckMusic(false));
+      }
 
     }
   }, [state?.phase, state?.round_number]);
