@@ -28,10 +28,10 @@ function LandingPage() {
     if (shouldShowBoot()) setShowBoot(true);
   }, []);
 
-  // Crowd ambience starts on first user gesture (browser autoplay policy).
+  // Lobby chatter starts on first user gesture (browser autoplay policy).
   useEffect(() => {
     const start = () => {
-      void import("@/lib/ambience-engine").then((m) => m.startCrowd());
+      void import("@/lib/ambience-engine").then((m) => m.startLobbyChatter());
       window.removeEventListener("pointerdown", start);
       window.removeEventListener("keydown", start);
     };
@@ -94,10 +94,11 @@ function LandingPage() {
           <Link
             to="/host"
             onClick={() => {
-              // Pre-arm crowd + drumroll under this user gesture so they
+              // Pre-arm chatter + crowd + drumroll under this user gesture so they
               // survive the route transition into /host (autoplay-friendly).
               void import("@/lib/ambience-engine").then((m) => {
                 m.resetAmbience();
+                m.startLobbyChatter();
                 m.startCrowd();
                 window.setTimeout(() => m.startDrumroll(), 1200);
               });

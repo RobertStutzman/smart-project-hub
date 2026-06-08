@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { useServerFn } from "@tanstack/react-start";
 import { joinRoom, updatePlayerAvatar } from "@/lib/rooms.functions";
@@ -49,6 +49,21 @@ function JoinPage() {
   const [step, setStep] = useState<Step>("form");
   const [sessionId, setSessionId] = useState<string>("");
   const [flash, setFlash] = useState(false);
+
+  // Lobby chatter on first user gesture (autoplay policy).
+  useEffect(() => {
+    const start = () => {
+      void import("@/lib/ambience-engine").then((m) => m.startLobbyChatter());
+      window.removeEventListener("pointerdown", start);
+      window.removeEventListener("keydown", start);
+    };
+    window.addEventListener("pointerdown", start, { once: true });
+    window.addEventListener("keydown", start, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", start);
+      window.removeEventListener("keydown", start);
+    };
+  }, []);
 
   const trimmedNickname = nickname.trim();
   const codeOk = code.length === 4;
