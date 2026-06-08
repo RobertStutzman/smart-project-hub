@@ -385,6 +385,7 @@ export function CreditsStage({ players, onPlayAgain }: Props) {
         <button
           onClick={() => {
             stopCreditsMusic(300);
+            void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
             play("whoosh");
             onPlayAgain();
           }}
