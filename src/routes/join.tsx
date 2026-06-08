@@ -78,7 +78,7 @@ function JoinPage() {
       setSessionId(sid);
       // Preview the funny sound this player is locked into for the game.
       playFunnySoundById((result as { funnySoundId?: string | null }).funnySoundId, sid);
-      setStep("selfie");
+      setStep("consent");
     } catch (err) {
       setError((err as Error).message);
     } finally {
