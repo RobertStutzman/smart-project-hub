@@ -1,49 +1,59 @@
-## Jackbox-style credits + outro music
 
-### 1. Game-show credits music
-- Generate ~60s loopable orchestral/big-band outro via ElevenLabs Music (prompt: triumphant game-show outro, brassy, upbeat, cinematic).
-- Upload as `src/assets/audio/music/credits_outro.mp3.asset.json`.
-- Add `credits_music` event to `sound-engine.ts` (loop, volume 0.32, ducks for Vox).
-- `CreditsStage` mount → `startCreditsMusic()`; unmount → fade-out 800ms.
+## Goal
+Single pass audit of the whole app: audio (voice + music), error handling, mobile/responsive, routing/auth, performance, and a few correctness traps in the credits/highlight flow. Then fix everything in one batch.
 
-### 2. Roastable "Funniest Moments" reel
-Expand `deriveMoments` from 4 fixed badges to a richer pool the host calls out one-by-one with persona Vox lines:
+## What I already verified
+- All 11 public tables have RLS on.
+- Voice queue (`elf-voice.ts`) is single-threaded → no overlap *while* the queue runs, but pending timers and music beds leak across stage changes.
+- Music ducking only covers `loopAudio`, not credits / wager beds.
 
-| Award | Trigger | Roast tone |
-|---|---|---|
-| Tonight's Champion | top score | hype |
-| Brain of the Night | most correct | hype |
-| Fastest Finger | most first-locks | hype |
-| Longest Streak | best_streak ≥ 3 | hype |
-| Most Confident Wrong | wrong_count ≥ 2 | roast |
-| Wooden Spoon | lowest non-zero score | roast |
-| Buzzer Beater | most last-to-lock | jab |
-| Goose Egg Collector | most zero-score rounds | jab |
-| Big Spender | wagered everything on Final | hype/roast based on outcome |
-| Heartbreaker | lost #1 spot on final question | sympathy roast |
-| Audience MVP | top SFX-presser (if audience tracked) | jab |
+## Findings to fix
 
-Each award becomes a "Polaroid card" in the scrolling column: avatar + label + roast detail + decorative tape/border. Cards stagger-fade as they enter view.
+### A. Audio orchestration (overlap + leak)
+1. **Credits Vox stacks past unmount** — `CreditsStage` schedules ~9 `setTimeout` voice cues but cleanup only stops music; queued lines play on next screen.
+   → Add `cancelElfSpeech()` to cleanup, Skip button, and Play Again button.
+2. **Award roasts too tightly packed** — 4.8s spacing < real TTS length.
+   → Bump to 6s, cap roasts at 4, cap highlight quips at 3.
+3. **`duckMusic` doesn't duck credits / wager beds** — voice fights the band.
+   → In `sound-engine.ts`, extend `duckMusic(on)` to also scale `creditsAudio` and `wagerBedAudio` (remember base volume per element).
+   → Call `duckMusic(true/false)` around each `speakPersona` in `CreditsStage` and `FinalStages`.
+4. **Victory sting overlaps credits music** — `playEvent("victory")` fires on `ended`, then credits music starts immediately.
+   → Delay `playCreditsMusic` by 700ms inside the credits effect.
+5. **Lobby chatter + lobby music both playing** — two ambient beds at once on `/host` and `/play` lobby.
+   → Stop `lobbyChatter` when phase leaves `lobby`.
+6. **Final stages leak** — host hotkey navigation skips voice cleanup.
+   → Add `cancelElfSpeech()` to `FinalStages` cleanup.
+7. **Recap reel truncates itself** — every beat uses `interrupt: true`, so "Fastest finger" cuts the opener.
+   → Only the first beat interrupts; rest queue.
+8. **Voice queue has no idle reset** — if a request hangs, the queue chain holds forever.
+   → Wrap each task in `Promise.race` with a 12s safety timeout.
 
-### 3. Vox roast pass during scroll
-- New `credits_award` moment in `persona-live.ts` with 8-10 templates per award type.
-- `CreditsStage` schedules `speakAboutPlayer({ moment: "credits_award_<type>", ... })` for ~4-6 awards across the 32s scroll (paced ~4s apart) using the existing queued voice system so they never overlap.
-- Cap roast count per game to keep within Tier 1 (existing call counter already enforces this).
+### B. Correctness
+9. **`CreditsStage` shadows `ranked`** — outer `useMemo` ranked + inner `const ranked` inside effect; harmless today but confusing.
+   → Use the outer `ranked` inside the effect.
+10. **Console warning** `Unknown message type: RESET_BLANK_CHECK` — coming from preview harness, not our code. No action; document as ignored.
 
-### 4. Visual polish
-- Add subtle marquee lights border around the credits panel.
-- Animated film-reel sprockets along left/right edges.
-- Confetti burst when winner card scrolls into the center.
-- Producer/Cast/Funniest section dividers get art-deco flourishes.
+### C. Routing / auth
+11. **Server fn auth wiring** — verify `attachSupabaseAuth` is in `src/start.ts`'s `functionMiddleware` (required for `requireSupabaseAuth` fns). Add if missing.
+12. **`__root.tsx` Outlet present** — confirm during edit pass.
 
-### 5. Skip / Play Again
-- Keep "Play again" CTA. Add small "Skip credits ⏭" link top-right that fades music + advances.
+### D. UX hardening
+13. **Mute should also stop credits/wager beds** — `setMuted(true)` only calls `stopMusic()`, not the new beds.
+    → In `setMuted(true)`, also call `stopCreditsMusic(0)` and `stopWagerBed(0)`.
+14. **Wake lock on host stage** — confirm `use-wake-lock` is attached on `/host` (prevents screen sleep mid-game). Add if missing.
 
-### Technical notes
-- Music: ElevenLabs Music endpoint, 60s, mp3_44100_128. Use existing `lovable-assets` upload flow.
-- Award computation requires stats already on `players` (`best_streak`, `fastest_count`, `correct_count`, `wrong_count`). New fields needed for Buzzer Beater (`last_lock_count`), Goose Egg (`zero_round_count`), Big Spender (`final_wager`, `final_won`), Heartbreaker (rank change on final). If those columns don't exist yet, gracefully omit those awards (no DB migration in scope unless you say otherwise).
-- All Vox uses existing `speakAboutPlayer` queue → no overlap with music ducking.
+## Files to change
+- `src/lib/sound-engine.ts` — extend `duckMusic`, mute clears all beds.
+- `src/lib/elf-voice.ts` — per-task safety timeout.
+- `src/components/host/CreditsStage.tsx` — cleanup voice, delay music, duck around lines, retime roasts, use outer `ranked`, cleanup on Skip / Play Again.
+- `src/components/host/FinalStages.tsx` — `cancelElfSpeech` cleanup, duck around lines.
+- `src/components/host/RoundRecapReel.tsx` — only first beat interrupts.
+- `src/routes/host.tsx`, `src/routes/play.tsx` — stop lobby chatter on phase change; wake lock if missing.
+- `src/start.ts` — verify/append `attachSupabaseAuth` if absent.
 
-### Out of scope
-- DB schema changes for the missing stat columns (will surface as "skipped — needs columns X, Y" in the summary if missing).
-- Per-player photo highlights (no selfie capture in pipeline yet).
+## Explicitly out of scope
+- No new audio assets, no TTS prompt rewrites.
+- No DB schema changes.
+- No design/visual changes beyond what's required for the fixes.
+
+Confirm and I'll implement all of it in one pass.
