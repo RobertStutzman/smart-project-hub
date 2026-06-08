@@ -102,18 +102,26 @@ export const joinRoom = createServerFn({ method: "POST" })
 
     if (existing) {
       // Reconnect: refresh nickname + heartbeat; backfill funny sound if missing.
-      const patch: Record<string, unknown> = {
-        nickname: data.nickname,
-        last_seen_at: new Date().toISOString(),
-      };
       let funnySoundId = (existing as { funny_sound_id: string | null }).funny_sound_id;
       if (!funnySoundId) {
         funnySoundId = await assignFunnySoundId(room.id);
-        patch.funny_sound_id = funnySoundId;
+        await supabaseAdmin
+          .from("players")
+          .update({
+            nickname: data.nickname,
+            last_seen_at: new Date().toISOString(),
+            funny_sound_id: funnySoundId,
+          })
+          .eq("id", existing.id);
+      } else {
+        await supabaseAdmin
+          .from("players")
+          .update({ nickname: data.nickname, last_seen_at: new Date().toISOString() })
+          .eq("id", existing.id);
       }
-      await supabaseAdmin.from("players").update(patch).eq("id", existing.id);
       return { roomId: room.id, playerId: existing.id, resumed: true, funnySoundId };
     }
+
 
     if (!room.allow_late_joiners && room.status !== "lobby") {
       throw new Error("This room is no longer accepting new players.");
