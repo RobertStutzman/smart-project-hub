@@ -60,12 +60,30 @@ async function getRoomByHost(roomCode: string, hostSessionId: string) {
   return data;
 }
 
-function wildcardForRound(round: number): "saboteur" | "glitch" | "roast" | "lightning" | null {
-  if (round === 3) return "saboteur";
-  if (round === 8) return "lightning";
-  if (round === 13) return "glitch";
-  if (round === 18) return "roast";
-  return null;
+// Wildcards now fire every 3 rounds (rounds 3, 6, 9, 12, 15, 18) rotating
+// through 7 types. Round 21 (final) is skipped — final round is its own beat.
+type Wildcard =
+  | "saboteur"
+  | "glitch"
+  | "roast"
+  | "lightning"
+  | "double_or_nothing"
+  | "first_blood"
+  | "underdog";
+const WILDCARD_ROTATION: Wildcard[] = [
+  "lightning",         // round 3  — flashy & familiar; easy intro
+  "double_or_nothing", // round 6  — first real risk moment
+  "saboteur",          // round 9
+  "first_blood",       // round 12 — speed pressure mid-game
+  "glitch",            // round 15
+  "underdog",          // round 18 — catch-up before final stretch
+  "roast",             // bonus slot if game extended
+];
+function wildcardForRound(round: number): Wildcard | null {
+  if (round <= 0 || round >= 21) return null; // skip final
+  if (round % 3 !== 0) return null;
+  const slot = (round / 3) - 1; // 1→0, 2→1, ...
+  return WILDCARD_ROTATION[slot % WILDCARD_ROTATION.length];
 }
 
 const LIGHTNING_DURATION_MS = 8000;
