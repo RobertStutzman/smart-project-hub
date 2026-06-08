@@ -360,7 +360,7 @@ export function startDrumroll(): Promise<boolean> {
   return startLoop(drumroll);
 }
 
-/** Plays cymbal swell, fades out chatter + crowd + drumroll, ready for game-show music. */
+/** Plays cymbal swell, fades out ambience, ready for game-show music. */
 export function climaxAndHandoff() {
   if (!isClient() || handedOff) return;
   handedOff = true;
@@ -380,7 +380,7 @@ export function stopAllAmbience() {
   stopLoop(drumroll, 0);
 }
 
-/** Fade out crowd + drumroll only; chatter persists as the pre-game layer. */
+/** Fade out host buildup layers only; chatter persists as the pre-game layer. */
 export function stopLobbyBuildup() {
   stopLoop(crowd, 600);
   stopLoop(drumroll, 500);
