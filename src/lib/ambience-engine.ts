@@ -376,6 +376,30 @@ export function setAmbienceMuted(v: boolean) {
   if (v) stopAllAmbience();
 }
 
+// ─── Ducking (lower ambience under VO) ──────────────────────────────────
+
+let duckMultiplier = 1;
+
+function applyDuckToLayer(layer: LoopLayer, ms: number) {
+  const ctx = getCtx();
+  if (!ctx || !layer.gain || !layer.playing) return;
+  rampGain(layer.gain, layer.target * duckMultiplier, ms, ctx);
+}
+
+export function duckAmbience(multiplier = 0.35, ms = 400) {
+  duckMultiplier = Math.max(0, Math.min(1, multiplier));
+  applyDuckToLayer(chatter, ms);
+  applyDuckToLayer(crowd, ms);
+  applyDuckToLayer(drumroll, ms);
+}
+
+export function unduckAmbience(ms = 500) {
+  duckMultiplier = 1;
+  applyDuckToLayer(chatter, ms);
+  applyDuckToLayer(crowd, ms);
+  applyDuckToLayer(drumroll, ms);
+}
+
 /** Reset the handoff latch (e.g. when returning to lobby for a new game). */
 export function resetAmbience() {
   handedOff = false;

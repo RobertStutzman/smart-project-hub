@@ -1,44 +1,50 @@
-## Goal
-Get the app Play Store ready by wrapping the existing PWA as a Trusted Web Activity (TWA), and remove the audio gate inside that wrapped app so the announcer + crowd start the moment the app opens.
+# Fix the intro flow + audio
 
-## Approach
-Your site is already a valid installable PWA (manifest + icons + standalone). The shortest path to Google Play is a TWA built with Bubblewrap — it produces a signed `.aab` you upload to Play Console. The TWA launches in `display-mode: standalone`, which both unlocks Chrome's autoplay policy and lets us skip the gate.
+Three problems, three fixes — all in the boot sequence.
 
-## Changes
+## 1. Remove the redundant "Press OK to start" screen
 
-### 1. Skip the gate in installed / TWA mode (`src/components/BootSequence.tsx`)
-- On mount, detect standalone launch:
-  - `window.matchMedia('(display-mode: standalone)').matches` (Android PWA, TWA, Chrome installed)
-  - `navigator.standalone === true` (iOS home-screen PWA)
-- If either is true: initial stage = `splash` (not `gate`), and immediately call `startLobbyChatter()` + `prewarmElfLines([TIPS_VO], "hype")` on mount.
-- Browser-tab visitors still see the gate (Chrome will reject autoplay there — unavoidable).
+Current flow:
+```
+Tap to begin (gate)  →  Splash  →  Credits  →  Tips (how to play)  →  Press OK to start (ready)  →  Landing (host / join)
+```
 
-### 2. Digital Asset Links for TWA verification
-- Add `public/.well-known/assetlinks.json` as a placeholder. This file is REQUIRED for the TWA to launch full-screen without a Chrome address bar on the user's device. It needs the SHA-256 fingerprint of the Play-signed APK, which Google generates after the first upload.
-- I'll add the file with a clearly-marked `REPLACE_WITH_SHA256_FROM_PLAY_CONSOLE` placeholder and a comment in the plan telling you how to fill it in.
+The `ready` stage is doing the same job as both the gate before it and the landing page right after it. Cut it.
 
-### 3. Manifest polish for Play Store (`public/manifest.webmanifest`)
-- Add `id: "/"` (required by Play to keep the install identity stable).
-- Add `categories: ["games", "entertainment"]`.
-- Change `orientation` from `any` to `portrait` or `landscape` — Play asks for one. I'll default to `any` staying since you support both, but flag this in case you want to lock orientation.
+New flow:
+```
+Tap to begin (gate)  →  Splash  →  Credits  →  Tips (how to play)  →  Landing (host / join)
+```
 
-## What you do after I make the code changes
+Changes in `src/components/BootSequence.tsx`:
+- Drop the `"ready"` stage from the `Stage` union, timers, dots, and the `ReadyStage` component.
+- After `tips` finishes (visual baseline AND VO both done), call `complete()` directly so the boot overlay fades out and the user lands on the host/join screen.
+- Keep "press any key to skip" working — skipping from `tips` jumps straight to `complete()`.
+- Progress dots become 3 (splash / credits / tips).
 
-1. Install Bubblewrap once on your machine:
-   `npm i -g @bubblewrap/cli`
-2. From any folder, run:
-   `bubblewrap init --manifest=https://droptrivia.app/manifest.webmanifest`
-   It will ask for app name, package id (e.g. `app.droptrivia.twa`), display mode, etc.
-3. Build the bundle:
-   `bubblewrap build` → produces `app-release-bundle.aab`.
-4. In Play Console → create app → upload the `.aab`. Play Console will show you a SHA-256 fingerprint under **Setup → App integrity**.
-5. Paste that fingerprint into `public/.well-known/assetlinks.json` (replacing the placeholder), then publish the web update. Without this step the TWA shows a browser URL bar.
+## 2. Restore the crowd audio
 
-## What is NOT in scope
-- No Capacitor / native code path. TWA wraps the existing PWA — no separate codebase, no React Native, no rebuilds when you ship web updates.
-- No offline mode / service worker. Per Lovable PWA rules we only need manifest-based installability for this case.
-- No iOS App Store work — that requires a different path (Capacitor or PWABuilder for iOS) and is a separate decision.
+Right now the landing page only starts `startLobbyChatter` (target gain 0.11 — barely audible chatter bed). The louder `startCrowd` layer (target 0.18) never plays until you reach `/host`.
 
-## Notes
-- Inside the TWA running from Play Store, the announcer + crowd will play immediately with no tap — exactly what you wanted.
-- On the public droptrivia.app browser link, the "Tap to begin" gate stays as a fallback for one-off web visits.
+Change: when the gate is tapped (and on standalone launch), start BOTH `startLobbyChatter()` and `startCrowd()` so you actually hear a room of people from the moment the intro begins, and that bed continues onto the landing page. Also call `startCrowd()` from `useLobbyChatter` so a user who skips the boot (sessionStorage flag set) still gets the crowd.
+
+## 3. Make the announcer audible during the Tips/How-to-play stage
+
+The `TIPS_VO` line plays via `speakAsElf(..., { preset: "hype" })` with default volume `1.0`, but the crowd + chatter beds (combined ~0.29 gain) are loud enough to bury it.
+
+Two-part fix in `src/lib/ambience-engine.ts` + `BootSequence.tsx`:
+- Add a `duckAmbience(targetMultiplier, ms)` / `unduckAmbience(ms)` pair that ramps the active loop gains down to ~35% of their target while the announcer is talking, then back up.
+- In the `tips` effect, call `duckAmbience(0.35, 400)` before `speakAsElf(TIPS_VO, ...)` and `unduckAmbience(500)` in the `.then()` after VO finishes (and on cleanup).
+- Also bump `speakAsElf` call to `{ volume: 1.0 }` explicitly and verify the line is being fetched (no skipped/blocked response) — the prewarm already runs on the gate tap, so by the time tips render the audio should be cached.
+
+## Technical notes
+
+- `Stage` type, `STAGE_DURATIONS`, the dots array, the splash-sound effect's `ready` branch, and the auto-advance-off-ready effect all need to be cleaned up together — partial removal will leave dangling references and break the build.
+- The duck/unduck helpers operate on the existing `chatter` / `crowd` / `drumroll` LoopLayer `gain` nodes using the same `rampGain` utility already in the file. No new audio buffers needed.
+- Nothing in this plan touches `/host`, `/join`, the question stage, or the announcer server function — only the boot overlay and the ambience engine's gain API.
+
+## Out of scope
+
+- Changing the actual VO line, voice, or persona.
+- The TWA / Play Store packaging (still paused per your earlier instruction).
+- Replacing the crowd-ambience source file.
