@@ -1254,13 +1254,13 @@ export function HostGameStage({ room }: Props) {
         </div>
         <QuestionStage
           questionText={state.current_question_text ?? ""}
-          answers={state.current_answers ?? ["", "", "", ""]}
-          droppedIndexes={[]}
+          answers={state.current_answers ?? EMPTY_ANSWERS}
+          droppedIndexes={EMPTY_DROPS}
           correctIndex={null}
           secondsLeft={remainingS}
           totalS={totalS}
           phase="question"
-          players={players.filter((p) => !p.is_audience)}
+          players={livePlayers}
           mediaUrl={(state as { current_media_url?: string | null }).current_media_url ?? null}
           mediaType={(state as { current_media_type?: string | null }).current_media_type ?? null}
         />
