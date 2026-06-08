@@ -182,7 +182,21 @@ export function play(sfx: Sfx) {
 // ─── Custom clip system ─────────────────────────────────────────────
 
 type CustomClip = { url: string; volume: number; loop: boolean };
-const eventClips: Partial<Record<GameEvent, CustomClip>> = {};
+
+// Built-in default clips (CDN-hosted). Used when no admin-assigned clip
+// exists for the slot. Keeps lobby/final feeling polished out of the box.
+import lobbyTrivia from "@/assets/audio/music/lobby_trivia.mp3.asset.json";
+import finalSting from "@/assets/audio/final/final_sting.mp3.asset.json";
+import finalWagerBed from "@/assets/audio/final/final_wager_bed.mp3.asset.json";
+
+const DEFAULT_EVENT_CLIPS: Partial<Record<GameEvent, CustomClip>> = {
+  lobby_music: { url: lobbyTrivia.url, volume: 0.22, loop: true },
+  final: { url: finalSting.url, volume: 0.95, loop: false },
+};
+// Final-round underscore bed (separate from the one-shot "final" sting).
+export const FINAL_WAGER_BED_URL: string = finalWagerBed.url;
+
+const eventClips: Partial<Record<GameEvent, CustomClip>> = { ...DEFAULT_EVENT_CLIPS };
 let loopAudio: HTMLAudioElement | null = null;
 let currentLoopMode: "lobby" | "tense" | null = null;
 let synthLoopTimer: number | null = null;
@@ -192,7 +206,8 @@ export function loadCustomEvents(
   events: Partial<Record<GameEvent, CustomClip>>,
 ) {
   for (const k of Object.keys(eventClips) as GameEvent[]) delete eventClips[k];
-  Object.assign(eventClips, events);
+  // Re-apply defaults first so admin overrides win but missing slots fall back.
+  Object.assign(eventClips, DEFAULT_EVENT_CLIPS, events);
 }
 
 function stopLoopAudio() {
