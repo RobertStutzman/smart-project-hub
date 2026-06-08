@@ -912,16 +912,16 @@ export function HostGameStage({ room }: Props) {
     () => players.filter((p) => !p.is_audience && !!p.final_locked_at).length,
     [players],
   );
-  const liveCount = useMemo(
-    () => players.filter((p) => !p.is_audience).length,
+  const livePlayers = useMemo(
+    () => players.filter((p) => !p.is_audience),
     [players],
   );
+  const liveCount = livePlayers.length;
   const topScoreTied = useMemo(() => {
     if (phase !== "final_reveal") return false;
-    const live = players.filter((p) => !p.is_audience);
-    const top = live.reduce((m, p) => Math.max(m, p.score), 0);
-    return live.filter((p) => p.score === top).length > 1;
-  }, [phase, players]);
+    const top = livePlayers.reduce((m, p) => Math.max(m, p.score), 0);
+    return livePlayers.filter((p) => p.score === top).length > 1;
+  }, [phase, livePlayers]);
 
   // Effect A — timer-based phase advances. NO `now` in deps.
   useEffect(() => {
