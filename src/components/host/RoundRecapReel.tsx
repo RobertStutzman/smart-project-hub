@@ -102,7 +102,25 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     const zeroes = real.filter((p) => (p.current_round_score ?? 0) === 0);
     const hasZeroes = zeroes.length > 0 && real.length >= 2;
 
+    // Biggest Climb / Drop — compare rank by score vs rank by prev score.
+    let biggestClimb: { p: Player; ranks: number } | null = null;
+    let biggestDrop: { p: Player; ranks: number } | null = null;
+    if (real.length >= 3) {
+      const currRanks = new Map<string, number>();
+      [...real].sort((a, b) => b.score - a.score).forEach((p, i) => currRanks.set(p.id, i));
+      const prevRanks = new Map<string, number>();
+      [...real]
+        .sort((a, b) => (b.score - (b.current_round_score ?? 0)) - (a.score - (a.current_round_score ?? 0)))
+        .forEach((p, i) => prevRanks.set(p.id, i));
+      for (const p of real) {
+        const delta = (prevRanks.get(p.id) ?? 0) - (currRanks.get(p.id) ?? 0);
+        if (delta > 0 && (!biggestClimb || delta > biggestClimb.ranks)) biggestClimb = { p, ranks: delta };
+        if (delta < 0 && (!biggestDrop || delta < -biggestDrop.ranks)) biggestDrop = { p, ranks: -delta };
+      }
+    }
+
     const list: Beat[] = [];
+
 
     // beat: Round splash
     list.push({
