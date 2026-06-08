@@ -460,7 +460,10 @@ export const endQuestion = createServerFn({ method: "POST" })
         answered += 1;
         wrongCount += 1;
         if (lockedMs) totalMs += lockedMs - startMs;
-        const penalty = pending2x ? -200 : 0;
+        // Double-or-Nothing: wrong answer hurts (mirrors the magnitude of a
+        // mediocre correct, ~-150). Pending 2x stacks on top.
+        let penalty = pending2x ? -200 : 0;
+        if (isDoubleOrNothing) penalty += -150;
         if (pending2x) used2x = true;
         roundScore = penalty;
         nextStreak = 0;
