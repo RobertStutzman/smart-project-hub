@@ -353,6 +353,50 @@ function HostPage() {
     };
   }, [room?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Lobby announcer banter — opener + rotating quips every 10s while waiting.
+  useEffect(() => {
+    if (!room) return;
+    if (roomPhase !== "lobby") return;
+    let cancelled = false;
+    const history: string[] = [];
+    const code = room.roomCode;
+
+    const speakOpener = async () => {
+      const [{ speakPersona }, { pickOpener }] = await Promise.all([
+        import("@/lib/host-persona"),
+        import("@/lib/lobby-banter"),
+      ]);
+      if (cancelled) return;
+      speakPersona(pickOpener(), { preset: "hype" });
+    };
+    // Slight delay so the cymbal/ambience doesn't trample the opener.
+    const openerTimer = window.setTimeout(() => {
+      void speakOpener();
+    }, 1800);
+
+    const tick = async () => {
+      if (cancelled) return;
+      const [{ speakPersona }, { pickLobbyLine }] = await Promise.all([
+        import("@/lib/host-persona"),
+        import("@/lib/lobby-banter"),
+      ]);
+      if (cancelled) return;
+      const { spoken, raw } = pickLobbyLine(history, playersRef.current.length, code);
+      history.push(raw);
+      if (history.length > 6) history.shift();
+      speakPersona(spoken, { preset: "hype" });
+    };
+    const interval = window.setInterval(() => void tick(), 10_000);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(openerTimer);
+      window.clearInterval(interval);
+    };
+  }, [room?.id, roomPhase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+
+
 
   // Subscribe to audience soundboard broadcasts → play SFX from TV speakers
   useEffect(() => {
