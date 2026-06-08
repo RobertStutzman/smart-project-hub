@@ -303,7 +303,7 @@ function HostPage() {
 
   useEffect(() => {
     if (!room) return;
-    // Load soundboard clips once, then start crowd + drumroll ambience.
+    // Load soundboard clips once, then start the seamless crowd ambience.
     // Game-show music is deferred until host starts the game (phase=intro),
     // where HostGameStage triggers climaxAndHandoff.
     let cancelled = false;
@@ -330,17 +330,12 @@ function HostPage() {
           ambience.resetAmbience();
           ambience.startLobbyChatter();
           ambience.startCrowd();
-          // Drumroll fades in shortly after crowd for layered buildup.
-          window.setTimeout(() => {
-            if (!cancelled) ambience.startDrumroll();
-          }, 1200);
           // Fallback: if user landed on /host directly (no prior gesture),
           // autoplay will be blocked. Retry silently on first interaction.
           const retry = () => {
             void import("@/lib/ambience-engine").then((m) => {
               m.startLobbyChatter();
               m.startCrowd();
-              window.setTimeout(() => m.startDrumroll(), 1200);
             });
             window.removeEventListener("pointerdown", retry);
             window.removeEventListener("keydown", retry);
