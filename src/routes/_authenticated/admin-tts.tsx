@@ -48,6 +48,9 @@ function TtsObservabilityPage() {
   const seriesFn = useServerFn(getTtsTimeSeries);
   const topGamesFn = useServerFn(getTtsTopGames);
   const cacheStatsFn = useServerFn(getTTSCacheStats);
+  const personaStatsFn = useServerFn(getPersonaPackStats);
+  const questionStatsFn = useServerFn(getQuestionTTSStats);
+  const explanationStatsFn = useServerFn(getExplanationTTSStats);
 
   const [rangeKey, setRangeKey] = useState<(typeof RANGES)[number]["key"]>("7d");
   const days = RANGES.find((r) => r.key === rangeKey)?.days ?? 7;
@@ -56,28 +59,37 @@ function TtsObservabilityPage() {
   const [series, setSeries] = useState<Series | null>(null);
   const [topGames, setTopGames] = useState<TopGames | null>(null);
   const [cache, setCache] = useState<CacheStats | null>(null);
+  const [personaPack, setPersonaPack] = useState<PackStats | null>(null);
+  const [questionPack, setQuestionPack] = useState<PackStats | null>(null);
+  const [explanationPack, setExplanationPack] = useState<PackStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
     setLoading(true);
     try {
       const seriesDays = Math.max(days, 14);
-      const [s, ts, tg, c] = await Promise.all([
+      const [s, ts, tg, c, pp, qp, ep] = await Promise.all([
         summaryFn({ data: { days } }),
         seriesFn({ data: { days: seriesDays } }),
         topGamesFn({ data: { days, limit: 20 } }),
         cacheStatsFn(),
+        personaStatsFn(),
+        questionStatsFn(),
+        explanationStatsFn(),
       ]);
       setSummary(s);
       setSeries(ts);
       setTopGames(tg);
       setCache(c);
+      setPersonaPack(pp);
+      setQuestionPack(qp);
+      setExplanationPack(ep);
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [summaryFn, seriesFn, topGamesFn, cacheStatsFn, days]);
+  }, [summaryFn, seriesFn, topGamesFn, cacheStatsFn, personaStatsFn, questionStatsFn, explanationStatsFn, days]);
 
   useEffect(() => {
     void reload();
