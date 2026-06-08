@@ -371,6 +371,10 @@ export const endQuestion = createServerFn({ method: "POST" })
     const rubberCutoff = Math.max(1, Math.floor(rankedAsc.length * 0.25));
     const rubberIds = new Set(rankedAsc.slice(0, rubberCutoff).map((p) => p.id));
 
+    // Underdog wildcard: the single lowest-scoring live player gets a 2x bonus
+    // on a correct answer this round. Ties broken by id-stable order.
+    const underdogId = isUnderdog && rankedAsc.length > 0 ? rankedAsc[0].id : null;
+
     // Tally roast votes
     let roastWinnerSessionId: string | null = null;
     if (isRoast && roastCandidates) {
