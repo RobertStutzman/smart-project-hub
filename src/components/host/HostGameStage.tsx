@@ -546,11 +546,22 @@ export function HostGameStage({ room }: Props) {
         "Question incoming.",
         "Onward. Next question.",
       ];
-      const text = isGameStart
+      const baseText = isGameStart
         ? "Round 1! First question!"
         : isNewRound
           ? `Round ${displayRound}!`
           : NEXT_Q_LINES[q % NEXT_Q_LINES.length];
+      const WILDCARD_CALLOUT: Record<string, string> = {
+        lightning: "Wildcard incoming — Lightning round! Eight seconds, double points!",
+        double_or_nothing: "Wildcard incoming — Double or Nothing! Right doubles, wrong costs you.",
+        first_blood: "Wildcard incoming — First Blood! Only the fastest correct answer scores.",
+        underdog: "Wildcard incoming — Underdog boost! Last place plays for double.",
+        saboteur: "Wildcard incoming — Saboteur round! Trust no one.",
+        glitch: "Wildcard incoming — Glitch round! Things are about to get weird.",
+        roast: "Wildcard incoming — Roast vote! Pick your victim.",
+      };
+      const wildcardLine = state.wildcard ? WILDCARD_CALLOUT[state.wildcard] : null;
+      const text = wildcardLine ? `${baseText} ${wildcardLine}` : baseText;
       duckMusic(true);
       import("@/lib/elf-voice").then(({ speakAsElf }) => {
         speakAsElf(text, { interrupt: true, preset: "hype" }).finally(() => duckMusic(false));
