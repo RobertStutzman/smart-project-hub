@@ -236,6 +236,30 @@ function pumpScheduler(layer: LoopLayer) {
   layer.timer = window.setTimeout(() => pumpScheduler(layer), SCHEDULE_TICK_MS);
 }
 
+function startContinuousSource(layer: LoopLayer, ctx: AudioContext) {
+  if (!layer.buffer || !layer.gain) return;
+
+  const { start, duration } = getLoopBounds(layer, layer.buffer);
+  const src = ctx.createBufferSource();
+  src.buffer = layer.buffer;
+  src.loop = true;
+  src.loopStart = start;
+  src.loopEnd = start + duration;
+  src.connect(layer.gain);
+  src.onended = () => {
+    if (layer.source === src) layer.source = null;
+  };
+  layer.source = src;
+  layer.sources.add(src);
+
+  try {
+    src.start(ctx.currentTime, start);
+  } catch {
+    layer.source = null;
+    layer.sources.delete(src);
+  }
+}
+
 async function startLoop(layer: LoopLayer): Promise<boolean> {
   if (!isClient() || muted || handedOff) return false;
   const ctx = getCtx();
@@ -282,7 +306,8 @@ async function startLoop(layer: LoopLayer): Promise<boolean> {
   layer.playing = true;
   if (layer.timer != null) window.clearTimeout(layer.timer);
 
-  pumpScheduler(layer);
+  if (layer.continuous) startContinuousSource(layer, ctx);
+  else pumpScheduler(layer);
   rampGain(g, layer.target, FADE_MS, ctx);
   setBlocked(false);
   return true;
@@ -296,6 +321,7 @@ function stopLoop(layer: LoopLayer, fadeMs: number) {
   if (!ctx || !layer.playing || !layer.gain) {
     layer.playing = false;
     layer.gain = null;
+    layer.source = null;
     layer.sources.clear();
     return;
   }
@@ -312,6 +338,7 @@ function stopLoop(layer: LoopLayer, fadeMs: number) {
   }
   layer.playing = false;
   layer.gain = null;
+  layer.source = null;
   layer.sources.clear();
 }
 
