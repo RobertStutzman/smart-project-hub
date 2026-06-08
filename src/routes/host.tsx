@@ -353,7 +353,8 @@ function HostPage() {
     return () => {
       cancelled = true;
       stopMusic();
-      void import("@/lib/ambience-engine").then((m) => m.stopAllAmbience());
+      // Only fade host-specific layers; keep chatter alive for landing/join.
+      void import("@/lib/ambience-engine").then((m) => m.stopLobbyBuildup());
     };
   }, [room?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
