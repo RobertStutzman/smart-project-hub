@@ -84,6 +84,12 @@ const DROP_AT_ELAPSED_S = [9, 15, 20];
 // for this long before triggering endQuestion / reveal.
 const FINAL_HOLD_MS = 2500;
 
+// Stable empty fallbacks — avoid handing children a fresh [] on every tick
+// (the timer ticks 4×/sec, and every prop identity change cascades into
+// child memo invalidations).
+const EMPTY_ANSWERS: string[] = ["", "", "", ""];
+const EMPTY_DROPS: number[] = [];
+
 export function HostGameStage({ room }: Props) {
   const [state, setState] = useState<RoomState | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -906,16 +912,16 @@ export function HostGameStage({ room }: Props) {
     () => players.filter((p) => !p.is_audience && !!p.final_locked_at).length,
     [players],
   );
-  const liveCount = useMemo(
-    () => players.filter((p) => !p.is_audience).length,
+  const livePlayers = useMemo(
+    () => players.filter((p) => !p.is_audience),
     [players],
   );
+  const liveCount = livePlayers.length;
   const topScoreTied = useMemo(() => {
     if (phase !== "final_reveal") return false;
-    const live = players.filter((p) => !p.is_audience);
-    const top = live.reduce((m, p) => Math.max(m, p.score), 0);
-    return live.filter((p) => p.score === top).length > 1;
-  }, [phase, players]);
+    const top = livePlayers.reduce((m, p) => Math.max(m, p.score), 0);
+    return livePlayers.filter((p) => p.score === top).length > 1;
+  }, [phase, livePlayers]);
 
   // Effect A — timer-based phase advances. NO `now` in deps.
   useEffect(() => {
@@ -1096,14 +1102,14 @@ export function HostGameStage({ room }: Props) {
         )}
         <QuestionStage
           questionText={state.current_question_text ?? ""}
-          answers={state.current_answers ?? ["", "", "", ""]}
-          droppedIndexes={state.dropped_indexes ?? []}
+          answers={state.current_answers ?? EMPTY_ANSWERS}
+          droppedIndexes={state.dropped_indexes ?? EMPTY_DROPS}
           correctIndex={state.phase === "reveal" ? state.current_correct_index : null}
           secondsLeft={remainingS}
           totalS={state.question_duration_ms / 1000}
           readSecondsLeft={state.phase === "question" ? readSecondsLeft : 0}
           phase={state.phase as "question" | "reveal"}
-          players={players.filter((p) => !p.is_audience)}
+          players={livePlayers}
           explanation={state.phase === "reveal" ? state.current_explanation : null}
           mediaUrl={(state as { current_media_url?: string | null }).current_media_url ?? null}
           mediaType={(state as { current_media_type?: string | null }).current_media_type ?? null}
@@ -1248,13 +1254,13 @@ export function HostGameStage({ room }: Props) {
         </div>
         <QuestionStage
           questionText={state.current_question_text ?? ""}
-          answers={state.current_answers ?? ["", "", "", ""]}
-          droppedIndexes={[]}
+          answers={state.current_answers ?? EMPTY_ANSWERS}
+          droppedIndexes={EMPTY_DROPS}
           correctIndex={null}
           secondsLeft={remainingS}
           totalS={totalS}
           phase="question"
-          players={players.filter((p) => !p.is_audience)}
+          players={livePlayers}
           mediaUrl={(state as { current_media_url?: string | null }).current_media_url ?? null}
           mediaType={(state as { current_media_type?: string | null }).current_media_type ?? null}
         />
@@ -1350,7 +1356,7 @@ export function HostGameStage({ room }: Props) {
   if (state.phase === "leaderboard") {
     const completedQuestionNumber = state.round_number ?? 0;
     const isFinal = completedQuestionNumber >= FINAL_ROUND_NUMBER;
-    const livePlayers = players.filter((p) => !p.is_audience);
+    // Reuse the memoized livePlayers from the top of the component (stable identity).
     const recapNeeded = recapDoneForRound !== completedQuestionNumber;
     const recapRoundDisplay = getCompletedRoundNumber(completedQuestionNumber);
     if (recapNeeded) {

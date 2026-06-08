@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { play } from "@/lib/sound-engine";
 import { ShatteredFaces } from "./ShatteredFaces";
@@ -34,7 +34,7 @@ const LETTERS = ["A", "B", "C", "D"] as const;
 /** Duration of the falling-tile gravity animation. Drop SFX + debris fire at impact. */
 export const DROP_FALL_MS = 750;
 
-export function QuestionStage({
+export const QuestionStage = memo(function QuestionStage({
   questionText,
   answers,
   droppedIndexes,
@@ -530,7 +530,7 @@ export function QuestionStage({
       />
     </motion.div>
   );
-}
+});
 
 function DropDebris() {
   // Debris burst that fires once when an answer tile drops off the board:

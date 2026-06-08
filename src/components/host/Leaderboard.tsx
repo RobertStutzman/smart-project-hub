@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 type Player = {
@@ -99,7 +100,7 @@ function Podium({ players }: { players: Player[] }) {
   );
 }
 
-export function Leaderboard({ players }: { players: Player[] }) {
+export const Leaderboard = memo(function Leaderboard({ players }: { players: Player[] }) {
   const sorted = [...players].sort((a, b) => b.score - a.score);
   const top3 = sorted.slice(0, 3);
   const rest = sorted.slice(3);
@@ -150,4 +151,4 @@ export function Leaderboard({ players }: { players: Player[] }) {
       )}
     </div>
   );
-}
+});
