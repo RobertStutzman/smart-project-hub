@@ -104,25 +104,43 @@ function JoinPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen max-w-md flex-col px-6 py-10">
+    <main
+      className="relative min-h-screen text-amber-50"
+      style={{
+        background:
+          "radial-gradient(ellipse 90% 60% at 50% 0%, oklch(0.22 0.04 270 / 0.95), oklch(0.06 0.02 270) 70%)",
+      }}
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 60% 40% at 50% 110%, oklch(0.55 0.18 60 / 0.25), transparent 60%)",
+        }}
+      />
+      <div className="relative mx-auto flex min-h-screen max-w-md flex-col px-6 py-10">
         <button
           onClick={() => navigate({ to: "/" })}
-          className="self-start text-sm text-muted-foreground hover:text-foreground"
+          className="self-start text-sm text-amber-200/70 hover:text-amber-100"
         >
           ← Home
         </button>
 
         {step === "form" ? (
-          <div className="my-auto rounded-3xl border border-border bg-card p-6 shadow-sm">
-            <h1 className="font-display text-4xl font-bold tracking-tight text-foreground">Join the game</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
+          <div className="my-auto rounded-3xl border border-amber-300/20 bg-white/5 p-6 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] backdrop-blur">
+            <h1 className="font-display text-4xl font-bold tracking-tight">
+              <span className="bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text text-transparent">
+                Join the game
+              </span>
+            </h1>
+            <p className="mt-2 text-sm text-amber-100/70">
               Enter the 4-letter code shown on the TV.
             </p>
 
             <form onSubmit={handleJoin} className="mt-8 flex flex-col gap-5">
               <div>
-                <label className="mb-2 block text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                <label className="mb-2 block text-xs uppercase tracking-[0.2em] text-amber-200/70">
                   Room code
                 </label>
                 <input
@@ -137,11 +155,11 @@ function JoinPage() {
                   autoCorrect="off"
                   spellCheck={false}
                   placeholder="ABCD"
-                  className="w-full rounded-2xl border border-border bg-card px-5 py-5 text-center font-mono text-4xl font-black tracking-[0.4em] outline-none focus:border-foreground"
+                  className="w-full rounded-2xl border border-amber-300/30 bg-black/30 px-5 py-5 text-center font-mono text-4xl font-black tracking-[0.4em] text-amber-100 placeholder:text-amber-200/30 outline-none focus:border-amber-300"
                 />
               </div>
               <div>
-                <label className="mb-2 block text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                <label className="mb-2 block text-xs uppercase tracking-[0.2em] text-amber-200/70">
                   Nickname
                 </label>
                 <input
@@ -154,55 +172,59 @@ function JoinPage() {
                   autoCorrect="off"
                   spellCheck={false}
                   placeholder="Your name"
-                  className="w-full rounded-2xl border border-border bg-card px-5 py-4 text-lg outline-none focus:border-foreground"
+                  className="w-full rounded-2xl border border-amber-300/30 bg-black/30 px-5 py-4 text-lg text-amber-50 placeholder:text-amber-200/30 outline-none focus:border-amber-300"
                 />
               </div>
 
               <div
                 className={`flex items-center justify-between rounded-xl border px-4 py-3 text-xs font-mono transition ${
                   flash && !canSubmit
-                    ? "animate-pulse border-destructive bg-destructive/10"
-                    : "border-border bg-card/40"
+                    ? "animate-pulse border-rose-400/60 bg-rose-500/10"
+                    : "border-amber-300/20 bg-white/5"
                 }`}
               >
-                <span className={codeOk ? "text-emerald-500" : "text-muted-foreground"}>
+                <span className={codeOk ? "text-emerald-300" : "text-amber-200/60"}>
                   Code: {code.length}/4 {codeOk ? "✓" : ""}
                 </span>
-                <span className={nickOk ? "text-emerald-500" : "text-muted-foreground"}>
+                <span className={nickOk ? "text-emerald-300" : "text-amber-200/60"}>
                   Nickname: {trimmedNickname.length}/20 {nickOk ? "✓" : ""}
                 </span>
               </div>
 
               {error && (
-                <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">
+                <div className="rounded-xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
                   {error}
                 </div>
               )}
               <button
                 type="submit"
                 disabled={submitting}
-                className={`rounded-full px-6 py-4 text-base font-semibold transition ${
+                className={`rounded-full px-6 py-4 text-base font-bold uppercase tracking-wider transition ${
                   canSubmit
-                    ? "bg-foreground text-background"
-                    : "bg-foreground/40 text-background"
+                    ? "bg-gradient-to-b from-amber-300 to-amber-500 text-amber-950 shadow-[0_0_40px_oklch(0.85_0.18_85/0.35)] hover:brightness-110"
+                    : "bg-white/10 text-amber-100/40"
                 }`}
               >
                 {submitting ? "Joining…" : canSubmit ? "Next" : "Fill both fields"}
               </button>
 
             </form>
-            <div className="mt-6 text-center text-xs text-muted-foreground">
+            <div className="mt-6 text-center text-xs text-amber-100/60">
               All player slots full? <button
                 type="button"
                 onClick={() => navigate({ to: "/audience", search: { code: code || undefined } })}
-                className="font-semibold underline underline-offset-2 hover:text-foreground"
+                className="font-semibold text-amber-200 underline underline-offset-2 hover:text-amber-100"
               >Watch as audience</button>
             </div>
           </div>
         ) : (
           <div className="my-auto">
-            <h1 className="text-3xl font-black tracking-tight">Take a selfie</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <h1 className="font-display text-3xl font-black tracking-tight">
+              <span className="bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text text-transparent">
+                Take a selfie
+              </span>
+            </h1>
+            <p className="mt-2 text-sm text-amber-100/70">
               Your face shows on the TV next to your score.
             </p>
             <div className="mt-8">
