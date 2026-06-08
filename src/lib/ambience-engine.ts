@@ -248,6 +248,7 @@ function startContinuousSource(layer: LoopLayer, ctx: AudioContext) {
   src.connect(layer.gain);
   src.onended = () => {
     if (layer.source === src) layer.source = null;
+    layer.sources.delete(src);
   };
   layer.source = src;
   layer.sources.add(src);
