@@ -22,7 +22,9 @@ type Moment =
   | "wooden_spoon"      // lowest scorer of the round
   | "goose_egg"         // player(s) who scored zero
   | "idle_interject"    // dead-air filler between questions
-  | "round_transition"; // between-round stinger
+  | "round_transition"  // between-round stinger
+  | "last_to_lock"      // last live player to lock answer
+  | "random_jab";       // generic name-roast for a quiet player
 
 export const LINES: Record<Moment, string[]> = {
   intro_hype: [
@@ -651,6 +653,26 @@ export const LINES: Record<Moment, string[]> = {
     "Stat line: a perfect circle.",
     "Negative knowledge that round.",
     "Did nothing. Looked great doing it.",
+  ],
+  last_to_lock: [
+    "Cutting it close, that one.",
+    "Last in. Living dangerously.",
+    "Buzzer-beater. Barely.",
+    "Squeaked it under the wire.",
+    "Last call locked. Heart rate noted.",
+    "Made it. By a whisker.",
+    "Final answer, final second.",
+    "Right on the buzzer. Audacious.",
+  ],
+  random_jab: [
+    "We see you back there.",
+    "Don't forget you exist.",
+    "Plotting something. Probably.",
+    "Quiet. Suspicious.",
+    "Lurking. Calculating. Mid.",
+    "Vibing. Not winning. Vibing.",
+    "Energy: present. Score: pending.",
+    "Showing up counts. Slightly.",
   ],
 };
 
