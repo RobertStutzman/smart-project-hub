@@ -1605,30 +1605,95 @@ Return ONLY a JSON array (no prose, no markdown code fences) of objects matching
 If you can't fit all questions in one reply, output as many complete objects as you can and stop cleanly with \`]\` — do NOT continue across messages.`;
 }
 
-function stripCodeFences(s: string): string {
-  let t = s.trim();
-  // Remove ```json ... ``` or ``` ... ``` wrappers
-  t = t.replace(/^```(?:json|JSON)?\s*/i, "").replace(/```\s*$/i, "").trim();
-  return t;
+function normalizeQuotes(s: string): string {
+  return s
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"');
+}
+
+function stripTrailingCommas(s: string): string {
+  // remove ", }" and ", ]" — safe in JSON-ish payloads, doesn't touch strings perfectly
+  // but in practice Gemini only emits trailing commas in structure, not strings.
+  return s.replace(/,(\s*[}\]])/g, "$1");
+}
+
+/**
+ * Pull every top-level JSON object out of a string by depth-tracking braces.
+ * Ignores braces inside strings. Returns parsed objects, skipping ones that
+ * fail to parse.
+ */
+function extractJsonObjects(text: string): unknown[] {
+  const out: unknown[] = [];
+  let depth = 0;
+  let start = -1;
+  let inStr = false;
+  let escape = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inStr) {
+      if (escape) { escape = false; continue; }
+      if (c === "\\") { escape = true; continue; }
+      if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') { inStr = true; continue; }
+    if (c === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (c === "}") {
+      depth--;
+      if (depth === 0 && start >= 0) {
+        const chunk = text.slice(start, i + 1);
+        try {
+          out.push(JSON.parse(chunk));
+        } catch {
+          try {
+            out.push(JSON.parse(stripTrailingCommas(chunk)));
+          } catch {
+            // skip — unparseable object, will be reported as overall miss
+          }
+        }
+        start = -1;
+      } else if (depth < 0) {
+        // resync
+        depth = 0;
+        start = -1;
+      }
+    }
+  }
+  return out;
 }
 
 function parseGeminiJson(text: string, fallbackCategory: string): ParsedRow[] {
-  const cleaned = stripCodeFences(text);
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch {
-    // Try to find first [ ... ] block
-    const match = cleaned.match(/\[[\s\S]*\]/);
-    if (!match) throw new Error("Couldn't parse JSON. Make sure you pasted a JSON array.");
-    parsed = JSON.parse(match[0]);
+  let cleaned = normalizeQuotes(text).trim();
+  // Strip ```json fences anywhere (not just at start/end)
+  cleaned = cleaned.replace(/```(?:json|JSON)?/g, "").replace(/```/g, "").trim();
+
+  let arr: any[] = [];
+
+  // Fast path: clean JSON array or object with { questions: [...] }
+  const tryWhole = () => {
+    try {
+      const v = JSON.parse(stripTrailingCommas(cleaned));
+      if (Array.isArray(v)) return v;
+      if (Array.isArray((v as any)?.questions)) return (v as any).questions;
+    } catch {
+      // fall through
+    }
+    return null;
+  };
+  const whole = tryWhole();
+  if (whole) arr = whole;
+  else {
+    // Fallback: extract every top-level {...} object. Handles:
+    //   - multiple concatenated arrays [..][..]
+    //   - NDJSON (one object per line)
+    //   - prose mixed with objects
+    //   - truncated arrays where the trailing ] is missing
+    arr = extractJsonObjects(cleaned) as any[];
   }
-  const arr: any[] = Array.isArray(parsed)
-    ? parsed
-    : Array.isArray((parsed as any)?.questions)
-      ? (parsed as any).questions
-      : [];
-  if (!arr.length) throw new Error("No questions found in the pasted JSON.");
+
+  if (!arr.length) throw new Error("No questions found in the pasted text.");
 
   return arr.map((raw): ParsedRow => {
     const errs: string[] = [];
@@ -1678,6 +1743,12 @@ function parseGeminiJson(text: string, fallbackCategory: string): ParsedRow[] {
   });
 }
 
+function dedupeKey(s: string): string {
+  return s.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+const IMPORT_CHUNK = 200;
+
 function GeminiImporter({
   bulkInsert,
   onInserted,
@@ -1691,7 +1762,7 @@ function GeminiImporter({
   const [count, setCount] = useState(5);
   const [difficulty, setDifficulty] = useState<Diff | "mixed">("mixed");
   const [pasted, setPasted] = useState("");
-  const [parsed, setParsed] = useState<ParsedRow[] | null>(null);
+  const [staged, setStaged] = useState<ParsedRow[]>([]);
   const [skip, setSkip] = useState<Set<number>>(new Set());
   const [bakeTts, setBakeTts] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -1705,22 +1776,68 @@ function GeminiImporter({
     );
   }
 
-  function doValidate() {
+  function appendRows(rows: ParsedRow[]) {
+    if (!rows.length) {
+      toast.error("Nothing parsed from that paste.");
+      return;
+    }
+    const existingKeys = new Set(
+      staged.filter((r) => r.ok && r.row).map((r) => dedupeKey(r.row!.question_text)),
+    );
+    let dupes = 0;
+    const fresh: ParsedRow[] = [];
+    for (const r of rows) {
+      if (r.ok && r.row) {
+        const k = dedupeKey(r.row.question_text);
+        if (existingKeys.has(k)) { dupes++; continue; }
+        existingKeys.add(k);
+      }
+      fresh.push(r);
+    }
+    if (!fresh.length) {
+      toast.info(`All ${dupes} questions were duplicates of staged ones.`);
+      return;
+    }
+    setStaged((prev) => [...prev, ...fresh]);
+    const valid = fresh.filter((r) => r.ok).length;
+    const bad = fresh.length - valid;
+    toast.success(
+      `Added ${valid} valid${bad ? ` · ${bad} with issues` : ""}${dupes ? ` · skipped ${dupes} duplicates` : ""}`,
+    );
+  }
+
+  function addBatch() {
     try {
       const rows = parseGeminiJson(pasted, category);
-      setParsed(rows);
-      setSkip(new Set());
-      const valid = rows.filter((r) => r.ok).length;
-      toast.success(`Parsed ${rows.length} — ${valid} valid, ${rows.length - valid} with issues`);
+      appendRows(rows);
+      setPasted("");
     } catch (e) {
-      setParsed(null);
       toast.error((e as Error).message);
     }
   }
 
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const rows = parseGeminiJson(text, category);
+      appendRows(rows);
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  }
+
+  function clearStaged() {
+    if (!staged.length) return;
+    if (!window.confirm(`Clear ${staged.length} staged question${staged.length === 1 ? "" : "s"}?`)) return;
+    setStaged([]);
+    setSkip(new Set());
+  }
+
   async function doImport() {
-    if (!parsed) return;
-    const toInsert = parsed
+    const toInsert = staged
       .map((r, i) => ({ r, i }))
       .filter(({ r, i }) => r.ok && !skip.has(i))
       .map(({ r }) => r.row!);
@@ -1729,36 +1846,55 @@ function GeminiImporter({
       return;
     }
     setBusy(true);
+    let imported = 0;
+    const failures: string[] = [];
     try {
-      const res = await bulkInsert({ data: { rows: toInsert } });
-      toast.success(`Imported ${res.inserted} questions`);
+      const total = toInsert.length;
+      for (let i = 0; i < toInsert.length; i += IMPORT_CHUNK) {
+        const chunk = toInsert.slice(i, i + IMPORT_CHUNK);
+        try {
+          const res = await bulkInsert({ data: { rows: chunk } });
+          imported += res.inserted ?? chunk.length;
+          toast.info(`Imported ${Math.min(i + chunk.length, total)} / ${total}…`);
+        } catch (e) {
+          failures.push(`Chunk ${i / IMPORT_CHUNK + 1}: ${(e as Error).message}`);
+        }
+      }
+      if (imported) {
+        toast.success(
+          `Imported ${imported} question${imported === 1 ? "" : "s"}${failures.length ? ` · ${failures.length} chunk(s) failed` : ""}`,
+        );
+      }
+      if (failures.length) {
+        toast.error(failures.slice(0, 3).join(" | "));
+      }
       await onInserted();
-      if (bakeTts) {
+      if (bakeTts && imported > 0) {
         toast.info("Generating voice narration… this may take a minute.");
         try {
-          const b = await bakeFn({ data: { limit: Math.max(toInsert.length, 50) } });
+          const b = await bakeFn({ data: { limit: Math.max(imported, 50) } });
           toast.success(`Prompt voice baked: ${b.baked} new, ${b.skipped} already done${b.errors.length ? `, ${b.errors.length} failed` : ""}`);
         } catch (e) {
           toast.error(`Prompt TTS bake failed: ${(e as Error).message}`);
         }
         try {
-          const e2 = await bakeExplanationFn({ data: { limit: Math.max(toInsert.length, 50) } });
+          const e2 = await bakeExplanationFn({ data: { limit: Math.max(imported, 50) } });
           toast.success(`Did You Know baked: ${e2.baked} new, ${e2.skipped} already done${e2.errors.length ? `, ${e2.errors.length} failed` : ""}`);
         } catch (e) {
           toast.error(`Did You Know bake failed: ${(e as Error).message}`);
         }
       }
-      setPasted("");
-      setParsed(null);
-      setSkip(new Set());
-    } catch (e) {
-      toast.error(`Import failed: ${(e as Error).message}`);
+      if (imported) {
+        setStaged([]);
+        setSkip(new Set());
+      }
     } finally {
       setBusy(false);
     }
   }
 
-  const validCount = parsed?.filter((r, i) => r.ok && !skip.has(i)).length ?? 0;
+  const validCount = staged.filter((r, i) => r.ok && !skip.has(i)).length;
+  const issueCount = staged.filter((r) => !r.ok).length;
 
   return (
     <section className="rounded-3xl border border-border bg-card/40 p-6 backdrop-blur">
@@ -1766,7 +1902,7 @@ function GeminiImporter({
         <div>
           <h2 className="text-xl font-bold">Import from Gemini (free)</h2>
           <p className="text-sm text-muted-foreground">
-            Generate questions for free in Gemini, then paste the JSON here. No credits used.
+            Generate batches in Gemini and paste each one in. Add as many as you want, then import the whole stack at once.
           </p>
         </div>
       </div>
@@ -1788,19 +1924,22 @@ function GeminiImporter({
         </label>
         <label className="text-sm">
           <div className="mb-1 text-muted-foreground">
-            {difficulty === "mixed" ? `Per difficulty (× 4 = ${count * 4} total, max 20)` : "Count (max 20)"}
+            {difficulty === "mixed" ? `Per difficulty (× 4 = ${count * 4} total)` : "Count per batch"}
           </div>
           <input
             type="number"
             min={1}
-            max={difficulty === "mixed" ? 5 : 20}
+            max={difficulty === "mixed" ? 6 : 25}
             value={count}
             onChange={(e) => {
-              const cap = difficulty === "mixed" ? 5 : 20;
+              const cap = difficulty === "mixed" ? 6 : 25;
               setCount(Math.max(1, Math.min(cap, Number(e.target.value) || 1)));
             }}
             className="w-full rounded-lg border border-border bg-background/60 px-3 py-2"
           />
+          <div className="mt-1 text-xs text-muted-foreground">
+            Gemini truncates above ~25 per reply. Generate in batches and add each one.
+          </div>
         </label>
         <label className="text-sm">
           <div className="mb-1 text-muted-foreground">Difficulty</div>
@@ -1809,7 +1948,7 @@ function GeminiImporter({
             onChange={(e) => {
               const next = e.target.value as Diff | "mixed";
               setDifficulty(next);
-              const cap = next === "mixed" ? 5 : 20;
+              const cap = next === "mixed" ? 6 : 25;
               setCount((c) => Math.min(c, cap));
             }}
             className="w-full rounded-lg border border-border bg-background/60 px-3 py-2"
@@ -1841,7 +1980,7 @@ function GeminiImporter({
 
       <div className="mt-4">
         <div className="mb-1 text-sm text-muted-foreground">
-          Paste Gemini&rsquo;s JSON response here
+          Paste Gemini&rsquo;s JSON response here (one batch at a time, or paste many at once)
         </div>
         <textarea
           value={pasted}
@@ -1854,30 +1993,57 @@ function GeminiImporter({
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button
-          onClick={doValidate}
+          onClick={addBatch}
           disabled={!pasted.trim() || busy}
           className="rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-card/60 disabled:opacity-50"
         >
-          Validate
+          Add batch to staging
         </button>
-        <button
-          onClick={doImport}
-          disabled={!validCount || busy}
-          className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-        >
-          {busy ? "Importing…" : `Import ${validCount} question${validCount === 1 ? "" : "s"}`}
-        </button>
-        <label className="flex items-center gap-2 text-sm">
+        <label className="cursor-pointer rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-card/60">
+          Upload .json / .txt
           <input
-            type="checkbox"
-            checked={bakeTts}
-            onChange={(e) => setBakeTts(e.target.checked)}
+            type="file"
+            accept=".json,.txt,application/json,text/plain"
+            onChange={onFile}
+            className="hidden"
           />
-          Generate Elf voice (prompt + Did You Know) after import
         </label>
+        <button
+          onClick={clearStaged}
+          disabled={!staged.length || busy}
+          className="rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-card/60 disabled:opacity-50"
+        >
+          Clear staged
+        </button>
+        <div className="text-sm text-muted-foreground">
+          Staged: <span className="font-semibold text-foreground">{staged.length}</span>
+          {staged.length > 0 && (
+            <>
+              {" "}
+              ({validCount} valid{issueCount ? ` · ${issueCount} with issues` : ""})
+            </>
+          )}
+        </div>
+        <div className="ml-auto flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={bakeTts}
+              onChange={(e) => setBakeTts(e.target.checked)}
+            />
+            Bake Elf voice after import
+          </label>
+          <button
+            onClick={doImport}
+            disabled={!validCount || busy}
+            className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+          >
+            {busy ? "Importing…" : `Import ${validCount} question${validCount === 1 ? "" : "s"}`}
+          </button>
+        </div>
       </div>
 
-      {parsed && (
+      {staged.length > 0 && (
         <div className="mt-4 max-h-80 overflow-auto rounded-lg border border-border bg-background/30">
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-background/80">
@@ -1891,7 +2057,7 @@ function GeminiImporter({
               </tr>
             </thead>
             <tbody>
-              {parsed.map((r, i) => (
+              {staged.map((r, i) => (
                 <tr
                   key={i}
                   className={`border-t border-border/40 ${r.ok ? "" : "bg-destructive/10"}`}
@@ -1929,3 +2095,4 @@ function GeminiImporter({
     </section>
   );
 }
+
