@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef } from "react";
-import { play, playEvent } from "@/lib/sound-engine";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { play, playEvent, playWagerBed, stopWagerBed } from "@/lib/sound-engine";
+
 import { useCountUp, useStaggeredReveal, useRevealStages } from "@/hooks/useFinalRoundFx";
 
 type Player = {
@@ -21,6 +22,22 @@ export function FinalWagerStage({ players }: { players: Player[] }) {
   const total = live.length;
   const top3 = [...live].sort((a, b) => b.score - a.score).slice(0, 3);
 
+  // Spectacular FINAL ROUND slam on mount + wager bed loop while wagering.
+  const [slamPhase, setSlamPhase] = useState<"hidden" | "slam" | "linger" | "done">("hidden");
+  useEffect(() => {
+    playEvent("final");
+    setSlamPhase("slam");
+    const t1 = window.setTimeout(() => setSlamPhase("linger"), 900);
+    const t2 = window.setTimeout(() => setSlamPhase("done"), 2200);
+    const t3 = window.setTimeout(() => playWagerBed(0.32), 2400);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+      stopWagerBed(500);
+    };
+  }, []);
+
   // Heartbeat tempo: faster as more locks come in.
   const progress = total > 0 ? locked / total : 0;
   const hbSec = 1.05 - progress * 0.45; // 1.05s → 0.6s
@@ -29,8 +46,28 @@ export function FinalWagerStage({ players }: { players: Player[] }) {
   const allIn = top3.filter((p) => p.final_wager > 0 && p.final_wager === p.score);
 
   return (
-    <div className="relative grid h-full grid-cols-2 gap-8 overflow-hidden bg-gradient-to-br from-black via-[oklch(0.12_0.05_280)] to-black p-10 text-white">
+    <div className={`relative grid h-full grid-cols-2 gap-8 overflow-hidden bg-gradient-to-br from-black via-[oklch(0.12_0.05_280)] to-black p-10 text-white ${slamPhase === "slam" ? "final-slam-shake" : ""}`}>
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,oklch(0.85_0.18_85/0.18),transparent_60%)]" />
+
+      {/* FINAL ROUND slam overlay */}
+      {slamPhase !== "done" && (
+        <div className={`pointer-events-none absolute inset-0 z-40 grid place-items-center ${slamPhase === "linger" ? "final-slam-fadeout" : ""}`}>
+          <div className={`absolute inset-0 ${slamPhase === "slam" ? "final-slam-flash" : ""} bg-amber-200/30`} />
+          <div className="relative text-center">
+            <div className="font-display text-[clamp(5rem,18vw,14rem)] font-black uppercase leading-none tracking-tight text-transparent final-slam-title"
+              style={{
+                backgroundImage: "linear-gradient(180deg, oklch(0.98 0.12 90), oklch(0.7 0.25 40))",
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                filter: "drop-shadow(0 12px 60px oklch(0.85 0.25 60 / 0.85))",
+              }}>
+              Final<br/>Round
+            </div>
+          </div>
+        </div>
+      )}
+
+
       {/* Heartbeat ring */}
       <div
         className="pointer-events-none absolute inset-4 rounded-3xl final-heartbeat ring-2 ring-amber-300/40"
