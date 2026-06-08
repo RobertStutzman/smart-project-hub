@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { play } from "@/lib/sound-engine";
 import { ShatteredFaces } from "./ShatteredFaces";
@@ -125,7 +125,10 @@ export function QuestionStage({
   }, [secondsLeft, phase]);
 
 
-  const { lockedByIndex, lockedCount } = useMemo(() => {
+  const { lockedByIndex, lockedCount } = useMemo<{
+    lockedByIndex: Record<number, Player[]>;
+    lockedCount: number;
+  }>(() => {
     const idx: Record<number, Player[]> = { 0: [], 1: [], 2: [], 3: [] };
     let count = 0;
     for (const p of players) {
@@ -136,6 +139,7 @@ export function QuestionStage({
     }
     return { lockedByIndex: idx, lockedCount: count };
   }, [players]);
+
 
 
   // Two-beat reveal: 'tiles' (~2.2s) -> 'fullscreen' (correct answer + did you know).
