@@ -93,6 +93,15 @@ function LandingPage() {
         <div className="mt-10 flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
           <Link
             to="/host"
+            onClick={() => {
+              // Pre-arm crowd + drumroll under this user gesture so they
+              // survive the route transition into /host (autoplay-friendly).
+              void import("@/lib/ambience-engine").then((m) => {
+                m.resetAmbience();
+                m.startCrowd();
+                window.setTimeout(() => m.startDrumroll(), 1200);
+              });
+            }}
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-8 py-4 font-display text-base font-bold uppercase tracking-wider text-amber-950 shadow-[0_0_50px_oklch(0.85_0.18_85/0.45)] transition hover:scale-[1.03] active:scale-[0.98]"
           >
             Host on this screen →
