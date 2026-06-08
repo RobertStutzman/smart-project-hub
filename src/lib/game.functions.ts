@@ -60,8 +60,9 @@ async function getRoomByHost(roomCode: string, hostSessionId: string) {
   return data;
 }
 
-// Wildcards now fire every 3 rounds (rounds 3, 6, 9, 12, 15, 18) rotating
-// through 7 types. Round 21 (final) is skipped — final round is its own beat.
+// Wildcards fire on the last question of each 5-question "round" — i.e.
+// questions 5, 10, 15, 20 — rotating through the 7 types. Q21 (final) is
+// always skipped; the final drop is its own beat.
 type Wildcard =
   | "saboteur"
   | "glitch"
@@ -71,18 +72,18 @@ type Wildcard =
   | "first_blood"
   | "underdog";
 const WILDCARD_ROTATION: Wildcard[] = [
-  "lightning",         // round 3  — flashy & familiar; easy intro
-  "double_or_nothing", // round 6  — first real risk moment
-  "saboteur",          // round 9
-  "first_blood",       // round 12 — speed pressure mid-game
-  "glitch",            // round 15
-  "underdog",          // round 18 — catch-up before final stretch
+  "lightning",         // Q5  — flashy & familiar; easy intro
+  "double_or_nothing", // Q10 — first real risk moment
+  "first_blood",       // Q15 — speed pressure heading into the stretch
+  "underdog",          // Q20 — catch-up beat right before the final
+  "saboteur",          // bonus slot if game extended
+  "glitch",            // bonus slot if game extended
   "roast",             // bonus slot if game extended
 ];
 function wildcardForRound(round: number): Wildcard | null {
   if (round <= 0 || round >= 21) return null; // skip final
-  if (round % 3 !== 0) return null;
-  const slot = (round / 3) - 1; // 1→0, 2→1, ...
+  if (round % 5 !== 0) return null;
+  const slot = (round / 5) - 1; // 5→0, 10→1, 15→2, 20→3
   return WILDCARD_ROTATION[slot % WILDCARD_ROTATION.length];
 }
 
