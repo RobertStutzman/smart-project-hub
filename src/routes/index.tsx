@@ -84,8 +84,8 @@ function LandingPage() {
           <Link
             to="/host"
             onClick={() => {
-              // Pre-arm chatter under this user gesture so it survives the route
-              // transition into /host. Crowd + drum start inside /host's lobby.
+              // Pre-arm seamless ambience under this user gesture; /host swaps
+              // to the louder crowd bed without carrying duplicate loops over.
               void import("@/lib/ambience-engine").then((m) => {
                 m.resetAmbience();
                 m.startLobbyChatter();
