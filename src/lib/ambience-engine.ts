@@ -128,14 +128,13 @@ function makeLoopLayer(
 }
 
 const chatter: LoopLayer = makeLoopLayer(chatterAsset.url, CHATTER_TARGET, {
-  crossfadeSec: 1.6,
+  crossfadeSec: 3,
 });
 const crowd: LoopLayer = makeLoopLayer(crowdAsset.url, CROWD_TARGET, {
-  // The generated crowd file has a quiet tail; loop the energetic section and
-  // overlap it so the bed never audibly drops out at the wrap point.
-  loopStart: 0.2,
-  loopEnd: 14.8,
-  crossfadeSec: 2.5,
+  // Crossfade the full file against itself with an equal-power curve. Using
+  // the whole buffer (no trimmed loop window) means the overlap is the same
+  // ambience texture against itself — no audible energy seam.
+  crossfadeSec: 4,
 });
 const drumroll: LoopLayer = makeLoopLayer(drumAsset.url, DRUM_TARGET, {
   // The drumroll source contains several seconds of trailing silence. Treat it
@@ -158,13 +157,24 @@ function getLoopBounds(layer: LoopLayer, buffer: AudioBuffer) {
   const start = Math.max(0, Math.min(layer.loopStart, buffer.duration - 0.5));
   const end = Math.max(start + 0.5, Math.min(layer.loopEnd ?? buffer.duration, buffer.duration));
   const duration = end - start;
-  const crossfade = Math.min(layer.crossfadeSec, duration / 3);
+  const crossfade = Math.min(layer.crossfadeSec, duration / 2.2);
   return {
     start,
     duration,
     crossfade,
     step: Math.max(0.25, duration - crossfade),
   };
+}
+
+// Equal-power (cos/sin) crossfade curves. Linear ramps on uncorrelated
+// ambience sum to a ~-3 to -6 dB dip in the middle, which is heard as a gap.
+const CURVE_LEN = 256;
+const FADE_IN_CURVE = new Float32Array(CURVE_LEN);
+const FADE_OUT_CURVE = new Float32Array(CURVE_LEN);
+for (let i = 0; i < CURVE_LEN; i++) {
+  const t = i / (CURVE_LEN - 1);
+  FADE_IN_CURVE[i] = Math.sin((t * Math.PI) / 2);
+  FADE_OUT_CURVE[i] = Math.cos((t * Math.PI) / 2);
 }
 
 function scheduleSource(layer: LoopLayer, when: number) {
@@ -176,14 +186,22 @@ function scheduleSource(layer: LoopLayer, when: number) {
   const srcGain = ctx.createGain();
   src.buffer = layer.buffer;
 
-  const fadeInEnd = when + crossfade;
-  const fadeOutStart = Math.max(fadeInEnd, when + duration - crossfade);
+  const fadeOutStart = when + duration - crossfade;
   const stopAt = when + duration;
 
   srcGain.gain.setValueAtTime(0, when);
-  srcGain.gain.linearRampToValueAtTime(1, fadeInEnd);
+  // Fade in over the first `crossfade` seconds (equal-power).
+  try {
+    srcGain.gain.setValueCurveAtTime(FADE_IN_CURVE, when, crossfade);
+  } catch {
+    srcGain.gain.linearRampToValueAtTime(1, when + crossfade);
+  }
   srcGain.gain.setValueAtTime(1, fadeOutStart);
-  srcGain.gain.linearRampToValueAtTime(0, stopAt);
+  try {
+    srcGain.gain.setValueCurveAtTime(FADE_OUT_CURVE, fadeOutStart, crossfade);
+  } catch {
+    srcGain.gain.linearRampToValueAtTime(0, stopAt);
+  }
 
   src.connect(srcGain).connect(layer.gain);
   src.onended = () => layer.sources.delete(src);
@@ -196,6 +214,7 @@ function scheduleSource(layer: LoopLayer, when: number) {
     layer.sources.delete(src);
   }
 }
+
 
 function pumpScheduler(layer: LoopLayer) {
   const ctx = getCtx();
