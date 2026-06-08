@@ -34,7 +34,9 @@ function getCtx(): AudioContext | null {
     const Ctor =
       (window.AudioContext as typeof AudioContext | undefined) ??
       ((window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext as typeof AudioContext | undefined);
+        .webkitAudioContext as
+        | typeof AudioContext
+        | undefined);
     if (!Ctor) return null;
     actx = new Ctor();
   }
@@ -52,7 +54,11 @@ function setBlocked(v: boolean) {
   if (v) console.warn("[ambience] autoplay blocked — waiting for user gesture");
   else console.info("[ambience] playback resumed");
   for (const cb of blockListeners) {
-    try { cb(v); } catch {}
+    try {
+      cb(v);
+    } catch {
+      /* ignore listener failures */
+    }
   }
 }
 
@@ -122,17 +128,17 @@ function makeLoopLayer(
   };
 }
 
-let chatter: LoopLayer = makeLoopLayer(chatterAsset.url, CHATTER_TARGET, {
+const chatter: LoopLayer = makeLoopLayer(chatterAsset.url, CHATTER_TARGET, {
   crossfadeSec: 1.6,
 });
-let crowd: LoopLayer = makeLoopLayer(crowdAsset.url, CROWD_TARGET, {
+const crowd: LoopLayer = makeLoopLayer(crowdAsset.url, CROWD_TARGET, {
   // The generated crowd file has a quiet tail; loop the energetic section and
   // overlap it so the bed never audibly drops out at the wrap point.
   loopStart: 0.2,
   loopEnd: 14.8,
   crossfadeSec: 2.5,
 });
-let drumroll: LoopLayer = makeLoopLayer(drumAsset.url, DRUM_TARGET, {
+const drumroll: LoopLayer = makeLoopLayer(drumAsset.url, DRUM_TARGET, {
   // The drumroll source contains several seconds of trailing silence. Treat it
   // as a trimmed, crossfaded Web Audio loop instead of an HTML audio loop.
   loopStart: 0.45,
@@ -277,7 +283,11 @@ function stopLoop(layer: LoopLayer, fadeMs: number) {
   const stopAt = ctx.currentTime + fadeMs / 1000 + 0.05;
   rampGain(g, 0, fadeMs, ctx);
   for (const src of layer.sources) {
-    try { src.stop(stopAt); } catch {}
+    try {
+      src.stop(stopAt);
+    } catch {
+      /* already stopped */
+    }
   }
   layer.playing = false;
   layer.gain = null;
