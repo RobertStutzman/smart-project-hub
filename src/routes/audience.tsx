@@ -46,6 +46,19 @@ function AudiencePage() {
   const [joined, setJoined] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const sfxChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  // Persistent reactions channel for this room — avoids per-click subscribe/remove races.
+  useEffect(() => {
+    if (!joined || code.length !== 4) return;
+    const ch = supabase.channel(`sfx-${code}`);
+    void ch.subscribe();
+    sfxChannelRef.current = ch;
+    return () => {
+      sfxChannelRef.current = null;
+      void supabase.removeChannel(ch);
+    };
+  }, [joined, code]);
 
   // Persist tally
   const [audienceCount, setAudienceCount] = useState<number>(0);
