@@ -30,6 +30,7 @@ export type Database = {
           final_answer: number | null
           final_locked_at: string | null
           final_wager: number
+          funny_sound_id: string | null
           id: string
           is_audience: boolean
           last_answer_correct: boolean | null
@@ -60,6 +61,7 @@ export type Database = {
           final_answer?: number | null
           final_locked_at?: string | null
           final_wager?: number
+          funny_sound_id?: string | null
           id?: string
           is_audience?: boolean
           last_answer_correct?: boolean | null
@@ -90,6 +92,7 @@ export type Database = {
           final_answer?: number | null
           final_locked_at?: string | null
           final_wager?: number
+          funny_sound_id?: string | null
           id?: string
           is_audience?: boolean
           last_answer_correct?: boolean | null
