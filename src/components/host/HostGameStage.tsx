@@ -746,14 +746,38 @@ export function HostGameStage({ room }: Props) {
 
 
   // ─── Final round orchestrator ─────────────────────────────────────────
+  // Split into two effects: timer-driven phases (no `now` dep, so setTimeouts
+  // aren't cancelled 4x/sec by the heartbeat) and poll-driven phases (need
+  // `now` to detect when the question/sudden-death timer expires).
   const finalAdvancedRef = useRef<string>("");
+
+  // Stable signatures so the timer effect doesn't re-run on every `players`
+  // identity change. Locked-count flips wager → final_question fast.
+  const phase = state?.phase;
+  const stateId = state?.id;
+  const suddenDeathKey = state?.sudden_death_session_ids?.join(",") ?? "";
+  const finalLockedCount = useMemo(
+    () => players.filter((p) => !p.is_audience && !!p.final_locked_at).length,
+    [players],
+  );
+  const liveCount = useMemo(
+    () => players.filter((p) => !p.is_audience).length,
+    [players],
+  );
+  const topScoreTied = useMemo(() => {
+    if (phase !== "final_reveal") return false;
+    const live = players.filter((p) => !p.is_audience);
+    const top = live.reduce((m, p) => Math.max(m, p.score), 0);
+    return live.filter((p) => p.score === top).length > 1;
+  }, [phase, players]);
+
+  // Effect A — timer-based phase advances. NO `now` in deps.
   useEffect(() => {
     if (!state) return;
-    const phase = state.phase;
 
     // Intro splash → flip to wager after the dramatic beat plays
     if (phase === "final_intro") {
-      const key = `intro-${state.id}`;
+      const key = `intro-${stateId}`;
       if (finalAdvancedRef.current === key) return;
       const id = window.setTimeout(() => {
         finalAdvancedRef.current = key;
@@ -764,11 +788,10 @@ export function HostGameStage({ room }: Props) {
       return () => window.clearTimeout(id);
     }
 
-    // Wager → start question after 30s OR when all live players locked
+    // Wager → start question after 30s OR 1.5s after all live players locked
     if (phase === "final_wager") {
-      const live = players.filter((p) => !p.is_audience);
-      const allLocked = live.length > 0 && live.every((p) => !!p.final_locked_at);
-      const key = `wager-${state.id}`;
+      const allLocked = liveCount > 0 && finalLockedCount >= liveCount;
+      const key = `wager-${stateId}`;
       const fire = () => {
         if (finalAdvancedRef.current === key) return;
         finalAdvancedRef.current = key;
@@ -776,15 +799,45 @@ export function HostGameStage({ room }: Props) {
           data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
         }).catch(() => {});
       };
-      if (allLocked) {
-        const id = window.setTimeout(fire, 1500);
-        return () => window.clearTimeout(id);
-      }
-      const id = window.setTimeout(fire, 30000);
+      const delay = allLocked ? 1500 : 30000;
+      const id = window.setTimeout(fire, delay);
       return () => window.clearTimeout(id);
     }
 
-    // Question → score when timer runs out
+    // Reveal → end after 7s (skip when top score is tied; host triggers sudden death)
+    if (phase === "final_reveal") {
+      if (topScoreTied) return;
+      const key = `reveal-${stateId}-${suddenDeathKey}`;
+      if (finalAdvancedRef.current === key) return;
+      const id = window.setTimeout(() => {
+        finalAdvancedRef.current = key;
+        endGameFn({
+          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+        }).catch(() => {});
+      }, 7000);
+      return () => window.clearTimeout(id);
+    }
+
+    // Ended → auto-roll credits after 20s
+    if (phase === "ended") {
+      const key = `ended-${stateId}`;
+      if (finalAdvancedRef.current === key) return;
+      const id = window.setTimeout(() => {
+        finalAdvancedRef.current = key;
+        play("whoosh");
+        setPhaseFn({
+          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "credits" },
+        }).catch(() => {});
+      }, 20000);
+      return () => window.clearTimeout(id);
+    }
+  }, [phase, stateId, suddenDeathKey, finalLockedCount, liveCount, topScoreTied, setPhaseFn, startFinalQuestionFn, endGameFn, room.roomCode, room.hostSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Effect B — poll-based phase advances. Reads `now` to detect timer expiry.
+  useEffect(() => {
+    if (!state) return;
+
+    // Final question → score when timer runs out
     if (phase === "final_question" && state.question_started_at) {
       const startMs = new Date(state.question_started_at).getTime();
       const remainingMs = state.question_duration_ms - (now - startMs);
@@ -799,28 +852,7 @@ export function HostGameStage({ room }: Props) {
       }
     }
 
-    // Reveal → check for top-score tie. Tie → wait for host to trigger sudden death.
-    // No tie → end after 7s.
-    if (phase === "final_reveal") {
-      const key = `reveal-${state.id}-${state.sudden_death_session_ids?.join(",") ?? ""}`;
-      if (finalAdvancedRef.current === key) return;
-      const live = players.filter((p) => !p.is_audience);
-      const top = live.reduce((m, p) => Math.max(m, p.score), 0);
-      const tied = live.filter((p) => p.score === top);
-      if (tied.length > 1) {
-        // Don't auto-advance — host clicks "Sudden Death" button rendered below.
-        return;
-      }
-      const id = window.setTimeout(() => {
-        finalAdvancedRef.current = key;
-        endGameFn({
-          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
-        }).catch(() => {});
-      }, 7000);
-      return () => window.clearTimeout(id);
-    }
-
-    // Sudden death → resolve when timer ends OR all cohort have locked.
+    // Sudden death → resolve when timer ends OR all cohort have locked
     if (phase === "sudden_death" && state.question_started_at) {
       const cohort = state.sudden_death_session_ids ?? [];
       const startMs = new Date(state.question_started_at).getTime();
@@ -839,21 +871,9 @@ export function HostGameStage({ room }: Props) {
         }).catch(() => {});
       }
     }
+  }, [state, now, players, scoreFinalRoundFn, resolveSuddenDeathFn, room.roomCode, room.hostSessionId]);
 
-    // Ended → auto-roll credits after 20s if host doesn't click
-    if (phase === "ended") {
-      const key = `ended-${state.id}`;
-      if (finalAdvancedRef.current === key) return;
-      const id = window.setTimeout(() => {
-        finalAdvancedRef.current = key;
-        play("whoosh");
-        setPhaseFn({
-          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "credits" },
-        }).catch(() => {});
-      }, 20000);
-      return () => window.clearTimeout(id);
-    }
-  }, [state, now, players, setPhaseFn, startFinalQuestionFn, scoreFinalRoundFn, endGameFn, resolveSuddenDeathFn, room.roomCode, room.hostSessionId]);
+
 
   // Wager lock-in thud — fires when a new player locks
   const lastWagerLockedCountRef = useRef(0);
