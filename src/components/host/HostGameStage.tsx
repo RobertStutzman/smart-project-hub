@@ -234,7 +234,7 @@ export function HostGameStage({ room }: Props) {
     const phase = state?.phase;
     const startedAt = state?.question_started_at ?? null;
     // Only play during actual question phases, and only once per question
-    if (!qid || !url || (phase !== "question" && phase !== "final_intro" && phase !== "final_question")) {
+    if (!qid || !url || (phase !== "question" && phase !== "final_question")) {
       return;
     }
     if (lastPlayedQuestionIdRef.current === qid) return;
