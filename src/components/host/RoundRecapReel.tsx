@@ -107,7 +107,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     // beat: Round splash
     list.push({
       key: "splash",
-      durationMs: 1400,
+      durationMs: 1800,
       render: () => (
         <motion.div
           key="splash"
@@ -136,6 +136,71 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
         </motion.div>
       ),
     });
+
+    // beat: Round scoreboard — always shown so the recap has substance
+    // even when no conditional beats (MVP/fastest/streak/spoon/zeros) qualify.
+    if (real.length > 0) {
+      list.push({
+        key: "scoreboard",
+        durationMs: 2600,
+        speak: () => speakPersona(`Here's how round ${roundNumber} shook out.`, { interrupt: true }),
+        render: () => (
+          <motion.div
+            key="scoreboard"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            className="flex max-w-[94vw] flex-col items-center gap-5 overflow-hidden text-center"
+          >
+            <div className="text-[11px] font-black uppercase tracking-[0.6em] text-amber-300/80">
+              Round {roundNumber} · Scoreboard
+            </div>
+            <div className="flex flex-wrap items-end justify-center gap-4 sm:gap-5">
+              {byRoundDesc.slice(0, 8).map((p, i) => {
+                const score = p.current_round_score ?? 0;
+                const top = i === 0 && score > 0;
+                return (
+                  <motion.div
+                    key={p.id}
+                    initial={{ opacity: 0, y: 24, scale: 0.85 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{
+                      delay: 0.18 + i * 0.09,
+                      type: "spring",
+                      stiffness: 240,
+                      damping: 20,
+                    }}
+                    className="flex w-24 flex-col items-center sm:w-28"
+                  >
+                    <Avatar
+                      p={p}
+                      size="h-20 w-20 sm:h-24 sm:w-24"
+                      ring={top ? "border-amber-300/80" : "border-white/30"}
+                      glow={
+                        top
+                          ? "shadow-[0_0_55px_oklch(0.85_0.18_85/0.55)]"
+                          : "shadow-[0_0_30px_oklch(0.4_0.05_270/0.5)]"
+                      }
+                    />
+                    <div className="mt-2 max-w-[6.5rem] truncate font-display text-sm font-bold uppercase tracking-wider text-white sm:text-base">
+                      {p.nickname}
+                    </div>
+                    <div
+                      className={`mt-1 font-mono text-xl font-black sm:text-2xl ${
+                        score > 0 ? "text-emerald-300" : "text-zinc-400"
+                      }`}
+                    >
+                      {score > 0 ? `+${score}` : "0"}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
+        ),
+      });
+    }
 
     // beat: Fastest finger
     if (fastest) {
@@ -366,7 +431,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     // beat: To the board
     list.push({
       key: "board",
-      durationMs: 1400,
+      durationMs: 1800,
       render: () => (
         <motion.div
           key="board"
