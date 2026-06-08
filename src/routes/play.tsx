@@ -740,6 +740,11 @@ function PlayPage() {
                     </div>
                   </div>
                 )}
+                {room.phase === "reveal" && (
+                  <div className="text-center text-xs uppercase tracking-[0.25em] text-muted-foreground animate-pulse">
+                    Next question incoming…
+                  </div>
+                )}
                 {room.phase === "reveal" &&
                   room.current_explanation &&
                   room.current_explanation.trim().length > 0 && (
