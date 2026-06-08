@@ -1,37 +1,63 @@
 ## Goal
 
-Make the drop SFX and the debris burst land at the exact moment the falling tile would "hit the floor" — i.e. ~750ms after the elimination is triggered, not at the start of the fall.
+Guarantee per-player sound variety: expand bank to **25 funny sounds** and replace the hash-based assignment with a **server-side, per-room no-repeat shuffle deck** stored on the player row, so the first 25 joiners in any room are all unique.
 
-## Current behavior
+## Current state
 
-- `HostGameStage.tsx` line 332 calls `playRandomDrop()` immediately when a wrong answer is scheduled to drop.
-- `QuestionStage.tsx` mounts `<DropDebris />` the moment `dropped` flips true.
-- The tile's gravity fall animation takes ~750ms.
+- 10 sounds in `src/lib/funny-sounds.ts`.
+- Assignment is `hash(session_id) mod 10` — global (same player gets same sound across rooms) and prone to collisions inside one room.
+- Sound plays on join (player device), on tile drop (host stage), and on new-player detection (host stage).
 
-Result: sound and debris fire as the tile starts falling, then the tile silently sails off-screen.
+## Changes
 
-## Change
+### 1. Generate 15 new SFX → 25 total
 
-Introduce a single shared constant `DROP_FALL_MS = 750` (the duration already used by the falling card's `motion.div` transition). Both call sites delay by that amount.
+Use ElevenLabs SFX (already wired) to generate, then upload via `lovable-assets create` into `src/assets/audio/funny/`:
 
-### `src/components/host/QuestionStage.tsx`
+duckquack, goatscream, recordscratch, partyhorn, evillaugh, donkeybray, sneeze, burp, catmeow, dogbark, sheepbaa, wahwah, nooo, snore, vineboom
 
-- Export `DROP_FALL_MS` constant from this file (or a new shared `drop-timing.ts` — exporting from QuestionStage is fine since HostGameStage already imports from it indirectly).
-- Use `DROP_FALL_MS` in the falling card's `transition.duration` (replace the literal `0.75`).
-- Per cell, track `impacted[i]` state. When `dropped` flips true, start a 750ms timer; when it fires, set `impacted[i] = true`. Render `<DropDebris />` only while `impacted[i]` is true (still wrapped in `AnimatePresence`).
-- Clear the timer on unmount / when `dropped` flips back false (resets between questions).
+Each ~1.2–2.5s, prompt-engineered for clean isolated comedic effect.
 
-### `src/components/host/HostGameStage.tsx`
+### 2. `src/lib/funny-sounds.ts`
 
-- Import `DROP_FALL_MS` from QuestionStage.
-- Replace `playRandomDrop()` at line 332 with `window.setTimeout(playRandomDrop, DROP_FALL_MS)`. Capture the timer ID in a ref array so it gets cleared if the question ends early (route change, host skip, etc.) — guard against orphan sounds after the question concludes.
+- Add imports + entries for the 15 new clips. `FUNNY_BANK` becomes length 25.
+- Add `getFunnySoundById(id: string): FunnySound` (lookup by `id`, fallback to hash-mod for unknown ids — keeps host backward compatible while DB migrates).
+- Add `playFunnySoundById(id: string, opts?)` analogous to existing `playFunnySoundForId`.
+- Keep existing `getFunnySoundForId`/`playFunnySoundForId` (session-id hash) as the fallback path for any row missing `funny_sound_id`.
 
-## Files touched
+### 3. Database migration
 
-- edited: `src/components/host/QuestionStage.tsx` — export `DROP_FALL_MS`, add per-cell `impacted` state with timer, gate `<DropDebris />` on it
-- edited: `src/components/host/HostGameStage.tsx` — delay `playRandomDrop()` by `DROP_FALL_MS`, track timers in a ref for cleanup on unmount / new question
+```sql
+ALTER TABLE public.players ADD COLUMN funny_sound_id text;
+```
+No GRANT changes needed (existing players grants cover it).
+
+### 4. Server-side assignment in the join server function
+
+In whatever `*.functions.ts` handles `joinFn` (locate by ref from `src/routes/join.tsx`):
+
+- After upserting the player row, if `funny_sound_id` is null:
+  1. Select existing `funny_sound_id`s for that `room_id`.
+  2. Compute `remaining = FUNNY_BANK_IDS \ used`. If empty, `remaining = FUNNY_BANK_IDS` (reshuffle for player 26+).
+  3. Pick a random id from `remaining`, `UPDATE players SET funny_sound_id = $1 WHERE id = $playerId`.
+- Return the assigned `funnySoundId` from the server fn so the join screen can preview the exact clip.
+
+The bank id list lives in a tiny shared module (`src/lib/funny-sound-ids.ts`) imported by both the server fn and the client bank — single source of truth, no client bundle bloat (just an array of strings).
+
+### 5. Wire client to use stored id
+
+- `src/routes/join.tsx`: use the `funnySoundId` returned from `joinFn` to call `playFunnySoundById(funnySoundId)` instead of `playFunnySoundForId(sid)`.
+- `src/components/host/HostGameStage.tsx`:
+  - Add `funny_sound_id: string | null` to the `Player` type and select list.
+  - In the new-player join honk effect and the wrong-answer drop, prefer `p.funny_sound_id` and call `playFunnySoundById`; fall back to `playFunnySoundForId(session_id)` when null.
 
 ## Out of scope
 
-- No changes to the SFX bank, weights, or the fall animation itself.
-- No change to elimination scheduling logic (`DROP_AT_ELAPSED_S` thresholds remain the same).
+- No changes to drop timing, debris, fall animation, mute UI, or SFX volume balancing.
+- No retroactive backfill for existing rooms — old rows keep working via the hash fallback.
+
+## Capacity summary after change
+
+- **Bank:** 25 unique sounds.
+- **Max simultaneous playback:** unlimited (one `<audio>` per clip in the pool; staggered 120ms per guilty player on a drop).
+- **Uniqueness guarantee:** first 25 players in a room get distinct sounds; 26+ wraps via reshuffle.
