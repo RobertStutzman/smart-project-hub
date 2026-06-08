@@ -446,6 +446,83 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
       });
     }
 
+    // beat: Biggest Climb
+    if (biggestClimb) {
+      const climber = biggestClimb;
+      list.push({
+        key: "climb",
+        durationMs: 2200,
+        speak: () =>
+          void speakAboutPlayer({
+            nickname: climber.p.nickname,
+            moment: "comeback",
+            ranksClimbed: climber.ranks,
+          }),
+        render: () => (
+          <motion.div
+            key="climb"
+            initial={{ opacity: 0, y: 60 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -40 }}
+            transition={{ type: "spring", stiffness: 180, damping: 18 }}
+            className="flex max-w-[92vw] items-center gap-5 overflow-hidden text-left sm:gap-6"
+          >
+            <Avatar p={climber.p} size="h-32 w-32" ring="border-emerald-300/80" glow="shadow-[0_0_70px_oklch(0.75_0.2_150/0.65)]" />
+            <div>
+              <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.4em] text-emerald-300">
+                📈 Biggest climb
+              </div>
+              <div className="mt-1 max-w-[58vw] truncate font-display text-5xl font-black text-emerald-200 sm:text-6xl">
+                {climber.p.nickname}
+              </div>
+              <div className="mt-1 font-mono text-3xl font-black text-emerald-300">
+                +{climber.ranks} rank{climber.ranks === 1 ? "" : "s"}
+              </div>
+            </div>
+          </motion.div>
+        ),
+      });
+    }
+
+    // beat: Biggest Drop
+    if (biggestDrop) {
+      const faller = biggestDrop;
+      list.push({
+        key: "drop",
+        durationMs: 2200,
+        speak: () =>
+          void speakAboutPlayer({
+            nickname: faller.p.nickname,
+            moment: "random_jab",
+          }),
+        render: () => (
+          <motion.div
+            key="drop"
+            initial={{ opacity: 0, y: -40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            transition={{ type: "spring", stiffness: 160, damping: 18 }}
+            className="flex max-w-[92vw] items-center gap-5 overflow-hidden text-left sm:gap-6"
+          >
+            <Avatar p={faller.p} size="h-32 w-32" desat ring="border-rose-300/70" glow="shadow-[0_0_60px_oklch(0.5_0.2_25/0.55)]" />
+            <div>
+              <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.4em] text-rose-300">
+                📉 Free fall
+              </div>
+              <div className="mt-1 max-w-[58vw] truncate font-display text-5xl font-black text-rose-200 sm:text-6xl">
+                {faller.p.nickname}
+              </div>
+              <div className="mt-1 font-mono text-3xl font-black text-rose-300">
+                −{faller.ranks} rank{faller.ranks === 1 ? "" : "s"}
+              </div>
+            </div>
+          </motion.div>
+        ),
+      });
+    }
+
+
+
     // beat: To the board
     list.push({
       key: "board",
