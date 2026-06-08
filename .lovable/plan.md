@@ -1,68 +1,48 @@
-# Fix Round & Question Announcements
+# Bulk-import hundreds of questions from Gemini
 
-You're right — I was treating each of the 21 questions as its own "round." The game is actually **4 rounds × 5 questions + final**, where the 5th question of each round is the wildcard (lightning / double-or-nothing / etc.). I'll rewrite the announcer logic to match that mental model and pre-bake the new lines so it stays free.
+The "20 questions max" wall isn't your importer — it's Gemini truncating long JSON arrays in one reply. Trying to make Gemini emit 200 in one shot will keep failing. Better answer: let you paste many small batches in a row, plus accept richer paste formats and import the whole pile in one click.
 
-## Structure (already in code, just naming it correctly)
+## What changes in the Gemini Importer
 
-```text
-Round 1: Q1  Q2  Q3  Q4  Q5(wildcard)
-Round 2: Q6  Q7  Q8  Q9  Q10(wildcard)
-Round 3: Q11 Q12 Q13 Q14 Q15(wildcard)
-Round 4: Q16 Q17 Q18 Q19 Q20(wildcard)
-Final:   Q21
-```
+Currently: one textarea, hit "Validate" → "Import" → it clears. Past 20 the JSON gets cut off mid-array and the parse throws.
 
-Derive in HostGameStage from `state.round_number` (the absolute question index):
-- `roundIdx = Math.ceil(q / 5)` (1–4)
-- `qInRound = ((q - 1) % 5) + 1` (1–5)
-- `isWildcardSlot = qInRound === 5 && q < 21`
-- `isRoundOpener = qInRound === 1`
+New flow:
 
-## What the host says
+1. **Accumulating staging area.** The "Pasted JSON" textarea becomes an "Add batch" workflow. Paste batch 1, click "Add batch" — it validates and adds the rows to a staged list below. Paste batch 2, click "Add batch" again — appended. Repeat as many times as you want. Counter shows "Staged: 137 questions (134 valid · 3 issues)".
+2. **Smarter parser.** Replace `parseGeminiJson` so a single paste can contain:
+   - one JSON array (current behavior)
+   - multiple JSON arrays back-to-back (`[…][…]`) — Gemini sometimes splits them
+   - NDJSON (one `{…}` per line)
+   - prose + a fenced code block with JSON inside
+   - trailing commas / smart quotes (lightly normalized)
+   It returns whatever it can parse and reports the rest as issues, instead of throwing on the first hiccup.
+3. **De-duplication.** When appending, drop rows whose normalized `question_text` already appears in the staging list (case-insensitive, whitespace-collapsed). Toast says "Added 18 · skipped 2 duplicates".
+4. **Upload a file.** Add a small "Upload .json / .txt" button next to "Add batch" — reads the file as text and runs it through the same parser. Lets you paste 500 questions into a text file from anywhere and load it in one shot.
+5. **Chunked import.** "Import all" sends the staged rows to `bulkInsertQuestions` in chunks of 200 (well under the existing 500 cap) so a 500-question import doesn't hit any single-request size limit. Progress toast: "Imported 200 / 500…". On error in one chunk, the rest still proceed and a summary toast lists failures.
+6. **TTS bake after the whole pile.** "Bake voice narration" runs once at the end with `limit = max(stagedCount, 50)` instead of per-batch, so you don't kick off ElevenLabs 25 times.
+7. **Lift the input cap.** Per-difficulty count cap goes from 20 → 25 (Gemini's reliable single-response ceiling) and helper text changes from "max 20" to "Gemini truncates above ~25 — generate in batches and add each one." A small "Why?" tooltip explains.
 
-Replace the current `baseText`/`NEXT_Q_LINES` block in `src/components/host/HostGameStage.tsx` (lines ~538–568) with a picker that chooses from variant pools so it doesn't sound robotic:
+## Prompt tweak
 
-**Round opener (Q1 of each round)** — pick one:
-- Q1 of Round 1: "Round 1. Question 1. Here we go." / "Game on. Round 1, question 1." / "Round one. First question. Don't choke."
-- Q1 of Rounds 2–4: "Round N. Question 1." / "Round N kicks off. Question 1." / "New round. Question 1. Stay sharp."
+Append one line to `buildGeminiPrompt`:
+"If you can't fit all questions in one reply, output as many complete objects as you can and stop cleanly with `]` — do NOT continue across messages."
 
-**Mid-round (Q2–Q4)** — rotate through variants, seeded by `q` so it's deterministic per game but feels mixed:
-- "Question N."
-- "Question N coming in."
-- "Onto question N."
-- "Next up — question N."
-- "Question N. Lock in."
-- "Here's question N."
-- "Question N. Eyes up."
-
-**Wildcard slot (Q5 of rounds 1–4)** — the existing `WILDCARD_CALLOUT` lines, prefixed with a question marker so players know it's still part of the round:
-- "Question 5 — and it's a wildcard. <Lightning round! Eight seconds, double points!>"
-- Variants: "Final question of the round, and it's a wildcard. …" / "Round N's wildcard. Question 5. …"
-
-**Final (Q21)** — leave the existing `final_intro` / `final_hype` path alone.
-
-The wildcard's *explanation* (the "Eight seconds, double points!" tail) stays in `WILDCARD_CALLOUT` so it always plays with the wildcard call.
-
-## Pre-baking (free TTS hits)
-
-In `src/lib/announcer.functions.ts`, rewrite `ROUND_CALLOUTS` to bake exactly the lines the new picker uses:
-
-- All round-opener variants for rounds 1–4 (≈12 lines)
-- All mid-round variants with N=2,3,4 (≈21 lines)
-- All wildcard-slot prefixes × 7 wildcard types (≈21 lines; full sentence baked so it's one URL hit per combo)
-
-That's ~55 baked strings instead of the current 60 "Round 1!…Round 30!" lines, and every one of them will actually get played. The existing `generatePersonaPack` already iterates `ROUND_CALLOUTS`, so nothing else changes — re-running "Bake missing" on `/admin-tts` picks them up.
+This stops Gemini from dribbling a half-array into a follow-up that won't paste cleanly.
 
 ## Files touched
 
-- `src/components/host/HostGameStage.tsx` — replace the `baseText`/`NEXT_Q_LINES`/`WILDCARD_CALLOUT` block (~538–568) with the new picker that derives `roundIdx` / `qInRound` and pulls from variant pools (with a tiny deterministic shuffle keyed off `q`).
-- `src/lib/announcer.functions.ts` — replace `ROUND_CALLOUTS` (~740–746) with the new line set so the bake covers exactly what's spoken.
+- `src/routes/_authenticated/admin.tsx`
+  - Rewrite `parseGeminiJson` to multi-array / NDJSON / fenced-block tolerant.
+  - Replace `GeminiImporter`'s single-shot state (`pasted` / `parsed`) with `pasted` (current batch) + `staged: ParsedRow[]` (accumulator) + `dupeKeys: Set<string>`.
+  - Add "Add batch", "Upload file", "Clear staged" buttons; keep the existing per-row skip toggles working on the staged list.
+  - Change `doImport` to chunk staged rows by 200 and import sequentially with per-chunk toasts.
+  - Bump per-difficulty count `max` from 20 → 25 in the two `<input>`s and helper labels.
+  - Append the "stop cleanly" line in `buildGeminiPrompt`.
+
+No DB changes, no server-function changes — `bulkInsertQuestions` already accepts up to 500 per call and we'll stay under that.
 
 ## Out of scope
 
-- Persona pack lines (catchphrases, recaps) — untouched
-- Game logic / scoring / wildcard rotation — untouched
-- DYK explanation TTS — untouched
-- Final-round intro — keeps existing `final_hype` path
-
-After this lands, you'll head to `/admin-tts` and click "Bake missing" on the persona pack one more time to capture the new ~55 lines (~3k chars, negligible).
+- Server-side AI generation (`AIGenerator` panel) — already works, separate path.
+- CSV importer (`CsvDropzone`) — already there and unchanged; if you ever want, exporting a Gemini batch to CSV from a spreadsheet is the most bulletproof route, but the new paste-accumulator should make that unnecessary.
+- Resumable / saved drafts across page reloads.
