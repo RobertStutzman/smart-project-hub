@@ -228,6 +228,7 @@ export function CreditsStage({ players, onPlayAgain }: Props) {
       <button
         onClick={() => {
           stopCreditsMusic(300);
+          void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
           onPlayAgain();
         }}
         className="absolute right-4 top-4 z-30 rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-white/70 backdrop-blur transition hover:bg-white/20 hover:text-white"
