@@ -324,6 +324,7 @@ function HostPage() {
         if (!cancelled) {
           const ambience = await import("@/lib/ambience-engine");
           ambience.resetAmbience();
+          ambience.startLobbyChatter();
           ambience.startCrowd();
           // Drumroll fades in shortly after crowd for layered buildup.
           window.setTimeout(() => {
@@ -333,6 +334,7 @@ function HostPage() {
           // autoplay will be blocked. Retry silently on first interaction.
           const retry = () => {
             void import("@/lib/ambience-engine").then((m) => {
+              m.startLobbyChatter();
               m.startCrowd();
               window.setTimeout(() => m.startDrumroll(), 1200);
             });
