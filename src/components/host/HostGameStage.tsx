@@ -1102,14 +1102,14 @@ export function HostGameStage({ room }: Props) {
         )}
         <QuestionStage
           questionText={state.current_question_text ?? ""}
-          answers={state.current_answers ?? ["", "", "", ""]}
-          droppedIndexes={state.dropped_indexes ?? []}
+          answers={state.current_answers ?? EMPTY_ANSWERS}
+          droppedIndexes={state.dropped_indexes ?? EMPTY_DROPS}
           correctIndex={state.phase === "reveal" ? state.current_correct_index : null}
           secondsLeft={remainingS}
           totalS={state.question_duration_ms / 1000}
           readSecondsLeft={state.phase === "question" ? readSecondsLeft : 0}
           phase={state.phase as "question" | "reveal"}
-          players={players.filter((p) => !p.is_audience)}
+          players={livePlayers}
           explanation={state.phase === "reveal" ? state.current_explanation : null}
           mediaUrl={(state as { current_media_url?: string | null }).current_media_url ?? null}
           mediaType={(state as { current_media_type?: string | null }).current_media_type ?? null}
