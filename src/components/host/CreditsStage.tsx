@@ -219,7 +219,7 @@ export function CreditsStage({ players, onPlayAgain }: Props) {
       <motion.div
         initial={{ y: "30%" }}
         animate={{ y: "-110%" }}
-        transition={{ duration: 38, ease: "linear" }}
+        transition={{ duration: 48, ease: "linear" }}
         className="absolute left-0 right-0 mx-auto flex w-full max-w-3xl flex-col items-center gap-14 px-8 pb-32 pt-32 text-center"
       >
         {/* Winner card */}
