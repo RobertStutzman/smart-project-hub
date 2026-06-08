@@ -2,7 +2,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { play } from "@/lib/sound-engine";
 import { speakAsElf, cancelElfSpeech, prewarmElfLines } from "@/lib/elf-voice";
-import { startLobbyChatter } from "@/lib/ambience-engine";
+import {
+  startLobbyChatter,
+  startCrowd,
+  duckAmbience,
+  unduckAmbience,
+} from "@/lib/ambience-engine";
 
 const TIPS_VO =
   "Here's the deal — answer fast, your score drops with the clock. Stack your two-times multiplier for the round that matters most. And in the final drop, wager it all and steal the win.";
@@ -10,30 +15,24 @@ const TIPS_VO =
 /**
  * Jackbox-style boot sequence — plays once when the app first loads.
  *
- * Stages: splash → credits → tips → press-to-start.
- * Skippable with any key/click/remote button.
- * Auto-advances; final stage auto-completes after 12s so the Firestick
- * never gets stuck on "press OK".
- *
- * Persisted via sessionStorage so reloads during a single session don't
- * keep re-playing it (and ?nosplash=1 disables it entirely).
+ * Stages: gate → splash → credits → tips → (complete → landing).
+ * The old "ready / press OK" stage was removed — the landing page IS the
+ * ready screen, so a second prompt was redundant.
  */
 
 const SKIP_KEY = "btd:boot:done";
 
-type Stage = "gate" | "splash" | "credits" | "tips" | "ready";
+type Stage = "gate" | "splash" | "credits" | "tips";
 
 type Props = {
   onComplete: () => void;
 };
 
-const STAGE_DURATIONS: Record<Exclude<Stage, "ready" | "gate">, number> = {
+const STAGE_DURATIONS: Record<Exclude<Stage, "gate">, number> = {
   splash: 2200,
   credits: 4000,
   tips: 6500,
 };
-
-const READY_AUTO_ADVANCE_MS = 12_000;
 
 const TIPS = [
   {
@@ -65,61 +64,67 @@ function isStandaloneLaunch(): boolean {
   return navStandalone === true;
 }
 
+function startAmbienceBeds() {
+  void startLobbyChatter();
+  void startCrowd();
+}
+
 export function BootSequence({ onComplete }: Props) {
-  // When launched from the Play Store TWA / installed PWA / iOS home-screen,
-  // skip the tap-to-begin gate — autoplay is permitted in standalone mode.
+  // When launched from an installed PWA / TWA, skip the tap-to-begin gate.
   const [stage, setStage] = useState<Stage>(() =>
     isStandaloneLaunch() ? "splash" : "gate",
   );
   const [dismissing, setDismissing] = useState(false);
   const completedRef = useRef(false);
 
-  // On standalone launches, unlock audio immediately (no gate gesture needed).
+  // On standalone launches, unlock audio immediately.
   useEffect(() => {
     if (!isStandaloneLaunch()) return;
-    void startLobbyChatter();
+    startAmbienceBeds();
     prewarmElfLines([TIPS_VO], "hype");
-    // run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-
   // Advance through stages on a timer.
   // For `tips`, gate the advance on both the visual baseline (6.5s) AND the
-  // announcer VO finishing — whichever takes longer — so the cards stay on
-  // screen for the full narration.
+  // announcer VO finishing — and duck the ambience under the VO so it's
+  // actually audible, then unduck before completing.
   useEffect(() => {
-    if (stage === "ready" || stage === "gate") return;
+    if (stage === "gate") return;
     let cancelled = false;
     const startedAt = performance.now();
     const baseMs = STAGE_DURATIONS[stage];
 
     if (stage === "tips") {
-      const vo = speakAsElf(TIPS_VO, { preset: "hype", interrupt: true }).catch(
-        () => {},
-      );
+      duckAmbience(0.3, 400);
+      const vo = speakAsElf(TIPS_VO, {
+        preset: "hype",
+        interrupt: true,
+        volume: 1.0,
+      }).catch(() => {});
       vo.then(() => {
         if (cancelled) return;
+        unduckAmbience(500);
         const elapsed = performance.now() - startedAt;
         const wait = Math.max(0, baseMs - elapsed);
         window.setTimeout(() => {
-          if (!cancelled) setStage("ready");
+          if (!cancelled) complete();
         }, wait);
       });
       return () => {
         cancelled = true;
+        unduckAmbience(400);
       };
     }
 
     const t = window.setTimeout(() => {
-      setStage((s) =>
-        s === "splash" ? "credits" : s === "credits" ? "tips" : "ready",
-      );
+      setStage((s) => (s === "splash" ? "credits" : "tips"));
     }, baseMs);
     return () => {
       cancelled = true;
       window.clearTimeout(t);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage]);
 
   // Splash sound sting
@@ -128,26 +133,14 @@ export function BootSequence({ onComplete }: Props) {
       const t = window.setTimeout(() => play("whoosh"), 150);
       return () => window.clearTimeout(t);
     }
-    if (stage === "ready") {
-      play("tap");
-    }
   }, [stage]);
 
-  // Auto-advance off the ready stage so a TV left alone keeps going
-  useEffect(() => {
-    if (stage !== "ready") return;
-    const t = window.setTimeout(complete, READY_AUTO_ADVANCE_MS);
-    return () => window.clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage]);
-
-  // Any key/click skips to the next stage; on "ready", finishes.
-  // On "gate", the first gesture unlocks audio (crowd ambience + VO prewarm)
-  // and starts the intro flow.
+  // Any key/click skips to the next stage.
+  // On `gate`, the first gesture unlocks audio and starts the intro.
+  // From `tips`, skipping completes immediately.
   useEffect(() => {
     function unlockAudioAndStart() {
-      // Fire under the user gesture so the browser allows audio playback.
-      void startLobbyChatter();
+      startAmbienceBeds();
       prewarmElfLines([TIPS_VO], "hype");
       setStage("splash");
     }
@@ -157,19 +150,16 @@ export function BootSequence({ onComplete }: Props) {
         unlockAudioAndStart();
         return;
       }
-      if (stage === "tips") cancelElfSpeech();
-      if (stage === "ready") {
+      if (stage === "tips") {
+        cancelElfSpeech();
+        unduckAmbience(300);
         complete();
-      } else if (stage === "splash") {
-        setStage("credits");
-      } else if (stage === "credits") {
-        setStage("tips");
-      } else {
-        setStage("ready");
+        return;
       }
+      if (stage === "splash") setStage("credits");
+      else if (stage === "credits") setStage("tips");
     }
     function onKey(e: KeyboardEvent) {
-      // Ignore typing inside form fields (none here yet, but defensive)
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) {
         return;
@@ -186,19 +176,20 @@ export function BootSequence({ onComplete }: Props) {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("pointerdown", onPointer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage]);
 
   function complete() {
     if (completedRef.current) return;
     completedRef.current = true;
     cancelElfSpeech();
+    unduckAmbience(300);
     try {
       window.sessionStorage.setItem(SKIP_KEY, "1");
     } catch {
       /* sessionStorage may be unavailable in private mode */
     }
     setDismissing(true);
-    // Let the fade-out finish before unmounting
     window.setTimeout(onComplete, 450);
   }
 
@@ -228,28 +219,25 @@ export function BootSequence({ onComplete }: Props) {
             }}
           />
 
-          {/* Skip hint — visible once intro is running */}
           {stage !== "gate" && (
             <div className="absolute right-6 top-6 z-10 text-[10px] uppercase tracking-[0.35em] text-white/40">
               Press any key to skip
             </div>
           )}
 
-          {/* Stage content */}
           <AnimatePresence mode="wait">
             {stage === "gate" && <GateStage key="gate" />}
             {stage === "splash" && <SplashStage key="splash" />}
             {stage === "credits" && <CreditsStage key="credits" />}
             {stage === "tips" && <TipsStage key="tips" />}
-            {stage === "ready" && <ReadyStage key="ready" />}
           </AnimatePresence>
-
 
           {/* Progress dots */}
           <div className="absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 gap-2">
-            {(["splash", "credits", "tips", "ready"] as const).map((s, i) => {
-              const order: Stage[] = ["splash", "credits", "tips", "ready"];
-              const isPast = order.indexOf(stage) >= i;
+            {(["splash", "credits", "tips"] as const).map((s, i) => {
+              const order: Stage[] = ["splash", "credits", "tips"];
+              const idx = order.indexOf(stage);
+              const isPast = idx >= 0 && idx >= i;
               return (
                 <div
                   key={s}
@@ -324,7 +312,6 @@ function SplashStage() {
       transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
       className="relative flex h-full w-full flex-col items-center justify-center"
     >
-      {/* Amber rim glow behind the logo */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -440,38 +427,6 @@ function TipsStage() {
             <div className="mt-2 text-sm text-white/60">{tip.body}</div>
           </motion.div>
         ))}
-      </div>
-    </motion.div>
-  );
-}
-
-function ReadyStage() {
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="relative flex h-full w-full flex-col items-center justify-center"
-    >
-      <div className="font-display text-[clamp(2rem,7svh,5rem)] font-black tracking-tight text-white drop-shadow-[0_4px_40px_rgba(0,0,0,0.7)]">
-        Ready to play?
-      </div>
-
-      <motion.div
-        animate={{ scale: [1, 1.06, 1] }}
-        transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-        className="mt-10 inline-flex items-center gap-3 rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-10 py-5 font-display text-lg font-black uppercase tracking-[0.25em] text-amber-950 shadow-[0_0_60px_oklch(0.85_0.18_85/0.5)]"
-      >
-        <span>Press</span>
-        <kbd className="rounded-md border border-amber-950/30 bg-amber-50/40 px-3 py-1 font-mono text-base">
-          OK
-        </kbd>
-        <span>to start</span>
-      </motion.div>
-
-      <div className="mt-8 text-[10px] uppercase tracking-[0.4em] text-white/40">
-        or tap anywhere
       </div>
     </motion.div>
   );
