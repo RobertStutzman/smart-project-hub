@@ -94,10 +94,11 @@ function LandingPage() {
           <Link
             to="/host"
             onClick={() => {
-              // Pre-arm crowd + drumroll under this user gesture so they
+              // Pre-arm chatter + crowd + drumroll under this user gesture so they
               // survive the route transition into /host (autoplay-friendly).
               void import("@/lib/ambience-engine").then((m) => {
                 m.resetAmbience();
+                m.startLobbyChatter();
                 m.startCrowd();
                 window.setTimeout(() => m.startDrumroll(), 1200);
               });
