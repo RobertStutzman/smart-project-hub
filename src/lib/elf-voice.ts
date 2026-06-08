@@ -102,6 +102,9 @@ export interface SpeakOptions {
   interrupt?: boolean;
 }
 
+/** Bumped on every cancelElfSpeech() so already-queued tasks can bail out. */
+let generation = 0;
+
 /** Speak a line as The Elf. Returns when playback finishes (or fails silently). */
 export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();
@@ -110,9 +113,15 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
 
   const task = async () => {
     if (opts.interrupt) cancelElfSpeech();
+    // Capture AFTER any opt-in interrupt so this task survives its own cancel.
+    const myGen = generation;
+    const isAlive = () => generation === myGen;
+    if (!isAlive()) return;
+
     // 1. Pre-baked URL (free, instant)
     const url = urlCache.get(text);
     if (url) {
+      if (!isAlive()) return;
       await new Promise<void>((resolve) => {
         const audio = new Audio(url);
         audio.volume = volume;
@@ -130,6 +139,7 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
     }
     // 2. URL/base64 from cache or live ElevenLabs
     const res = await fetchAudio(text, preset);
+    if (!isAlive()) return;
     if (!res || res.kind === "skipped") return;
     if (res.kind === "url") {
       await new Promise<void>((resolve) => {
@@ -162,8 +172,9 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
   return queue;
 }
 
-/** Stop any currently playing Elf line and clear the queue. */
+/** Stop any currently playing Elf line and drop everything already queued. */
 export function cancelElfSpeech() {
+  generation++;
   if (currentAudio) {
     try {
       currentAudio.pause();
@@ -206,7 +217,13 @@ export function playVoiceUrl(
 
   const task = async () => {
     if (opts.interrupt) cancelElfSpeech();
+    const myGen = generation;
+    if (generation !== myGen) return;
     await new Promise<void>((resolve) => {
+      if (generation !== myGen) {
+        resolve();
+        return;
+      }
       const audio = new Audio(url);
       audio.volume = volume;
       let started = false;
@@ -231,3 +248,4 @@ export function playVoiceUrl(
   queue = queue.then(task, task);
   return queue;
 }
+
