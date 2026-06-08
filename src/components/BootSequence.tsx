@@ -1,28 +1,19 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { play } from "@/lib/sound-engine";
-import { speakAsElf, cancelElfSpeech, prewarmElfLines } from "@/lib/elf-voice";
-import {
-  startLobbyChatter,
-  startCrowd,
-  duckAmbience,
-  unduckAmbience,
-} from "@/lib/ambience-engine";
-
-const TIPS_VO =
-  "Here's the deal — answer fast, your score drops with the clock. Stack your two-times multiplier for the round that matters most. And in the final drop, wager it all and steal the win.";
+import { startLobbyChatter, startCrowd } from "@/lib/ambience-engine";
 
 /**
  * Jackbox-style boot sequence — plays once when the app first loads.
  *
- * Stages: gate → splash → credits → tips → (complete → landing).
- * The old "ready / press OK" stage was removed — the landing page IS the
- * ready screen, so a second prompt was redundant.
+ * Stages: gate → splash → credits → (complete → landing).
+ * The "tips / how to play" stage was removed — the rules are shown once
+ * on the host start screen instead, so we don't surface them twice.
  */
 
 const SKIP_KEY = "btd:boot:done";
 
-type Stage = "gate" | "splash" | "credits" | "tips";
+type Stage = "gate" | "splash" | "credits";
 
 type Props = {
   onComplete: () => void;
@@ -31,26 +22,7 @@ type Props = {
 const STAGE_DURATIONS: Record<Exclude<Stage, "gate">, number> = {
   splash: 2200,
   credits: 4000,
-  tips: 6500,
 };
-
-const TIPS = [
-  {
-    icon: "⏱",
-    title: "Answer fast",
-    body: "Score drops as the clock ticks. Beat the drop.",
-  },
-  {
-    icon: "✕2",
-    title: "Stack your 2×",
-    body: "One round per game, you can double down. Pick the right moment.",
-  },
-  {
-    icon: "★",
-    title: "Final round bets all",
-    body: "Last question. Wager your score. One winner takes it.",
-  },
-];
 
 function isStandaloneLaunch(): boolean {
   if (typeof window === "undefined") return false;
@@ -81,49 +53,17 @@ export function BootSequence({ onComplete }: Props) {
   useEffect(() => {
     if (!isStandaloneLaunch()) return;
     startAmbienceBeds();
-    prewarmElfLines([TIPS_VO], "hype");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Advance through stages on a timer.
-  // For `tips`, gate the advance on both the visual baseline (6.5s) AND the
-  // announcer VO finishing — and duck the ambience under the VO so it's
-  // actually audible, then unduck before completing.
   useEffect(() => {
     if (stage === "gate") return;
-    let cancelled = false;
-    const startedAt = performance.now();
     const baseMs = STAGE_DURATIONS[stage];
-
-    if (stage === "tips") {
-      duckAmbience(0.3, 400);
-      const vo = speakAsElf(TIPS_VO, {
-        preset: "hype",
-        interrupt: true,
-        volume: 1.0,
-      }).catch(() => {});
-      vo.then(() => {
-        if (cancelled) return;
-        unduckAmbience(500);
-        const elapsed = performance.now() - startedAt;
-        const wait = Math.max(0, baseMs - elapsed);
-        window.setTimeout(() => {
-          if (!cancelled) complete();
-        }, wait);
-      });
-      return () => {
-        cancelled = true;
-        unduckAmbience(400);
-      };
-    }
-
     const t = window.setTimeout(() => {
-      setStage((s) => (s === "splash" ? "credits" : "tips"));
+      if (stage === "splash") setStage("credits");
+      else if (stage === "credits") complete();
     }, baseMs);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(t);
-    };
+    return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage]);
 
@@ -137,11 +77,10 @@ export function BootSequence({ onComplete }: Props) {
 
   // Any key/click skips to the next stage.
   // On `gate`, the first gesture unlocks audio and starts the intro.
-  // From `tips`, skipping completes immediately.
+  // From `credits`, skipping completes immediately.
   useEffect(() => {
     function unlockAudioAndStart() {
       startAmbienceBeds();
-      prewarmElfLines([TIPS_VO], "hype");
       setStage("splash");
     }
     function advance() {
@@ -150,14 +89,8 @@ export function BootSequence({ onComplete }: Props) {
         unlockAudioAndStart();
         return;
       }
-      if (stage === "tips") {
-        cancelElfSpeech();
-        unduckAmbience(300);
-        complete();
-        return;
-      }
       if (stage === "splash") setStage("credits");
-      else if (stage === "credits") setStage("tips");
+      else if (stage === "credits") complete();
     }
     function onKey(e: KeyboardEvent) {
       const t = e.target as HTMLElement | null;
@@ -182,8 +115,6 @@ export function BootSequence({ onComplete }: Props) {
   function complete() {
     if (completedRef.current) return;
     completedRef.current = true;
-    cancelElfSpeech();
-    unduckAmbience(300);
     try {
       window.sessionStorage.setItem(SKIP_KEY, "1");
     } catch {
@@ -229,13 +160,12 @@ export function BootSequence({ onComplete }: Props) {
             {stage === "gate" && <GateStage key="gate" />}
             {stage === "splash" && <SplashStage key="splash" />}
             {stage === "credits" && <CreditsStage key="credits" />}
-            {stage === "tips" && <TipsStage key="tips" />}
           </AnimatePresence>
 
           {/* Progress dots */}
           <div className="absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 gap-2">
-            {(["splash", "credits", "tips"] as const).map((s, i) => {
-              const order: Stage[] = ["splash", "credits", "tips"];
+            {(["splash", "credits"] as const).map((s, i) => {
+              const order: Stage[] = ["splash", "credits"];
               const idx = order.indexOf(stage);
               const isPast = idx >= 0 && idx >= i;
               return (
@@ -392,42 +322,6 @@ function CreditsStage() {
         <span className="h-1 w-1 rounded-full bg-amber-300/60" />
         <span>No installs</span>
       </motion.div>
-    </motion.div>
-  );
-}
-
-function TipsStage() {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.4 }}
-      className="relative flex h-full w-full flex-col items-center justify-center"
-    >
-      <div className="mb-8 text-[10px] uppercase tracking-[0.5em] text-amber-200/70">
-        How to play
-      </div>
-
-      <div className="flex w-full max-w-5xl flex-col items-center justify-center gap-4 px-6 sm:flex-row sm:gap-6">
-        {TIPS.map((tip, i) => (
-          <motion.div
-            key={tip.title}
-            initial={{ opacity: 0, y: 30, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.2 + i * 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="flex w-full max-w-xs flex-col items-center rounded-3xl border border-white/10 bg-white/[0.04] p-6 text-center backdrop-blur"
-          >
-            <div className="mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-b from-amber-300 to-amber-500 font-display text-2xl font-black text-amber-950 shadow-[0_0_30px_oklch(0.85_0.18_85/0.45)]">
-              {tip.icon}
-            </div>
-            <div className="font-display text-lg font-black uppercase tracking-wider text-white">
-              {tip.title}
-            </div>
-            <div className="mt-2 text-sm text-white/60">{tip.body}</div>
-          </motion.div>
-        ))}
-      </div>
     </motion.div>
   );
 }
