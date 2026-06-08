@@ -1,69 +1,65 @@
-## Goal
+## Where the credits go today
 
-Add basic legal pages, a consent step before the selfie camera turns on, and auto-delete selfies after 24 hours.
+Cache infra is already solid:
+- 99% cache hit rate so far (383 hits / 4 generated)
+- 363/363 question reads pre-baked
+- Tier system caps personalized Vox lines at 30 per game, then falls back to baked catchphrases
+- Per-game generation cap = 50 (in `TTS_CAP_PER_GAME` env, default)
 
-## 1. Legal pages
+**The real gap:** baked content coverage. The cache fills up *as games happen*, so the first time anyone hears a given catchphrase it burns credits.
 
-Three new public routes, each with its own SEO `head()`:
+| Pool | Total lines | Baked | Missing |
+|---|---|---|---|
+| Persona catchphrases (host-persona.ts, 18 moments) | ~720 | 30 | ~690 |
+| DYK explanations | 363 questions | 140 | 220 |
+| Round-number callouts ("Round 1! First question!", "Round 2!" … "Round 30!") | 31 | 0 | 31 |
 
-- `src/routes/legal.terms.tsx` → `/legal/terms` — Terms of Service
-- `src/routes/legal.privacy.tsx` → `/legal/privacy` — Privacy Policy (explicitly covers: nicknames, selfies stored up to 24h then deleted, room codes, gameplay analytics, Twitch handle if streamer mode used, cookies/localStorage for session)
-- `src/routes/legal.contact.tsx` → `/legal/contact` — How to reach you + data deletion request
+Baking all of it now is cheap (~60k chars ≈ ~$2 of the new 1.8M budget) and makes every future game ~100% cache hits for the static lines.
 
-Starter copy will be sensible defaults (not legal advice — placeholder for "Company / Contact" the user can fill in). Styled to match the existing amber-on-dark theme.
+## What I'll ship
 
-Footer links added to the public pages (`/`, `/join`, `/audience`) — small muted row at the bottom: *Terms · Privacy · Contact*. Not added to host/play/admin (in-game UI stays clean).
+### 1. Make `generatePersonaPack` idempotent and bake EVERYTHING
+Right now it deletes the row and re-uploads every time it runs (re-burns credits for already-baked lines). Change it to:
+- Skip lines whose `sound_clips` row already exists with a matching `storage_path` *and* whose audio file is present in storage.
+- Add a `force?: boolean` input for forced re-bake.
+- Insert a small `await sleep(150ms)` between calls (already does 200 — fine).
 
-## 2. Selfie consent
+### 2. Add round-number callouts to the persona pack
+Generate text variants once:
+- `"Round 1! First question!"`
+- `"Round 2!"` through `"Round 30!"`
+- Plus the recap variants the host already says: `"Round ${n} incoming…"`
 
-On `/join`, between the form step and the selfie step, insert a short **consent screen** (still inside `JoinPage`, new `Step = "consent"`):
+These get baked into the same persona cache, so `speakAsElf("Round 3!")` becomes a free URL hit.
 
-> **Quick heads up about your photo**
-> Your selfie is shown to other players on the TV and in the leaderboard. We store it on our server for up to **24 hours**, then it's automatically deleted. You can skip the selfie and play without one.
->
-> By tapping **Allow camera**, you agree to our [Privacy Policy](/legal/privacy).
->
-> [ Skip selfie ]   [ Allow camera ]
+### 3. New `bakeAllExplanationTTS` runner (server fn already exists per-question — add the bulk version)
+Mirror of `bakeAllQuestionTTS`: select questions where `explanation IS NOT NULL AND explanation_tts_path IS NULL`, bake in a loop with 250ms delay, return `{baked, skipped, errors}`. Limit param up to 500.
 
-Only after "Allow camera" do we mount `<SelfieCapture />` (so `getUserMedia` is not called until the user has read the notice). "Skip selfie" goes straight to `/play` with no avatar — already supported by the existing flow.
+### 4. Wire it into the admin TTS page (`/admin-tts`)
+Add a "Pre-bake content" panel above the observability tables:
+- **Persona pack** — shows "X / ~720 baked" with **Bake missing** and **Force re-bake all** buttons.
+- **Question reads** — already 363/363; show "All baked ✓" or a Bake-missing button if drift.
+- **DYK explanations** — shows "140 / 360 baked", **Bake missing** button.
+- Each button calls the corresponding server fn, shows a progress toast, then reloads counts.
 
-Also make the existing in-capture **Skip** button equally prominent (it already exists; just a copy tweak: "Play without selfie").
+Also surface today's runtime cap (`TTS_CAP_PER_GAME`) with a note: "to change, update the env var" — I won't auto-bump it, since you mentioned you might downgrade later. Easy lever to pull yourself.
 
-## 3. Auto-delete selfies after 24 hours
-
-Selfies live in the public `avatars` Supabase Storage bucket at `{roomCode}/{sessionId}-{timestamp}.jpg`. The timestamp in the filename gives us the age without extra metadata.
-
-Implementation:
-
-- New server route: `src/routes/api/public/hooks/cleanup-avatars.ts` (POST).
-  - Lists files in the `avatars` bucket recursively (paginated).
-  - For each file, parse the `-{timestamp}.jpg` suffix; if `Date.now() - timestamp > 24h`, delete it (batched, max 100 per call to `storage.remove`).
-  - Also clears `players.avatar_url` for any row whose URL points at a deleted file (best-effort, by matching the path).
-  - Returns `{ scanned, deleted }`.
-  - Uses `supabaseAdmin` (service role) loaded inside the handler.
-- Schedule via `pg_cron` + `pg_net`, hourly, calling the stable URL `https://project--a53d90a6-85a1-4b52-914d-2e46615cb4a6.lovable.app/api/public/hooks/cleanup-avatars` with `apikey` header. Set up via the insert tool (not a migration).
-
-Hourly is enough — worst case a selfie lives ~25h. Cheaper than running every minute and the bucket stays small.
-
-## 4. Privacy Policy wording aligns with reality
-
-The Privacy page will state explicitly:
-- Selfies: stored in a public bucket (URL is unguessable but not access-controlled), deleted within 24 hours, used only to display next to your score.
-- Nickname & room code: stored for the duration of the game session.
-- No account required; no email collected from players.
-- localStorage stores a session id to let you rejoin if you refresh.
-- Right to request deletion: email link on `/legal/contact`.
-
-## Technical notes
-
-- New files only; no edits to `SelfieCapture.tsx` (just gated behind consent step in `join.tsx`).
-- Footer is a small inline component in each public route — no shared layout refactor needed (keeps the change surgical).
-- `routeTree.gen.ts` is auto-generated on save; no manual edit.
-- No DB schema changes. No new secrets.
-- No edits to host/play game flow — players who already joined before the consent screen existed are unaffected (they're past the join step).
+### 5. Small code-side glue
+- `HostGameStage` already speaks `"Round ${n}!"` via `speakAsElf` — no change needed; the persona-cache map lookup happens by exact text, and once those strings are baked the call becomes free.
+- Add the round-number string list to `host-persona.ts` (new exported `ROUND_CALLOUTS` array) so persona-pack baker picks them up generically.
 
 ## Out of scope
 
-- Cookie/GDPR consent banner (separate, larger task).
-- Letting players delete a specific selfie on demand (24h auto-delete covers it for now; contact page handles edge requests).
-- Age gating / COPPA flow.
+- Not changing the tier caps in `persona-live.ts` (15/30) — those control *personalized* lines, which by definition can't be cached.
+- Not touching the per-room cap. Easy env knob; leaving it to you.
+- Not pre-baking name-prefix lines like `"Sarah!"` — names are unknowable until players join, and the tier-2 cache already handles repeats within a session.
+- No DB schema changes. No new buckets. No new secrets.
+
+## Estimated one-time cost to bake everything
+
+- Persona pack (~690 new lines × ~35 chars) ≈ 24k chars
+- Round callouts (~30 lines × ~15 chars) ≈ 0.5k chars
+- DYK explanations (220 × ~150 chars) ≈ 33k chars
+- **Total ≈ 58k chars ≈ ~3% of one month of your 1.8M budget**
+
+After that, a typical game should burn near zero credits on static lines — only true personalized Tier-1 sentences (≤15 per game) generate.
