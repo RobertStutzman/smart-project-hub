@@ -290,6 +290,8 @@ function HostPage() {
       void (async () => {
         try {
           setCreating(true);
+          const { cancelElfSpeech } = await import("@/lib/elf-voice");
+          cancelElfSpeech();
           const hostSessionId = newId();
           const res = await createRoomFn({ data: { hostSessionId } });
           saveHostSession({ sessionId: hostSessionId, roomCode: res.roomCode });
