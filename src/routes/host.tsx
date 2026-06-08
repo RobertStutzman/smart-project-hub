@@ -314,13 +314,16 @@ function HostPage() {
         if (cancelled) return;
         const { loadCustomEvents } = await import("@/lib/sound-engine");
         loadCustomEvents(res.events as never);
-        // Play a random welcome intro once
+        // Play a random welcome intro once — route through the elf-voice
+        // queue so the persona opener can't talk over it.
         const welcomes = res.welcomes ?? [];
         if (welcomes.length > 0) {
           const pick = welcomes[Math.floor(Math.random() * welcomes.length)];
-          const audio = new Audio(pick.url);
-          audio.volume = Math.min(pick.volume, 0.9);
-          audio.play().catch(() => {});
+          const { playVoiceUrl } = await import("@/lib/elf-voice");
+          void playVoiceUrl(pick.url, {
+            volume: Math.min(pick.volume, 0.9),
+            interrupt: true,
+          });
         }
       } catch {
         /* ignore — fall back to synth */
@@ -369,13 +372,16 @@ function HostPage() {
       if (cancelled) return;
       speakPersona(pickOpener(), { preset: "hype" });
     };
-    // Slight delay so the cymbal/ambience doesn't trample the opener.
+    // Slight delay so the welcome clip + cymbal don't trample the opener.
     const openerTimer = window.setTimeout(() => {
       void speakOpener();
-    }, 1800);
+    }, 2400);
 
     const tick = async () => {
       if (cancelled) return;
+      // Skip if the elf is still talking — prevents queue backlog over time.
+      const { isElfSpeaking } = await import("@/lib/elf-voice");
+      if (isElfSpeaking()) return;
       const [{ speakPersona }, { pickLobbyLine }] = await Promise.all([
         import("@/lib/host-persona"),
         import("@/lib/lobby-banter"),

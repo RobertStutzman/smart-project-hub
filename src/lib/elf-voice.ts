@@ -169,6 +169,11 @@ export function cancelElfSpeech() {
   queue = Promise.resolve();
 }
 
+/** True if any Elf line is currently playing. */
+export function isElfSpeaking(): boolean {
+  return currentAudio !== null;
+}
+
 /** Pre-warm the cache for a set of lines (fire-and-forget). */
 export function prewarmElfLines(lines: string[], preset: Preset = "hype") {
   for (const text of lines) {
