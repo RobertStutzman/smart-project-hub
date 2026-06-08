@@ -330,11 +330,19 @@ export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
 }
 
 let duckActive = false;
-/** Temporarily lower the background music so voice/TTS is clear. */
+/** Temporarily lower all background music (loop, credits, wager bed) under voice/TTS. */
 export function duckMusic(on: boolean) {
   duckActive = on;
   if (loopAudio) {
     loopAudio.volume = on ? 0.06 : 0.22;
+  }
+  if (creditsAudio) {
+    const base = creditsBaseVol ?? 0.32;
+    creditsAudio.volume = on ? base * 0.35 : base;
+  }
+  if (wagerBedAudio) {
+    const base = wagerBaseVol ?? 0.32;
+    wagerBedAudio.volume = on ? base * 0.35 : base;
   }
 }
 
