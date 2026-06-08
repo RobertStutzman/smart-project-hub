@@ -1,59 +1,86 @@
+# Full efficiency audit (post 1k-iteration cleanup)
 
-## Goal
-Single pass audit of the whole app: audio (voice + music), error handling, mobile/responsive, routing/auth, performance, and a few correctness traps in the credits/highlight flow. Then fix everything in one batch.
+Four independent passes. Each one: investigate → list findings → apply only **safe, high-value fixes** → report what's left as optional. No behavior changes, no UI changes — just making what's already there leaner and more reliable.
 
-## What I already verified
-- All 11 public tables have RLS on.
-- Voice queue (`elf-voice.ts`) is single-threaded → no overlap *while* the queue runs, but pending timers and music beds leak across stage changes.
-- Music ducking only covers `loopAudio`, not credits / wager beds.
+## Pass 1 — Runtime performance (host + play)
 
-## Findings to fix
+Goal: nothing blocks the main thread or re-renders excessively during a live game.
 
-### A. Audio orchestration (overlap + leak)
-1. **Credits Vox stacks past unmount** — `CreditsStage` schedules ~9 `setTimeout` voice cues but cleanup only stops music; queued lines play on next screen.
-   → Add `cancelElfSpeech()` to cleanup, Skip button, and Play Again button.
-2. **Award roasts too tightly packed** — 4.8s spacing < real TTS length.
-   → Bump to 6s, cap roasts at 4, cap highlight quips at 3.
-3. **`duckMusic` doesn't duck credits / wager beds** — voice fights the band.
-   → In `sound-engine.ts`, extend `duckMusic(on)` to also scale `creditsAudio` and `wagerBedAudio` (remember base volume per element).
-   → Call `duckMusic(true/false)` around each `speakPersona` in `CreditsStage` and `FinalStages`.
-4. **Victory sting overlaps credits music** — `playEvent("victory")` fires on `ended`, then credits music starts immediately.
-   → Delay `playCreditsMusic` by 700ms inside the credits effect.
-5. **Lobby chatter + lobby music both playing** — two ambient beds at once on `/host` and `/play` lobby.
-   → Stop `lobbyChatter` when phase leaves `lobby`.
-6. **Final stages leak** — host hotkey navigation skips voice cleanup.
-   → Add `cancelElfSpeech()` to `FinalStages` cleanup.
-7. **Recap reel truncates itself** — every beat uses `interrupt: true`, so "Fastest finger" cuts the opener.
-   → Only the first beat interrupts; rest queue.
-8. **Voice queue has no idle reset** — if a request hangs, the queue chain holds forever.
-   → Wrap each task in `Promise.race` with a 12s safety timeout.
+Investigate:
+- Profile `/host` during a question transition and `/play` during answer submission using the browser CPU profiler
+- Audit `useEffect` deps in the heaviest stages (`CreditsStage`, `FinalStages`, `RoundRecapReel`, `WagerStage`, `QuestionStage`, `Scoreboard`) for re-render storms
+- Find unmemoized inline objects/arrays passed to children, missing `useCallback`/`useMemo` on hot paths
+- Check for `setInterval`/`setTimeout` running every <100ms unnecessarily
+- Check framer-motion `AnimatePresence` lists for missing `key`s causing full unmount/remount
 
-### B. Correctness
-9. **`CreditsStage` shadows `ranked`** — outer `useMemo` ranked + inner `const ranked` inside effect; harmless today but confusing.
-   → Use the outer `ranked` inside the effect.
-10. **Console warning** `Unknown message type: RESET_BLANK_CHECK` — coming from preview harness, not our code. No action; document as ignored.
+Fix (safe only):
+- Add `React.memo` / `useMemo` / `useCallback` where a hot child re-renders on every parent tick
+- Replace any `setInterval(…, 16)` ticker with `requestAnimationFrame` when used purely for animation
+- Lift static config objects out of component bodies
 
-### C. Routing / auth
-11. **Server fn auth wiring** — verify `attachSupabaseAuth` is in `src/start.ts`'s `functionMiddleware` (required for `requireSupabaseAuth` fns). Add if missing.
-12. **`__root.tsx` Outlet present** — confirm during edit pass.
+## Pass 2 — Memory & subscription leaks
 
-### D. UX hardening
-13. **Mute should also stop credits/wager beds** — `setMuted(true)` only calls `stopMusic()`, not the new beds.
-    → In `setMuted(true)`, also call `stopCreditsMusic(0)` and `stopWagerBed(0)`.
-14. **Wake lock on host stage** — confirm `use-wake-lock` is attached on `/host` (prevents screen sleep mid-game). Add if missing.
+Goal: a 2-hour game night without refresh doesn't accumulate listeners, audio elements, or realtime channels.
 
-## Files to change
-- `src/lib/sound-engine.ts` — extend `duckMusic`, mute clears all beds.
-- `src/lib/elf-voice.ts` — per-task safety timeout.
-- `src/components/host/CreditsStage.tsx` — cleanup voice, delay music, duck around lines, retime roasts, use outer `ranked`, cleanup on Skip / Play Again.
-- `src/components/host/FinalStages.tsx` — `cancelElfSpeech` cleanup, duck around lines.
-- `src/components/host/RoundRecapReel.tsx` — only first beat interrupts.
-- `src/routes/host.tsx`, `src/routes/play.tsx` — stop lobby chatter on phase change; wake lock if missing.
-- `src/start.ts` — verify/append `attachSupabaseAuth` if absent.
+Investigate:
+- Every `useEffect` returning a subscription/timer/listener — verify cleanup
+- Every `supabase.channel(...)` — verify matching `removeChannel` on unmount AND on dependency change
+- Every `new Audio()` / `audio.play()` site — verify the element is reused or paused+nulled on unmount
+- `addEventListener` calls (window/document) — verify `removeEventListener`
+- Toast/sonner usage — confirm no infinite re-toast loops
 
-## Explicitly out of scope
-- No new audio assets, no TTS prompt rewrites.
-- No DB schema changes.
-- No design/visual changes beyond what's required for the fixes.
+Fix:
+- Add missing cleanups
+- Convert any realtime channel that's recreated per render into a stable channel keyed by `room_code`
+- Consolidate audio elements created in multiple places into the existing `sound-engine.ts` if any orphan creators exist
 
-Confirm and I'll implement all of it in one pass.
+## Pass 3 — Bundle, assets, dead code
+
+Goal: faster cold load on phones and TVs, less wasted bandwidth.
+
+Investigate:
+- Run `bun pm ls` + grep usage to find npm packages installed but never imported
+- Find `.tsx`/`.ts` files in `src/` with zero importers (orphaned after iteration)
+- Audit `src/assets/` (and `.asset.json` pointers) for images >300KB and any unused assets
+- Check for synchronous imports of heavy libs (e.g. `framer-motion` features, `@radix-ui/*`, charting) on the lobby/landing route — candidates for lazy import
+- Verify route-level code splitting is working (TanStack auto-splits but exported components break it — see code-splitting rules)
+
+Fix:
+- Remove unused dependencies
+- Delete orphan files (only after confirming zero references)
+- Convert exported route components to non-exported ones if any break splitting
+- Lazy-import the host-only stages from the play route and vice versa if they're cross-imported
+
+## Pass 4 — Database & realtime
+
+Goal: the backend keeps up at 8 concurrent players × 10 rounds without query stalls.
+
+Investigate:
+- Run `supabase--linter` for missing indexes / overly broad RLS
+- Audit the hot query paths: room join, answer submit, round advance, score read — look for N+1 (multiple round-trips per stage transition)
+- Count realtime channels per game session — one channel per room is ideal; per-player is fine; per-question is a leak
+- Verify indexes on the columns we filter by most: `rooms.code`, `players.room_id`, `answers.round_id`, etc.
+
+Fix:
+- Add missing indexes (single migration)
+- Collapse any obvious N+1 into a single `.select()` with joins
+- Anything risky (RLS changes, policy rewrites) reported only, not auto-applied
+
+## Reporting format
+
+After each pass I'll give you:
+- **What I found** (numbered list, severity tagged: 🔴 will-bite-you / 🟡 worth-fixing / 🟢 polish)
+- **What I fixed** (bullet list of files changed)
+- **What I left** (optional fixes with the tradeoff explained)
+
+## Out of scope (explicit)
+
+- No visual/UX changes
+- No new features
+- No TTS prompt or game-logic edits
+- No schema rewrites — only additive indexes
+- No bundle-splitter config overhaul (defaults are good)
+
+## Estimated touch surface
+
+~15–30 files edited, 1 small DB migration (indexes only), 0 new dependencies, likely several dependencies removed.
