@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { useServerFn } from "@tanstack/react-start";
 import { joinRoom, setAudienceMode } from "@/lib/rooms.functions";
@@ -46,6 +46,19 @@ function AudiencePage() {
   const [joined, setJoined] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const sfxChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  // Persistent reactions channel for this room — avoids per-click subscribe/remove races.
+  useEffect(() => {
+    if (!joined || code.length !== 4) return;
+    const ch = supabase.channel(`sfx-${code}`);
+    void ch.subscribe();
+    sfxChannelRef.current = ch;
+    return () => {
+      sfxChannelRef.current = null;
+      void supabase.removeChannel(ch);
+    };
+  }, [joined, code]);
 
   // Persist tally
   const [audienceCount, setAudienceCount] = useState<number>(0);
@@ -91,12 +104,10 @@ function AudiencePage() {
 
   async function sendReaction(sfx: string) {
     try {
-      const channel = supabase.channel(`sfx-${code}`);
-      await channel.subscribe();
-      await channel.send({ type: "broadcast", event: "sfx", payload: { sfx } });
-      void supabase.removeChannel(channel);
+      await sfxChannelRef.current?.send({ type: "broadcast", event: "sfx", payload: { sfx } });
     } catch {}
   }
+
 
   if (!joined) {
     return (

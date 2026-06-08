@@ -1490,9 +1490,10 @@ export function useRevealAutoAdvance(
 
     let pollId: number | null = null;
     let advanced = false;
+    let cancelled = false;
 
     const advance = () => {
-      if (advanced) return;
+      if (advanced || cancelled) return;
       advanced = true;
       if (endOfRound) {
         setPhaseFn({
@@ -1509,12 +1510,17 @@ export function useRevealAutoAdvance(
       // After baseline, wait for the Did You Know voice (or any queued line)
       // to finish before advancing. Hard cap protects against stuck audio.
       void import("@/lib/elf-voice").then(({ isElfSpeaking }) => {
-        if (advanced) return;
+        if (advanced || cancelled) return;
         if (!isElfSpeaking()) {
           advance();
           return;
         }
         pollId = window.setInterval(() => {
+          if (cancelled) {
+            if (pollId !== null) window.clearInterval(pollId);
+            pollId = null;
+            return;
+          }
           if (!isElfSpeaking() || Date.now() - start >= HARD_CAP_MS) {
             if (pollId !== null) window.clearInterval(pollId);
             pollId = null;
@@ -1525,8 +1531,12 @@ export function useRevealAutoAdvance(
     }, BASELINE_MS);
 
     return () => {
+      cancelled = true;
       window.clearTimeout(baselineId);
-      if (pollId !== null) window.clearInterval(pollId);
+      if (pollId !== null) {
+        window.clearInterval(pollId);
+        pollId = null;
+      }
     };
   }, [phase, roundNumber, roomCode, hostSessionId, setPhaseFn, nextQuestionFn]);
 }
