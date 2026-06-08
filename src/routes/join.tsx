@@ -50,28 +50,7 @@ function JoinPage() {
   const [sessionId, setSessionId] = useState<string>("");
   const [flash, setFlash] = useState(false);
 
-  // Lobby chatter: autoplay attempt + gesture retry (autoplay-policy fallback).
-  useEffect(() => {
-    let cancelled = false;
-    let remove: (() => void) | undefined;
-    void import("@/lib/ambience-engine").then((m) => {
-      if (cancelled) return;
-      m.startLobbyChatter();
-      const retry = () => m.startLobbyChatter();
-      const events = ["pointerdown", "click", "touchstart", "keydown"] as const;
-      events.forEach((e) =>
-        window.addEventListener(e, retry, { capture: true, passive: true }),
-      );
-      remove = () =>
-        events.forEach((e) =>
-          window.removeEventListener(e, retry, { capture: true } as EventListenerOptions),
-        );
-    });
-    return () => {
-      cancelled = true;
-      remove?.();
-    };
-  }, []);
+  useLobbyChatter();
 
   const trimmedNickname = nickname.trim();
   const codeOk = code.length === 4;
