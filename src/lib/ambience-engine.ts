@@ -4,7 +4,6 @@
 // That avoids both HTMLAudioElement.loop decode gaps and source files that have
 // quiet tails baked into their endings.
 
-import crowdAsset from "@/assets/audio/crowd-ambience.mp3.asset.json";
 import drumAsset from "@/assets/audio/drumroll-build.mp3.asset.json";
 import cymbalAsset from "@/assets/audio/cymbal-swell.mp3.asset.json";
 import chatterAsset from "@/assets/audio/lobby-chatter.mp3.asset.json";
@@ -130,11 +129,10 @@ function makeLoopLayer(
 const chatter: LoopLayer = makeLoopLayer(chatterAsset.url, CHATTER_TARGET, {
   crossfadeSec: 3,
 });
-const crowd: LoopLayer = makeLoopLayer(crowdAsset.url, CROWD_TARGET, {
-  // Crossfade the full file against itself with an equal-power curve. Using
-  // the whole buffer (no trimmed loop window) means the overlap is the same
-  // ambience texture against itself — no audible energy seam.
-  crossfadeSec: 4,
+const crowd: LoopLayer = makeLoopLayer("/audio/crowd-ambience-seamless.wav", CROWD_TARGET, {
+  // The generated WAV has its loop seam baked in and repeated into a long bed,
+  // avoiding the original MP3's quiet encoded edge that was heard every ~22s.
+  crossfadeSec: 8,
 });
 const drumroll: LoopLayer = makeLoopLayer(drumAsset.url, DRUM_TARGET, {
   // The drumroll source contains several seconds of trailing silence. Treat it
