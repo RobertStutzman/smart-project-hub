@@ -22,7 +22,9 @@ export type LiveMoment =
   | "goose_egg"
   | "welcome"
   | "final_showdown"
-  | "winner";
+  | "winner"
+  | "last_to_lock"
+  | "random_jab";
 
 export interface PersonaContext {
   /** Primary player nickname. */
