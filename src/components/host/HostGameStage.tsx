@@ -422,7 +422,7 @@ export function HostGameStage({ room }: Props) {
   const ambienceHandedRef = useRef(false);
   useEffect(() => {
     if (!state) return;
-    // On first transition out of "lobby", climax the crowd+drumroll ambience
+    // On first transition out of "lobby", climax the crowd ambience
     // and hand off to the existing game-show music.
     if (state.phase !== "lobby" && !ambienceHandedRef.current) {
       ambienceHandedRef.current = true;
@@ -433,7 +433,6 @@ export function HostGameStage({ room }: Props) {
       void import("@/lib/ambience-engine").then((m) => {
         m.resetAmbience();
         m.startCrowd();
-        window.setTimeout(() => m.startDrumroll(), 1200);
       });
     }
     if (state.phase === "question" || state.phase === "final_question")
@@ -441,7 +440,7 @@ export function HostGameStage({ room }: Props) {
     else if (state.phase === "intro" || state.phase === "credits")
       startMusic("lobby", 600);
     else if (state.phase === "lobby") {
-      // Lobby has crowd + drumroll ambience instead of synth music.
+      // Lobby has seamless crowd ambience instead of synth music.
       stopMusic();
     } else if (state.phase === "final_intro" || state.phase === "final_wager")
       startMusic("tense", 520);
