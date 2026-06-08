@@ -29,6 +29,7 @@ import { Route as AuthenticatedAdminSoundsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminQuestionsRouteImport } from './routes/_authenticated/admin-questions'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as ApiPublicHooksQuestionQualityAlertRouteImport } from './routes/api/public/hooks/question-quality-alert'
+import { Route as ApiPublicHooksCleanupAvatarsRouteImport } from './routes/api/public/hooks/cleanup-avatars'
 
 const PreviewQuestionRoute = PreviewQuestionRouteImport.update({
   id: '/preview-question',
@@ -132,6 +133,12 @@ const ApiPublicHooksQuestionQualityAlertRoute =
     path: '/api/public/hooks/question-quality-alert',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksCleanupAvatarsRoute =
+  ApiPublicHooksCleanupAvatarsRouteImport.update({
+    id: '/api/public/hooks/cleanup-avatars',
+    path: '/api/public/hooks/cleanup-avatars',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -152,6 +159,7 @@ export interface FileRoutesByFullPath {
   '/legal/terms': typeof LegalTermsRoute
   '/results/$roomId': typeof ResultsRoomIdRoute
   '/settings/streamer': typeof SettingsStreamerRoute
+  '/api/public/hooks/cleanup-avatars': typeof ApiPublicHooksCleanupAvatarsRoute
   '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
 }
 export interface FileRoutesByTo {
@@ -173,6 +181,7 @@ export interface FileRoutesByTo {
   '/legal/terms': typeof LegalTermsRoute
   '/results/$roomId': typeof ResultsRoomIdRoute
   '/settings/streamer': typeof SettingsStreamerRoute
+  '/api/public/hooks/cleanup-avatars': typeof ApiPublicHooksCleanupAvatarsRoute
   '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
 }
 export interface FileRoutesById {
@@ -196,6 +205,7 @@ export interface FileRoutesById {
   '/legal/terms': typeof LegalTermsRoute
   '/results/$roomId': typeof ResultsRoomIdRoute
   '/settings/streamer': typeof SettingsStreamerRoute
+  '/api/public/hooks/cleanup-avatars': typeof ApiPublicHooksCleanupAvatarsRoute
   '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
 }
 export interface FileRouteTypes {
@@ -219,6 +229,7 @@ export interface FileRouteTypes {
     | '/legal/terms'
     | '/results/$roomId'
     | '/settings/streamer'
+    | '/api/public/hooks/cleanup-avatars'
     | '/api/public/hooks/question-quality-alert'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
     | '/legal/terms'
     | '/results/$roomId'
     | '/settings/streamer'
+    | '/api/public/hooks/cleanup-avatars'
     | '/api/public/hooks/question-quality-alert'
   id:
     | '__root__'
@@ -262,6 +274,7 @@ export interface FileRouteTypes {
     | '/legal/terms'
     | '/results/$roomId'
     | '/settings/streamer'
+    | '/api/public/hooks/cleanup-avatars'
     | '/api/public/hooks/question-quality-alert'
   fileRoutesById: FileRoutesById
 }
@@ -281,6 +294,7 @@ export interface RootRouteChildren {
   LegalTermsRoute: typeof LegalTermsRoute
   ResultsRoomIdRoute: typeof ResultsRoomIdRoute
   SettingsStreamerRoute: typeof SettingsStreamerRoute
+  ApiPublicHooksCleanupAvatarsRoute: typeof ApiPublicHooksCleanupAvatarsRoute
   ApiPublicHooksQuestionQualityAlertRoute: typeof ApiPublicHooksQuestionQualityAlertRoute
 }
 
@@ -426,6 +440,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksQuestionQualityAlertRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/cleanup-avatars': {
+      id: '/api/public/hooks/cleanup-avatars'
+      path: '/api/public/hooks/cleanup-avatars'
+      fullPath: '/api/public/hooks/cleanup-avatars'
+      preLoaderRoute: typeof ApiPublicHooksCleanupAvatarsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -463,6 +484,7 @@ const rootRouteChildren: RootRouteChildren = {
   LegalTermsRoute: LegalTermsRoute,
   ResultsRoomIdRoute: ResultsRoomIdRoute,
   SettingsStreamerRoute: SettingsStreamerRoute,
+  ApiPublicHooksCleanupAvatarsRoute: ApiPublicHooksCleanupAvatarsRoute,
   ApiPublicHooksQuestionQualityAlertRoute:
     ApiPublicHooksQuestionQualityAlertRoute,
 }
