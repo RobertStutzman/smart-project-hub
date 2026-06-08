@@ -100,19 +100,57 @@ export function HostGameStage({ room }: Props) {
     preloadFunnyBank();
   }, []);
 
-  // When a new (non-audience) player joins, play their assigned funny noise
-  // so they (and the room) immediately learn their signature sound.
+  // When new (non-audience) players join, queue an announcer line that names
+  // them, drops a quip, then plays each player's assigned funny noise.
+  // Batches 1–3 names; 4+ collapses to "and N more".
+  const joinQueueRef = useRef<Array<{ name: string; sound: string | null; key: string }>>([]);
+  const joinDrainingRef = useRef(false);
   useEffect(() => {
     for (const p of players) {
       if (p.is_audience) continue;
       const key = p.session_id ?? p.id;
       if (!key || announcedJoinsRef.current.has(key)) continue;
       announcedJoinsRef.current.add(key);
-      // Only chirp on actual joins, not on the very first hydration burst.
-      // We mark all current players as "announced" on the first pass below.
-      playFunnySoundById(p.funny_sound_id, key);
+      joinQueueRef.current.push({ name: p.nickname, sound: p.funny_sound_id, key });
     }
+    if (joinQueueRef.current.length === 0 || joinDrainingRef.current) return;
+    joinDrainingRef.current = true;
+    void (async () => {
+      const { speakAsElf } = await import("@/lib/elf-voice");
+      const { pickQuip } = await import("@/lib/join-banter");
+      // small debounce so simultaneous joins batch
+      await new Promise((r) => setTimeout(r, 600));
+      while (joinQueueRef.current.length > 0) {
+        const batch = joinQueueRef.current.splice(0, Math.min(joinQueueRef.current.length, 8));
+        const named = batch.slice(0, 3);
+        const overflow = batch.length - named.length;
+        let line: string;
+        if (named.length === 1) {
+          line = `Welcome, ${named[0].name}! ${pickQuip(named[0].key)}`;
+        } else if (named.length === 2) {
+          line = `Welcome ${named[0].name} and ${named[1].name}!`;
+        } else {
+          line = `Welcome ${named[0].name}, ${named[1].name}, and ${named[2].name}${
+            overflow > 0 ? ` — and ${overflow} more!` : "!"
+          }`;
+        }
+        duckMusic(true);
+        try {
+          await speakAsElf(line, { preset: "hype", interrupt: false });
+        } catch {
+          /* silent */
+        }
+        duckMusic(false);
+        // Play each named player's signature noise back-to-back
+        for (const m of named) {
+          playFunnySoundById(m.sound, m.key);
+          await new Promise((r) => setTimeout(r, 550));
+        }
+      }
+      joinDrainingRef.current = false;
+    })();
   }, [players]);
+
 
   const nextQuestionFn = useServerFn(nextQuestion);
   const dropWrongFn = useServerFn(dropWrongAnswer);
@@ -526,7 +564,14 @@ export function HostGameStage({ room }: Props) {
     if (state.phase === "leaderboard") playEvent("leaderboard");
     else if (state.phase === "final_intro") {
       playEvent("final");
-      speakPersona(pickLine("final_hype", state.round_number));
+      // Let the cinematic sting breathe (~3s) before the persona line,
+      // so the announcer doesn't talk over itself.
+      const t = window.setTimeout(() => {
+        duckMusic(true);
+        Promise.resolve(speakPersona(pickLine("final_hype", state.round_number)))
+          .finally(() => duckMusic(false));
+      }, 3000);
+      return () => window.clearTimeout(t);
     }
     else if (state.phase === "ended") playEvent("victory");
   }, [state?.phase]); // eslint-disable-line react-hooks/exhaustive-deps

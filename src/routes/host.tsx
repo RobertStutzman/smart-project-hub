@@ -413,6 +413,14 @@ function HostPage() {
         const sfx = (msg.payload as { sfx?: Sfx } | undefined)?.sfx;
         if (sfx) play(sfx);
       })
+      .on("broadcast", { event: "sfx_url" }, (msg) => {
+        const p = msg.payload as { padId?: string; url?: string; volume?: number } | undefined;
+        if (p?.url) {
+          void import("@/lib/sound-engine").then(({ playClipUrl }) =>
+            playClipUrl(p.url!, p.volume ?? 0.9, p.padId),
+          );
+        }
+      })
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);
