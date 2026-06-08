@@ -1760,6 +1760,7 @@ function GeminiImporter({
 }) {
   const bakeFn = useServerFn(bakeAllQuestionTTS);
   const bakeExplanationFn = useServerFn(bakeAllExplanationTTS);
+  const checkDupesFn = useServerFn(checkDuplicates);
   const [category, setCategory] = useState(CATEGORIES[0].name);
   const [count, setCount] = useState(5);
   const [difficulty, setDifficulty] = useState<Diff | "mixed">("mixed");
@@ -1768,6 +1769,27 @@ function GeminiImporter({
   const [skip, setSkip] = useState<Set<number>>(new Set());
   const [bakeTts, setBakeTts] = useState(true);
   const [busy, setBusy] = useState(false);
+
+  // Cache of normalized question keys we already know exist in the DB.
+  // Populated lazily on the first paste and after every successful import.
+  const dbKeysRef = useRef<Map<string, { category: string }> | null>(null);
+
+  async function ensureDbKeys(probe: string[]): Promise<Map<string, { category: string }>> {
+    if (dbKeysRef.current) return dbKeysRef.current;
+    const map = new Map<string, { category: string }>();
+    try {
+      const res = await checkDupesFn({ data: { keys: probe } });
+      for (const k of res.duplicates) {
+        const meta = res.sample[k];
+        if (meta) map.set(k, { category: meta.category });
+      }
+    } catch (e) {
+      console.warn("checkDuplicates failed", e);
+    }
+    dbKeysRef.current = map;
+    return map;
+  }
+
 
   const prompt = useMemo(() => buildGeminiPrompt(category, count, difficulty), [category, count, difficulty]);
 
