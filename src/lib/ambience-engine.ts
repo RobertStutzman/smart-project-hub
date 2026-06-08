@@ -1,6 +1,9 @@
 // Layered ambience engine — survives route changes, runs alongside sound-engine.
-// Lobby chatter (pre-game venue murmur) + crowd cheering + drumroll buildup that
-// hands off to game-show music.
+//
+// Looped layers (chatter, crowd) use Web Audio AudioBufferSourceNode with
+// loop=true for sample-accurate, gapless looping. HTMLAudioElement.loop has
+// an audible decode-gap between iterations on mp3 sources, which sounds
+// unprofessional. One-shots (drumroll, cymbal) stay as HTMLAudioElement.
 
 import crowdAsset from "@/assets/audio/crowd-ambience.mp3.asset.json";
 import drumAsset from "@/assets/audio/drumroll-build.mp3.asset.json";
@@ -13,11 +16,6 @@ const DRUM_TARGET = 0.22;
 const CYMBAL_VOL = 0.6;
 const FADE_MS = 800;
 
-type Layer = { el: HTMLAudioElement; target: number };
-
-let chatter: Layer | null = null;
-let crowd: Layer | null = null;
-let drum: Layer | null = null;
 let muted = false;
 let handedOff = false;
 
@@ -25,34 +23,25 @@ function isClient() {
   return typeof window !== "undefined";
 }
 
-function fade(layer: Layer, to: number, ms: number, onDone?: () => void) {
-  const el = layer.el;
-  const from = el.volume;
-  const start = performance.now();
-  const step = (t: number) => {
-    const k = Math.min(1, (t - start) / ms);
-    el.volume = from + (to - from) * k;
-    if (k < 1) requestAnimationFrame(step);
-    else onDone?.();
-  };
-  requestAnimationFrame(step);
+// ─── AudioContext (lazy, separate from sound-engine to avoid coupling) ──
+
+let actx: AudioContext | null = null;
+
+function getCtx(): AudioContext | null {
+  if (!isClient()) return null;
+  if (!actx) {
+    const Ctor =
+      (window.AudioContext as typeof AudioContext | undefined) ??
+      ((window as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext as typeof AudioContext | undefined);
+    if (!Ctor) return null;
+    actx = new Ctor();
+  }
+  return actx;
 }
 
-function ensureLayer(
-  current: Layer | null,
-  url: string,
-  target: number,
-): Layer {
-  if (current) return current;
-  const el = new Audio(url);
-  el.loop = true;
-  el.preload = "auto";
-  el.volume = 0;
-  return { el, target };
-}
+// ─── Blocked-state surface (autoplay gating) ────────────────────────────
 
-// Track autoplay-block state so the UI / route hooks can stop retry loops
-// once playback actually succeeds.
 let blocked = false;
 const blockListeners = new Set<(blocked: boolean) => void>();
 
@@ -75,52 +64,187 @@ export function onAmbienceBlockedChange(cb: (blocked: boolean) => void) {
   return () => blockListeners.delete(cb);
 }
 
-/** Returns true if play() resolved (or was synchronous), false if blocked. */
-function tryPlay(layer: Layer, target: number): Promise<boolean> {
-  const { el } = layer;
-  let p: Promise<void> | undefined;
-  try {
-    p = el.play();
-  } catch (err) {
-    console.warn("[ambience] play() threw", err);
-    setBlocked(true);
-    return Promise.resolve(false);
-  }
-  if (p && typeof p.then === "function") {
-    return p.then(() => {
-      fade(layer, target, FADE_MS);
-      setBlocked(false);
-      return true;
-    }).catch((err) => {
-      console.warn("[ambience] play() rejected:", err?.name ?? err);
-      setBlocked(true);
-      return false;
-    });
-  }
-  fade(layer, target, FADE_MS);
-  setBlocked(false);
-  return Promise.resolve(true);
+// ─── Buffer cache + looped layer ────────────────────────────────────────
+
+const bufferCache = new Map<string, Promise<AudioBuffer | null>>();
+
+async function loadBuffer(url: string): Promise<AudioBuffer | null> {
+  let p = bufferCache.get(url);
+  if (p) return p;
+  p = (async () => {
+    const ctx = getCtx();
+    if (!ctx) return null;
+    try {
+      const res = await fetch(url);
+      const ab = await res.arrayBuffer();
+      return await ctx.decodeAudioData(ab.slice(0));
+    } catch (e) {
+      console.warn("[ambience] failed to load", url, e);
+      return null;
+    }
+  })();
+  bufferCache.set(url, p);
+  return p;
 }
+
+type LoopLayer = {
+  url: string;
+  target: number;
+  source: AudioBufferSourceNode | null;
+  gain: GainNode | null;
+  /** True once the source has been started and not stopped. */
+  playing: boolean;
+};
+
+function makeLoopLayer(url: string, target: number): LoopLayer {
+  return { url, target, source: null, gain: null, playing: false };
+}
+
+let chatter: LoopLayer = makeLoopLayer(chatterAsset.url, CHATTER_TARGET);
+let crowd: LoopLayer = makeLoopLayer(crowdAsset.url, CROWD_TARGET);
+
+function rampGain(g: GainNode, to: number, ms: number, ctx: AudioContext) {
+  const now = ctx.currentTime;
+  const cur = g.gain.value;
+  g.gain.cancelScheduledValues(now);
+  g.gain.setValueAtTime(cur, now);
+  g.gain.linearRampToValueAtTime(to, now + ms / 1000);
+}
+
+async function startLoop(layer: LoopLayer): Promise<boolean> {
+  if (!isClient() || muted || handedOff) return false;
+  const ctx = getCtx();
+  if (!ctx) return false;
+
+  // Try to resume the context — may be blocked until a user gesture.
+  if (ctx.state === "suspended") {
+    try {
+      await ctx.resume();
+    } catch {
+      /* ignore — will check state below */
+    }
+  }
+  if (ctx.state !== "running") {
+    setBlocked(true);
+    return false;
+  }
+
+  // Already playing — just make sure gain is at target.
+  if (layer.playing && layer.gain) {
+    rampGain(layer.gain, layer.target, FADE_MS, ctx);
+    setBlocked(false);
+    return true;
+  }
+
+  const buf = await loadBuffer(layer.url);
+  if (!buf) return false;
+
+  // Double-check we weren't muted / handed off / started while awaiting.
+  if (muted || handedOff) return false;
+  if (layer.playing && layer.gain) {
+    rampGain(layer.gain, layer.target, FADE_MS, ctx);
+    return true;
+  }
+
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.loop = true;
+  const g = ctx.createGain();
+  g.gain.value = 0;
+  src.connect(g).connect(ctx.destination);
+  src.start(0);
+
+  layer.source = src;
+  layer.gain = g;
+  layer.playing = true;
+
+  rampGain(g, layer.target, FADE_MS, ctx);
+  setBlocked(false);
+  return true;
+}
+
+function stopLoop(layer: LoopLayer, fadeMs: number) {
+  const ctx = getCtx();
+  if (!ctx || !layer.playing || !layer.gain || !layer.source) {
+    layer.playing = false;
+    layer.source = null;
+    layer.gain = null;
+    return;
+  }
+  const src = layer.source;
+  const g = layer.gain;
+  rampGain(g, 0, fadeMs, ctx);
+  const stopAt = ctx.currentTime + fadeMs / 1000 + 0.02;
+  try {
+    src.stop(stopAt);
+  } catch {
+    /* already stopped */
+  }
+  layer.playing = false;
+  layer.source = null;
+  layer.gain = null;
+}
+
+// ─── One-shot HTMLAudioElement layer for drumroll ───────────────────────
+
+type ElLayer = { el: HTMLAudioElement; target: number };
+let drum: ElLayer | null = null;
+
+function fadeEl(el: HTMLAudioElement, to: number, ms: number, onDone?: () => void) {
+  const from = el.volume;
+  const start = performance.now();
+  const step = (t: number) => {
+    const k = Math.min(1, (t - start) / ms);
+    el.volume = from + (to - from) * k;
+    if (k < 1) requestAnimationFrame(step);
+    else onDone?.();
+  };
+  requestAnimationFrame(step);
+}
+
+function ensureDrum(): ElLayer {
+  if (drum) return drum;
+  const el = new Audio(drumAsset.url);
+  el.loop = true;
+  el.preload = "auto";
+  el.volume = 0;
+  drum = { el, target: DRUM_TARGET };
+  return drum;
+}
+
+async function tryPlayDrum(layer: ElLayer): Promise<boolean> {
+  try {
+    const p = layer.el.play();
+    if (p && typeof p.then === "function") {
+      await p;
+    }
+    fadeEl(layer.el, layer.target, FADE_MS);
+    setBlocked(false);
+    return true;
+  } catch (err) {
+    console.warn("[ambience] drum play rejected:", (err as Error)?.name ?? err);
+    setBlocked(true);
+    return false;
+  }
+}
+
+// ─── Public API ─────────────────────────────────────────────────────────
 
 export function startLobbyChatter(): Promise<boolean> {
   if (!isClient() || muted || handedOff) return Promise.resolve(false);
-  chatter = ensureLayer(chatter, chatterAsset.url, CHATTER_TARGET);
-  if (!chatter.el.paused) return Promise.resolve(true);
-  return tryPlay(chatter, CHATTER_TARGET);
+  return startLoop(chatter);
 }
 
 export function startCrowd(): Promise<boolean> {
   if (!isClient() || muted || handedOff) return Promise.resolve(false);
-  crowd = ensureLayer(crowd, crowdAsset.url, CROWD_TARGET);
-  if (!crowd.el.paused) return Promise.resolve(true);
-  return tryPlay(crowd, CROWD_TARGET);
+  return startLoop(crowd);
 }
 
 export function startDrumroll(): Promise<boolean> {
   if (!isClient() || muted || handedOff) return Promise.resolve(false);
-  drum = ensureLayer(drum, drumAsset.url, DRUM_TARGET);
-  if (!drum.el.paused) return Promise.resolve(true);
-  return tryPlay(drum, DRUM_TARGET);
+  const layer = ensureDrum();
+  if (!layer.el.paused) return Promise.resolve(true);
+  return tryPlayDrum(layer);
 }
 
 /** Plays cymbal swell, fades out chatter + crowd + drumroll, ready for game-show music. */
@@ -132,54 +256,32 @@ export function climaxAndHandoff() {
     swell.volume = CYMBAL_VOL;
     swell.play().catch(() => {});
   }
-  if (chatter) {
-    const ch = chatter;
-    fade(ch, 0, 700, () => {
-      ch.el.pause();
-    });
-    chatter = null;
-  }
-  if (crowd) {
-    const c = crowd;
-    fade(c, 0, 700, () => {
-      c.el.pause();
-    });
-    crowd = null;
-  }
+  stopLoop(chatter, 700);
+  stopLoop(crowd, 700);
   if (drum) {
     const d = drum;
-    fade(d, 0, 500, () => {
-      d.el.pause();
+    fadeEl(d.el, 0, 500, () => {
+      try { d.el.pause(); } catch {}
     });
     drum = null;
   }
 }
 
 export function stopAllAmbience() {
-  for (const l of [chatter, crowd, drum]) {
-    if (!l) continue;
-    try {
-      l.el.pause();
-      l.el.currentTime = 0;
-    } catch {}
+  stopLoop(chatter, 0);
+  stopLoop(crowd, 0);
+  if (drum) {
+    try { drum.el.pause(); drum.el.currentTime = 0; } catch {}
+    drum = null;
   }
-  chatter = null;
-  crowd = null;
-  drum = null;
 }
 
 /** Fade out crowd + drumroll only; chatter persists as the pre-game layer. */
 export function stopLobbyBuildup() {
-  if (crowd) {
-    const c = crowd;
-    fade(c, 0, 600, () => {
-      try { c.el.pause(); c.el.currentTime = 0; } catch {}
-    });
-    crowd = null;
-  }
+  stopLoop(crowd, 600);
   if (drum) {
     const d = drum;
-    fade(d, 0, 500, () => {
+    fadeEl(d.el, 0, 500, () => {
       try { d.el.pause(); d.el.currentTime = 0; } catch {}
     });
     drum = null;
