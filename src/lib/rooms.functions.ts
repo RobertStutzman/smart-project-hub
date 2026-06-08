@@ -1,6 +1,24 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { FUNNY_SOUND_IDS } from "@/lib/funny-sound-ids";
+
+async function assignFunnySoundId(roomId: string): Promise<string> {
+  const { data: used } = await supabaseAdmin
+    .from("players")
+    .select("funny_sound_id")
+    .eq("room_id", roomId)
+    .not("funny_sound_id", "is", null);
+  const usedSet = new Set(
+    (used ?? [])
+      .map((r) => (r as { funny_sound_id: string | null }).funny_sound_id)
+      .filter((v): v is string => Boolean(v)),
+  );
+  const remaining = FUNNY_SOUND_IDS.filter((id) => !usedSet.has(id));
+  const pool = remaining.length > 0 ? remaining : FUNNY_SOUND_IDS;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 
 const ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // no I/O for legibility
 
