@@ -11,6 +11,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { SelfieCapture } from "@/components/SelfieCapture";
 import { playFunnySoundById } from "@/lib/funny-sounds";
+import { useLobbyChatter } from "@/hooks/use-lobby-chatter";
 
 const searchSchema = z.object({
   code: z.string().optional(),

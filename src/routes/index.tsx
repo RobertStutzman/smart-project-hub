@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { BootSequence, shouldShowBoot } from "@/components/BootSequence";
+import { useLobbyChatter } from "@/hooks/use-lobby-chatter";
 
 export const Route = createFileRoute("/")({
   head: () => ({
