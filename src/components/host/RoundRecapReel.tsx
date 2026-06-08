@@ -606,8 +606,13 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
       />
 
       <div className="relative grid h-full min-h-0 place-items-center overflow-hidden p-5 sm:p-7">
-        <AnimatePresence mode="wait">{current?.render()}</AnimatePresence>
+        <AnimatePresence mode="wait">
+          {current ? (
+            <React.Fragment key={current.key}>{current.render()}</React.Fragment>
+          ) : null}
+        </AnimatePresence>
       </div>
+
 
       {/* progress pips */}
       <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 gap-2">
