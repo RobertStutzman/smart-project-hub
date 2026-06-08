@@ -48,32 +48,37 @@ function ensureLayer(
   el.loop = true;
   el.preload = "auto";
   el.volume = 0;
-  el.play().catch(() => {});
   return { el, target };
+}
+
+function tryPlay(layer: Layer, target: number) {
+  const { el } = layer;
+  const p = el.play();
+  if (p && typeof p.then === "function") {
+    p.then(() => fade(layer, target, FADE_MS)).catch(() => {
+      // Autoplay blocked — leave el paused; next gesture will retry.
+    });
+  } else {
+    fade(layer, target, FADE_MS);
+  }
 }
 
 export function startLobbyChatter() {
   if (!isClient() || muted || handedOff) return;
-  if (!chatter) {
-    chatter = ensureLayer(chatter, chatterAsset.url, CHATTER_TARGET);
-    fade(chatter, CHATTER_TARGET, FADE_MS);
-  }
+  chatter = ensureLayer(chatter, chatterAsset.url, CHATTER_TARGET);
+  if (chatter.el.paused) tryPlay(chatter, CHATTER_TARGET);
 }
 
 export function startCrowd() {
   if (!isClient() || muted || handedOff) return;
-  if (!crowd) {
-    crowd = ensureLayer(crowd, crowdAsset.url, CROWD_TARGET);
-    fade(crowd, CROWD_TARGET, FADE_MS);
-  }
+  crowd = ensureLayer(crowd, crowdAsset.url, CROWD_TARGET);
+  if (crowd.el.paused) tryPlay(crowd, CROWD_TARGET);
 }
 
 export function startDrumroll() {
   if (!isClient() || muted || handedOff) return;
-  if (!drum) {
-    drum = ensureLayer(drum, drumAsset.url, DRUM_TARGET);
-    fade(drum, DRUM_TARGET, FADE_MS);
-  }
+  drum = ensureLayer(drum, drumAsset.url, DRUM_TARGET);
+  if (drum.el.paused) tryPlay(drum, DRUM_TARGET);
 }
 
 /** Plays cymbal swell, fades out chatter + crowd + drumroll, ready for game-show music. */
