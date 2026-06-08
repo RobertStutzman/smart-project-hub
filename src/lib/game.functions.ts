@@ -60,12 +60,30 @@ async function getRoomByHost(roomCode: string, hostSessionId: string) {
   return data;
 }
 
-function wildcardForRound(round: number): "saboteur" | "glitch" | "roast" | "lightning" | null {
-  if (round === 3) return "saboteur";
-  if (round === 8) return "lightning";
-  if (round === 13) return "glitch";
-  if (round === 18) return "roast";
-  return null;
+// Wildcards now fire every 3 rounds (rounds 3, 6, 9, 12, 15, 18) rotating
+// through 7 types. Round 21 (final) is skipped — final round is its own beat.
+type Wildcard =
+  | "saboteur"
+  | "glitch"
+  | "roast"
+  | "lightning"
+  | "double_or_nothing"
+  | "first_blood"
+  | "underdog";
+const WILDCARD_ROTATION: Wildcard[] = [
+  "lightning",         // round 3  — flashy & familiar; easy intro
+  "double_or_nothing", // round 6  — first real risk moment
+  "saboteur",          // round 9
+  "first_blood",       // round 12 — speed pressure mid-game
+  "glitch",            // round 15
+  "underdog",          // round 18 — catch-up before final stretch
+  "roast",             // bonus slot if game extended
+];
+function wildcardForRound(round: number): Wildcard | null {
+  if (round <= 0 || round >= 21) return null; // skip final
+  if (round % 3 !== 0) return null;
+  const slot = (round / 3) - 1; // 1→0, 2→1, ...
+  return WILDCARD_ROTATION[slot % WILDCARD_ROTATION.length];
 }
 
 const LIGHTNING_DURATION_MS = 8000;
@@ -309,6 +327,9 @@ export const endQuestion = createServerFn({ method: "POST" })
     const isRoast = room.wildcard === "roast";
     const isSaboteur = room.wildcard === "saboteur";
     const isLightning = room.wildcard === "lightning";
+    const isDoubleOrNothing = room.wildcard === "double_or_nothing";
+    const isFirstBlood = room.wildcard === "first_blood";
+    const isUnderdog = room.wildcard === "underdog";
     const saboteurSessionId = room.saboteur_session_id ?? null;
     const roastCandidates =
       (room.roast_candidates as { session_id: string; nickname: string }[] | null) ?? null;
@@ -349,6 +370,10 @@ export const endQuestion = createServerFn({ method: "POST" })
     const rankedAsc = [...(players ?? [])].sort((a, b) => (a.score ?? 0) - (b.score ?? 0));
     const rubberCutoff = Math.max(1, Math.floor(rankedAsc.length * 0.25));
     const rubberIds = new Set(rankedAsc.slice(0, rubberCutoff).map((p) => p.id));
+
+    // Underdog wildcard: the single lowest-scoring live player gets a 2x bonus
+    // on a correct answer this round. Ties broken by id-stable order.
+    const underdogId = isUnderdog && rankedAsc.length > 0 ? rankedAsc[0].id : null;
 
     // Tally roast votes
     let roastWinnerSessionId: string | null = null;
@@ -421,6 +446,8 @@ export const endQuestion = createServerFn({ method: "POST" })
           used2x = true;
         }
         if (isLightning) base *= LIGHTNING_MULTIPLIER;
+        if (isDoubleOrNothing) base *= 2;
+        if (isUnderdog && underdogId === p.id) base *= 2;
         roundScore = base;
         nextStreak += 1;
         if (nextStreak > bestStreak) bestStreak = nextStreak;
@@ -433,7 +460,10 @@ export const endQuestion = createServerFn({ method: "POST" })
         answered += 1;
         wrongCount += 1;
         if (lockedMs) totalMs += lockedMs - startMs;
-        const penalty = pending2x ? -200 : 0;
+        // Double-or-Nothing: wrong answer hurts (mirrors the magnitude of a
+        // mediocre correct, ~-150). Pending 2x stacks on top.
+        let penalty = pending2x ? -200 : 0;
+        if (isDoubleOrNothing) penalty += -150;
         if (pending2x) used2x = true;
         roundScore = penalty;
         nextStreak = 0;
@@ -459,6 +489,20 @@ export const endQuestion = createServerFn({ method: "POST" })
     if (fastestPlayerId) {
       const u = updates.find((x) => x.id === fastestPlayerId);
       if (u) u.current_round_fastest = true;
+    }
+
+    // First Blood: only the fastest correct player keeps their points; all
+    // other correct answers get zeroed (we leave penalties from wrong answers
+    // intact). Recompute total score to drop the now-stripped points.
+    if (isFirstBlood) {
+      for (const u of updates) {
+        if (u.last_answer_correct === true && u.id !== fastestPlayerId) {
+          const orig = (players ?? []).find((x) => x.id === u.id);
+          const prevTotal = orig?.score ?? 0;
+          u.current_round_score = 0;
+          u.score = Math.max(0, prevTotal);
+        }
+      }
     }
 
     let qAnswered = 0;

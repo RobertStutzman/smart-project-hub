@@ -1079,6 +1079,9 @@ export function HostGameStage({ room }: Props) {
             {state.wildcard === "glitch" && "⚡ Glitch round"}
             {state.wildcard === "roast" && "🔥 Roast vote"}
             {state.wildcard === "lightning" && "⚡ LIGHTNING · 2× points · 8s"}
+            {state.wildcard === "double_or_nothing" && "💀 DOUBLE OR NOTHING · 2× / −150"}
+            {state.wildcard === "first_blood" && "🩸 FIRST BLOOD · fastest only scores"}
+            {state.wildcard === "underdog" && "🐢 UNDERDOG · last place gets 2×"}
           </div>
         )}
         {state.wildcard === "lightning" && state.phase === "question" && (
