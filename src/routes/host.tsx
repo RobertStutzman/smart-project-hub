@@ -313,6 +313,7 @@ function HostPage() {
     // Game-show music is deferred until host starts the game (phase=intro),
     // where HostGameStage triggers climaxAndHandoff.
     let cancelled = false;
+    let retryHandler: (() => void) | null = null;
     void (async () => {
       try {
         const { getActiveSounds } = await import("@/lib/sounds.functions");
@@ -341,21 +342,29 @@ function HostPage() {
           ambience.startCrowd();
           // Fallback: if user landed on /host directly (no prior gesture),
           // autoplay will be blocked. Retry silently on first interaction.
-          const retry = () => {
+          retryHandler = () => {
             void import("@/lib/ambience-engine").then((m) => {
               m.resetAmbience();
               m.startCrowd();
             });
-            window.removeEventListener("pointerdown", retry);
-            window.removeEventListener("keydown", retry);
+            if (retryHandler) {
+              window.removeEventListener("pointerdown", retryHandler);
+              window.removeEventListener("keydown", retryHandler);
+              retryHandler = null;
+            }
           };
-          window.addEventListener("pointerdown", retry, { once: true });
-          window.addEventListener("keydown", retry, { once: true });
+          window.addEventListener("pointerdown", retryHandler, { once: true });
+          window.addEventListener("keydown", retryHandler, { once: true });
         }
       }
     })();
     return () => {
       cancelled = true;
+      if (retryHandler) {
+        window.removeEventListener("pointerdown", retryHandler);
+        window.removeEventListener("keydown", retryHandler);
+        retryHandler = null;
+      }
       stopMusic();
       // Only fade host-specific layers; keep chatter alive for landing/join.
       void import("@/lib/ambience-engine").then((m) => m.stopLobbyBuildup());
