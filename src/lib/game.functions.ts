@@ -327,6 +327,9 @@ export const endQuestion = createServerFn({ method: "POST" })
     const isRoast = room.wildcard === "roast";
     const isSaboteur = room.wildcard === "saboteur";
     const isLightning = room.wildcard === "lightning";
+    const isDoubleOrNothing = room.wildcard === "double_or_nothing";
+    const isFirstBlood = room.wildcard === "first_blood";
+    const isUnderdog = room.wildcard === "underdog";
     const saboteurSessionId = room.saboteur_session_id ?? null;
     const roastCandidates =
       (room.roast_candidates as { session_id: string; nickname: string }[] | null) ?? null;
