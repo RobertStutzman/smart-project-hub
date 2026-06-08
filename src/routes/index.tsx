@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { BootSequence, shouldShowBoot } from "@/components/BootSequence";
+import { LegalFooter } from "@/components/LegalFooter";
 import { useLobbyChatter } from "@/hooks/use-lobby-chatter";
 
 export const Route = createFileRoute("/")({
@@ -109,6 +110,7 @@ function LandingPage() {
           <Feature n="03" t="Win streaks" d="Combos = bonus points." />
         </div>
       </div>
+      <LegalFooter />
     </main>
     </>
   );

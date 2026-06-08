@@ -21,11 +21,15 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsStreamerRouteImport } from './routes/settings.streamer'
 import { Route as ResultsRoomIdRouteImport } from './routes/results.$roomId'
+import { Route as LegalTermsRouteImport } from './routes/legal.terms'
+import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
+import { Route as LegalContactRouteImport } from './routes/legal.contact'
 import { Route as AuthenticatedAdminTtsRouteImport } from './routes/_authenticated/admin-tts'
 import { Route as AuthenticatedAdminSoundsRouteImport } from './routes/_authenticated/admin-sounds'
 import { Route as AuthenticatedAdminQuestionsRouteImport } from './routes/_authenticated/admin-questions'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as ApiPublicHooksQuestionQualityAlertRouteImport } from './routes/api/public/hooks/question-quality-alert'
+import { Route as ApiPublicHooksCleanupAvatarsRouteImport } from './routes/api/public/hooks/cleanup-avatars'
 
 const PreviewQuestionRoute = PreviewQuestionRouteImport.update({
   id: '/preview-question',
@@ -86,6 +90,21 @@ const ResultsRoomIdRoute = ResultsRoomIdRouteImport.update({
   path: '/results/$roomId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LegalTermsRoute = LegalTermsRouteImport.update({
+  id: '/legal/terms',
+  path: '/legal/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
+  id: '/legal/privacy',
+  path: '/legal/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalContactRoute = LegalContactRouteImport.update({
+  id: '/legal/contact',
+  path: '/legal/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminTtsRoute = AuthenticatedAdminTtsRouteImport.update({
   id: '/admin-tts',
   path: '/admin-tts',
@@ -114,6 +133,12 @@ const ApiPublicHooksQuestionQualityAlertRoute =
     path: '/api/public/hooks/question-quality-alert',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksCleanupAvatarsRoute =
+  ApiPublicHooksCleanupAvatarsRouteImport.update({
+    id: '/api/public/hooks/cleanup-avatars',
+    path: '/api/public/hooks/cleanup-avatars',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -129,8 +154,12 @@ export interface FileRoutesByFullPath {
   '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/admin-tts': typeof AuthenticatedAdminTtsRoute
+  '/legal/contact': typeof LegalContactRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/results/$roomId': typeof ResultsRoomIdRoute
   '/settings/streamer': typeof SettingsStreamerRoute
+  '/api/public/hooks/cleanup-avatars': typeof ApiPublicHooksCleanupAvatarsRoute
   '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
 }
 export interface FileRoutesByTo {
@@ -147,8 +176,12 @@ export interface FileRoutesByTo {
   '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/admin-tts': typeof AuthenticatedAdminTtsRoute
+  '/legal/contact': typeof LegalContactRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/results/$roomId': typeof ResultsRoomIdRoute
   '/settings/streamer': typeof SettingsStreamerRoute
+  '/api/public/hooks/cleanup-avatars': typeof ApiPublicHooksCleanupAvatarsRoute
   '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
 }
 export interface FileRoutesById {
@@ -167,8 +200,12 @@ export interface FileRoutesById {
   '/_authenticated/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/_authenticated/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/_authenticated/admin-tts': typeof AuthenticatedAdminTtsRoute
+  '/legal/contact': typeof LegalContactRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/results/$roomId': typeof ResultsRoomIdRoute
   '/settings/streamer': typeof SettingsStreamerRoute
+  '/api/public/hooks/cleanup-avatars': typeof ApiPublicHooksCleanupAvatarsRoute
   '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
 }
 export interface FileRouteTypes {
@@ -187,8 +224,12 @@ export interface FileRouteTypes {
     | '/admin-questions'
     | '/admin-sounds'
     | '/admin-tts'
+    | '/legal/contact'
+    | '/legal/privacy'
+    | '/legal/terms'
     | '/results/$roomId'
     | '/settings/streamer'
+    | '/api/public/hooks/cleanup-avatars'
     | '/api/public/hooks/question-quality-alert'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -205,8 +246,12 @@ export interface FileRouteTypes {
     | '/admin-questions'
     | '/admin-sounds'
     | '/admin-tts'
+    | '/legal/contact'
+    | '/legal/privacy'
+    | '/legal/terms'
     | '/results/$roomId'
     | '/settings/streamer'
+    | '/api/public/hooks/cleanup-avatars'
     | '/api/public/hooks/question-quality-alert'
   id:
     | '__root__'
@@ -224,8 +269,12 @@ export interface FileRouteTypes {
     | '/_authenticated/admin-questions'
     | '/_authenticated/admin-sounds'
     | '/_authenticated/admin-tts'
+    | '/legal/contact'
+    | '/legal/privacy'
+    | '/legal/terms'
     | '/results/$roomId'
     | '/settings/streamer'
+    | '/api/public/hooks/cleanup-avatars'
     | '/api/public/hooks/question-quality-alert'
   fileRoutesById: FileRoutesById
 }
@@ -240,8 +289,12 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PlayRoute: typeof PlayRoute
   PreviewQuestionRoute: typeof PreviewQuestionRoute
+  LegalContactRoute: typeof LegalContactRoute
+  LegalPrivacyRoute: typeof LegalPrivacyRoute
+  LegalTermsRoute: typeof LegalTermsRoute
   ResultsRoomIdRoute: typeof ResultsRoomIdRoute
   SettingsStreamerRoute: typeof SettingsStreamerRoute
+  ApiPublicHooksCleanupAvatarsRoute: typeof ApiPublicHooksCleanupAvatarsRoute
   ApiPublicHooksQuestionQualityAlertRoute: typeof ApiPublicHooksQuestionQualityAlertRoute
 }
 
@@ -331,6 +384,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResultsRoomIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/legal/terms': {
+      id: '/legal/terms'
+      path: '/legal/terms'
+      fullPath: '/legal/terms'
+      preLoaderRoute: typeof LegalTermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/privacy': {
+      id: '/legal/privacy'
+      path: '/legal/privacy'
+      fullPath: '/legal/privacy'
+      preLoaderRoute: typeof LegalPrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/contact': {
+      id: '/legal/contact'
+      path: '/legal/contact'
+      fullPath: '/legal/contact'
+      preLoaderRoute: typeof LegalContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin-tts': {
       id: '/_authenticated/admin-tts'
       path: '/admin-tts'
@@ -366,6 +440,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksQuestionQualityAlertRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/cleanup-avatars': {
+      id: '/api/public/hooks/cleanup-avatars'
+      path: '/api/public/hooks/cleanup-avatars'
+      fullPath: '/api/public/hooks/cleanup-avatars'
+      preLoaderRoute: typeof ApiPublicHooksCleanupAvatarsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -398,21 +479,15 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PlayRoute: PlayRoute,
   PreviewQuestionRoute: PreviewQuestionRoute,
+  LegalContactRoute: LegalContactRoute,
+  LegalPrivacyRoute: LegalPrivacyRoute,
+  LegalTermsRoute: LegalTermsRoute,
   ResultsRoomIdRoute: ResultsRoomIdRoute,
   SettingsStreamerRoute: SettingsStreamerRoute,
+  ApiPublicHooksCleanupAvatarsRoute: ApiPublicHooksCleanupAvatarsRoute,
   ApiPublicHooksQuestionQualityAlertRoute:
     ApiPublicHooksQuestionQualityAlertRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
