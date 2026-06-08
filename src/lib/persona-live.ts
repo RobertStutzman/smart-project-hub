@@ -206,6 +206,30 @@ const TEMPLATES: Record<LiveMoment, Template[]> = {
     (c) => `The crown belongs to ${c.nickname}. Earned.`,
     (c) => `${c.nickname} — undefeated for the evening.`,
   ],
+  last_to_lock: [
+    (c) => `${c.nickname} squeaked it in at the buzzer.`,
+    (c) => `Cutting it close, ${c.nickname}.`,
+    (c) => `${c.nickname} — last in. Living dangerously.`,
+    (c) => `${c.nickname} locked with milliseconds to spare.`,
+    (c) => `Buzzer-beater from ${c.nickname}. Heart attack scheduled.`,
+    (c) => `${c.nickname} waited until the last second. Theatrical.`,
+    (c) => `Final answer, final second — ${c.nickname}.`,
+    (c) => `${c.nickname} made us wait. Rude.`,
+    (c) => `${c.nickname} just barely made the cut.`,
+    (c) => `${c.nickname} — locked in like they meant to wait that long.`,
+  ],
+  random_jab: [
+    (c) => `${c.nickname} — we see you back there.`,
+    (c) => `Don't forget ${c.nickname} exists.`,
+    (c) => `${c.nickname} is plotting something. Probably.`,
+    (c) => `Quiet from ${c.nickname}. Suspicious.`,
+    (c) => `${c.nickname}, vibes are immaculate. Score, less so.`,
+    (c) => `Spotted: ${c.nickname}. Still in this. Technically.`,
+    (c) => `${c.nickname} is here. That counts for something.`,
+    (c) => `Big silent energy from ${c.nickname}.`,
+    (c) => `${c.nickname}, showing up is half the battle. The other half is points.`,
+    (c) => `${c.nickname} lurking. Calculating. Mid.`,
+  ],
 };
 
 function listNames(c: PersonaContext): string {
@@ -229,6 +253,8 @@ const FALLBACK_MOMENT: Record<LiveMoment, Parameters<typeof pickLine>[0]> = {
   welcome: "intro_hype",
   final_showdown: "final_hype",
   winner: "credits_open",
+  last_to_lock: "last_to_lock",
+  random_jab: "random_jab",
 };
 
 function pickTemplate(ctx: PersonaContext): string {
