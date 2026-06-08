@@ -94,13 +94,11 @@ function LandingPage() {
           <Link
             to="/host"
             onClick={() => {
-              // Pre-arm chatter + crowd + drumroll under this user gesture so they
-              // survive the route transition into /host (autoplay-friendly).
+              // Pre-arm chatter under this user gesture so it survives the route
+              // transition into /host. Crowd + drum start inside /host's lobby.
               void import("@/lib/ambience-engine").then((m) => {
                 m.resetAmbience();
                 m.startLobbyChatter();
-                m.startCrowd();
-                window.setTimeout(() => m.startDrumroll(), 1200);
               });
             }}
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-8 py-4 font-display text-base font-bold uppercase tracking-wider text-amber-950 shadow-[0_0_50px_oklch(0.85_0.18_85/0.45)] transition hover:scale-[1.03] active:scale-[0.98]"
