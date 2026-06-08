@@ -219,6 +219,41 @@ function JoinPage() {
               >Watch as audience</button>
             </div>
           </div>
+        ) : step === "consent" ? (
+          <div className="my-auto rounded-3xl border border-amber-300/20 bg-white/5 p-6 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.6)] backdrop-blur">
+            <h1 className="font-display text-3xl font-black tracking-tight">
+              <span className="bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text text-transparent">
+                Quick heads up
+              </span>
+            </h1>
+            <p className="mt-4 text-sm leading-relaxed text-amber-100/80">
+              Your selfie is shown to other players on the TV and leaderboard. We store it on our server for up to{" "}
+              <strong className="text-amber-200">24 hours</strong>, then it's automatically deleted.
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-amber-100/80">
+              You can skip it and play without a photo. By tapping{" "}
+              <strong className="text-amber-200">Allow camera</strong>, you agree to our{" "}
+              <Link to="/legal/privacy" className="underline underline-offset-2 hover:text-amber-100">
+                Privacy Policy
+              </Link>
+              .
+            </p>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <button
+                onClick={() => navigate({ to: "/play" })}
+                className="flex-1 rounded-full border border-amber-300/30 bg-white/5 px-6 py-4 text-sm font-bold uppercase tracking-wider text-amber-100 hover:bg-white/10"
+              >
+                Skip selfie
+              </button>
+              <button
+                onClick={() => setStep("selfie")}
+                className="flex-1 rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-6 py-4 text-sm font-bold uppercase tracking-wider text-amber-950 shadow-[0_0_40px_oklch(0.85_0.18_85/0.35)] hover:brightness-110"
+              >
+                Allow camera
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="my-auto">
             <h1 className="font-display text-3xl font-black tracking-tight">
@@ -227,7 +262,7 @@ function JoinPage() {
               </span>
             </h1>
             <p className="mt-2 text-sm text-amber-100/70">
-              Your face shows on the TV next to your score.
+              Shown on the TV next to your score. Deleted within 24 hours.
             </p>
             <div className="mt-8">
               <SelfieCapture
@@ -237,6 +272,7 @@ function JoinPage() {
             </div>
           </div>
         )}
+        <LegalFooter />
       </div>
     </main>
   );
