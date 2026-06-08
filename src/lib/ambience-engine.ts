@@ -7,7 +7,7 @@ import drumAsset from "@/assets/audio/drumroll-build.mp3.asset.json";
 import cymbalAsset from "@/assets/audio/cymbal-swell.mp3.asset.json";
 import chatterAsset from "@/assets/audio/lobby-chatter.mp3.asset.json";
 
-const CHATTER_TARGET = 0.14;
+const CHATTER_TARGET = 0.28;
 const CROWD_TARGET = 0.18;
 const DRUM_TARGET = 0.22;
 const CYMBAL_VOL = 0.6;
