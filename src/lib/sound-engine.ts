@@ -196,6 +196,36 @@ const DEFAULT_EVENT_CLIPS: Partial<Record<GameEvent, CustomClip>> = {
 // Final-round underscore bed (separate from the one-shot "final" sting).
 export const FINAL_WAGER_BED_URL: string = finalWagerBed.url;
 
+let wagerBedAudio: HTMLAudioElement | null = null;
+export function playWagerBed(volume = 0.35) {
+  if (muted || typeof window === "undefined") return;
+  stopWagerBed();
+  try {
+    wagerBedAudio = new Audio(finalWagerBed.url);
+    wagerBedAudio.loop = true;
+    wagerBedAudio.volume = Math.max(0, Math.min(1, volume));
+    wagerBedAudio.play().catch(() => {});
+  } catch {
+    /* noop */
+  }
+}
+export function stopWagerBed(fadeMs = 600) {
+  const a = wagerBedAudio;
+  wagerBedAudio = null;
+  if (!a) return;
+  const startVol = a.volume;
+  const steps = 12;
+  let i = 0;
+  const id = window.setInterval(() => {
+    i++;
+    a.volume = Math.max(0, startVol * (1 - i / steps));
+    if (i >= steps) {
+      window.clearInterval(id);
+      try { a.pause(); a.currentTime = 0; } catch { /* noop */ }
+    }
+  }, Math.max(20, fadeMs / steps));
+}
+
 const eventClips: Partial<Record<GameEvent, CustomClip>> = { ...DEFAULT_EVENT_CLIPS };
 let loopAudio: HTMLAudioElement | null = null;
 let currentLoopMode: "lobby" | "tense" | null = null;
