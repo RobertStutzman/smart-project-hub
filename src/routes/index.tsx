@@ -110,6 +110,7 @@ function LandingPage() {
           <Feature n="03" t="Win streaks" d="Combos = bonus points." />
         </div>
       </div>
+      <LegalFooter />
     </main>
     </>
   );
