@@ -323,7 +323,12 @@ export function QuestionStage({
                 initial={false}
                 animate={
                   dropped
-                    ? { y: "140%", rotate: tilt, opacity: 0, scale: 0.96 }
+                    ? {
+                        y: ["0%", "15%", "180%"],
+                        rotate: [0, (i % 2 === 0 ? -1 : 1) * 3, (i % 2 === 0 ? -1 : 1) * (4 + (i % 3))],
+                        opacity: [1, 1, 0],
+                        scale: 1,
+                      }
                     : {
                         scale: !showAnswers ? 0.94 : isCorrect ? 1.04 : 1,
                         opacity: !showAnswers ? 0 : isWrongReveal ? 0.25 : 1,
@@ -333,10 +338,14 @@ export function QuestionStage({
                 }
                 transition={
                   dropped
-                    ? { duration: DROP_FALL_MS / 1000, ease: [0.55, 0.06, 0.68, 0.19] }
+                    ? {
+                        duration: DROP_FALL_MS / 1000,
+                        times: [0, 0.2, 1],
+                        ease: ["easeOut", "easeIn"],
+                      }
                     : { duration: 0.35, delay: showAnswers && reading ? i * 0.11 : 0, ease: [0.22, 1, 0.36, 1] }
                 }
-                style={{ transformOrigin: "50% 30%" }}
+                style={{ transformOrigin: "50% 0%" }}
                 className={`relative flex h-full w-full min-h-0 flex-col justify-between overflow-hidden rounded-2xl border p-3 backdrop-blur-xl sm:p-4 ${
                   isCorrect
                     ? "border-amber-300/80 bg-gradient-to-br from-amber-400/25 to-amber-600/10 shadow-[0_0_80px_oklch(0.85_0.18_85/0.7)]"
@@ -513,19 +522,19 @@ function DropDebris() {
   const embers = Array.from({ length: 10 });
   return (
     <div className="pointer-events-none absolute inset-0 z-20 overflow-visible">
-      {/* Impact flash */}
+      {/* Impact flash — fires just as the tile lands */}
       <motion.div
-        initial={{ opacity: 0.55, scale: 0.6 }}
-        animate={{ opacity: 0, scale: 1.4 }}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-        className="absolute inset-x-0 bottom-0 mx-auto h-16 w-3/4 rounded-full"
+        initial={{ opacity: 0, scale: 0.6 }}
+        animate={{ opacity: [0, 0.5, 0], scale: [0.6, 1.3, 1.5] }}
+        transition={{ duration: 0.35, delay: 0.05, ease: "easeOut", times: [0, 0.3, 1] }}
+        className="absolute inset-x-0 bottom-0 mx-auto h-12 w-2/3 rounded-full"
         style={{
           background:
-            "radial-gradient(ellipse 60% 50% at 50% 100%, oklch(0.72 0.22 20 / 0.7), transparent 70%)",
-          filter: "blur(6px)",
+            "radial-gradient(ellipse 60% 50% at 50% 100%, oklch(0.78 0.18 30 / 0.55), transparent 70%)",
+          filter: "blur(4px)",
         }}
       />
-      {/* Rectangular shards spinning outward */}
+      {/* Rectangular shards spinning outward in a staggered wave */}
       {shards.map((_, i) => {
         const angle = -90 + (i - shards.length / 2) * 22 + (i * 7) % 11;
         const dist = 60 + (i * 13) % 40;
@@ -537,34 +546,39 @@ function DropDebris() {
             key={`s-${i}`}
             initial={{ x: 0, y: 0, opacity: 1, rotate: 0, scale: 1 }}
             animate={{
-              x,
-              y: y + 40,
-              opacity: 0,
+              x: [0, x * 0.6, x],
+              y: [0, y, y + 60],
+              opacity: [1, 1, 0],
               rotate: (i % 2 ? 1 : -1) * (180 + i * 30),
-              scale: 0.4,
+              scale: [1, 0.7, 0.4],
             }}
-            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            transition={{
+              duration: 0.75,
+              delay: 0.05 + i * 0.025,
+              ease: [0.22, 1, 0.36, 1],
+              times: [0, 0.4, 1],
+            }}
             className="absolute left-1/2 top-1/2 block h-2 w-3 rounded-sm bg-rose-300/80"
             style={{ filter: "drop-shadow(0 0 6px rgba(244,63,94,0.8))" }}
           />
         );
       })}
-      {/* Rose embers drifting up */}
+      {/* Rose embers drifting up — lingering, not flashing */}
       {embers.map((_, i) => {
         const xStart = 18 + ((i * 11) % 72);
         const drift = (i % 2 === 0 ? -1 : 1) * (10 + (i % 3) * 8);
-        const delay = 0.04 + (i % 4) * 0.05;
+        const delay = 0.08 + (i % 5) * 0.06;
         return (
           <motion.span
             key={`e-${i}`}
             initial={{ opacity: 0, x: `${xStart}%`, y: "80%", scale: 0.6 }}
             animate={{
-              opacity: [0, 1, 0],
+              opacity: [0, 0.7, 0],
               y: "5%",
               x: `${xStart + drift}%`,
               scale: [0.5, 1, 0.3],
             }}
-            transition={{ duration: 0.8, delay, ease: "easeOut" }}
+            transition={{ duration: 1.1, delay, ease: "easeOut" }}
             className="absolute block h-1.5 w-1.5 rounded-full bg-rose-300"
             style={{ filter: "drop-shadow(0 0 6px rgba(244,63,94,0.9))" }}
           />
