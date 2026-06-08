@@ -433,7 +433,6 @@ export function HostGameStage({ room }: Props) {
       void import("@/lib/ambience-engine").then((m) => {
         m.resetAmbience();
         m.startCrowd();
-        window.setTimeout(() => m.startDrumroll(), 1200);
       });
     }
     if (state.phase === "question" || state.phase === "final_question")
