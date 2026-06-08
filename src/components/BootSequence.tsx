@@ -21,13 +21,13 @@ const TIPS_VO =
 
 const SKIP_KEY = "btd:boot:done";
 
-type Stage = "splash" | "credits" | "tips" | "ready";
+type Stage = "gate" | "splash" | "credits" | "tips" | "ready";
 
 type Props = {
   onComplete: () => void;
 };
 
-const STAGE_DURATIONS: Record<Exclude<Stage, "ready">, number> = {
+const STAGE_DURATIONS: Record<Exclude<Stage, "ready" | "gate">, number> = {
   splash: 2200,
   credits: 4000,
   tips: 6500,
