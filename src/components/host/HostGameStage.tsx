@@ -1293,7 +1293,18 @@ export function useRevealAutoAdvance(
     const endOfRound =
       roundNumber > 0 &&
       (roundNumber % QUESTIONS_PER_ROUND === 0 || roundNumber >= FINAL_ROUND_NUMBER);
-    const id = window.setTimeout(() => {
+
+    const BASELINE_MS = 6000;
+    const HARD_CAP_MS = 14000;
+    const POLL_MS = 250;
+    const start = Date.now();
+
+    let pollId: number | null = null;
+    let advanced = false;
+
+    const advance = () => {
+      if (advanced) return;
+      advanced = true;
       if (endOfRound) {
         setPhaseFn({
           data: { roomCode, hostSessionId, phase: "leaderboard" },
@@ -1303,7 +1314,30 @@ export function useRevealAutoAdvance(
           data: { roomCode, hostSessionId },
         }).catch(() => {});
       }
-    }, 6000);
-    return () => window.clearTimeout(id);
+    };
+
+    const baselineId = window.setTimeout(() => {
+      // After baseline, wait for the Did You Know voice (or any queued line)
+      // to finish before advancing. Hard cap protects against stuck audio.
+      void import("@/lib/elf-voice").then(({ isElfSpeaking }) => {
+        if (advanced) return;
+        if (!isElfSpeaking()) {
+          advance();
+          return;
+        }
+        pollId = window.setInterval(() => {
+          if (!isElfSpeaking() || Date.now() - start >= HARD_CAP_MS) {
+            if (pollId !== null) window.clearInterval(pollId);
+            pollId = null;
+            advance();
+          }
+        }, POLL_MS);
+      });
+    }, BASELINE_MS);
+
+    return () => {
+      window.clearTimeout(baselineId);
+      if (pollId !== null) window.clearInterval(pollId);
+    };
   }, [phase, roundNumber, roomCode, hostSessionId, setPhaseFn, nextQuestionFn]);
 }
