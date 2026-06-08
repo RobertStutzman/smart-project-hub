@@ -10,7 +10,7 @@ import {
 } from "@/lib/player-session";
 import { supabase } from "@/integrations/supabase/client";
 import { SelfieCapture } from "@/components/SelfieCapture";
-import { playFunnySoundForId } from "@/lib/funny-sounds";
+import { playFunnySoundById } from "@/lib/funny-sounds";
 
 const searchSchema = z.object({
   code: z.string().optional(),
@@ -66,13 +66,13 @@ function JoinPage() {
     setSubmitting(true);
     try {
       const sid = getOrCreateSessionId();
-      await joinFn({
+      const result = await joinFn({
         data: { roomCode: code, nickname: trimmedNickname, sessionId: sid },
       });
       savePlayerSession({ sessionId: sid, roomCode: code, nickname: trimmedNickname });
       setSessionId(sid);
       // Preview the funny sound this player is locked into for the game.
-      playFunnySoundForId(sid);
+      playFunnySoundById((result as { funnySoundId?: string | null }).funnySoundId, sid);
       setStep("selfie");
     } catch (err) {
       setError((err as Error).message);
