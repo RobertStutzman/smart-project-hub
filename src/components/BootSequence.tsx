@@ -152,6 +152,7 @@ export function BootSequence({ onComplete }: Props) {
   function complete() {
     if (completedRef.current) return;
     completedRef.current = true;
+    cancelElfSpeech();
     try {
       window.sessionStorage.setItem(SKIP_KEY, "1");
     } catch {
