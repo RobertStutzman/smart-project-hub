@@ -292,6 +292,11 @@ function HostPage() {
           setCreating(true);
           const { cancelElfSpeech } = await import("@/lib/elf-voice");
           cancelElfSpeech();
+          const { silenceAllAudio } = await import("@/lib/sound-engine");
+          silenceAllAudio();
+          const ambience = await import("@/lib/ambience-engine");
+          ambience.stopAllAmbience();
+          ambience.resetAmbience();
           const hostSessionId = newId();
           const res = await createRoomFn({ data: { hostSessionId } });
           saveHostSession({ sessionId: hostSessionId, roomCode: res.roomCode });
@@ -467,6 +472,11 @@ function HostPage() {
       setCreating(true);
       const { cancelElfSpeech } = await import("@/lib/elf-voice");
       cancelElfSpeech();
+      const { silenceAllAudio } = await import("@/lib/sound-engine");
+      silenceAllAudio();
+      const ambience = await import("@/lib/ambience-engine");
+      ambience.stopAllAmbience();
+      ambience.resetAmbience();
       await endRoomFn({
         data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
       }).catch(() => undefined);
