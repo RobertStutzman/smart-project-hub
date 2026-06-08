@@ -240,6 +240,55 @@ export function BootSequence({ onComplete }: Props) {
   );
 }
 
+function GateStage() {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.4 }}
+      className="relative flex h-full w-full flex-col items-center justify-center text-center"
+    >
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 40% 30% at 50% 50%, oklch(0.85 0.18 85 / 0.18), transparent 70%)",
+        }}
+      />
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.1 }}
+        className="text-[10px] uppercase tracking-[0.5em] text-amber-200/70"
+      >
+        A Beat the Drop production
+      </motion.div>
+      <motion.div
+        initial={{ letterSpacing: "0.4em", opacity: 0 }}
+        animate={{ letterSpacing: "0.05em", opacity: 1 }}
+        transition={{ duration: 1, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        className="mt-6 font-display text-[clamp(2.5rem,9svh,6rem)] font-black leading-[0.95] tracking-tight"
+      >
+        <span className="text-white drop-shadow-[0_4px_40px_rgba(0,0,0,0.7)]">Beat the </span>
+        <span className="bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text text-transparent">
+          Drop
+        </span>
+      </motion.div>
+      <motion.div
+        animate={{ scale: [1, 1.06, 1] }}
+        transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+        className="mt-12 inline-flex items-center gap-3 rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-10 py-5 font-display text-base font-black uppercase tracking-[0.25em] text-amber-950 shadow-[0_0_60px_oklch(0.85_0.18_85/0.5)]"
+      >
+        <span>Tap or press any key to begin</span>
+      </motion.div>
+      <div className="mt-5 text-[10px] uppercase tracking-[0.4em] text-white/40">
+        Sound on for the full experience
+      </div>
+    </motion.div>
+  );
+}
+
 function SplashStage() {
   return (
     <motion.div
