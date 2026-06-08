@@ -19,6 +19,8 @@ type Moment =
   | "credits_open"      // outro credits start
   | "comeback"          // someone clawed back up the board
   | "round_recap"       // generic round-end zing
+  | "wooden_spoon"      // lowest scorer of the round
+  | "goose_egg"         // player(s) who scored zero
   | "idle_interject"    // dead-air filler between questions
   | "round_transition"; // between-round stinger
 
@@ -612,6 +614,44 @@ export const LINES: Record<Moment, string[]> = {
     "Round to round, no break.",
     "And we roll into the next.",
     "Round flips. Drama follows.",
+  ],
+  wooden_spoon: [
+    "Wooden spoon. Try harder.",
+    "Last place. Somebody had to.",
+    "The floor called. It misses you.",
+    "That round was a hate crime against trivia.",
+    "Found a way. The wrong way.",
+    "Dead last. Eat your veggies.",
+    "Bottom of the barrel. Cozy in there?",
+    "Polished the floor that round. Slippery work.",
+    "Caboose energy. All round.",
+    "You brought a sundial to a stopwatch fight.",
+    "Last place, big confidence. Iconic.",
+    "Trivia 0, vibes 1.",
+    "The basement called. You moved in.",
+    "Took the L with style. Barely.",
+    "Wrong button. Every time.",
+    "Anchor of the room. We salute you.",
+    "Last. Loud. Lovable.",
+    "Score sheet says no. Loudly.",
+    "Round goblin spotted. In last.",
+  ],
+  goose_egg: [
+    "Big zero. Reflect on that.",
+    "Brought a knife to a knowledge fight.",
+    "Round of nothing. Powerful.",
+    "Goose egg. Lay another one.",
+    "Zero points, full commitment.",
+    "Round one stat: vibes. That's it.",
+    "Nothing on the board. Bold strategy.",
+    "Scored nothing. Made memories.",
+    "Empty stat line. Loud personality.",
+    "Zero. The cleanest number.",
+    "Donut for that round. Hot.",
+    "Nada. Zip. Vibes intact.",
+    "Stat line: a perfect circle.",
+    "Negative knowledge that round.",
+    "Did nothing. Looked great doing it.",
   ],
 };
 
