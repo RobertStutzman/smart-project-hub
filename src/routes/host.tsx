@@ -90,6 +90,10 @@ function HostPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showHowTo, setShowHowTo] = useState(false);
   const initRef = useRef(false);
+  const playersRef = useRef<Player[]>([]);
+  useEffect(() => {
+    playersRef.current = players;
+  }, [players]);
 
   // Hydration-safe origin + persisted mute pref
   useEffect(() => {
