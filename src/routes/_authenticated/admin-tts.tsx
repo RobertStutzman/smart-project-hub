@@ -140,6 +140,12 @@ function TtsObservabilityPage() {
           <div className="text-sm text-muted-foreground">Loading…</div>
         ) : (
           <div className="space-y-10">
+            <PreBakePanel
+              persona={personaPack}
+              question={questionPack}
+              explanation={explanationPack}
+              onChange={reload}
+            />
             <AlertsBanner summary={summary} topGames={topGames} days={days} />
             <SummaryCards summary={summary} />
             <TrendChart series={series} />
