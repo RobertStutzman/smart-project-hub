@@ -6,6 +6,7 @@ import Papa from "papaparse";
 import {
   backfillExplanations,
   bulkInsertQuestions,
+  checkDuplicates,
   checkIsAdmin,
   countDuplicateAnswers,
   countMissingExplanations,
@@ -18,6 +19,7 @@ import {
   signQuestionMedia,
   upsertQuestion,
 } from "@/lib/admin.functions";
+import { dedupeKey } from "@/lib/dedupe";
 import { bakeAllQuestionTTS, bakeAllExplanationTTS, getExplanationTTSStats } from "@/lib/announcer.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { CATEGORIES } from "@/lib/categories";
@@ -1743,9 +1745,8 @@ function parseGeminiJson(text: string, fallbackCategory: string): ParsedRow[] {
   });
 }
 
-function dedupeKey(s: string): string {
-  return s.trim().toLowerCase().replace(/\s+/g, " ");
-}
+
+
 
 const IMPORT_CHUNK = 200;
 
