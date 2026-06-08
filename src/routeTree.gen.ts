@@ -21,6 +21,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsStreamerRouteImport } from './routes/settings.streamer'
 import { Route as ResultsRoomIdRouteImport } from './routes/results.$roomId'
+import { Route as LegalTermsRouteImport } from './routes/legal.terms'
 import { Route as AuthenticatedAdminTtsRouteImport } from './routes/_authenticated/admin-tts'
 import { Route as AuthenticatedAdminSoundsRouteImport } from './routes/_authenticated/admin-sounds'
 import { Route as AuthenticatedAdminQuestionsRouteImport } from './routes/_authenticated/admin-questions'
@@ -86,6 +87,11 @@ const ResultsRoomIdRoute = ResultsRoomIdRouteImport.update({
   path: '/results/$roomId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LegalTermsRoute = LegalTermsRouteImport.update({
+  id: '/legal/terms',
+  path: '/legal/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAdminTtsRoute = AuthenticatedAdminTtsRouteImport.update({
   id: '/admin-tts',
   path: '/admin-tts',
@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/admin-tts': typeof AuthenticatedAdminTtsRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/results/$roomId': typeof ResultsRoomIdRoute
   '/settings/streamer': typeof SettingsStreamerRoute
   '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/admin-tts': typeof AuthenticatedAdminTtsRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/results/$roomId': typeof ResultsRoomIdRoute
   '/settings/streamer': typeof SettingsStreamerRoute
   '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
@@ -167,6 +175,7 @@ export interface FileRoutesById {
   '/_authenticated/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/_authenticated/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/_authenticated/admin-tts': typeof AuthenticatedAdminTtsRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/results/$roomId': typeof ResultsRoomIdRoute
   '/settings/streamer': typeof SettingsStreamerRoute
   '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/admin-questions'
     | '/admin-sounds'
     | '/admin-tts'
+    | '/legal/terms'
     | '/results/$roomId'
     | '/settings/streamer'
     | '/api/public/hooks/question-quality-alert'
@@ -205,6 +215,7 @@ export interface FileRouteTypes {
     | '/admin-questions'
     | '/admin-sounds'
     | '/admin-tts'
+    | '/legal/terms'
     | '/results/$roomId'
     | '/settings/streamer'
     | '/api/public/hooks/question-quality-alert'
@@ -224,6 +235,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin-questions'
     | '/_authenticated/admin-sounds'
     | '/_authenticated/admin-tts'
+    | '/legal/terms'
     | '/results/$roomId'
     | '/settings/streamer'
     | '/api/public/hooks/question-quality-alert'
@@ -240,6 +252,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PlayRoute: typeof PlayRoute
   PreviewQuestionRoute: typeof PreviewQuestionRoute
+  LegalTermsRoute: typeof LegalTermsRoute
   ResultsRoomIdRoute: typeof ResultsRoomIdRoute
   SettingsStreamerRoute: typeof SettingsStreamerRoute
   ApiPublicHooksQuestionQualityAlertRoute: typeof ApiPublicHooksQuestionQualityAlertRoute
@@ -331,6 +344,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResultsRoomIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/legal/terms': {
+      id: '/legal/terms'
+      path: '/legal/terms'
+      fullPath: '/legal/terms'
+      preLoaderRoute: typeof LegalTermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/admin-tts': {
       id: '/_authenticated/admin-tts'
       path: '/admin-tts'
@@ -398,6 +418,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PlayRoute: PlayRoute,
   PreviewQuestionRoute: PreviewQuestionRoute,
+  LegalTermsRoute: LegalTermsRoute,
   ResultsRoomIdRoute: ResultsRoomIdRoute,
   SettingsStreamerRoute: SettingsStreamerRoute,
   ApiPublicHooksQuestionQualityAlertRoute:
@@ -406,3 +427,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
