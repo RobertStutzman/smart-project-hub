@@ -447,6 +447,15 @@ export function HostGameStage({ room }: Props) {
     } else if (state.phase === "final_intro" || state.phase === "final_wager")
       startMusic("tense", 520);
     else stopMusic();
+
+    // Pause ember particles during active question phases — the screen is
+    // already busy with tile animations + timer, and particles aren't visible
+    // anyway. Frees up paint budget on low-end phones.
+    const heavyPhase =
+      state.phase === "question" || state.phase === "final_question";
+    void import("@/components/ThemeParticles").then(({ setThemeParticlesEnabled }) =>
+      setThemeParticlesEnabled(!heavyPhase),
+    );
   }, [state?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
