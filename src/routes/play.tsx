@@ -723,6 +723,9 @@ function PlayPage() {
                     </div>
                   ) : null}
                 </div>
+                  );
+                })()}
+
 
                 {/* Question text on phone */}
                 {room.current_question_text && room.wildcard !== "roast" && (
