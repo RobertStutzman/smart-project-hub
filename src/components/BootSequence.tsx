@@ -118,6 +118,7 @@ export function BootSequence({ onComplete }: Props) {
   useEffect(() => {
     function advance() {
       if (completedRef.current) return;
+      if (stage === "tips") cancelElfSpeech();
       if (stage === "ready") {
         complete();
       } else if (stage === "splash") {
