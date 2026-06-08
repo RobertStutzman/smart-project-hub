@@ -1356,7 +1356,7 @@ export function HostGameStage({ room }: Props) {
   if (state.phase === "leaderboard") {
     const completedQuestionNumber = state.round_number ?? 0;
     const isFinal = completedQuestionNumber >= FINAL_ROUND_NUMBER;
-    const livePlayers = players.filter((p) => !p.is_audience);
+    // Reuse the memoized livePlayers from the top of the component (stable identity).
     const recapNeeded = recapDoneForRound !== completedQuestionNumber;
     const recapRoundDisplay = getCompletedRoundNumber(completedQuestionNumber);
     if (recapNeeded) {
