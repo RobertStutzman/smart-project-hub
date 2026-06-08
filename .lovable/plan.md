@@ -1,86 +1,104 @@
-# Full efficiency audit (post 1k-iteration cleanup)
+# Fix: Announcer talks over itself when ending a game and starting a new room
 
-Four independent passes. Each one: investigate → list findings → apply only **safe, high-value fixes** → report what's left as optional. No behavior changes, no UI changes — just making what's already there leaner and more reliable.
+## Root cause
 
-## Pass 1 — Runtime performance (host + play)
+The announcer plays through a single-line queue in `src/lib/elf-voice.ts`:
 
-Goal: nothing blocks the main thread or re-renders excessively during a live game.
+```ts
+queue = queue.then(safe, safe);
+```
 
-Investigate:
-- Profile `/host` during a question transition and `/play` during answer submission using the browser CPU profiler
-- Audit `useEffect` deps in the heaviest stages (`CreditsStage`, `FinalStages`, `RoundRecapReel`, `WagerStage`, `QuestionStage`, `Scoreboard`) for re-render storms
-- Find unmemoized inline objects/arrays passed to children, missing `useCallback`/`useMemo` on hot paths
-- Check for `setInterval`/`setTimeout` running every <100ms unnecessarily
-- Check framer-motion `AnimatePresence` lists for missing `key`s causing full unmount/remount
+`cancelElfSpeech()` pauses the currently playing `<audio>` and reassigns
+`queue = Promise.resolve()`. That only affects **future** `speakAsElf` /
+`playVoiceUrl` callers. Tasks that were already chained onto the prior queue
+keep their own reference to the old promise and continue executing one after
+another — each spinning up a fresh `new Audio(...)`.
 
-Fix (safe only):
-- Add `React.memo` / `useMemo` / `useCallback` where a hot child re-renders on every parent tick
-- Replace any `setInterval(…, 16)` ticker with `requestAnimationFrame` when used purely for animation
-- Lift static config objects out of component bodies
+So when you hit "End game and start a fresh room":
 
-## Pass 2 — Memory & subscription leaks
+1. The Credits stage had already queued a sequence of `speakPersona` lines.
+2. `cancelElfSpeech` is called on unmount — kills the currently playing line.
+3. The next chained task in the old queue still fires → starts another Audio.
+4. Meanwhile the new room's welcome clip + lobby opener + persona banter
+   start queueing on the freshly reset `queue`.
+5. Result: leftover credits/round lines overlap the new lobby announcer.
 
-Goal: a 2-hour game night without refresh doesn't accumulate listeners, audio elements, or realtime channels.
+## Fix
 
-Investigate:
-- Every `useEffect` returning a subscription/timer/listener — verify cleanup
-- Every `supabase.channel(...)` — verify matching `removeChannel` on unmount AND on dependency change
-- Every `new Audio()` / `audio.play()` site — verify the element is reused or paused+nulled on unmount
-- `addEventListener` calls (window/document) — verify `removeEventListener`
-- Toast/sonner usage — confirm no infinite re-toast loops
+### 1. Make `cancelElfSpeech` actually cancel queued work — `src/lib/elf-voice.ts`
 
-Fix:
-- Add missing cleanups
-- Convert any realtime channel that's recreated per render into a stable channel keyed by `room_code`
-- Consolidate audio elements created in multiple places into the existing `sound-engine.ts` if any orphan creators exist
+Introduce a `generation` counter. Each task captures the generation at the
+moment it was enqueued; `cancelElfSpeech` increments it. Inside every queued
+task, check the generation right before playing — if it changed, resolve
+immediately without creating a new `Audio`.
 
-## Pass 3 — Bundle, assets, dead code
+Apply this to all three audio paths in the file:
 
-Goal: faster cold load on phones and TVs, less wasted bandwidth.
+- `speakAsElf` task (pre-baked URL branch, `fetchAudio` URL branch, base64 branch)
+- `playVoiceUrl` task
 
-Investigate:
-- Run `bun pm ls` + grep usage to find npm packages installed but never imported
-- Find `.tsx`/`.ts` files in `src/` with zero importers (orphaned after iteration)
-- Audit `src/assets/` (and `.asset.json` pointers) for images >300KB and any unused assets
-- Check for synchronous imports of heavy libs (e.g. `framer-motion` features, `@radix-ui/*`, charting) on the lobby/landing route — candidates for lazy import
-- Verify route-level code splitting is working (TanStack auto-splits but exported components break it — see code-splitting rules)
+Sketch:
 
-Fix:
-- Remove unused dependencies
-- Delete orphan files (only after confirming zero references)
-- Convert exported route components to non-exported ones if any break splitting
-- Lazy-import the host-only stages from the play route and vice versa if they're cross-imported
+```ts
+let generation = 0;
 
-## Pass 4 — Database & realtime
+export function cancelElfSpeech() {
+  generation++;
+  if (currentAudio) { try { currentAudio.pause(); } catch {} currentAudio = null; }
+  queue = Promise.resolve();
+}
 
-Goal: the backend keeps up at 8 concurrent players × 10 rounds without query stalls.
+// inside each enqueued task:
+const myGen = generation;
+const task = async () => {
+  if (opts.interrupt) cancelElfSpeech();
+  if (generation !== myGen && !opts.interrupt) return; // cancelled before our turn
+  // ... await audio, but bail out before play() if generation changed
+};
+```
 
-Investigate:
-- Run `supabase--linter` for missing indexes / overly broad RLS
-- Audit the hot query paths: room join, answer submit, round advance, score read — look for N+1 (multiple round-trips per stage transition)
-- Count realtime channels per game session — one channel per room is ideal; per-player is fine; per-question is a leak
-- Verify indexes on the columns we filter by most: `rooms.code`, `players.room_id`, `answers.round_id`, etc.
+Subtlety: `speakAsElf`/`playVoiceUrl` callers that pass `interrupt: true`
+EXPECT to bump the generation themselves and still play — capture `myGen`
+AFTER the optional `cancelElfSpeech()` call, not before.
 
-Fix:
-- Add missing indexes (single migration)
-- Collapse any obvious N+1 into a single `.select()` with joins
-- Anything risky (RLS changes, policy rewrites) reported only, not auto-applied
+Also guard the `await fetchAudio(...)` resume point: if the generation
+changed while we were waiting on the network/TTS response, return without
+playing.
 
-## Reporting format
+### 2. Silence the announcer before spinning up a new room — `src/routes/host.tsx`
 
-After each pass I'll give you:
-- **What I found** (numbered list, severity tagged: 🔴 will-bite-you / 🟡 worth-fixing / 🟢 polish)
-- **What I fixed** (bullet list of files changed)
-- **What I left** (optional fixes with the tradeoff explained)
+In `endAndStartNewRoom`, call `cancelElfSpeech()` at the top so any
+in-flight credits/recap lines are dropped before the new room's welcome +
+opener queue up. This is now meaningful because of fix #1.
 
-## Out of scope (explicit)
+```ts
+async function endAndStartNewRoom() {
+  if (!room) return;
+  if (!window.confirm(...)) return;
+  const { cancelElfSpeech } = await import("@/lib/elf-voice");
+  cancelElfSpeech();
+  // ... existing logic
+}
+```
 
-- No visual/UX changes
-- No new features
-- No TTS prompt or game-logic edits
-- No schema rewrites — only additive indexes
-- No bundle-splitter config overhaul (defaults are good)
+Also do the same in the "parent:new-room" message handler effect (dev
+playground "new room" button takes the same path).
 
-## Estimated touch surface
+## Out of scope
 
-~15–30 files edited, 1 small DB migration (indexes only), 0 new dependencies, likely several dependencies removed.
+- No changes to host-persona line content or moment selection.
+- No changes to the credits sequence itself — only how cancellation propagates.
+- No changes to ambience / music / SFX pipelines.
+
+## Verification
+
+1. Start a game, advance to credits, click "End game and start new room".
+2. Confirm only the new room's welcome clip + single lobby opener play —
+   no leftover credits or recap lines overlap.
+3. Repeat 2–3 times back-to-back to confirm queues drain cleanly.
+4. Normal lobby banter (rotating quips every 10s) still works in the new room.
+
+## Files touched
+
+- `src/lib/elf-voice.ts` — generation counter wired into both `speakAsElf` and `playVoiceUrl`.
+- `src/routes/host.tsx` — call `cancelElfSpeech()` in `endAndStartNewRoom` and the parent "new-room" reset path.
