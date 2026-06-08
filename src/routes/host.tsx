@@ -334,7 +334,6 @@ function HostPage() {
           // autoplay will be blocked. Retry silently on first interaction.
           const retry = () => {
             void import("@/lib/ambience-engine").then((m) => {
-              m.stopAllAmbience();
               m.resetAmbience();
               m.startCrowd();
             });

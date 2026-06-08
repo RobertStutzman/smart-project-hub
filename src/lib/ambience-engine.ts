@@ -2,7 +2,8 @@
 //
 // Looped layers are scheduled through Web Audio with overlapping crossfades.
 // That avoids both HTMLAudioElement.loop decode gaps and source files that have
-// quiet tails baked into their endings.
+// quiet tails baked into their endings. Continuous beds never use native
+// AudioBufferSourceNode.loop; they overlap fresh one-shot sources instead.
 
 import drumAsset from "@/assets/audio/drumroll-build.mp3.asset.json";
 import cymbalAsset from "@/assets/audio/cymbal-swell.mp3.asset.json";
@@ -98,6 +99,7 @@ type LoopLayer = {
   continuous?: boolean;
   loopStart: number;
   loopEnd?: number;
+  loopEndTrim: number;
   crossfadeSec: number;
   buffer: AudioBuffer | null;
   gain: GainNode | null;
@@ -111,7 +113,7 @@ type LoopLayer = {
 function makeLoopLayer(
   url: string,
   target: number,
-  opts: { loopStart?: number; loopEnd?: number; crossfadeSec?: number; continuous?: boolean } = {},
+  opts: { loopStart?: number; loopEnd?: number; loopEndTrim?: number; crossfadeSec?: number; continuous?: boolean } = {},
 ): LoopLayer {
   return {
     url,
@@ -119,6 +121,7 @@ function makeLoopLayer(
     continuous: opts.continuous,
     loopStart: opts.loopStart ?? 0,
     loopEnd: opts.loopEnd,
+    loopEndTrim: opts.loopEndTrim ?? 0,
     crossfadeSec: opts.crossfadeSec ?? 1.2,
     buffer: null,
     gain: null,
@@ -134,11 +137,17 @@ const chatter: LoopLayer = makeLoopLayer(crowdSeamlessAsset.url, CHATTER_TARGET,
   // Home/join ambience uses the same seamless bed at a quieter level so no
   // short MP3 loop remains active before the host screen.
   continuous: true,
+  loopStart: 0.75,
+  loopEndTrim: 2.75,
+  crossfadeSec: 4.5,
 });
 const crowd: LoopLayer = makeLoopLayer(crowdSeamlessAsset.url, CROWD_TARGET, {
-  // This asset is a long, pre-crossfaded WAV with no quiet edge at ~22s.
-  // Play it as one native Web Audio loop instead of scheduling short repeats.
+  // Trim both edges and overlap repeats so the audible bed never reaches the
+  // file boundary where a hard restart or quiet tail can create a gap.
   continuous: true,
+  loopStart: 0.75,
+  loopEndTrim: 2.75,
+  crossfadeSec: 4.5,
 });
 const drumroll: LoopLayer = makeLoopLayer(drumAsset.url, DRUM_TARGET, {
   // The drumroll source contains several seconds of trailing silence. Treat it
@@ -159,7 +168,8 @@ function rampGain(g: GainNode, to: number, ms: number, ctx: AudioContext) {
 
 function getLoopBounds(layer: LoopLayer, buffer: AudioBuffer) {
   const start = Math.max(0, Math.min(layer.loopStart, buffer.duration - 0.5));
-  const end = Math.max(start + 0.5, Math.min(layer.loopEnd ?? buffer.duration, buffer.duration));
+  const requestedEnd = layer.loopEnd ?? buffer.duration - layer.loopEndTrim;
+  const end = Math.max(start + 0.5, Math.min(requestedEnd, buffer.duration));
   const duration = end - start;
   const crossfade = Math.min(layer.crossfadeSec, duration / 2.2);
   return {
@@ -237,31 +247,6 @@ function pumpScheduler(layer: LoopLayer) {
   layer.timer = window.setTimeout(() => pumpScheduler(layer), SCHEDULE_TICK_MS);
 }
 
-function startContinuousSource(layer: LoopLayer, ctx: AudioContext) {
-  if (!layer.buffer || !layer.gain) return;
-
-  const { start, duration } = getLoopBounds(layer, layer.buffer);
-  const src = ctx.createBufferSource();
-  src.buffer = layer.buffer;
-  src.loop = true;
-  src.loopStart = start;
-  src.loopEnd = start + duration;
-  src.connect(layer.gain);
-  src.onended = () => {
-    if (layer.source === src) layer.source = null;
-    layer.sources.delete(src);
-  };
-  layer.source = src;
-  layer.sources.add(src);
-
-  try {
-    src.start(ctx.currentTime, start);
-  } catch {
-    layer.source = null;
-    layer.sources.delete(src);
-  }
-}
-
 async function startLoop(layer: LoopLayer): Promise<boolean> {
   if (!isClient() || muted || handedOff) return false;
   const ctx = getCtx();
@@ -308,8 +293,7 @@ async function startLoop(layer: LoopLayer): Promise<boolean> {
   layer.playing = true;
   if (layer.timer != null) window.clearTimeout(layer.timer);
 
-  if (layer.continuous) startContinuousSource(layer, ctx);
-  else pumpScheduler(layer);
+  pumpScheduler(layer);
   rampGain(g, layer.target, FADE_MS, ctx);
   setBlocked(false);
   return true;
