@@ -104,12 +104,10 @@ function AudiencePage() {
 
   async function sendReaction(sfx: string) {
     try {
-      const channel = supabase.channel(`sfx-${code}`);
-      await channel.subscribe();
-      await channel.send({ type: "broadcast", event: "sfx", payload: { sfx } });
-      void supabase.removeChannel(channel);
+      await sfxChannelRef.current?.send({ type: "broadcast", event: "sfx", payload: { sfx } });
     } catch {}
   }
+
 
   if (!joined) {
     return (
