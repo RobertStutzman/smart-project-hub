@@ -1770,25 +1770,21 @@ function GeminiImporter({
   const [bakeTts, setBakeTts] = useState(true);
   const [busy, setBusy] = useState(false);
 
-  // Cache of normalized question keys we already know exist in the DB.
-  // Populated lazily on the first paste and after every successful import.
-  const dbKeysRef = useRef<Map<string, { category: string }> | null>(null);
-
-  async function ensureDbKeys(probe: string[]): Promise<Map<string, { category: string }>> {
-    if (dbKeysRef.current) return dbKeysRef.current;
-    const map = new Map<string, { category: string }>();
+  async function findDbDupes(keys: string[]): Promise<Map<string, { category: string }>> {
+    const out = new Map<string, { category: string }>();
+    if (!keys.length) return out;
     try {
-      const res = await checkDupesFn({ data: { keys: probe } });
+      const res = await checkDupesFn({ data: { keys } });
       for (const k of res.duplicates) {
         const meta = res.sample[k];
-        if (meta) map.set(k, { category: meta.category });
+        if (meta) out.set(k, { category: meta.category });
       }
     } catch (e) {
       console.warn("checkDuplicates failed", e);
     }
-    dbKeysRef.current = map;
-    return map;
+    return out;
   }
+
 
 
   const prompt = useMemo(() => buildGeminiPrompt(category, count, difficulty), [category, count, difficulty]);
