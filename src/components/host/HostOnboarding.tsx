@@ -17,7 +17,7 @@ const STEPS = [
   {
     icon: "🎛",
     title: "Pick a category, hit go",
-    body: "Each category is a 10-round arc with reveals, wildcards, a Lightning round, and a final wager. Press Space to pause anytime.",
+    body: "Each category is a 10-round arc with reveals, wildcards, a Lightning round, and a final wager.",
   },
   {
     icon: "🏆",

@@ -602,7 +602,7 @@ function HostPage() {
               <button
                 onClick={toggleFullscreen}
                 className="rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-[10px] uppercase tracking-widest text-white/70 backdrop-blur hover:bg-white/10"
-                title="Fullscreen (F)"
+                title="Fullscreen"
               >
                 ⛶
               </button>
@@ -614,9 +614,7 @@ function HostPage() {
             >
               <SettingsIcon className="h-3 w-3" /> Settings
             </button>
-            <Link to="/admin" className="rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-[10px] uppercase tracking-widest text-white/70 backdrop-blur hover:bg-white/10">
-              Admin
-            </Link>
+            {/* Admin link intentionally hidden from the UI. Type /admin in the URL bar to reach it. */}
           </div>
         </header>
 
@@ -733,11 +731,6 @@ function HostPage() {
 
 
 
-          <div className="text-[clamp(0.55rem,1.1svh,0.7rem)] uppercase tracking-[0.3em] text-white/30">
-            <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">F</kbd> fullscreen ·{" "}
-            <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">Enter</kbd> start ·{" "}
-            <kbd className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 font-mono normal-case tracking-normal">Space</kbd> pause
-          </div>
           <LobbyTipCarousel />
         </section>
       </div>
@@ -856,9 +849,7 @@ function HostPage() {
               </div>
 
 
-              <div className="mt-auto rounded-lg border border-dashed border-white/15 p-3 text-xs text-white/60">
-                Press <kbd className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-white/80">Space</kbd> to {paused ? "resume" : "pause"} · <kbd className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-white/80">Enter</kbd> to start
-              </div>
+              {/* Keyboard hints hidden — players don't need them. Spacebar pause still works. */}
             </motion.aside>
           </>
         )}
@@ -876,9 +867,6 @@ function HostPage() {
           >
             <div className="text-center">
               <div className="font-display text-7xl font-black">Paused</div>
-              <div className="mt-2 text-sm text-muted-foreground">
-                Press <kbd className="rounded bg-background/60 px-2 py-0.5 font-mono">Space</kbd> to resume
-              </div>
             </div>
           </motion.div>
         )}
