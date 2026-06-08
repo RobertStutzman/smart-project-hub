@@ -95,18 +95,24 @@ export const joinRoom = createServerFn({ method: "POST" })
 
     const { data: existing } = await supabaseAdmin
       .from("players")
-      .select("id, score, streak_count")
+      .select("id, score, streak_count, funny_sound_id")
       .eq("room_id", room.id)
       .eq("session_id", data.sessionId)
       .maybeSingle();
 
     if (existing) {
-      // Reconnect: just refresh nickname + heartbeat
-      await supabaseAdmin
-        .from("players")
-        .update({ nickname: data.nickname, last_seen_at: new Date().toISOString() })
-        .eq("id", existing.id);
-      return { roomId: room.id, playerId: existing.id, resumed: true };
+      // Reconnect: refresh nickname + heartbeat; backfill funny sound if missing.
+      const patch: Record<string, unknown> = {
+        nickname: data.nickname,
+        last_seen_at: new Date().toISOString(),
+      };
+      let funnySoundId = (existing as { funny_sound_id: string | null }).funny_sound_id;
+      if (!funnySoundId) {
+        funnySoundId = await assignFunnySoundId(room.id);
+        patch.funny_sound_id = funnySoundId;
+      }
+      await supabaseAdmin.from("players").update(patch).eq("id", existing.id);
+      return { roomId: room.id, playerId: existing.id, resumed: true, funnySoundId };
     }
 
     if (!room.allow_late_joiners && room.status !== "lobby") {
@@ -131,6 +137,8 @@ export const joinRoom = createServerFn({ method: "POST" })
       team = red <= blue ? "red" : "blue";
     }
 
+    const funnySoundId = await assignFunnySoundId(room.id);
+
     const { data: player, error: playerErr } = await supabaseAdmin
       .from("players")
       .insert({
@@ -138,11 +146,13 @@ export const joinRoom = createServerFn({ method: "POST" })
         nickname: data.nickname,
         session_id: data.sessionId,
         team,
+        funny_sound_id: funnySoundId,
       })
       .select("id")
       .single();
     if (playerErr) throw new Error(playerErr.message);
-    return { roomId: room.id, playerId: player.id, resumed: false };
+    return { roomId: room.id, playerId: player.id, resumed: false, funnySoundId };
+
   });
 
 export const toggleTeamMode = createServerFn({ method: "POST" })
