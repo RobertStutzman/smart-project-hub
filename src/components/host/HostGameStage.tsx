@@ -1084,16 +1084,11 @@ export function HostGameStage({ room }: Props) {
   if (state.phase === "question" || state.phase === "reveal") {
     return (
       <>
-        {state.wildcard && state.phase === "question" && (
-          <div className="pointer-events-none absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full bg-amber-400/95 px-4 py-1 text-xs font-black uppercase tracking-[0.25em] text-amber-950 shadow">
-            {state.wildcard === "saboteur" && "🕵 Saboteur round"}
-            {state.wildcard === "glitch" && "⚡ Glitch round"}
-            {state.wildcard === "roast" && "🔥 Roast vote"}
-            {state.wildcard === "lightning" && "⚡ LIGHTNING · 2× points · 8s"}
-            {state.wildcard === "double_or_nothing" && "💀 DOUBLE OR NOTHING · 2× / −150"}
-            {state.wildcard === "first_blood" && "🩸 FIRST BLOOD · fastest only scores"}
-            {state.wildcard === "underdog" && "🐢 UNDERDOG · last place gets 2×"}
-          </div>
+        {state.phase === "question" && (
+          <WildcardBanner
+            wildcard={state.wildcard}
+            triggerKey={state.question_started_at ?? state.current_question_text}
+          />
         )}
         {state.wildcard === "lightning" && state.phase === "question" && (
           <div
