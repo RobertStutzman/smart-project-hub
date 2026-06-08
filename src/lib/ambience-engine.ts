@@ -2,7 +2,8 @@
 //
 // Looped layers are scheduled through Web Audio with overlapping crossfades.
 // That avoids both HTMLAudioElement.loop decode gaps and source files that have
-// quiet tails baked into their endings.
+// quiet tails baked into their endings. Continuous beds never use native
+// AudioBufferSourceNode.loop; they overlap fresh one-shot sources instead.
 
 import drumAsset from "@/assets/audio/drumroll-build.mp3.asset.json";
 import cymbalAsset from "@/assets/audio/cymbal-swell.mp3.asset.json";
@@ -98,6 +99,7 @@ type LoopLayer = {
   continuous?: boolean;
   loopStart: number;
   loopEnd?: number;
+  loopEndTrim: number;
   crossfadeSec: number;
   buffer: AudioBuffer | null;
   gain: GainNode | null;
@@ -111,7 +113,7 @@ type LoopLayer = {
 function makeLoopLayer(
   url: string,
   target: number,
-  opts: { loopStart?: number; loopEnd?: number; crossfadeSec?: number; continuous?: boolean } = {},
+  opts: { loopStart?: number; loopEnd?: number; loopEndTrim?: number; crossfadeSec?: number; continuous?: boolean } = {},
 ): LoopLayer {
   return {
     url,
@@ -119,6 +121,7 @@ function makeLoopLayer(
     continuous: opts.continuous,
     loopStart: opts.loopStart ?? 0,
     loopEnd: opts.loopEnd,
+    loopEndTrim: opts.loopEndTrim ?? 0,
     crossfadeSec: opts.crossfadeSec ?? 1.2,
     buffer: null,
     gain: null,
@@ -134,11 +137,17 @@ const chatter: LoopLayer = makeLoopLayer(crowdSeamlessAsset.url, CHATTER_TARGET,
   // Home/join ambience uses the same seamless bed at a quieter level so no
   // short MP3 loop remains active before the host screen.
   continuous: true,
+  loopStart: 0.75,
+  loopEndTrim: 2.75,
+  crossfadeSec: 4.5,
 });
 const crowd: LoopLayer = makeLoopLayer(crowdSeamlessAsset.url, CROWD_TARGET, {
-  // This asset is a long, pre-crossfaded WAV with no quiet edge at ~22s.
-  // Play it as one native Web Audio loop instead of scheduling short repeats.
+  // Trim both edges and overlap repeats so the audible bed never reaches the
+  // file boundary where a hard restart or quiet tail can create a gap.
   continuous: true,
+  loopStart: 0.75,
+  loopEndTrim: 2.75,
+  crossfadeSec: 4.5,
 });
 const drumroll: LoopLayer = makeLoopLayer(drumAsset.url, DRUM_TARGET, {
   // The drumroll source contains several seconds of trailing silence. Treat it

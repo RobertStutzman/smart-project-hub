@@ -1,25 +1,21 @@
+## Goal
+Eliminate the audible crowd-noise gap at the loop boundary by stopping reliance on `AudioBufferSourceNode.loop = true`, which still hard-restarts the same file.
+
 ## Plan
+1. **Replace the native loop for continuous ambience**
+   - Change the `continuous` crowd/chatter path in `src/lib/ambience-engine.ts` so it runs two alternating Web Audio buffer sources.
+   - Each source will play almost the full crowd file, fade out near the end, and overlap with the next source fading in.
+   - This means the browser never hits a hard file restart that can expose silence at the end/start of the asset.
 
-1. **Stop layering multiple looped ambience files**
-   - The landing page (`/`) and join page start `startLobbyChatter()`, which still uses the original `lobby-chatter.mp3` loop path.
-   - The host page starts both `startLobbyChatter()` and `startCrowd()`, so even though the crowd file was replaced, the remaining chatter loop can still create the perceived “crowd noise” gap.
-   - I’ll remove `startLobbyChatter()` from host lobby startup so the host crowd is only the seamless crowd bed.
+2. **Keep only one active crowd bed**
+   - Make `startLoop()` idempotent and ensure the retry path on `/host` does not repeatedly stop/restart the crowd bed after it has already begun.
+   - Keep the existing `stopAllAmbience()` before the initial host start, but make interaction retries call `startCrowd()` without forcibly resetting a currently playing layer.
 
-2. **Make lobby chatter use the seamless bed too**
-   - Point `startLobbyChatter()` at the same long seamless ambience asset, but at a lower volume.
-   - Mark it as continuous Web Audio playback, not scheduled short-loop playback.
-   - This prevents the home/join pages from using the old short MP3 loop that can still gap.
+3. **Use trimmed loop bounds for the crowd file**
+   - Add a small safety trim at the start/end of the seamless crowd asset and a longer overlap crossfade.
+   - This avoids any baked-in silence, encoder padding, or quiet tail being audible even if the file itself is not perfectly loopable.
 
-3. **Remove the old short-loop scheduler from ambience startup paths**
-   - Keep the scheduler code only for non-critical one-off legacy layers if needed, but ensure normal ambience layers (`chatter` and `crowd`) use native continuous looping.
-   - Keep autoplay retry behavior unchanged.
-
-4. **Verify references**
-   - Confirm no active page path starts `lobby-chatter.mp3` or `crowd-ambience.mp3` for background ambience.
-   - Confirm host lobby only starts the seamless crowd bed.
-   - Confirm the CDN-hosted seamless WAV is the only ambience source for continuous background noise.
-
-## Technical notes
-
-- The user-facing issue is described as “crowd noise,” but on `/` the actual active ambience is `startLobbyChatter()`, not `startCrowd()`.
-- Previous fixes targeted `startCrowd()`, while `startLobbyChatter()` still used the old MP3 and scheduled crossfade loop. This plan removes that remaining source of gaps.
+4. **Verify active sources**
+   - Confirm `/host` only starts `startCrowd()` for lobby ambience.
+   - Confirm home/join use the same crossfaded engine at lower volume.
+   - Confirm no active background path uses the old short MP3 loop or a hard native audio loop for the crowd bed.
