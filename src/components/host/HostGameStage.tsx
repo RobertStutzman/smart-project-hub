@@ -28,6 +28,7 @@ import { FinalWagerStage, FinalRevealStage } from "./FinalStages";
 import { WinnerSpotlight } from "./WinnerSpotlight";
 import { RoundRecapReel } from "./RoundRecapReel";
 import { RoundSplash } from "./RoundSplash";
+import { WildcardBanner } from "./WildcardBanner";
 import { QRCodeSVG } from "qrcode.react";
 
 type RoomState = {
