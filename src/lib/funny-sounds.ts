@@ -150,3 +150,11 @@ export function preloadFunnyBank() {
     }
   }
 }
+
+/** Hard-stop any funny sound currently playing (used at room reset). */
+export function stopAllFunnySounds() {
+  if (typeof window === "undefined") return;
+  for (const a of pool.values()) {
+    try { a.pause(); a.currentTime = 0; } catch { /* ignore */ }
+  }
+}
