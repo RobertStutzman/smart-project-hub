@@ -1,34 +1,44 @@
 ## Goal
 
-Add a distinct "busy lobby chatter" ambience (think ~100 people murmuring while waiting to enter a venue) that plays on the Landing, Join, and Host lobby screens — separate from the existing cheering crowd loop used mid-game.
+Add an announcer voice on the QR/lobby screen: one welcome line the moment the host opens the lobby, then a rotating "what's taking so long" quip every 10 seconds while players are still joining.
 
-## Approach
+## Behavior
 
-1. **Generate a new SFX clip** via ElevenLabs Sound Effects (22s, loopable) — prompt tuned for "large crowd of people talking in a busy venue lobby, indoor reverb, layered murmur, no music, no cheering". Save to `src/assets/audio/lobby-chatter.mp3` and externalize as a Lovable asset.
+- **Opener** fires once when the lobby mounts (after the host's click gesture so audio is unlocked).
+- **Idle quips** loop on a 10s timer, drawn from a 10-line bank. Each cycle picks a random line that's different from the last one so it never repeats back-to-back. After all 10 are used, reshuffle.
+- **Player-count aware**: lines have placeholders like `{count}` ("Still just {count} of you? My couch has more energy.") so the persona can call out the live join count.
+- **Stops** as soon as the game starts (`phase === "intro"`) or the lobby unmounts. Also pauses while another persona line is mid-speech to avoid talk-over.
 
-2. **Extend `src/lib/ambience-engine.ts`** with a new layer:
-   - Add `startLobbyChatter()` / stop helper alongside the existing `crowd` / `drum` layers.
-   - Low default target volume (~0.14) so it sits under voice/UI sounds.
-   - Same fade + autoplay-rejection handling as the current layers.
-   - Crossfade out when game music takes over (extend `climaxAndHandoff` to fade chatter too).
+## Implementation
 
-3. **Wire into the three screens** (silent gesture-gate per your preference):
-   - **`src/routes/index.tsx`** — replace today's `startCrowd()` first-gesture hook with `startLobbyChatter()`. Also kick it off on the "Host on this screen" click so it carries into /host.
-   - **`src/routes/join.tsx`** — add the same first-gesture starter so player phones get chatter while typing the code.
-   - **`src/routes/host.tsx`** — in the lobby effect, start lobby chatter immediately and layer the cheering crowd + drumroll on top after a short delay (chatter stays underneath for venue feel). When game starts, `climaxAndHandoff` fades all three out.
+1. **New file `src/lib/lobby-banter.ts`**
+   - Exports `OPENER_LINES` (~6 variants) and `IDLE_LINES` (10 variants) with `{count}` / `{code}` tokens.
+   - Exports `pickLobbyLine(history, count, code)` that fills tokens and avoids repeating the last pick.
+   - Branches the idle pool by player count: `count === 0` vs `count >= 1` vs `count >= 4` (different jabs) so quips stay context-appropriate.
 
-4. **No game-phase impact.** Chatter only plays in the lobby. Once the game-show music swells in, chatter fades to 0 alongside crowd and drum.
+2. **Wire into `src/routes/host.tsx`**
+   - In the existing room/lobby effect, after ambience starts, call `speakPersona(pickLobbyLine([], ...))` once (the opener).
+   - Add a `setInterval(10_000)` that fires `speakPersona(pickLobbyLine(history, players.length, room.roomCode))` and tracks the last 3 picks.
+   - Guard: skip a tick if `roomPhase !== "lobby"` (i.e. game already started), or if a host TTS line is currently speaking (check the existing `isSpeaking` state if exposed, else just rely on `speakPersona`'s `interrupt: false`).
+   - Cleanup interval on unmount / phase change.
+
+3. **No new TTS infrastructure** — reuses `speakPersona` from `@/lib/host-persona`, which already handles the announcer voice + fallback synth.
+
+## Line examples (final wording lives in `lobby-banter.ts`)
+
+Opener: "Alright! Phones out, codes in — let's get this show on the road."
+Idle (0 players): "Zero players. Bold strategy. Anyone? Anyone?"
+Idle (low): "Two whole humans. We're basically a book club."
+Idle (mid): "Come on, the code is right there. {code}. Four letters. You got this."
+Idle (general): "Tick tock. I'm not getting any younger and neither is this trivia."
 
 ## Files touched
 
-- new: `src/assets/audio/lobby-chatter.mp3.asset.json` (via `lovable-assets create`)
-- `src/lib/ambience-engine.ts` — new chatter layer, helpers, handoff fade
-- `src/routes/index.tsx` — swap first-gesture starter to chatter; pre-arm on host click
-- `src/routes/join.tsx` — add silent first-gesture chatter starter
-- `src/routes/host.tsx` — start chatter alongside crowd+drum in lobby effect
+- new: `src/lib/lobby-banter.ts`
+- `src/routes/host.tsx` — opener + 10s interval inside the existing lobby effect
 
 ## Out of scope
 
-- New music or replacing the existing crowd/drum cheering loop
-- Volume mixer UI / per-screen mute controls (not requested)
-- Ambience on mid-game / leaderboard / recap screens
+- New TTS voice or persona swap (uses current announcer)
+- Banter on the join/player screen
+- Configurable cadence / mute toggle (could add later)
