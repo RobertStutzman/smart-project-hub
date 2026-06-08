@@ -63,6 +63,7 @@ function HostPage() {
   const { theme } = useTheme();
   const { isFullscreen, toggleFullscreen } = useHostStageMode();
   useHostHotkeys(toggleFullscreen);
+  useWakeLock(true);
 
   const createRoomFn = useServerFn(createRoom);
   const endRoomFn = useServerFn(endRoom);
