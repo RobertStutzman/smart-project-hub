@@ -7,6 +7,7 @@
 import drumAsset from "@/assets/audio/drumroll-build.mp3.asset.json";
 import cymbalAsset from "@/assets/audio/cymbal-swell.mp3.asset.json";
 import chatterAsset from "@/assets/audio/lobby-chatter.mp3.asset.json";
+import crowdSeamlessAsset from "@/assets/audio/crowd-ambience-seamless.wav.asset.json";
 
 const CHATTER_TARGET = 0.28;
 const CROWD_TARGET = 0.18;
@@ -95,11 +96,13 @@ async function loadBuffer(url: string): Promise<AudioBuffer | null> {
 type LoopLayer = {
   url: string;
   target: number;
+  continuous?: boolean;
   loopStart: number;
   loopEnd?: number;
   crossfadeSec: number;
   buffer: AudioBuffer | null;
   gain: GainNode | null;
+  source: AudioBufferSourceNode | null;
   playing: boolean;
   nextStartTime: number;
   timer: number | null;
@@ -109,16 +112,18 @@ type LoopLayer = {
 function makeLoopLayer(
   url: string,
   target: number,
-  opts: { loopStart?: number; loopEnd?: number; crossfadeSec?: number } = {},
+  opts: { loopStart?: number; loopEnd?: number; crossfadeSec?: number; continuous?: boolean } = {},
 ): LoopLayer {
   return {
     url,
     target,
+    continuous: opts.continuous,
     loopStart: opts.loopStart ?? 0,
     loopEnd: opts.loopEnd,
     crossfadeSec: opts.crossfadeSec ?? 1.2,
     buffer: null,
     gain: null,
+    source: null,
     playing: false,
     nextStartTime: 0,
     timer: null,
@@ -129,10 +134,10 @@ function makeLoopLayer(
 const chatter: LoopLayer = makeLoopLayer(chatterAsset.url, CHATTER_TARGET, {
   crossfadeSec: 3,
 });
-const crowd: LoopLayer = makeLoopLayer("/audio/crowd-ambience-seamless.wav", CROWD_TARGET, {
-  // The generated WAV has its loop seam baked in and repeated into a long bed,
-  // avoiding the original MP3's quiet encoded edge that was heard every ~22s.
-  crossfadeSec: 8,
+const crowd: LoopLayer = makeLoopLayer(crowdSeamlessAsset.url, CROWD_TARGET, {
+  // This asset is a long, pre-crossfaded WAV with no quiet edge at ~22s.
+  // Play it as one native Web Audio loop instead of scheduling short repeats.
+  continuous: true,
 });
 const drumroll: LoopLayer = makeLoopLayer(drumAsset.url, DRUM_TARGET, {
   // The drumroll source contains several seconds of trailing silence. Treat it
