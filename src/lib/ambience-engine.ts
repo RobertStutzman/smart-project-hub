@@ -1,10 +1,13 @@
 // Layered ambience engine — survives route changes, runs alongside sound-engine.
-// Crowd ambience + drumroll buildup that hands off to game-show music.
+// Lobby chatter (pre-game venue murmur) + crowd cheering + drumroll buildup that
+// hands off to game-show music.
 
 import crowdAsset from "@/assets/audio/crowd-ambience.mp3.asset.json";
 import drumAsset from "@/assets/audio/drumroll-build.mp3.asset.json";
 import cymbalAsset from "@/assets/audio/cymbal-swell.mp3.asset.json";
+import chatterAsset from "@/assets/audio/lobby-chatter.mp3.asset.json";
 
+const CHATTER_TARGET = 0.14;
 const CROWD_TARGET = 0.18;
 const DRUM_TARGET = 0.22;
 const CYMBAL_VOL = 0.6;
@@ -12,6 +15,7 @@ const FADE_MS = 800;
 
 type Layer = { el: HTMLAudioElement; target: number };
 
+let chatter: Layer | null = null;
 let crowd: Layer | null = null;
 let drum: Layer | null = null;
 let muted = false;
