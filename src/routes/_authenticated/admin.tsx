@@ -1796,7 +1796,7 @@ function GeminiImporter({
     );
   }
 
-  function appendRows(rows: ParsedRow[]) {
+  async function appendRows(rows: ParsedRow[]) {
     if (!rows.length) {
       toast.error("Nothing parsed from that paste.");
       return;
@@ -1804,32 +1804,57 @@ function GeminiImporter({
     const existingKeys = new Set(
       staged.filter((r) => r.ok && r.row).map((r) => dedupeKey(r.row!.question_text)),
     );
-    let dupes = 0;
-    const fresh: ParsedRow[] = [];
+    let stagedDupes = 0;
+    const candidates: ParsedRow[] = [];
     for (const r of rows) {
       if (r.ok && r.row) {
         const k = dedupeKey(r.row.question_text);
-        if (existingKeys.has(k)) { dupes++; continue; }
+        if (existingKeys.has(k)) { stagedDupes++; continue; }
         existingKeys.add(k);
+      }
+      candidates.push(r);
+    }
+
+    const probe = candidates
+      .filter((r) => r.ok && r.row)
+      .map((r) => dedupeKey(r.row!.question_text));
+    const dbHits = await findDbDupes(probe);
+
+    let dbDupes = 0;
+    const fresh: ParsedRow[] = [];
+    for (const r of candidates) {
+      if (r.ok && r.row) {
+        const k = dedupeKey(r.row.question_text);
+        const hit = dbHits.get(k);
+        if (hit) {
+          dbDupes++;
+          fresh.push({ ...r, ok: false, error: `Already in DB (${hit.category})`, dbDup: hit });
+          continue;
+        }
       }
       fresh.push(r);
     }
+
+    const valid = fresh.filter((r) => r.ok).length;
     if (!fresh.length) {
-      toast.info(`All ${dupes} questions were duplicates of staged ones.`);
+      toast.info(
+        `Skipped all ${stagedDupes + dbDupes} (${dbDupes} in DB, ${stagedDupes} already staged).`,
+      );
       return;
     }
     setStaged((prev) => [...prev, ...fresh]);
-    const valid = fresh.filter((r) => r.ok).length;
-    const bad = fresh.length - valid;
-    toast.success(
-      `Added ${valid} valid${bad ? ` · ${bad} with issues` : ""}${dupes ? ` · skipped ${dupes} duplicates` : ""}`,
-    );
+    const bad = fresh.filter((r) => !r.ok && !r.dbDup).length;
+    const parts = [`Added ${valid} valid`];
+    if (bad) parts.push(`${bad} with issues`);
+    if (dbDupes) parts.push(`${dbDupes} already in DB`);
+    if (stagedDupes) parts.push(`${stagedDupes} already staged`);
+    toast.success(parts.join(" · "));
   }
 
-  function addBatch() {
+  async function addBatch() {
     try {
       const rows = parseGeminiJson(pasted, category);
-      appendRows(rows);
+      await appendRows(rows);
       setPasted("");
     } catch (e) {
       toast.error((e as Error).message);
@@ -1843,11 +1868,12 @@ function GeminiImporter({
     try {
       const text = await file.text();
       const rows = parseGeminiJson(text, category);
-      appendRows(rows);
+      await appendRows(rows);
     } catch (err) {
       toast.error((err as Error).message);
     }
   }
+
 
   function clearStaged() {
     if (!staged.length) return;
