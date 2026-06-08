@@ -323,7 +323,12 @@ export function QuestionStage({
                 initial={false}
                 animate={
                   dropped
-                    ? { y: "140%", rotate: tilt, opacity: 0, scale: 0.96 }
+                    ? {
+                        y: ["0%", "15%", "180%"],
+                        rotate: [0, (i % 2 === 0 ? -1 : 1) * 3, (i % 2 === 0 ? -1 : 1) * (4 + (i % 3))],
+                        opacity: [1, 1, 0],
+                        scale: 1,
+                      }
                     : {
                         scale: !showAnswers ? 0.94 : isCorrect ? 1.04 : 1,
                         opacity: !showAnswers ? 0 : isWrongReveal ? 0.25 : 1,
@@ -333,10 +338,14 @@ export function QuestionStage({
                 }
                 transition={
                   dropped
-                    ? { duration: DROP_FALL_MS / 1000, ease: [0.55, 0.06, 0.68, 0.19] }
+                    ? {
+                        duration: DROP_FALL_MS / 1000,
+                        times: [0, 0.2, 1],
+                        ease: ["easeOut", "easeIn"],
+                      }
                     : { duration: 0.35, delay: showAnswers && reading ? i * 0.11 : 0, ease: [0.22, 1, 0.36, 1] }
                 }
-                style={{ transformOrigin: "50% 30%" }}
+                style={{ transformOrigin: "50% 0%" }}
                 className={`relative flex h-full w-full min-h-0 flex-col justify-between overflow-hidden rounded-2xl border p-3 backdrop-blur-xl sm:p-4 ${
                   isCorrect
                     ? "border-amber-300/80 bg-gradient-to-br from-amber-400/25 to-amber-600/10 shadow-[0_0_80px_oklch(0.85_0.18_85/0.7)]"
