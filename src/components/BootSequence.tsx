@@ -202,18 +202,22 @@ export function BootSequence({ onComplete }: Props) {
             }}
           />
 
-          {/* Skip hint — always visible top-right */}
-          <div className="absolute right-6 top-6 z-10 text-[10px] uppercase tracking-[0.35em] text-white/40">
-            Press any key to skip
-          </div>
+          {/* Skip hint — visible once intro is running */}
+          {stage !== "gate" && (
+            <div className="absolute right-6 top-6 z-10 text-[10px] uppercase tracking-[0.35em] text-white/40">
+              Press any key to skip
+            </div>
+          )}
 
           {/* Stage content */}
           <AnimatePresence mode="wait">
+            {stage === "gate" && <GateStage key="gate" />}
             {stage === "splash" && <SplashStage key="splash" />}
             {stage === "credits" && <CreditsStage key="credits" />}
             {stage === "tips" && <TipsStage key="tips" />}
             {stage === "ready" && <ReadyStage key="ready" />}
           </AnimatePresence>
+
 
           {/* Progress dots */}
           <div className="absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 gap-2">
