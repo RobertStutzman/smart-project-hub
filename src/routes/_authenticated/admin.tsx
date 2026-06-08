@@ -1575,7 +1575,9 @@ Return ONLY a JSON array of ${total} objects (no prose, no markdown code fences)
     "explanation": "string",
     "difficulty": "easy" | "medium" | "hard" | "impossible"
   }
-]`;
+]
+
+If you can't fit all questions in one reply, output as many complete objects as you can and stop cleanly with \`]\` — do NOT continue across messages.`;
   }
   return `You write trivia questions for a live multiplayer game. Generate ${count} questions in the category "${category}".
 
@@ -1598,7 +1600,9 @@ Return ONLY a JSON array (no prose, no markdown code fences) of objects matching
     "explanation": "string",
     "difficulty": "easy" | "medium" | "hard" | "impossible"
   }
-]`;
+]
+
+If you can't fit all questions in one reply, output as many complete objects as you can and stop cleanly with \`]\` — do NOT continue across messages.`;
 }
 
 function stripCodeFences(s: string): string {
