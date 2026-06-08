@@ -24,6 +24,7 @@ import {
   bakeAllQuestionTTS,
   generateAnnouncerPack,
   generatePersonaPack,
+  getPersonaPackStats,
   getQuestionTTSStats,
   getTTSCacheStats,
   previewAnnouncerLine,
@@ -148,16 +149,31 @@ function EventsPanel({
   const setEventFn = useServerFn(setEventAssignment);
   const generatePackFn = useServerFn(generateAnnouncerPack);
   const generatePersonaFn = useServerFn(generatePersonaPack);
+  const personaStatsFn = useServerFn(getPersonaPackStats);
   const [generating, setGenerating] = useState(false);
   const [generatingPersona, setGeneratingPersona] = useState(false);
+  const [personaStats, setPersonaStats] = useState<{ total: number; baked: number } | null>(null);
+
+  async function loadPersonaStats() {
+    try {
+      const s = await personaStatsFn();
+      setPersonaStats({ total: s.total, baked: s.baked });
+    } catch {
+      // non-fatal
+    }
+  }
+
+  useEffect(() => {
+    void loadPersonaStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleGeneratePersona() {
-    if (
-      !window.confirm(
-        "Pre-bake the 30 Vox catchphrases to storage? This calls ElevenLabs once per line (~1500 chars total) and saves them so gameplay doesn't hit the API. Takes ~1 minute. Safe to re-run.",
-      )
-    )
-      return;
+    const missing = personaStats ? personaStats.total - personaStats.baked : null;
+    const msg = missing != null
+      ? `Bake ${missing} missing persona line${missing === 1 ? "" : "s"}? Already-baked lines are skipped. Calls ElevenLabs — takes ~1 minute.`
+      : "Pre-bake the Vox catchphrases? Already-baked lines are skipped. Calls ElevenLabs once per missing line. Takes ~1 minute.";
+    if (!window.confirm(msg)) return;
     setGeneratingPersona(true);
     try {
       const res = await generatePersonaFn({ data: {} });
@@ -166,8 +182,9 @@ function EventsPanel({
           `Baked ${res.generated}/${res.total} (${res.skipped} skipped). Errors: ${res.errors.join("; ")}`,
         );
       } else {
-        toast.success(`Baked ${res.generated} persona catchphrases (${res.skipped} skipped)`);
+        toast.success(`Baked ${res.generated} persona lines (${res.skipped} already done)`);
       }
+      await loadPersonaStats();
       await onChange();
     } catch (err) {
       toast.error((err as Error).message);
@@ -228,7 +245,13 @@ function EventsPanel({
             disabled={generatingPersona}
             className="rounded-full bg-amber-600 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-amber-400/30 transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {generatingPersona ? "Baking…" : "🎭 Bake persona catchphrases"}
+            {generatingPersona
+              ? "Baking…"
+              : personaStats
+                ? personaStats.baked >= personaStats.total
+                  ? `🎭 Persona fully baked (${personaStats.baked}/${personaStats.total}) — re-bake?`
+                  : `🎭 Bake ${personaStats.total - personaStats.baked} missing persona line${personaStats.total - personaStats.baked === 1 ? "" : "s"} (${personaStats.baked}/${personaStats.total} done)`
+                : "🎭 Bake persona catchphrases"}
           </button>
           <button
             onClick={() => void handleGenerate()}
