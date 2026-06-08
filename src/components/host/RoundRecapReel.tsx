@@ -225,7 +225,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
       list.push({
         key: "fastest",
         durationMs: 2100,
-        speak: () => speakPersona(`Fastest finger: ${fastest.nickname}!`, { interrupt: true }),
+        speak: () => speakPersona(`Fastest finger: ${fastest.nickname}!`),
         render: () => (
           <motion.div
             key="fastest"

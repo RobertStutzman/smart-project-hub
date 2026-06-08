@@ -43,7 +43,11 @@ function ac(): AudioContext | null {
 
 export function setMuted(v: boolean) {
   muted = v;
-  if (v) stopMusic();
+  if (v) {
+    stopMusic();
+    stopCreditsMusic(0);
+    stopWagerBed(0);
+  }
   // Mirror mute into ambience layer (lazy import to avoid cycle in SSR).
   if (typeof window !== "undefined") {
     void import("./ambience-engine").then((m) => m.setAmbienceMuted(v));
@@ -199,13 +203,16 @@ export const FINAL_WAGER_BED_URL: string = finalWagerBed.url;
 export const CREDITS_OUTRO_URL: string = creditsOutro.url;
 
 let creditsAudio: HTMLAudioElement | null = null;
+let creditsBaseVol: number | null = null;
 export function playCreditsMusic(volume = 0.32) {
   if (muted || typeof window === "undefined") return;
   stopCreditsMusic(0);
   try {
     creditsAudio = new Audio(creditsOutro.url);
     creditsAudio.loop = true;
-    creditsAudio.volume = Math.max(0, Math.min(1, volume));
+    const base = Math.max(0, Math.min(1, volume));
+    creditsBaseVol = base;
+    creditsAudio.volume = duckActive ? base * 0.35 : base;
     creditsAudio.play().catch(() => {});
   } catch {
     /* noop */
@@ -234,13 +241,16 @@ export function stopCreditsMusic(fadeMs = 800) {
 
 
 let wagerBedAudio: HTMLAudioElement | null = null;
+let wagerBaseVol: number | null = null;
 export function playWagerBed(volume = 0.35) {
   if (muted || typeof window === "undefined") return;
   stopWagerBed();
   try {
     wagerBedAudio = new Audio(finalWagerBed.url);
     wagerBedAudio.loop = true;
-    wagerBedAudio.volume = Math.max(0, Math.min(1, volume));
+    const base = Math.max(0, Math.min(1, volume));
+    wagerBaseVol = base;
+    wagerBedAudio.volume = duckActive ? base * 0.35 : base;
     wagerBedAudio.play().catch(() => {});
   } catch {
     /* noop */
@@ -326,11 +336,19 @@ export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
 }
 
 let duckActive = false;
-/** Temporarily lower the background music so voice/TTS is clear. */
+/** Temporarily lower all background music (loop, credits, wager bed) under voice/TTS. */
 export function duckMusic(on: boolean) {
   duckActive = on;
   if (loopAudio) {
     loopAudio.volume = on ? 0.06 : 0.22;
+  }
+  if (creditsAudio) {
+    const base = creditsBaseVol ?? 0.32;
+    creditsAudio.volume = on ? base * 0.35 : base;
+  }
+  if (wagerBedAudio) {
+    const base = wagerBaseVol ?? 0.32;
+    wagerBedAudio.volume = on ? base * 0.35 : base;
   }
 }
 

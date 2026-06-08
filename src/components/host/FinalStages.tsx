@@ -35,6 +35,8 @@ export function FinalWagerStage({ players }: { players: Player[] }) {
       window.clearTimeout(t2);
       window.clearTimeout(t3);
       stopWagerBed(500);
+      // Flush queued Vox so it doesn't bleed into the next stage.
+      void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
     };
   }, []);
 

@@ -162,40 +162,43 @@ export function CreditsStage({ players, onPlayAgain }: Props) {
   // Music + opening line + scheduled award roasts.
   useEffect(() => {
     play("whoosh");
-    playCreditsMusic(0.3);
+    // Delay music start so it doesn't collide with the victory sting
+    // that fires on phase=ended right before credits mount.
+    const musicTimer = window.setTimeout(() => playCreditsMusic(0.22), 700);
     speakPersona(pickLine("credits_open", live.length), { interrupt: true });
 
     // Schedule a Vox roast per award, paced so they don't overlap.
-    // Skip the champion (it overlaps the opening line); start at +5s.
+    // Skip the champion (it overlaps the opening line); start at +6s.
     const timers: number[] = [];
     const toRoast = awards.filter((a) => a.key !== "champion");
-    const awardSlice = toRoast.slice(0, 5);
+    const awardSlice = toRoast.slice(0, 4);
     awardSlice.forEach((a, i) => {
       const t = window.setTimeout(() => {
         speakPersona(pickAwardRoast(a.key, a.player.nickname));
-      }, 5500 + i * 4800);
+      }, 6000 + i * 6000);
       timers.push(t);
     });
 
-    // Highlight-reel Vox: one short quip per top player, matching their
+    // Highlight-reel Vox: short quip per top player, matching their
     // caption category. Alternate best/worst so the reel feels varied.
     // Starts after the last award roast and stays inside the 48s scroll.
-    const reelStart = 5500 + awardSlice.length * 4800 + 1500;
-    const ranked = [...live].sort((a, b) => b.score - a.score);
-    ranked.slice(0, 4).forEach((p, i) => {
+    const reelStart = 6000 + awardSlice.length * 6000 + 2000;
+    ranked.slice(0, 3).forEach((p, i) => {
       const h = derivePlayerHighlights(p);
-      // Champion gets best; wooden-spoon-ish gets worst; alternate the middle.
       const side: "best" | "worst" =
         i === 0 ? "best" : i === ranked.length - 1 ? "worst" : i % 2 === 0 ? "best" : "worst";
       const t = window.setTimeout(() => {
         speakPersona(pickHighlightVox(h, p.nickname, side));
-      }, reelStart + i * 2800);
+      }, reelStart + i * 3200);
       timers.push(t);
     });
 
     return () => {
+      window.clearTimeout(musicTimer);
       timers.forEach((t) => window.clearTimeout(t));
       stopCreditsMusic(800);
+      // Flush any queued Vox so it doesn't bleed into the next screen.
+      void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live.length, awards.length]);
@@ -225,6 +228,7 @@ export function CreditsStage({ players, onPlayAgain }: Props) {
       <button
         onClick={() => {
           stopCreditsMusic(300);
+          void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
           onPlayAgain();
         }}
         className="absolute right-4 top-4 z-30 rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-white/70 backdrop-blur transition hover:bg-white/20 hover:text-white"
@@ -381,6 +385,7 @@ export function CreditsStage({ players, onPlayAgain }: Props) {
         <button
           onClick={() => {
             stopCreditsMusic(300);
+            void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
             play("whoosh");
             onPlayAgain();
           }}

@@ -152,7 +152,13 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
     });
   };
 
-  queue = queue.then(task, task);
+  // Safety: never let a hung TTS request stall the queue indefinitely.
+  const safe = () =>
+    Promise.race<void>([
+      task(),
+      new Promise<void>((resolve) => window.setTimeout(resolve, 12000)),
+    ]);
+  queue = queue.then(safe, safe);
   return queue;
 }
 
