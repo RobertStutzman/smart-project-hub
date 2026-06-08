@@ -6,10 +6,9 @@
 
 import drumAsset from "@/assets/audio/drumroll-build.mp3.asset.json";
 import cymbalAsset from "@/assets/audio/cymbal-swell.mp3.asset.json";
-import chatterAsset from "@/assets/audio/lobby-chatter.mp3.asset.json";
 import crowdSeamlessAsset from "@/assets/audio/crowd-ambience-seamless.wav.asset.json";
 
-const CHATTER_TARGET = 0.28;
+const CHATTER_TARGET = 0.11;
 const CROWD_TARGET = 0.18;
 const DRUM_TARGET = 0.22;
 const CYMBAL_VOL = 0.6;
@@ -131,8 +130,10 @@ function makeLoopLayer(
   };
 }
 
-const chatter: LoopLayer = makeLoopLayer(chatterAsset.url, CHATTER_TARGET, {
-  crossfadeSec: 3,
+const chatter: LoopLayer = makeLoopLayer(crowdSeamlessAsset.url, CHATTER_TARGET, {
+  // Home/join ambience uses the same seamless bed at a quieter level so no
+  // short MP3 loop remains active before the host screen.
+  continuous: true,
 });
 const crowd: LoopLayer = makeLoopLayer(crowdSeamlessAsset.url, CROWD_TARGET, {
   // This asset is a long, pre-crossfaded WAV with no quiet edge at ~22s.

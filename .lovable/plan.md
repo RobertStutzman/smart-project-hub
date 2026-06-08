@@ -1,23 +1,25 @@
 ## Plan
 
-1. **Stop using the old 22-second ambience path**
-   - Remove any remaining reliance on the original crowd MP3 behavior and avoid scheduling it in short loop cycles.
-   - Disable the drumroll loop during lobby if it is contributing a repeating gap, because it is also a looped ambience layer and can sound like the crowd dropping out.
+1. **Stop layering multiple looped ambience files**
+   - The landing page (`/`) and join page start `startLobbyChatter()`, which still uses the original `lobby-chatter.mp3` loop path.
+   - The host page starts both `startLobbyChatter()` and `startCrowd()`, so even though the crowd file was replaced, the remaining chatter loop can still create the perceived “crowd noise” gap.
+   - I’ll remove `startLobbyChatter()` from host lobby startup so the host crowd is only the seamless crowd bed.
 
-2. **Use one long, seamless crowd bed**
-   - Generate/export a properly seamless crowd ambience file with the silent edge removed.
-   - Upload it through Lovable Assets so the repo does not keep a large WAV binary.
-   - Reference the generated `.asset.json` from the ambience engine.
+2. **Make lobby chatter use the seamless bed too**
+   - Point `startLobbyChatter()` at the same long seamless ambience asset, but at a lower volume.
+   - Mark it as continuous Web Audio playback, not scheduled short-loop playback.
+   - This prevents the home/join pages from using the old short MP3 loop that can still gap.
 
-3. **Simplify the crowd playback logic**
-   - For the crowd layer, play the long seamless bed as a single continuous Web Audio loop with a safe internal loop window, instead of repeatedly scheduling overlapping 20–22s source instances.
-   - Keep the existing autoplay-block retry behavior intact.
+3. **Remove the old short-loop scheduler from ambience startup paths**
+   - Keep the scheduler code only for non-critical one-off legacy layers if needed, but ensure normal ambience layers (`chatter` and `crowd`) use native continuous looping.
+   - Keep autoplay retry behavior unchanged.
 
-4. **Verify the actual timing**
-   - Check that the final referenced file is not the original `crowd-ambience.mp3`.
-   - Measure the produced audio and confirm there is no volume drop at the old ~22s point or at the new loop seam.
+4. **Verify references**
+   - Confirm no active page path starts `lobby-chatter.mp3` or `crowd-ambience.mp3` for background ambience.
+   - Confirm host lobby only starts the seamless crowd bed.
+   - Confirm the CDN-hosted seamless WAV is the only ambience source for continuous background noise.
 
 ## Technical notes
 
-- The current code still has multiple lobby ambience layers (`crowd`, `drumroll`, `chatter`). Since the reported gap is every ~22 seconds and previous crowd-only fixes did not change the heard result, the implementation should remove ambiguity by making the lobby buildup crowd-only first, then optionally reintroduce drumroll later as a one-shot/swell if needed.
-- The generated audio should be externalized with `lovable-assets create`, leaving only a `.asset.json` pointer in `src/assets/audio/`.
+- The user-facing issue is described as “crowd noise,” but on `/` the actual active ambience is `startLobbyChatter()`, not `startCrowd()`.
+- Previous fixes targeted `startCrowd()`, while `startLobbyChatter()` still used the old MP3 and scheduled crossfade loop. This plan removes that remaining source of gaps.

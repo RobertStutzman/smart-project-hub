@@ -327,14 +327,15 @@ function HostPage() {
       } finally {
         if (!cancelled) {
           const ambience = await import("@/lib/ambience-engine");
+          ambience.stopAllAmbience();
           ambience.resetAmbience();
-          ambience.startLobbyChatter();
           ambience.startCrowd();
           // Fallback: if user landed on /host directly (no prior gesture),
           // autoplay will be blocked. Retry silently on first interaction.
           const retry = () => {
             void import("@/lib/ambience-engine").then((m) => {
-              m.startLobbyChatter();
+              m.stopAllAmbience();
+              m.resetAmbience();
               m.startCrowd();
             });
             window.removeEventListener("pointerdown", retry);
