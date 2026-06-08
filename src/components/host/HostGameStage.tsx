@@ -619,24 +619,11 @@ export function HostGameStage({ room }: Props) {
     }
     lastLeaderRef.current = top.session_id;
 
-    // ── Round recap MVP (highest current_round_score) ──
+    // ── Round MVP voice is owned by the RoundRecapReel (synced with beats). ──
     if (round >= 1 && roundRecapFiredForRoundRef.current !== round) {
       roundRecapFiredForRoundRef.current = round;
-      const roundMvp = [...players]
-        .filter((p) => !p.is_audience)
-        .sort((a, b) => (b.current_round_score ?? 0) - (a.current_round_score ?? 0))[0];
-      if (roundMvp && (roundMvp.current_round_score ?? 0) > 0) {
-        // Fire later so it doesn't collide with leader_changed.
-        const id = window.setTimeout(() => {
-          void speakAboutPlayer({
-            nickname: roundMvp.nickname,
-            moment: "round_recap",
-            roundNumber: round,
-          });
-        }, 3200);
-        void id;
-      }
     }
+
 
     // ── Comeback: player who climbed 3+ ranks and is now top 3 ──
     if (round >= 2 && comebackFiredForRoundRef.current !== round) {
