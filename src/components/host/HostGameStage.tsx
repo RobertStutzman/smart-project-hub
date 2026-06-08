@@ -84,6 +84,12 @@ const DROP_AT_ELAPSED_S = [9, 15, 20];
 // for this long before triggering endQuestion / reveal.
 const FINAL_HOLD_MS = 2500;
 
+// Stable empty fallbacks — avoid handing children a fresh [] on every tick
+// (the timer ticks 4×/sec, and every prop identity change cascades into
+// child memo invalidations).
+const EMPTY_ANSWERS: string[] = ["", "", "", ""];
+const EMPTY_DROPS: number[] = [];
+
 export function HostGameStage({ room }: Props) {
   const [state, setState] = useState<RoomState | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
