@@ -241,13 +241,16 @@ export function stopCreditsMusic(fadeMs = 800) {
 
 
 let wagerBedAudio: HTMLAudioElement | null = null;
+let wagerBaseVol: number | null = null;
 export function playWagerBed(volume = 0.35) {
   if (muted || typeof window === "undefined") return;
   stopWagerBed();
   try {
     wagerBedAudio = new Audio(finalWagerBed.url);
     wagerBedAudio.loop = true;
-    wagerBedAudio.volume = Math.max(0, Math.min(1, volume));
+    const base = Math.max(0, Math.min(1, volume));
+    wagerBaseVol = base;
+    wagerBedAudio.volume = duckActive ? base * 0.35 : base;
     wagerBedAudio.play().catch(() => {});
   } catch {
     /* noop */
