@@ -431,7 +431,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     // beat: To the board
     list.push({
       key: "board",
-      durationMs: 1400,
+      durationMs: 1800,
       render: () => (
         <motion.div
           key="board"
