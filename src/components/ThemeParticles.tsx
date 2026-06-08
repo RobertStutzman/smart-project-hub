@@ -2,9 +2,20 @@ import { useEffect, useRef } from "react";
 
 /**
  * Full-viewport canvas particle layer for the Fellowship theme.
- * Embers + dust drifting upward. Pauses while tab hidden and respects
- * prefers-reduced-motion.
+ * Embers drifting upward. Pauses while tab hidden, respects
+ * prefers-reduced-motion, and can be globally suppressed via
+ * setThemeParticlesEnabled(false) for performance-sensitive phases.
  */
+
+let particlesEnabled = true;
+const listeners = new Set<(v: boolean) => void>();
+
+export function setThemeParticlesEnabled(v: boolean) {
+  if (particlesEnabled === v) return;
+  particlesEnabled = v;
+  for (const fn of listeners) fn(v);
+}
+
 export function ThemeParticles() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -31,50 +42,80 @@ export function ThemeParticles() {
     resize();
     window.addEventListener("resize", resize);
 
-    type Ember = { x: number; y: number; vy: number; r: number; hue: number; a: number };
+    // Pre-render a glowing ember sprite once. Drawing this sprite per ember is
+    // 5–10x cheaper than using ctx.shadowBlur on every frame.
+    const SPRITE = 32;
+    const sprite = document.createElement("canvas");
+    sprite.width = SPRITE;
+    sprite.height = SPRITE;
+    const sctx = sprite.getContext("2d")!;
+    const grad = sctx.createRadialGradient(
+      SPRITE / 2, SPRITE / 2, 0,
+      SPRITE / 2, SPRITE / 2, SPRITE / 2,
+    );
+    grad.addColorStop(0, "hsla(38, 100%, 70%, 1)");
+    grad.addColorStop(0.35, "hsla(35, 95%, 60%, 0.55)");
+    grad.addColorStop(1, "hsla(30, 90%, 50%, 0)");
+    sctx.fillStyle = grad;
+    sctx.fillRect(0, 0, SPRITE, SPRITE);
+
+    type Ember = { x: number; y: number; vy: number; size: number; a: number; phase: number };
+    const COUNT = 40;
     const embers: Ember[] = [];
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < COUNT; i++) {
       embers.push({
         x: Math.random() * w,
         y: Math.random() * h,
         vy: 0.2 + Math.random() * 0.6,
-        r: 0.5 + Math.random() * 1.8,
-        hue: 30 + Math.random() * 25,
-        a: 0.2 + Math.random() * 0.6,
+        size: 6 + Math.random() * 12,
+        a: 0.25 + Math.random() * 0.6,
+        phase: Math.random() * 1000,
       });
     }
 
     let raf = 0;
-    let running = !document.hidden && !reduced;
+    const isRunning = () =>
+      !document.hidden && !reduced && particlesEnabled;
+    let running = isRunning();
 
     function frame() {
       ctx!.clearRect(0, 0, w, h);
-
       for (const e of embers) {
         e.y -= e.vy;
-        e.x += Math.sin((e.y + e.hue) * 0.01) * 0.2;
-        if (e.y < -10) {
+        e.x += Math.sin((e.y + e.phase) * 0.01) * 0.2;
+        if (e.y < -20) {
           e.y = h + 10;
           e.x = Math.random() * w;
         }
-        ctx!.beginPath();
-        ctx!.fillStyle = `hsla(${e.hue}, 90%, 60%, ${e.a})`;
-        ctx!.shadowColor = `hsla(${e.hue}, 100%, 60%, ${e.a})`;
-        ctx!.shadowBlur = 8;
-        ctx!.arc(e.x, e.y, e.r, 0, Math.PI * 2);
-        ctx!.fill();
+        ctx!.globalAlpha = e.a;
+        ctx!.drawImage(sprite, e.x - e.size / 2, e.y - e.size / 2, e.size, e.size);
       }
-      ctx!.shadowBlur = 0;
-
+      ctx!.globalAlpha = 1;
       if (running) raf = requestAnimationFrame(frame);
+    }
+
+    function start() {
+      cancelAnimationFrame(raf);
+      running = isRunning();
+      if (running) raf = requestAnimationFrame(frame);
+    }
+    function stop() {
+      running = false;
+      cancelAnimationFrame(raf);
+      ctx!.clearRect(0, 0, w, h);
     }
 
     function onVis() {
-      running = !document.hidden && !reduced;
-      if (running) raf = requestAnimationFrame(frame);
-      else cancelAnimationFrame(raf);
+      if (isRunning()) start();
+      else stop();
     }
     document.addEventListener("visibilitychange", onVis);
+
+    const listener = (enabled: boolean) => {
+      if (enabled && !document.hidden && !reduced) start();
+      else stop();
+    };
+    listeners.add(listener);
 
     if (running) raf = requestAnimationFrame(frame);
 
@@ -82,6 +123,7 @@ export function ThemeParticles() {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
       document.removeEventListener("visibilitychange", onVis);
+      listeners.delete(listener);
     };
   }, []);
 

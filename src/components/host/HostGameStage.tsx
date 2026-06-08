@@ -200,7 +200,9 @@ export function HostGameStage({ room }: Props) {
       )
       .subscribe();
 
-    const tick = window.setInterval(() => setNow(Date.now()), 100);
+    // 250ms is enough granularity for timer/drop orchestration and avoids
+    // re-rendering this large component 10x/sec.
+    const tick = window.setInterval(() => setNow(Date.now()), 250);
 
     return () => {
       cancelled = true;
