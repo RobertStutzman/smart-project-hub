@@ -1,6 +1,6 @@
 {
-  "name": "Beat the Drop",
-  "short_name": "Beat the Drop",
+  "name": "Drop Trivia",
+  "short_name": "Drop Trivia",
   "id": "/",
   "description": "Multiplayer trivia party game — host on a TV, play on your phone.",
   "start_url": "/",
