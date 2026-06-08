@@ -1,34 +1,34 @@
 ## Goal
 
-Make crowd ambience + drumroll actually play during the lobby/scan-code phase on the host screen, instead of silently being blocked by the browser.
+Add a distinct "busy lobby chatter" ambience (think ~100 people murmuring while waiting to enter a venue) that plays on the Landing, Join, and Host lobby screens — separate from the existing cheering crowd loop used mid-game.
 
-## Problem
+## Approach
 
-- On `/host`, `ambience-engine.startCrowd()` and `startDrumroll()` are called as soon as the room mounts. There has been no user gesture yet on that page, so `audio.play()` is blocked silently and you hear nothing until game-show music kicks in later (which only starts after the player join click chain unlocks audio).
-- The "Host on this screen" click happens on `/`, not `/host` — that gesture does not carry over to the next page's `Audio` instances.
+1. **Generate a new SFX clip** via ElevenLabs Sound Effects (22s, loopable) — prompt tuned for "large crowd of people talking in a busy venue lobby, indoor reverb, layered murmur, no music, no cheering". Save to `src/assets/audio/lobby-chatter.mp3` and externalize as a Lovable asset.
 
-## Fix
+2. **Extend `src/lib/ambience-engine.ts`** with a new layer:
+   - Add `startLobbyChatter()` / stop helper alongside the existing `crowd` / `drum` layers.
+   - Low default target volume (~0.14) so it sits under voice/UI sounds.
+   - Same fade + autoplay-rejection handling as the current layers.
+   - Crossfade out when game music takes over (extend `climaxAndHandoff` to fade chatter too).
 
-1. **Pre-arm ambience on the landing-page click.**
-   In `src/routes/index.tsx`, attach an `onClick` to the "Host on this screen" `<Link to="/host">` that, before navigation, calls `ambience-engine.startCrowd()` and schedules `startDrumroll()` ~1200ms later. Because this runs inside the click handler, the `Audio` elements are created under a valid user gesture and will continue playing across the route transition (same tab, same document).
+3. **Wire into the three screens** (silent gesture-gate per your preference):
+   - **`src/routes/index.tsx`** — replace today's `startCrowd()` first-gesture hook with `startLobbyChatter()`. Also kick it off on the "Host on this screen" click so it carries into /host.
+   - **`src/routes/join.tsx`** — add the same first-gesture starter so player phones get chatter while typing the code.
+   - **`src/routes/host.tsx`** — in the lobby effect, start lobby chatter immediately and layer the cheering crowd + drumroll on top after a short delay (chatter stays underneath for venue feel). When game starts, `climaxAndHandoff` fades all three out.
 
-2. **Make `/host` reuse the already-playing layers instead of restarting them.**
-   `ambience-engine` already guards with `if (!crowd)` / `if (!drum)`, so the existing `useEffect` in `src/routes/host.tsx` becomes a no-op when layers are live. Keep the call as a fallback for users who land on `/host` directly (deep link, refresh).
-
-3. **Fallback gesture-gate on `/host` for direct loads.**
-   In `src/routes/host.tsx`, if `startCrowd()`'s underlying `audio.play()` was rejected (no prior gesture), register a one-shot `pointerdown`/`keydown` listener that retries `startCrowd()` + `startDrumroll()`. Mirror the pattern already in `src/routes/index.tsx`. Silent — no overlay, per your preference.
-
-4. **No behavior change on game start.**
-   `climaxAndHandoff()` still fades crowd + drum out when the game-show music takes over. `resetAmbience()` on lobby re-entry still works.
+4. **No game-phase impact.** Chatter only plays in the lobby. Once the game-show music swells in, chatter fades to 0 alongside crowd and drum.
 
 ## Files touched
 
-- `src/routes/index.tsx` — add click handler on the host CTA to start ambience pre-navigation.
-- `src/routes/host.tsx` — keep auto-start, add silent gesture-gated retry if autoplay was blocked.
-- `src/lib/ambience-engine.ts` — small change: have `startCrowd` / `startDrumroll` return a boolean (or expose an `isPlaying()` helper) so the host page knows whether to install the retry listener.
+- new: `src/assets/audio/lobby-chatter.mp3.asset.json` (via `lovable-assets create`)
+- `src/lib/ambience-engine.ts` — new chatter layer, helpers, handoff fade
+- `src/routes/index.tsx` — swap first-gesture starter to chatter; pre-arm on host click
+- `src/routes/join.tsx` — add silent first-gesture chatter starter
+- `src/routes/host.tsx` — start chatter alongside crowd+drum in lobby effect
 
 ## Out of scope
 
-- Landing page ambience on first load (already gesture-gated; leaving as-is).
-- Join/player screens (no ambience there today).
-- Visible "tap to enable sound" overlay (you chose silent gesture-gate).
+- New music or replacing the existing crowd/drum cheering loop
+- Volume mixer UI / per-screen mute controls (not requested)
+- Ambience on mid-game / leaderboard / recap screens
