@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { HOST_NAME, pickLine, speakPersona } from "@/lib/host-persona";
 import { play, playCreditsMusic, stopCreditsMusic } from "@/lib/sound-engine";
 import { pickAwardRoast, type AwardKey } from "@/lib/credits-awards";
+import { derivePlayerHighlights } from "@/lib/player-highlights";
 
 type Player = {
   id: string;
@@ -218,7 +219,7 @@ export function CreditsStage({ players, onPlayAgain }: Props) {
       <motion.div
         initial={{ y: "30%" }}
         animate={{ y: "-110%" }}
-        transition={{ duration: 38, ease: "linear" }}
+        transition={{ duration: 48, ease: "linear" }}
         className="absolute left-0 right-0 mx-auto flex w-full max-w-3xl flex-col items-center gap-14 px-8 pb-32 pt-32 text-center"
       >
         {/* Winner card */}
@@ -268,6 +269,56 @@ export function CreditsStage({ players, onPlayAgain }: Props) {
             </div>
           </div>
         )}
+
+        {/* Highlight Reel — best & worst per player */}
+        {live.length > 0 && (
+          <div className="w-full">
+            <div className="text-[11px] font-bold uppercase tracking-[0.6em] text-amber-300/80">
+              Highlight Reel
+            </div>
+            <div className="mx-auto mt-2 flex items-center justify-center gap-2">
+              <div className="h-px w-12 bg-amber-300/40" />
+              <span className="text-amber-300/60">🎬</span>
+              <div className="h-px w-12 bg-amber-300/40" />
+            </div>
+            <div className="mt-6 flex flex-col gap-3">
+              {ranked.map((p) => {
+                const { best, worst } = derivePlayerHighlights(p);
+                return (
+                  <motion.div
+                    key={p.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true, margin: "-5%" }}
+                    transition={{ type: "spring", stiffness: 160, damping: 18 }}
+                    className="mx-auto flex w-full max-w-lg items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-left backdrop-blur-sm"
+                  >
+                    {p.avatar_url ? (
+                      <img src={p.avatar_url} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-white/20" />
+                    ) : (
+                      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/10 text-sm font-black">
+                        {p.nickname.slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-display text-sm font-black uppercase tracking-wide text-amber-200">
+                        {p.nickname}
+                      </div>
+                      <div className="mt-0.5 text-[12px] leading-snug text-emerald-200/90">
+                        <span className="mr-1 font-mono text-emerald-400/80">▲</span>{best}
+                      </div>
+                      <div className="text-[12px] leading-snug text-rose-200/80">
+                        <span className="mr-1 font-mono text-rose-400/80">▼</span>{worst}
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+
 
         {/* Cast */}
         <div className="w-full max-w-md">
