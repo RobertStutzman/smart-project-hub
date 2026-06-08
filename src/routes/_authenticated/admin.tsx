@@ -1526,6 +1526,7 @@ type Diff = (typeof DIFFICULTIES)[number];
 type ParsedRow = {
   ok: boolean;
   error?: string;
+  dbDup?: { category: string };
   raw: any;
   row?: {
     category: string;
