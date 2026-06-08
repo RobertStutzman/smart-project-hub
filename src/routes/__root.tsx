@@ -83,7 +83,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "theme-color", content: "#0f0a1f" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
-      { name: "apple-mobile-web-app-title", content: "Beat the Drop" },
+      { name: "apple-mobile-web-app-title", content: "Drop Trivia" },
       { name: "mobile-web-app-capable", content: "yes" },
       { title: "Lovable App" },
       { name: "description", content: "A multiplayer trivia game app for hosts and mobile players, featuring AI-driven mechanics and Twitch integration." },
