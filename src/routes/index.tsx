@@ -28,18 +28,31 @@ function LandingPage() {
     if (shouldShowBoot()) setShowBoot(true);
   }, []);
 
-  // Lobby chatter starts on first user gesture (browser autoplay policy).
+  // Lobby chatter: try autoplay immediately; retry on any user gesture
+  // (autoplay-policy fallback). startLobbyChatter is idempotent and will
+  // re-attempt play() on the cached element if the first try was blocked.
   useEffect(() => {
-    const start = () => {
-      void import("@/lib/ambience-engine").then((m) => m.startLobbyChatter());
-      window.removeEventListener("pointerdown", start);
-      window.removeEventListener("keydown", start);
-    };
-    window.addEventListener("pointerdown", start, { once: true });
-    window.addEventListener("keydown", start, { once: true });
+    let cancelled = false;
+    void import("@/lib/ambience-engine").then((m) => {
+      if (cancelled) return;
+      m.startLobbyChatter();
+      const retry = () => m.startLobbyChatter();
+      const events = ["pointerdown", "click", "touchstart", "keydown"] as const;
+      events.forEach((e) =>
+        window.addEventListener(e, retry, { capture: true, passive: true }),
+      );
+      // Cleanup also stores remover
+      (window as unknown as { __chatterCleanup?: () => void }).__chatterCleanup = () => {
+        events.forEach((e) =>
+          window.removeEventListener(e, retry, { capture: true } as EventListenerOptions),
+        );
+      };
+    });
     return () => {
-      window.removeEventListener("pointerdown", start);
-      window.removeEventListener("keydown", start);
+      cancelled = true;
+      const w = window as unknown as { __chatterCleanup?: () => void };
+      w.__chatterCleanup?.();
+      w.__chatterCleanup = undefined;
     };
   }, []);
 
