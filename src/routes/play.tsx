@@ -483,11 +483,21 @@ function PlayPage() {
                 room.phase === "reveal") && (
                 <button
                   onClick={() => void activatePowerUp()}
-                  className="rounded-2xl border-2 border-violet-400/60 bg-violet-500/20 px-4 py-3 text-sm font-bold text-violet-100 active:scale-[0.98]"
+                  className="flex w-full flex-col items-stretch gap-1 rounded-2xl border-2 border-violet-400/60 bg-violet-500/20 px-4 py-3 text-left active:scale-[0.98]"
                 >
-                  ⚡ Arm Blind 2× for next question
+                  <span className="text-sm font-black uppercase tracking-wider text-violet-100">
+                    ⚡ Blind 2× — risk it
+                  </span>
+                  <span className="text-[11px] leading-snug text-violet-100/75">
+                    Double your points next question — but the answers stay hidden until you lock one in. One use per game.
+                  </span>
                 </button>
               )}
+            {me?.pending_2x && (
+              <div className="rounded-2xl border-2 border-violet-400/70 bg-violet-500/15 px-4 py-2 text-center text-xs font-bold uppercase tracking-widest text-violet-100">
+                ⚡ Blind 2× armed — next question is blind
+              </div>
+            )}
 
             {room.phase === "final_intro" ? (
               <div className="grid flex-1 place-items-center rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-500/15 via-black to-black p-8 text-center">

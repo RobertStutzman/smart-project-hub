@@ -452,8 +452,8 @@ export function HostGameStage({ room }: Props) {
     else if (state.phase === "intro" || state.phase === "credits")
       startMusic("lobby", 600);
     else if (state.phase === "lobby") {
-      // Lobby has seamless crowd ambience instead of synth music.
-      stopMusic();
+      // Lobby plays the trivia bed under the crowd ambience.
+      startMusic("lobby", 600);
     } else if (state.phase === "final_intro" || state.phase === "final_wager")
       startMusic("tense", 520);
     else stopMusic();
