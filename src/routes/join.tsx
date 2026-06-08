@@ -32,7 +32,7 @@ export const Route = createFileRoute("/join")({
   component: JoinPage,
 });
 
-type Step = "form" | "selfie";
+type Step = "form" | "consent" | "selfie";
 
 function JoinPage() {
   const navigate = useNavigate();
