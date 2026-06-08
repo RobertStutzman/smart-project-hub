@@ -160,13 +160,13 @@ function EventsPanel({
       return;
     setGeneratingPersona(true);
     try {
-      const res = await generatePersonaFn();
+      const res = await generatePersonaFn({ data: {} });
       if (res.errors.length) {
         toast.warning(
-          `Baked ${res.generated.length}/${res.total}. Errors: ${res.errors.join("; ")}`,
+          `Baked ${res.generated}/${res.total} (${res.skipped} skipped). Errors: ${res.errors.join("; ")}`,
         );
       } else {
-        toast.success(`Baked ${res.generated.length} persona catchphrases`);
+        toast.success(`Baked ${res.generated} persona catchphrases (${res.skipped} skipped)`);
       }
       await onChange();
     } catch (err) {
