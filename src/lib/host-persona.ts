@@ -87,7 +87,7 @@ export const LINES: Record<Moment, string[]> = {
     "Or don't. Up to you.",
     "Hot off the press.",
     "Fresh meat.",
-    "Round 'em up.",
+    "Buzzers ready.",
     "Let's roll.",
     "Brain on?",
     "Focus.",

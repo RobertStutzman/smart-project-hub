@@ -481,10 +481,22 @@ export function HostGameStage({ room }: Props) {
       playEvent("round_intro");
       play("whoosh");
       const displayRound = Math.min(4, Math.ceil(q / 5));
-      const isRoundStart = q === 1 || q === 6 || q === 11 || q === 16;
-      const text = isRoundStart
-        ? (q === 1 ? "Round 1! First question!" : `Round ${displayRound}!`)
-        : pickLine("question_open", q);
+      const isGameStart = prev === "lobby" || prev === "";
+      const isNewRound = prev === "leaderboard";
+      const NEXT_Q_LINES = [
+        "Next question.",
+        "Onto the next question.",
+        `Question ${q} coming up.`,
+        "Here comes the next one.",
+        "Next one. Lock in.",
+        "Question incoming.",
+        "Onward. Next question.",
+      ];
+      const text = isGameStart
+        ? "Round 1! First question!"
+        : isNewRound
+          ? `Round ${displayRound}!`
+          : NEXT_Q_LINES[q % NEXT_Q_LINES.length];
       duckMusic(true);
       import("@/lib/elf-voice").then(({ speakAsElf }) => {
         speakAsElf(text, { interrupt: true, preset: "hype" }).finally(() => duckMusic(false));
