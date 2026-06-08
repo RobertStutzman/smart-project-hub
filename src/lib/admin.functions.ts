@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { dedupeKey } from "@/lib/dedupe";
 
 async function assertAdmin(userId: string) {
   const { data, error } = await supabaseAdmin
@@ -160,6 +161,35 @@ export const bulkInsertQuestions = createServerFn({ method: "POST" })
       .insert(data.rows, { count: "exact" });
     if (error) throw new Error(error.message);
     return { ok: true, inserted: count ?? data.rows.length };
+  });
+
+/**
+ * Return the normalized question-text keys (from the caller's set) that
+ * already exist in the questions table, plus a small map of key -> {id, category}
+ * so the UI can show which row they collide with.
+ */
+export const checkDuplicates = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({ keys: z.array(z.string().min(1).max(500)).min(1).max(5000) }).parse,
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const wanted = new Set(data.keys);
+    const { data: rows, error } = await supabaseAdmin
+      .from("questions")
+      .select("id, category, question_text");
+    if (error) throw new Error(error.message);
+    const hits: string[] = [];
+    const sample: Record<string, { id: string; category: string }> = {};
+    for (const r of rows ?? []) {
+      const k = dedupeKey(r.question_text);
+      if (wanted.has(k) && !sample[k]) {
+        sample[k] = { id: r.id, category: r.category };
+        hits.push(k);
+      }
+    }
+    return { duplicates: hits, sample };
   });
 
 /**
