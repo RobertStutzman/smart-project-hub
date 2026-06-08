@@ -57,23 +57,47 @@ export function BootSequence({ onComplete }: Props) {
   const [dismissing, setDismissing] = useState(false);
   const completedRef = useRef(false);
 
-  // Advance through stages on a timer
+  // Advance through stages on a timer.
+  // For `tips`, gate the advance on both the visual baseline (6.5s) AND the
+  // announcer VO finishing — whichever takes longer — so the cards stay on
+  // screen for the full narration.
   useEffect(() => {
     if (stage === "ready") return;
-    const ms = STAGE_DURATIONS[stage];
+    let cancelled = false;
+    const startedAt = performance.now();
+    const baseMs = STAGE_DURATIONS[stage];
+
+    if (stage === "tips") {
+      const vo = speakAsElf(TIPS_VO, { preset: "hype", interrupt: true }).catch(
+        () => {},
+      );
+      vo.then(() => {
+        if (cancelled) return;
+        const elapsed = performance.now() - startedAt;
+        const wait = Math.max(0, baseMs - elapsed);
+        window.setTimeout(() => {
+          if (!cancelled) setStage("ready");
+        }, wait);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     const t = window.setTimeout(() => {
       setStage((s) =>
         s === "splash" ? "credits" : s === "credits" ? "tips" : "ready",
       );
-    }, ms);
-    return () => window.clearTimeout(t);
+    }, baseMs);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
   }, [stage]);
 
   // Splash sound sting
   useEffect(() => {
     if (stage === "splash") {
-      // Tiny delay so audio context can resume on first user interaction;
-      // if it doesn't, the splash is still pretty without sound.
       const t = window.setTimeout(() => play("whoosh"), 150);
       return () => window.clearTimeout(t);
     }
