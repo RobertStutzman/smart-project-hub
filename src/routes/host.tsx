@@ -28,6 +28,7 @@ import { HostGameStage, useRevealAutoAdvance } from "@/components/host/HostGameS
 import { useHostStageMode } from "@/hooks/useHostStageMode";
 import { useHostHotkeys } from "@/hooks/useHostHotkeys";
 import { HowToPlay } from "@/components/HowToPlay";
+import { useWakeLock } from "@/hooks/use-wake-lock";
 
 
 export const Route = createFileRoute("/host")({
