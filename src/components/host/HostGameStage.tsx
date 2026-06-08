@@ -14,6 +14,7 @@ import {
   resolveSuddenDeath,
 } from "@/lib/game.functions";
 import { QuestionStage, DROP_FALL_MS } from "./QuestionStage";
+import { getRoundCallout, type WildcardKind } from "@/lib/round-callouts";
 import { Leaderboard } from "./Leaderboard";
 import { TwitchPanel } from "./TwitchPanel";
 import { AIRoast } from "./AIRoast";
