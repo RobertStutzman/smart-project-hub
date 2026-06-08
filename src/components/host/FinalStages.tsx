@@ -17,10 +17,11 @@ type Player = {
 
 // ─── Wager stage ────────────────────────────────────────────────────────
 export function FinalWagerStage({ players }: { players: Player[] }) {
-  const live = players.filter((p) => !p.is_audience);
-  const locked = live.filter((p) => !!p.final_locked_at).length;
+  const live = useMemo(() => players.filter((p) => !p.is_audience), [players]);
+  const locked = useMemo(() => live.filter((p) => !!p.final_locked_at).length, [live]);
   const total = live.length;
-  const top3 = [...live].sort((a, b) => b.score - a.score).slice(0, 3);
+  const top3 = useMemo(() => [...live].sort((a, b) => b.score - a.score).slice(0, 3), [live]);
+
 
   // Spectacular FINAL ROUND slam on mount + wager bed loop while wagering.
   const [slamPhase, setSlamPhase] = useState<"hidden" | "slam" | "linger" | "done">("hidden");

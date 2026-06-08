@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { QRCodeSVG } from "qrcode.react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -678,10 +678,11 @@ function HostPage() {
           <div className="flex flex-wrap items-center justify-center gap-2" style={{ maxHeight: "12svh", overflow: "hidden" }}>
             <AnimatePresence>
               {livePlayers.length === 0 ? (
-                <div className="text-[clamp(0.75rem,1.6svh,1rem)] text-white/50">
+                <div key="lobby-empty" className="text-[clamp(0.75rem,1.6svh,1rem)] text-white/50">
                   Waiting for players…
                 </div>
               ) : (
+
                 livePlayers.map((p) => {
                   const ring =
                     p.team === "red"
@@ -748,8 +749,9 @@ function HostPage() {
       {/* SETTINGS SHEET — slide-in from right */}
       <AnimatePresence>
         {settingsOpen && (
-          <>
+          <Fragment key="settings-sheet">
             <motion.div
+              key="settings-backdrop"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -757,12 +759,14 @@ function HostPage() {
               className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
             />
             <motion.aside
+              key="settings-panel"
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 28, stiffness: 260 }}
               className="fixed right-0 top-0 z-50 flex h-[100svh] w-full max-w-md flex-col overflow-y-auto border-l border-white/10 bg-[oklch(0.10_0.02_270)] p-5 shadow-2xl"
             >
+
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-bold text-white">Settings</h2>
                 <button
@@ -861,20 +865,23 @@ function HostPage() {
 
               {/* Keyboard hints hidden — players don't need them. Spacebar pause still works. */}
             </motion.aside>
-          </>
+          </Fragment>
         )}
       </AnimatePresence>
+
 
 
 
       <AnimatePresence>
         {paused && (
           <motion.div
+            key="pause-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-40 grid place-items-center bg-background/85 backdrop-blur"
           >
+
             <div className="text-center">
               <div className="font-display text-7xl font-black">Paused</div>
             </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { play } from "@/lib/sound-engine";
 import { ShatteredFaces } from "./ShatteredFaces";
@@ -63,9 +63,17 @@ export function QuestionStage({
   const [, forceTick] = useState(0);
   useEffect(() => {
     if (phase !== "question") return;
-    const id = window.setInterval(() => forceTick((n) => n + 1), 100);
+    const startedAt = localStartRef.current?.startedAt ?? performance.now();
+    const id = window.setInterval(() => {
+      forceTick((n) => n + 1);
+      // The intro window is only INTRO_BUDGET_S; stop ticking once it elapses
+      if (performance.now() - startedAt > (INTRO_BUDGET_S + 0.2) * 1000) {
+        window.clearInterval(id);
+      }
+    }, 100);
     return () => window.clearInterval(id);
   }, [phase, questionKey]);
+
   const localReadSecondsLeft =
     phase === "question"
       ? Math.max(0, INTRO_BUDGET_S - (performance.now() - localStartRef.current.startedAt) / 1000)
@@ -117,13 +125,22 @@ export function QuestionStage({
   }, [secondsLeft, phase]);
 
 
-  const lockedByIndex: Record<number, Player[]> = { 0: [], 1: [], 2: [], 3: [] };
-  for (const p of players) {
-    if (p.current_answer !== null && p.current_answer >= 0 && p.current_answer < 4) {
-      lockedByIndex[p.current_answer].push(p);
+  const { lockedByIndex, lockedCount } = useMemo<{
+    lockedByIndex: Record<number, Player[]>;
+    lockedCount: number;
+  }>(() => {
+    const idx: Record<number, Player[]> = { 0: [], 1: [], 2: [], 3: [] };
+    let count = 0;
+    for (const p of players) {
+      if (p.current_answer !== null && p.current_answer >= 0 && p.current_answer < 4) {
+        idx[p.current_answer].push(p);
+        count++;
+      }
     }
-  }
-  const lockedCount = players.filter((p) => p.current_answer !== null).length;
+    return { lockedByIndex: idx, lockedCount: count };
+  }, [players]);
+
+
 
   // Two-beat reveal: 'tiles' (~2.2s) -> 'fullscreen' (correct answer + did you know).
   const [revealStage, setRevealStage] = useState<"tiles" | "fullscreen">("tiles");

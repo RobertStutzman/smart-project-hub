@@ -180,10 +180,25 @@ function PlayPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "players" },
         (payload) => {
-          const next = payload.new as Me & { session_id: string };
-          if (next?.session_id === session.sessionId) setMe(next);
-          void loadAllPlayers();
+          const next = payload.new as (Me & { session_id: string; is_audience?: boolean }) | null;
+          if (!next) return;
+          if (next.session_id === session.sessionId) setMe(next);
+          // Apply incremental update to allPlayers instead of refetching the whole list
+          if (!next.is_audience) {
+            setAllPlayers((prev) => {
+              const idx = prev.findIndex((p) => p.id === next.id);
+              if (idx === -1) {
+                // New player joined — fall back to a full refresh
+                void loadAllPlayers();
+                return prev;
+              }
+              const copy = prev.slice();
+              copy[idx] = { ...copy[idx], ...next } as LobbyPlayer;
+              return copy.sort((a, b) => a.score - b.score);
+            });
+          }
         },
+
       )
       .subscribe();
 
@@ -193,7 +208,11 @@ function PlayPage() {
       }).catch(() => {});
     }, 15000);
 
-    const tick = setInterval(() => setNow(Date.now()), 200);
+    // Only tick the clock when the question phase is active — avoids 5/s re-renders during lobby/recap/credits
+    const tick = setInterval(() => {
+      setNow((prev) => (room?.phase === "question" ? Date.now() : prev));
+    }, 250);
+
 
     return () => {
       cancelled = true;

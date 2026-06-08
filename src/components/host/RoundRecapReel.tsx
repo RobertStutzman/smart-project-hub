@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { speakPersona } from "@/lib/host-persona";
 import { speakAboutPlayer } from "@/lib/persona-live";
 
@@ -606,8 +606,14 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
       />
 
       <div className="relative grid h-full min-h-0 place-items-center overflow-hidden p-5 sm:p-7">
-        <AnimatePresence mode="wait">{current?.render()}</AnimatePresence>
+        <AnimatePresence mode="wait">
+          {current ? (
+            <Fragment key={current.key}>{current.render()}</Fragment>
+          ) : null}
+        </AnimatePresence>
       </div>
+
+
 
       {/* progress pips */}
       <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 gap-2">
