@@ -1,33 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 import { Haptics } from "@/hooks/use-haptics";
 import { supabase } from "@/integrations/supabase/client";
-import type { Sfx } from "@/lib/sound-engine";
+import { AUDIENCE_TABS, type AudienceTab } from "@/lib/audience-sfx";
+import { playClipUrl } from "@/lib/sound-engine";
 
-const PADS: { label: string; sfx: Sfx; emoji: string; color: string }[] = [
-  { label: "Airhorn", sfx: "airhorn", emoji: "📣", color: "bg-rose-500" },
-  { label: "Crickets", sfx: "crickets", emoji: "🦗", color: "bg-emerald-500" },
-  { label: "Boo", sfx: "boo", emoji: "👻", color: "bg-violet-500" },
-];
-
-// Lightweight floating reactions — broadcast emoji that pop on every screen
 const REACTIONS = ["🔥", "💀", "😂", "❤️", "👏", "🤯"] as const;
 type Reaction = (typeof REACTIONS)[number];
-
 type Float = { id: number; emoji: Reaction; x: number };
 
 type Props = { roomCode: string };
 
 export function AudienceSoundboard({ roomCode }: Props) {
+  const [tabId, setTabId] = useState<AudienceTab["id"]>("gross");
   const [floats, setFloats] = useState<Float[]>([]);
   const idRef = useRef(0);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  // Keep one persistent channel for both SFX and reactions
   useEffect(() => {
     const ch = supabase.channel(`sfx-${roomCode}`);
     void ch.subscribe();
     channelRef.current = ch;
-    // Also subscribe to others' reactions so my screen shows the crowd
     ch.on("broadcast", { event: "react" }, (msg) => {
       const e = (msg.payload as { emoji?: Reaction } | undefined)?.emoji;
       if (!e || !REACTIONS.includes(e)) return;
@@ -41,23 +33,29 @@ export function AudienceSoundboard({ roomCode }: Props) {
     };
   }, [roomCode]);
 
-  async function fireSfx(sfx: Sfx) {
+  async function firePad(padId: string, url: string, volume: number) {
     Haptics.tap();
-    await channelRef.current?.send({ type: "broadcast", event: "sfx", payload: { sfx } });
+    // Local preview so the audience hears their own pad too
+    playClipUrl(url, Math.min(0.6, volume), padId);
+    await channelRef.current?.send({
+      type: "broadcast",
+      event: "sfx_url",
+      payload: { padId, url, volume },
+    });
   }
 
   async function fireReact(emoji: Reaction) {
     Haptics.tap();
-    // Local pop immediately (don't wait for broadcast loopback)
     const id = ++idRef.current;
     setFloats((f) => [...f, { id, emoji, x: Math.random() * 80 + 10 }]);
     setTimeout(() => setFloats((f) => f.filter((x) => x.id !== id)), 1800);
     await channelRef.current?.send({ type: "broadcast", event: "react", payload: { emoji } });
   }
 
+  const activeTab = AUDIENCE_TABS.find((t) => t.id === tabId) ?? AUDIENCE_TABS[0];
+
   return (
-    <div className="relative rounded-3xl border border-border bg-card/50 p-5 backdrop-blur">
-      {/* Floating reactions overlay */}
+    <div className="relative rounded-3xl border border-border bg-card/50 p-4 backdrop-blur">
       <div className="pointer-events-none absolute inset-x-0 bottom-0 top-0 overflow-hidden">
         {floats.map((f) => (
           <span
@@ -78,7 +76,7 @@ export function AudienceSoundboard({ roomCode }: Props) {
       `}</style>
 
       <div className="mb-3 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-        Audience reactions
+        Reactions
       </div>
       <div className="mb-4 grid grid-cols-6 gap-1.5">
         {REACTIONS.map((e) => (
@@ -95,15 +93,41 @@ export function AudienceSoundboard({ roomCode }: Props) {
       <div className="mb-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
         Soundboard
       </div>
+
+      {/* Tabs */}
+      <div className="mb-3 grid grid-cols-4 gap-1.5">
+        {AUDIENCE_TABS.map((t) => {
+          const active = t.id === tabId;
+          return (
+            <button
+              key={t.id}
+              onClick={() => {
+                Haptics.tap();
+                setTabId(t.id);
+              }}
+              className={`flex flex-col items-center gap-0.5 rounded-xl border px-2 py-2 text-[10px] font-bold uppercase tracking-wider transition ${
+                active
+                  ? `${t.color} border-transparent text-white shadow-lg scale-[1.02]`
+                  : "border-border bg-background/40 text-muted-foreground"
+              }`}
+            >
+              <span className="text-xl leading-none">{t.emoji}</span>
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Pad grid */}
       <div className="grid grid-cols-3 gap-2">
-        {PADS.map((p) => (
+        {activeTab.pads.map((p) => (
           <button
-            key={p.sfx}
-            onClick={() => void fireSfx(p.sfx)}
-            className={`flex flex-col items-center gap-1 rounded-2xl ${p.color} px-2 py-4 text-primary-foreground active:scale-95 transition`}
+            key={p.id}
+            onClick={() => void firePad(p.id, p.url, p.volume)}
+            className={`flex flex-col items-center gap-1 rounded-2xl ${activeTab.color} px-2 py-4 text-white active:scale-95 transition hover:brightness-110`}
           >
-            <span className="text-3xl">{p.emoji}</span>
-            <span className="text-xs font-semibold">{p.label}</span>
+            <span className="text-3xl leading-none">{p.emoji}</span>
+            <span className="text-[11px] font-semibold leading-tight text-center">{p.label}</span>
           </button>
         ))}
       </div>
