@@ -51,34 +51,76 @@ function ensureLayer(
   return { el, target };
 }
 
-function tryPlay(layer: Layer, target: number) {
-  const { el } = layer;
-  const p = el.play();
-  if (p && typeof p.then === "function") {
-    p.then(() => fade(layer, target, FADE_MS)).catch(() => {
-      // Autoplay blocked — leave el paused; next gesture will retry.
-    });
-  } else {
-    fade(layer, target, FADE_MS);
+// Track autoplay-block state so the UI / route hooks can stop retry loops
+// once playback actually succeeds.
+let blocked = false;
+const blockListeners = new Set<(blocked: boolean) => void>();
+
+function setBlocked(v: boolean) {
+  if (blocked === v) return;
+  blocked = v;
+  if (v) console.warn("[ambience] autoplay blocked — waiting for user gesture");
+  else console.info("[ambience] playback resumed");
+  for (const cb of blockListeners) {
+    try { cb(v); } catch {}
   }
 }
 
-export function startLobbyChatter() {
-  if (!isClient() || muted || handedOff) return;
+export function isAmbienceBlocked() {
+  return blocked;
+}
+
+export function onAmbienceBlockedChange(cb: (blocked: boolean) => void) {
+  blockListeners.add(cb);
+  return () => blockListeners.delete(cb);
+}
+
+/** Returns true if play() resolved (or was synchronous), false if blocked. */
+function tryPlay(layer: Layer, target: number): Promise<boolean> {
+  const { el } = layer;
+  let p: Promise<void> | undefined;
+  try {
+    p = el.play();
+  } catch (err) {
+    console.warn("[ambience] play() threw", err);
+    setBlocked(true);
+    return Promise.resolve(false);
+  }
+  if (p && typeof p.then === "function") {
+    return p.then(() => {
+      fade(layer, target, FADE_MS);
+      setBlocked(false);
+      return true;
+    }).catch((err) => {
+      console.warn("[ambience] play() rejected:", err?.name ?? err);
+      setBlocked(true);
+      return false;
+    });
+  }
+  fade(layer, target, FADE_MS);
+  setBlocked(false);
+  return Promise.resolve(true);
+}
+
+export function startLobbyChatter(): Promise<boolean> {
+  if (!isClient() || muted || handedOff) return Promise.resolve(false);
   chatter = ensureLayer(chatter, chatterAsset.url, CHATTER_TARGET);
-  if (chatter.el.paused) tryPlay(chatter, CHATTER_TARGET);
+  if (!chatter.el.paused) return Promise.resolve(true);
+  return tryPlay(chatter, CHATTER_TARGET);
 }
 
-export function startCrowd() {
-  if (!isClient() || muted || handedOff) return;
+export function startCrowd(): Promise<boolean> {
+  if (!isClient() || muted || handedOff) return Promise.resolve(false);
   crowd = ensureLayer(crowd, crowdAsset.url, CROWD_TARGET);
-  if (crowd.el.paused) tryPlay(crowd, CROWD_TARGET);
+  if (!crowd.el.paused) return Promise.resolve(true);
+  return tryPlay(crowd, CROWD_TARGET);
 }
 
-export function startDrumroll() {
-  if (!isClient() || muted || handedOff) return;
+export function startDrumroll(): Promise<boolean> {
+  if (!isClient() || muted || handedOff) return Promise.resolve(false);
   drum = ensureLayer(drum, drumAsset.url, DRUM_TARGET);
-  if (drum.el.paused) tryPlay(drum, DRUM_TARGET);
+  if (!drum.el.paused) return Promise.resolve(true);
+  return tryPlay(drum, DRUM_TARGET);
 }
 
 /** Plays cymbal swell, fades out chatter + crowd + drumroll, ready for game-show music. */
