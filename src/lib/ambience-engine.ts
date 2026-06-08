@@ -126,6 +126,24 @@ export function stopAllAmbience() {
   drum = null;
 }
 
+/** Fade out crowd + drumroll only; chatter persists as the pre-game layer. */
+export function stopLobbyBuildup() {
+  if (crowd) {
+    const c = crowd;
+    fade(c, 0, 600, () => {
+      try { c.el.pause(); c.el.currentTime = 0; } catch {}
+    });
+    crowd = null;
+  }
+  if (drum) {
+    const d = drum;
+    fade(d, 0, 500, () => {
+      try { d.el.pause(); d.el.currentTime = 0; } catch {}
+    });
+    drum = null;
+  }
+}
+
 export function setAmbienceMuted(v: boolean) {
   muted = v;
   if (v) stopAllAmbience();
