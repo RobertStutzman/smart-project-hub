@@ -53,10 +53,36 @@ const TIPS = [
   },
 ];
 
+function isStandaloneLaunch(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    if (window.matchMedia("(display-mode: standalone)").matches) return true;
+    if (window.matchMedia("(display-mode: fullscreen)").matches) return true;
+  } catch {
+    /* ignore */
+  }
+  const navStandalone = (window.navigator as Navigator & { standalone?: boolean }).standalone;
+  return navStandalone === true;
+}
+
 export function BootSequence({ onComplete }: Props) {
-  const [stage, setStage] = useState<Stage>("gate");
+  // When launched from the Play Store TWA / installed PWA / iOS home-screen,
+  // skip the tap-to-begin gate — autoplay is permitted in standalone mode.
+  const [stage, setStage] = useState<Stage>(() =>
+    isStandaloneLaunch() ? "splash" : "gate",
+  );
   const [dismissing, setDismissing] = useState(false);
   const completedRef = useRef(false);
+
+  // On standalone launches, unlock audio immediately (no gate gesture needed).
+  useEffect(() => {
+    if (!isStandaloneLaunch()) return;
+    void startLobbyChatter();
+    prewarmElfLines([TIPS_VO], "hype");
+    // run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   // Advance through stages on a timer.
   // For `tips`, gate the advance on both the visual baseline (6.5s) AND the
