@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { play } from "@/lib/sound-engine";
-import { speakAsElf, cancelElfSpeech } from "@/lib/elf-voice";
+import { speakAsElf, cancelElfSpeech, prewarmElfLines } from "@/lib/elf-voice";
+import { startLobbyChatter } from "@/lib/ambience-engine";
 
 const TIPS_VO =
   "Here's the deal — answer fast, your score drops with the clock. Stack your two-times multiplier for the round that matters most. And in the final drop, wager it all and steal the win.";
@@ -20,13 +21,13 @@ const TIPS_VO =
 
 const SKIP_KEY = "btd:boot:done";
 
-type Stage = "splash" | "credits" | "tips" | "ready";
+type Stage = "gate" | "splash" | "credits" | "tips" | "ready";
 
 type Props = {
   onComplete: () => void;
 };
 
-const STAGE_DURATIONS: Record<Exclude<Stage, "ready">, number> = {
+const STAGE_DURATIONS: Record<Exclude<Stage, "ready" | "gate">, number> = {
   splash: 2200,
   credits: 4000,
   tips: 6500,
@@ -53,7 +54,7 @@ const TIPS = [
 ];
 
 export function BootSequence({ onComplete }: Props) {
-  const [stage, setStage] = useState<Stage>("splash");
+  const [stage, setStage] = useState<Stage>("gate");
   const [dismissing, setDismissing] = useState(false);
   const completedRef = useRef(false);
 
@@ -62,7 +63,7 @@ export function BootSequence({ onComplete }: Props) {
   // announcer VO finishing — whichever takes longer — so the cards stay on
   // screen for the full narration.
   useEffect(() => {
-    if (stage === "ready") return;
+    if (stage === "ready" || stage === "gate") return;
     let cancelled = false;
     const startedAt = performance.now();
     const baseMs = STAGE_DURATIONS[stage];
@@ -115,9 +116,21 @@ export function BootSequence({ onComplete }: Props) {
   }, [stage]);
 
   // Any key/click skips to the next stage; on "ready", finishes.
+  // On "gate", the first gesture unlocks audio (crowd ambience + VO prewarm)
+  // and starts the intro flow.
   useEffect(() => {
+    function unlockAudioAndStart() {
+      // Fire under the user gesture so the browser allows audio playback.
+      void startLobbyChatter();
+      prewarmElfLines([TIPS_VO], "hype");
+      setStage("splash");
+    }
     function advance() {
       if (completedRef.current) return;
+      if (stage === "gate") {
+        unlockAudioAndStart();
+        return;
+      }
       if (stage === "tips") cancelElfSpeech();
       if (stage === "ready") {
         complete();
@@ -189,18 +202,22 @@ export function BootSequence({ onComplete }: Props) {
             }}
           />
 
-          {/* Skip hint — always visible top-right */}
-          <div className="absolute right-6 top-6 z-10 text-[10px] uppercase tracking-[0.35em] text-white/40">
-            Press any key to skip
-          </div>
+          {/* Skip hint — visible once intro is running */}
+          {stage !== "gate" && (
+            <div className="absolute right-6 top-6 z-10 text-[10px] uppercase tracking-[0.35em] text-white/40">
+              Press any key to skip
+            </div>
+          )}
 
           {/* Stage content */}
           <AnimatePresence mode="wait">
+            {stage === "gate" && <GateStage key="gate" />}
             {stage === "splash" && <SplashStage key="splash" />}
             {stage === "credits" && <CreditsStage key="credits" />}
             {stage === "tips" && <TipsStage key="tips" />}
             {stage === "ready" && <ReadyStage key="ready" />}
           </AnimatePresence>
+
 
           {/* Progress dots */}
           <div className="absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 gap-2">
@@ -220,6 +237,55 @@ export function BootSequence({ onComplete }: Props) {
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+function GateStage() {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.4 }}
+      className="relative flex h-full w-full flex-col items-center justify-center text-center"
+    >
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 40% 30% at 50% 50%, oklch(0.85 0.18 85 / 0.18), transparent 70%)",
+        }}
+      />
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.1 }}
+        className="text-[10px] uppercase tracking-[0.5em] text-amber-200/70"
+      >
+        A Beat the Drop production
+      </motion.div>
+      <motion.div
+        initial={{ letterSpacing: "0.4em", opacity: 0 }}
+        animate={{ letterSpacing: "0.05em", opacity: 1 }}
+        transition={{ duration: 1, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        className="mt-6 font-display text-[clamp(2.5rem,9svh,6rem)] font-black leading-[0.95] tracking-tight"
+      >
+        <span className="text-white drop-shadow-[0_4px_40px_rgba(0,0,0,0.7)]">Beat the </span>
+        <span className="bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text text-transparent">
+          Drop
+        </span>
+      </motion.div>
+      <motion.div
+        animate={{ scale: [1, 1.06, 1] }}
+        transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+        className="mt-12 inline-flex items-center gap-3 rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-10 py-5 font-display text-base font-black uppercase tracking-[0.25em] text-amber-950 shadow-[0_0_60px_oklch(0.85_0.18_85/0.5)]"
+      >
+        <span>Tap or press any key to begin</span>
+      </motion.div>
+      <div className="mt-5 text-[10px] uppercase tracking-[0.4em] text-white/40">
+        Sound on for the full experience
+      </div>
+    </motion.div>
   );
 }
 
