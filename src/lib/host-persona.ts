@@ -22,7 +22,9 @@ type Moment =
   | "wooden_spoon"      // lowest scorer of the round
   | "goose_egg"         // player(s) who scored zero
   | "idle_interject"    // dead-air filler between questions
-  | "round_transition"; // between-round stinger
+  | "round_transition"  // between-round stinger
+  | "last_to_lock"      // last live player to lock answer
+  | "random_jab";       // generic name-roast for a quiet player
 
 export const LINES: Record<Moment, string[]> = {
   intro_hype: [
