@@ -43,7 +43,11 @@ function ac(): AudioContext | null {
 
 export function setMuted(v: boolean) {
   muted = v;
-  if (v) stopMusic();
+  if (v) {
+    stopMusic();
+    stopCreditsMusic(0);
+    stopWagerBed(0);
+  }
   // Mirror mute into ambience layer (lazy import to avoid cycle in SSR).
   if (typeof window !== "undefined") {
     void import("./ambience-engine").then((m) => m.setAmbienceMuted(v));
