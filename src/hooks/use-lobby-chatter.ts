@@ -20,7 +20,10 @@ export function useLobbyChatter() {
         if (detach) return; // already attached
         const retry = () => {
           void m.startLobbyChatter().then((ok) => {
-            if (ok) detachListeners();
+            if (ok) {
+              void m.startCrowd();
+              detachListeners();
+            }
           });
         };
         const detachListeners = () => {
@@ -43,7 +46,8 @@ export function useLobbyChatter() {
       // 1) Try once immediately.
       void m.startLobbyChatter().then((ok) => {
         if (cancelled) return;
-        if (!ok) attach();
+        if (ok) void m.startCrowd();
+        else attach();
       });
 
       // 2) React to blocked-state changes (e.g. mute toggle re-blocks later).
