@@ -1,6 +1,10 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { play } from "@/lib/sound-engine";
+import { speakAsElf, cancelElfSpeech } from "@/lib/elf-voice";
+
+const TIPS_VO =
+  "Here's the deal — answer fast, your score drops with the clock. Stack your two-times multiplier for the round that matters most. And in the final drop, wager it all and steal the win.";
 
 /**
  * Jackbox-style boot sequence — plays once when the app first loads.

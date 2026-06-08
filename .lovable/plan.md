@@ -1,36 +1,47 @@
-## Problem
+# Boot polish: announcer VO + seamless ambience loop
 
-On `/` and `/join` you should hear venue chatter (people murmuring before doors open). Today:
+Three focused changes to make the first-visit experience feel professional.
 
-1. The Home page's "Host on this screen" button is the user's first click on the page, so the gesture-gated `startLobbyChatter()` fires at the same moment the button's `onClick` pre-arms `startCrowd()` + `startDrumroll()`. Chatter is drowned by the louder crowd/drum that follow you into `/host`.
-2. On `/join`, chatter does start on first tap, but its target volume (0.14) sits under everything else and is easy to miss.
-3. Net effect for the user: "I only hear crowd + drums after clicking Host."
+## 1. Announcer narrates the How-To-Play tips
 
-## Fix
+Use the existing Elf/Persona ElevenLabs pipeline (`speakAsElf` in `src/lib/elf-voice.ts`, which hits `speakPersonaLine`) so the voice matches the in-game host and is cached server-side after the first generation.
 
-Treat chatter as the **pre-game** layer and crowd+drum as the **lobby buildup** layer. Before the host opens a room, only chatter plays.
+- Add one continuous ~6-second line, e.g.:
+  > "Here's the deal — answer fast, the score drops with the clock. Stack your two-times multiplier for the round that matters. And in the final drop, wager it all and steal the win."
+- Trigger it the moment `BootSequence` enters the `tips` stage (inside the existing `useEffect` that already plays the `whoosh` on splash).
+- Match stage duration to the voice line:
+  - Keep the visual baseline at the current 6500ms.
+  - On `tips` enter, start a Promise from `speakAsElf(...)`. When it resolves, then advance to `ready` — but never sooner than the 6500ms baseline (so the cards still get their full reveal even on cache hit / instant playback).
+  - If a user gesture (key/click) fires the existing skip handler, also call `cancelElfSpeech()` so the line cuts cleanly.
+- Leave splash/credits/ready stages unchanged.
 
-### 1. `src/routes/index.tsx` (landing)
-- Keep the gesture-gated `startLobbyChatter()` hook.
-- **Remove** `startCrowd()` and `startDrumroll()` from the "Host on this screen" `onClick` pre-arm. Leave only `resetAmbience()` + `startLobbyChatter()` so chatter survives the route transition into `/host`. Crowd + drum will start inside `/host` itself (they already do in the lobby effect).
+## 2. Tap-to-play stage
 
-### 2. `src/routes/join.tsx`
-- No structural change. Keep the gesture-gated `startLobbyChatter()` already wired.
+No change — user confirmed the 12s auto-advance is correct.
 
-### 3. `src/lib/ambience-engine.ts`
-- Bump `CHATTER_TARGET` from `0.14` to `~0.28` so the murmur is clearly audible on landing/join (where it's the only sound). Crowd (0.18) and drum (0.22) still layer cleanly on top inside `/host`.
-- No API changes.
+## 3. Seamless crowd/chatter loop
 
-### 4. `src/routes/host.tsx`
-- No change. Its lobby effect already calls `startLobbyChatter()` + `startCrowd()` + `startDrumroll()`, which is the correct mix once you're in the room.
+The audible silence on `lobby-chatter` re-trigger comes from `HTMLAudioElement.loop = true`, which has a decode-gap between iterations (and the source mp3 itself can have trailing/leading silence). Switch the looped ambience layers to Web Audio's `AudioBufferSourceNode` with `loop = true`, which loops sample-accurately with no gap.
 
-## Result
+In `src/lib/ambience-engine.ts`:
 
-- `/` and `/join`: only chatter (louder, clearly audible) the moment the user taps anywhere.
-- `/host` lobby: chatter + crowd + drumroll layered together, same as today.
-- Game start: `climaxAndHandoff()` already fades all three out — unchanged.
+- Add a lazy `AudioContext` (separate from `sound-engine`'s, or reuse it via a shared getter — separate is fine and avoids coupling).
+- Replace the `chatter` and `crowd` layers' `HTMLAudioElement` with a small `BufferLayer` that:
+  - Fetches the asset URL once, `decodeAudioData` into an `AudioBuffer` (cached module-level).
+  - On `start*`, creates an `AudioBufferSourceNode` with `loop = true` connected through a `GainNode` for fade in/out, and starts it.
+  - Tracks the active source so `stopLobbyBuildup` / `stopAllAmbience` can `stop()` it after a gain ramp.
+- Keep `drum` and `cymbal` one-shots as `HTMLAudioElement` (no loop = no gap).
+- Preserve the existing public API (`startLobbyChatter`, `startCrowd`, `stopLobbyBuildup`, `stopAllAmbience`, `setAmbienceMuted`, `climaxAndHandoff`, `resetAmbience`, `isAmbienceBlocked`, `onAmbienceBlockedChange`) and the gesture-gated autoplay retry contract — when `AudioContext.state === "suspended"` after `resume()`, surface `setBlocked(true)` so `useLobbyChatter` keeps retrying on user gestures, then `setBlocked(false)` once it resumes.
+- Keep target volumes (`CHATTER_TARGET = 0.28`, `CROWD_TARGET = 0.18`) and fade durations identical so mix balance doesn't change.
 
-## Out of scope
+## Technical notes
 
-- New SFX, mute toggle, or per-route volume controls.
-- Changing the announcer banter cadence.
+- `BootSequence` already has the timer/skip plumbing; the only addition is awaiting the VO promise (with a `Math.max(elapsed, 6500)` floor) before advancing out of `tips`.
+- `speakAsElf` is already queued/cached; calling it once on tips-enter is safe and free after first generation (server caches in Supabase storage).
+- Web Audio loop is the standard fix for mp3 loop-seam gaps; no asset re-export needed.
+- No changes to `src/routes/index.tsx`, `src/routes/join.tsx`, `src/routes/host.tsx`, or the gesture-retry hook are required.
+
+## Files touched
+
+- `src/components/BootSequence.tsx` — trigger announcer VO on `tips`, gate advance on voice end (with 6.5s floor), cancel on skip.
+- `src/lib/ambience-engine.ts` — swap looped layers (`chatter`, `crowd`) to Web Audio buffer sources for seamless loop; keep public API and blocked-state contract intact.
