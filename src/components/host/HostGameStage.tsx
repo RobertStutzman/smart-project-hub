@@ -370,21 +370,26 @@ export function HostGameStage({ room }: Props) {
     DROP_AT_ELAPSED_S.forEach((thresholdElapsed, idx) => {
       if (elapsedS >= thresholdElapsed && !droppedRef.current.has(idx)) {
         droppedRef.current.add(idx);
-        // Sync SFX to the tile's impact moment (after the gravity fall).
-        const sfxId = window.setTimeout(() => playRandomDrop(), DROP_FALL_MS);
-        dropSfxTimersRef.current.push(sfxId);
         dropWrongFn({
           data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
         })
           .then((res) => {
             const droppedIndex = res?.dropped;
             if (droppedIndex == null) return;
-            // Play each guilty player's signature funny noise as their tile
-            // hits the ground. Stagger slightly so multiple players overlap
-            // into chaotic comedy instead of one wall of sound.
+            // Identify guilty players for this tile.
             const guilty = players.filter(
               (p) => !p.is_audience && p.current_answer === droppedIndex,
             );
+            if (guilty.length === 0) {
+              // No one picked this — play the generic environmental drop.
+              const sfxId = window.setTimeout(() => playRandomDrop(), DROP_FALL_MS);
+              dropSfxTimersRef.current.push(sfxId);
+              return;
+            }
+            // Each guilty player's signature funny noise IS the drop sound.
+            // Stagger slightly so multiple players overlap into chaotic
+            // comedy instead of one wall of sound. No generic SFX layered
+            // on top — players' assigned sounds stay distinct and stable.
             guilty.forEach((p, i) => {
               const tid = window.setTimeout(
                 () => playFunnySoundById(p.funny_sound_id, p.session_id ?? p.id),
@@ -393,7 +398,12 @@ export function HostGameStage({ room }: Props) {
               dropSfxTimersRef.current.push(tid);
             });
           })
-          .catch(() => {});
+          .catch(() => {
+            // If the server call fails, still play a generic drop so the
+            // moment doesn't go silent.
+            const sfxId = window.setTimeout(() => playRandomDrop(), DROP_FALL_MS);
+            dropSfxTimersRef.current.push(sfxId);
+          });
       }
     });
 
