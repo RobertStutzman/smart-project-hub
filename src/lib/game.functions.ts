@@ -446,6 +446,8 @@ export const endQuestion = createServerFn({ method: "POST" })
           used2x = true;
         }
         if (isLightning) base *= LIGHTNING_MULTIPLIER;
+        if (isDoubleOrNothing) base *= 2;
+        if (isUnderdog && underdogId === p.id) base *= 2;
         roundScore = base;
         nextStreak += 1;
         if (nextStreak > bestStreak) bestStreak = nextStreak;
