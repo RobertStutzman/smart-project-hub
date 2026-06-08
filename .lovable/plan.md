@@ -1,50 +1,39 @@
-# Fix the intro flow + audio
+## What's making him talk over himself
 
-Three problems, three fixes — all in the boot sequence.
+On the QR / lobby screen, three voice sources fire near each other and **only two of them share a queue**:
 
-## 1. Remove the redundant "Press OK to start" screen
+1. **Welcome intro clip** (`src/routes/host.tsx` lines 319-323) — plays a random "welcome" sound via `new Audio(pick.url).play()`. This **bypasses the elf-voice queue entirely**.
+2. **Persona opener** at +1.8s — goes through `speakPersona` → `speakAsElf` queue.
+3. **Lobby quips every 10s** — also through the queue.
 
-Current flow:
-```
-Tap to begin (gate)  →  Splash  →  Credits  →  Tips (how to play)  →  Press OK to start (ready)  →  Landing (host / join)
-```
+Because the welcome clip is outside the queue, the opener (and any quip that lands while the welcome is still playing) plays *on top of* it. The queue only sequences items inside itself; it has no awareness of the raw `Audio` element from the welcome.
 
-The `ready` stage is doing the same job as both the gate before it and the landing page right after it. Cut it.
+There's likely a second contributing factor: on the iPad, the welcome and opener can both be ~3–5s long, so a 10s interval tick can land while one of them is still going. Today the tick uses `interrupt: false` so it queues — but again, only behind queued items, not behind the welcome.
 
-New flow:
-```
-Tap to begin (gate)  →  Splash  →  Credits  →  Tips (how to play)  →  Landing (host / join)
-```
+## Fix
 
-Changes in `src/components/BootSequence.tsx`:
-- Drop the `"ready"` stage from the `Stage` union, timers, dots, and the `ReadyStage` component.
-- After `tips` finishes (visual baseline AND VO both done), call `complete()` directly so the boot overlay fades out and the user lands on the host/join screen.
-- Keep "press any key to skip" working — skipping from `tips` jumps straight to `complete()`.
-- Progress dots become 3 (splash / credits / tips).
+Two small changes — voice only, no visual changes.
 
-## 2. Restore the crowd audio
+### 1. Route the welcome clip through the voice queue (`src/routes/host.tsx`)
 
-Right now the landing page only starts `startLobbyChatter` (target gain 0.11 — barely audible chatter bed). The louder `startCrowd` layer (target 0.18) never plays until you reach `/host`.
+Replace the raw `new Audio(pick.url).play()` with `playVoiceUrl(pick.url, { volume, interrupt: true })` from `@/lib/elf-voice`. That puts the welcome on the same single-line queue everything else uses, so the opener will wait for it to finish.
 
-Change: when the gate is tapped (and on standalone launch), start BOTH `startLobbyChatter()` and `startCrowd()` so you actually hear a room of people from the moment the intro begins, and that bed continues onto the landing page. Also call `startCrowd()` from `useLobbyChatter` so a user who skips the boot (sessionStorage flag set) still gets the crowd.
+### 2. Give the opener and the ticks a small extra safety net (`src/routes/host.tsx`)
 
-## 3. Make the announcer audible during the Tips/How-to-play stage
+- Bump the opener delay from 1800ms → 2400ms so the welcome has more breathing room even on slow networks.
+- Keep `speakPersona(..., { interrupt: false })` (the default). Now that the welcome is in the queue, "no interrupt" means everything serializes cleanly: welcome → opener → quip → quip…
+- Optional belt-and-suspenders: in the 10s tick, skip the line if there's already audio playing. We can expose a small `isElfSpeaking()` helper from `elf-voice.ts` (returns `currentAudio !== null`) and check it before pushing the next quip. This prevents the queue from growing into a backlog when the user is on the lobby a long time.
 
-The `TIPS_VO` line plays via `speakAsElf(..., { preset: "hype" })` with default volume `1.0`, but the crowd + chatter beds (combined ~0.29 gain) are loud enough to bury it.
+### 3. Add a one-line dev log so the next regression is easy to spot
 
-Two-part fix in `src/lib/ambience-engine.ts` + `BootSequence.tsx`:
-- Add a `duckAmbience(targetMultiplier, ms)` / `unduckAmbience(ms)` pair that ramps the active loop gains down to ~35% of their target while the announcer is talking, then back up.
-- In the `tips` effect, call `duckAmbience(0.35, 400)` before `speakAsElf(TIPS_VO, ...)` and `unduckAmbience(500)` in the `.then()` after VO finishes (and on cleanup).
-- Also bump `speakAsElf` call to `{ volume: 1.0 }` explicitly and verify the line is being fetched (no skipped/blocked response) — the prewarm already runs on the gate tap, so by the time tips render the audio should be cached.
+In `speakAsElf` (and `playVoiceUrl`), `console.info("[elf] queue +", text.slice(0, 40))` when a task starts and `[elf] queue -` when it ends. If you ever hear overlap again, the console will show two starts without a stop in between — instant diagnosis.
 
-## Technical notes
+## Files touched
 
-- `Stage` type, `STAGE_DURATIONS`, the dots array, the splash-sound effect's `ready` branch, and the auto-advance-off-ready effect all need to be cleaned up together — partial removal will leave dangling references and break the build.
-- The duck/unduck helpers operate on the existing `chatter` / `crowd` / `drumroll` LoopLayer `gain` nodes using the same `rampGain` utility already in the file. No new audio buffers needed.
-- Nothing in this plan touches `/host`, `/join`, the question stage, or the announcer server function — only the boot overlay and the ambience engine's gain API.
+- `src/routes/host.tsx` — swap raw Audio for `playVoiceUrl`, bump opener delay, add `isElfSpeaking()` guard in the tick
+- `src/lib/elf-voice.ts` — export `isElfSpeaking()`, add two-line dev logging
 
-## Out of scope
+## What you'll experience
 
-- Changing the actual VO line, voice, or persona.
-- The TWA / Play Store packaging (still paused per your earlier instruction).
-- Replacing the crowd-ambience source file.
+- Tap "Host on this screen" → QR appears → welcome plays → ~600ms beat → opener line → 10s later a quip (only if the previous one finished). No more crosstalk.
+- The visual flow doesn't change.
