@@ -973,6 +973,15 @@ export function HostGameStage({ room }: Props) {
           });
         }, 5400);
         void id;
+        emitAchievement({
+          kicker: "Comeback",
+          title: `${cb.nickname} climbed ${cb.ranksClimbed} spots`,
+          subtitle: "Back in the top 3",
+          icon: "🚀",
+          tone: "violet",
+          dedupe: `comeback-${cb.nickname}-${round}`,
+        });
+
       }
     }
 
