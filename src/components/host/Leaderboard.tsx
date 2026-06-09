@@ -11,144 +11,137 @@ type Player = {
   streak_count?: number;
 };
 
-const PODIUM_TONE = [
-  // 1st — gold
-  {
-    ring: "ring-amber-300/70",
-    glow: "shadow-[0_0_80px_oklch(0.85_0.18_85/0.6)]",
-    badgeBg: "bg-amber-300 text-amber-950",
-    label: "text-amber-300",
-    height: "h-44 sm:h-52",
-  },
-  // 2nd — silver
-  {
-    ring: "ring-zinc-300/60",
-    glow: "shadow-[0_0_60px_oklch(0.85_0.02_250/0.35)]",
-    badgeBg: "bg-zinc-200 text-zinc-900",
-    label: "text-zinc-200",
-    height: "h-36 sm:h-44",
-  },
-  // 3rd — bronze
-  {
-    ring: "ring-orange-400/60",
-    glow: "shadow-[0_0_60px_oklch(0.65_0.15_45/0.4)]",
-    badgeBg: "bg-orange-400 text-orange-950",
-    label: "text-orange-300",
-    height: "h-32 sm:h-40",
-  },
-];
+type RankTone = {
+  bar: string;
+  badge: string;
+  rowRing: string;
+  name: string;
+};
 
-function Avatar({ p, size = "h-16 w-16" }: { p: Player; size?: string }) {
+const RANK_TONE: Record<number, RankTone> = {
+  1: {
+    bar: "bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500",
+    badge: "bg-amber-300 text-amber-950",
+    rowRing: "ring-amber-300/40",
+    name: "text-amber-100",
+  },
+  2: {
+    bar: "bg-gradient-to-r from-zinc-200 via-zinc-300 to-zinc-400",
+    badge: "bg-zinc-200 text-zinc-900",
+    rowRing: "ring-zinc-200/30",
+    name: "text-zinc-100",
+  },
+  3: {
+    bar: "bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600",
+    badge: "bg-orange-400 text-orange-950",
+    rowRing: "ring-orange-400/30",
+    name: "text-orange-100",
+  },
+};
+
+const DEFAULT_TONE: RankTone = {
+  bar: "bg-gradient-to-r from-white/30 to-white/15",
+  badge: "bg-white/10 text-white/80",
+  rowRing: "ring-white/10",
+  name: "text-white",
+};
+
+function Avatar({ p, size = "h-11 w-11" }: { p: Player; size?: string }) {
   if (p.avatar_url) {
     return (
       <img
         src={p.avatar_url}
         alt={p.nickname}
-        className={`${size} rounded-full border border-white/15 object-cover`}
+        className={`${size} shrink-0 rounded-full border border-white/15 object-cover`}
       />
     );
   }
   return (
     <div
-      className={`${size} grid place-items-center rounded-full bg-gradient-to-br from-amber-200 to-amber-500 font-display font-black text-amber-950`}
+      className={`${size} shrink-0 grid place-items-center rounded-full bg-gradient-to-br from-amber-200 to-amber-500 font-display font-black text-amber-950`}
     >
       {p.nickname.slice(0, 1).toUpperCase()}
     </div>
   );
 }
 
-function Podium({ players }: { players: Player[] }) {
-  // Render order: 2nd, 1st, 3rd
-  const order = [players[1], players[0], players[2]];
-  const positions = [1, 0, 2];
-  return (
-    <div className="mx-auto flex w-full max-w-3xl items-end justify-center gap-3 sm:gap-6">
-      {order.map((p, idx) => {
-        if (!p) return <div key={idx} className="w-1/3" />;
-        const rank = positions[idx];
-        const tone = PODIUM_TONE[rank];
-        return (
-          <motion.div
-            key={p.id}
-            layout
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 * (idx + 1), type: "spring", stiffness: 220, damping: 24 }}
-            className="flex w-1/3 flex-col items-center"
-          >
-            <div className="relative mb-3">
-              <div className={`rounded-full p-1 ring-2 ${tone.ring} ${tone.glow}`}>
-                <Avatar p={p} size="h-20 w-20 sm:h-24 sm:w-24" />
-              </div>
-              <div
-                className={`absolute -bottom-2 left-1/2 grid h-8 w-8 -translate-x-1/2 place-items-center rounded-full font-display text-sm font-black ${tone.badgeBg}`}
-              >
-                {rank + 1}
-              </div>
-            </div>
-            <div className={`font-display text-base font-bold uppercase tracking-wider ${tone.label}`}>
-              {p.nickname}
-            </div>
-            <div className="font-mono text-xs text-white/50">{p.score} pts</div>
-            <div
-              className={`mt-3 w-full rounded-t-xl border border-white/10 border-b-0 bg-gradient-to-b from-white/[0.08] to-white/[0.02] backdrop-blur ${tone.height}`}
-            />
-          </motion.div>
-        );
-      })}
-    </div>
-  );
-}
-
 export const Leaderboard = memo(function Leaderboard({ players }: { players: Player[] }) {
   const sorted = [...players].sort((a, b) => b.score - a.score);
-  const top3 = sorted.slice(0, 3);
-  const rest = sorted.slice(3);
+  const maxScore = Math.max(1, sorted[0]?.score ?? 1);
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
-      {top3.length > 0 && <Podium players={top3} />}
-
-      {rest.length > 0 && (
-        <ol className="flex w-full flex-col gap-2">
-          <AnimatePresence initial={false}>
-            {rest.map((p, i) => (
+    <div className="mx-auto w-full max-w-4xl">
+      <ol className="flex w-full flex-col divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur">
+        <AnimatePresence initial={false}>
+          {sorted.map((p, i) => {
+            const rank = i + 1;
+            const tone = RANK_TONE[rank] ?? DEFAULT_TONE;
+            const pct = Math.max(2, Math.round((p.score / maxScore) * 100));
+            const delta = p.current_round_score ?? 0;
+            return (
               <motion.li
                 key={p.id}
                 layout
-                initial={{ opacity: 0, y: 12 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                transition={{ type: "spring", stiffness: 320, damping: 28 }}
-                className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 backdrop-blur"
+                transition={{
+                  layout: { type: "spring", stiffness: 280, damping: 28 },
+                  delay: Math.min(i, 8) * 0.05,
+                  duration: 0.35,
+                }}
+                className={`flex items-center gap-4 px-5 py-3 ring-1 ring-inset ${tone.rowRing}`}
               >
-                <div className="w-8 text-center font-mono text-xl font-black text-white/40">
-                  {i + 4}
+                {/* Rank */}
+                <div
+                  className={`grid h-9 w-9 shrink-0 place-items-center rounded-full font-display text-base font-black ${tone.badge}`}
+                >
+                  {rank}
                 </div>
-                <Avatar p={p} size="h-11 w-11" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 truncate font-display text-base font-semibold text-white">
-                    {p.nickname}
-                    {p.current_round_fastest && <span title="Fastest">⚡</span>}
-                    {(p.streak_count ?? 0) >= 3 && <span title="On fire">🔥</span>}
+
+                {/* Avatar */}
+                <Avatar p={p} />
+
+                {/* Name + bar */}
+                <div className="min-w-0 flex-1">
+                  <div className={`flex items-center gap-2 truncate font-display text-lg font-bold uppercase tracking-wide ${tone.name}`}>
+                    <span className="truncate">{p.nickname}</span>
+                    {p.current_round_fastest && <span title="Fastest" className="text-sm">⚡</span>}
+                    {(p.streak_count ?? 0) >= 3 && <span title="On fire" className="text-sm">🔥</span>}
                   </div>
-                  {p.current_round_score !== undefined && p.current_round_score !== 0 && (
+                  <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-white/[0.06] shadow-inner">
+                    <motion.div
+                      key={`${p.id}-${p.score}`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${pct}%` }}
+                      transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.15 + Math.min(i, 8) * 0.05 }}
+                      className={`h-full rounded-full ${tone.bar} shadow-[0_0_18px_rgba(255,255,255,0.12)_inset]`}
+                    />
+                  </div>
+                </div>
+
+                {/* Score + delta */}
+                <div className="flex w-20 shrink-0 flex-col items-end">
+                  <div className="font-mono text-2xl font-black leading-none text-white tabular-nums">
+                    {p.score}
+                  </div>
+                  {delta !== 0 && (
                     <div
-                      className={`text-xs font-bold ${
-                        p.current_round_score > 0 ? "text-emerald-300" : "text-rose-300"
+                      className={`mt-1 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-black tabular-nums ${
+                        delta > 0
+                          ? "bg-emerald-500/15 text-emerald-300"
+                          : "bg-rose-500/15 text-rose-300"
                       }`}
                     >
-                      {p.current_round_score > 0 ? "+" : ""}
-                      {p.current_round_score}
+                      {delta > 0 ? `+${delta}` : `${delta}`}
                     </div>
                   )}
                 </div>
-                <div className="font-mono text-2xl font-black text-white">{p.score}</div>
               </motion.li>
-            ))}
-          </AnimatePresence>
-        </ol>
-      )}
+            );
+          })}
+        </AnimatePresence>
+      </ol>
     </div>
   );
 });

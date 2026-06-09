@@ -1,51 +1,63 @@
-## What broke
+## Goal
 
-There are three separate regressions in the current code:
+Make both score displays read like a real broadcast scoreboard, not a row of floating numbers. Replace the avatar-strip "Scoreboard" beat and the floating podium blocks with proportional, ranked, labeled bars.
 
-1. The phone player page explicitly starts background music in lobby/question phases. That is why random music plays on your phone.
-2. The player answer buttons can stay blocked because `/play` calculates the “reading/countdown” state from a `now` timer that only advances when `room.phase === "question"`, but that interval closure captures an old `room` value. If `now` stops updating, the app thinks the pre-answer read window is still active and disables the answer grid.
-3. The rules screen is visual-only. `HowToPlay` shows the rules slides, but no voice is attached there, so the announcer no longer explains the rules while that screen is up.
+## Files
 
-## Fix
+- `src/components/host/RoundRecapReel.tsx` — replace the `scoreboard` beat
+- `src/components/host/Leaderboard.tsx` — replace the podium + rest split with a single ranked bar chart
 
-### 1. Remove all automatic music from the phone player page
+## 1. Recap "Scoreboard" beat (round-score chart)
 
-In `src/routes/play.tsx`:
+Replace the centered row of 8 avatars + `+N` numbers with a horizontal-bar ranked chart of THIS round's scores.
 
-- Remove `startMusic` from imports.
-- Remove the `useEffect` that starts `startMusic("lobby")` and `startMusic("tense")` on the phone.
-- Keep `stopMusic()` on Leave so any old loop is still killed if present.
-- Keep short tap/answer SFX only.
+Layout (top 8 players, sorted by `current_round_score` desc):
 
-Result: phones are controllers again, not speakers.
+```text
+RANK | AVATAR  NAME              [████████████████████  ] +120
+  1  | (img)   ALEX     ⚡        [██████████████        ]  +90
+  2  | (img)   SAM                [█████                 ]  +30
+  ...
+```
 
-### 2. Fix answer buttons being blocked after the read window
+Per row:
+- Fixed-width rank column (`1`–`8`), monospace, bold.
+- 36px avatar with thin ring.
+- Nickname (display font, truncate), small icons inline: ⚡ if `current_round_fastest`, 🔥 if `streak_count >= 3`.
+- Bar track (`bg-white/5`, rounded) filling left-to-right to `score / maxScore` width, animated from 0 → final width with a 120ms stagger per row using framer-motion. Gold gradient for #1, white/amber for the rest. Subtle inner shadow for depth.
+- Right-aligned `+score` in mono, emerald for >0, zinc for 0.
 
-In `src/routes/play.tsx`:
+Header strip above the bars: small uppercase eyebrow "Round {N} · Round scores".
+Height capped to fit the stage; if >8 players, show top 8 and a "+N more" pill at the bottom right. Speak line unchanged.
 
-- Replace the stale interval logic with a simple stable clock interval that updates `now` every 250ms while the page is mounted.
-- Keep the existing `reading` logic, but now it will actually count down to zero.
+## 2. Leaderboard (cumulative chart)
 
-Result: the answer grid unlocks when the question is live.
+Drop the 3 raised podium blocks + separate `<ol>` list. Replace with one unified ranked bar chart of ALL players by total `score`, same row pattern as above but tuned for "season standings":
 
-### 3. Restore rules narration on the How To Play screen
+- Rank column with gold/silver/bronze pill for ranks 1–3, plain mono number for 4+.
+- Avatar 44px.
+- Nickname + inline streak/fastest icons.
+- Bar fills to `score / maxScore`. Tone: gold gradient (1st), silver (2nd), bronze (3rd), neutral white/10 for the rest.
+- Right side shows total `score` (mono, large) and, if `current_round_score` is set and non-zero, a small delta chip underneath in emerald/rose (`+12` / `−4`).
+- Smooth `layout` animation so rank changes glide between rounds.
+- Top of board: small eyebrow "Standings · After round {N}" (pass `roundNumber` as a prop; default-safe if missing).
 
-In `src/components/HowToPlay.tsx`:
+Container: max-w-4xl, dark glass card, generous row spacing, divider lines between rows (`border-white/5`).
 
-- Add a small narration effect for each slide using the existing `speakPersona` / voice path.
-- Narrate the current slide title + body when the slide appears.
-- Cancel or interrupt prior slide speech when moving to the next slide/closing.
-- No new UI, no timing changes.
+## Style notes
 
-Result: when the rules screen comes up, the announcer explains the rules again.
+- No emoji-heavy decoration. Keep the existing display/mono font pairing.
+- Bars use solid tokens already in the file (amber/emerald/rose/zinc) — no new colors.
+- Animations: enter-row stagger ~80–120ms, bar fill ~700ms `easeOut`, layout spring for rank changes. Nothing else moves.
+- Readable at 10 ft: nickname `text-lg`, score `text-2xl`, bar height `h-3`.
 
-### 4. Do not touch the Silk audio unlock plan right now
+## Out of scope
 
-Given this regression, I will not add the Amazon Silk audio-unlock primer in this pass. First I’ll restore the known gameplay behavior: no phone lobby music, clickable answers, rules voice back.
+- No data shape changes; only consumes existing `Player` fields.
+- No backend / RLS / DB changes.
+- Other recap beats (MVP, fastest, streak, spoon, climb, drop) untouched.
+- No countdown reintroduction.
 
-## Files to change
+## Verification
 
-- `src/routes/play.tsx`
-- `src/components/HowToPlay.tsx`
-
-No database changes. No security/RLS changes. No admin sounds changes.
+- Visual check at `/host` after a round ends: bars animate in ranked order, totals legible, podium replaced with a proper bar chart, layout doesn't overflow at 934px or 1920px wide.
