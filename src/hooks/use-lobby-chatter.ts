@@ -16,9 +16,14 @@ export function useLobbyChatter() {
     void import("@/lib/ambience-engine").then((m) => {
       if (cancelled) return;
 
+      // Clear the handoff latch — a previous game may have tripped it via
+      // climaxAndHandoff(), which makes startLobbyChatter() a silent no-op.
+      m.resetAmbience();
+
       const attach = () => {
         if (detach) return; // already attached
         const retry = () => {
+          m.resetAmbience();
           void m.startLobbyChatter().then((ok) => {
             if (ok) {
               void m.startCrowd();
