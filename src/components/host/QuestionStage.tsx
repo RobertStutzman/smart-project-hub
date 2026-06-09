@@ -26,6 +26,7 @@ type Props = {
   mediaUrl?: string | null;
   mediaType?: string | null; // 'image' | 'audio'
   questionNumber?: number;
+  hideTimer?: boolean;
 };
 
 
