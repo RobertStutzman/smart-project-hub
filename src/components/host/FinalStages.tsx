@@ -131,16 +131,43 @@ export function FinalWagerStage({ players }: { players: Player[] }) {
         <div className="text-xs font-bold uppercase tracking-[0.5em] text-amber-300/90">
           Place your wager
         </div>
-        <div className="mt-3 font-display text-5xl font-black leading-tight">
-          All players are betting…
+
+        {/* Giant countdown */}
+        <div
+          className={`mt-3 font-display font-black leading-none tabular-nums transition-all ${
+            danger ? "text-rose-300 drop-shadow-[0_0_30px_oklch(0.7_0.25_25/0.7)]" : "text-amber-200 drop-shadow-[0_0_30px_oklch(0.85_0.20_70/0.5)]"
+          }`}
+          style={{ fontSize: danger ? "10rem" : "8rem" }}
+        >
+          {secondsLeft}
         </div>
-        <div className="mt-6 text-sm uppercase tracking-[0.3em] text-amber-200/60">
-          {locked === total ? "All wagers locked" : "Waiting on wagers…"}
+        <div className="text-[10px] uppercase tracking-[0.4em] text-white/50">
+          seconds to lock
+        </div>
+
+        {/* Progress bar */}
+        <div className="mt-6 h-2 w-64 overflow-hidden rounded-full bg-white/10">
+          <div
+            className={`h-full transition-all ${danger ? "bg-rose-400" : "bg-amber-300"}`}
+            style={{ width: `${progress * 100}%` }}
+          />
+        </div>
+
+        {/* Animated locked counter */}
+        <div className="mt-6 flex items-baseline gap-2">
+          <span className="font-mono text-5xl font-black tabular-nums text-amber-200">
+            {animatedLocked}
+          </span>
+          <span className="text-lg font-bold text-white/50">/ {total}</span>
+          <span className="ml-2 text-xs uppercase tracking-[0.3em] text-amber-200/60">
+            wagers locked
+          </span>
         </div>
       </div>
     </div>
   );
 }
+
 
 // ─── Reveal stage ───────────────────────────────────────────────────────
 type RevealProps = {
