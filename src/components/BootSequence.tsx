@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { play } from "@/lib/sound-engine";
-import { startLobbyChatter, startCrowd } from "@/lib/ambience-engine";
+import { play, playBootMusic, stopBootMusic, playBootStationId } from "@/lib/sound-engine";
+
 
 /**
  * Jackbox-style boot sequence — plays once when the app first loads.
@@ -38,10 +38,12 @@ function isStandaloneLaunch(): boolean {
   return navStandalone === true;
 }
 
-function startAmbienceBeds() {
-  void startLobbyChatter();
-  void startCrowd();
+function startBootIntroAudio() {
+  // One-shot music sting; voice ID layered ~1.2s in.
+  playBootMusic(0.34);
+  window.setTimeout(() => playBootStationId(0.95), 1200);
 }
+
 
 export function BootSequence({ onComplete }: Props) {
   // When launched from an installed PWA / TWA, skip the tap-to-begin gate.
@@ -52,11 +54,17 @@ export function BootSequence({ onComplete }: Props) {
   const [gatePressed, setGatePressed] = useState(false);
   const completedRef = useRef(false);
 
-  // On standalone launches, unlock audio immediately.
+  // On standalone launches, start the boot intro audio immediately.
   useEffect(() => {
     if (!isStandaloneLaunch()) return;
-    startAmbienceBeds();
+    startBootIntroAudio();
   }, []);
+
+  // Fade out boot music when the overlay is dismissed.
+  useEffect(() => {
+    if (dismissing) stopBootMusic(600);
+  }, [dismissing]);
+
 
   // Advance through stages on a timer.
   useEffect(() => {
@@ -83,10 +91,12 @@ export function BootSequence({ onComplete }: Props) {
   // From `credits`, skipping completes immediately.
   useEffect(() => {
     function unlockAudioAndStart() {
-      startAmbienceBeds();
+      play("whoosh");
+      startBootIntroAudio();
       setGatePressed(true);
       window.setTimeout(() => setStage("splash"), 140);
     }
+
     function advance() {
       if (completedRef.current) return;
       if (stage === "gate") {
@@ -219,21 +229,12 @@ function GateStage({ pressed = false }: { pressed?: boolean }) {
           Drop
         </span>
       </motion.div>
-      <motion.div
-        animate={
-          pressed
-            ? { scale: 0.95 }
-            : { scale: [1, 1.06, 1] }
-        }
-        transition={
-          pressed
-            ? { duration: 0.14, ease: "easeOut" }
-            : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }
-        }
-        className="mt-12 inline-flex items-center gap-3 rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-10 py-5 font-display text-base font-black uppercase tracking-[0.25em] text-amber-950 shadow-[0_0_60px_oklch(0.85_0.18_85/0.5)]"
+      <div
+        className={`pill-pulse${pressed ? " is-pressed" : ""} mt-12 inline-flex items-center gap-3 rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-10 py-5 font-display text-base font-black uppercase tracking-[0.25em] text-amber-950 shadow-[0_0_40px_oklch(0.85_0.18_85/0.45)]`}
       >
         <span>Tap or press any key to begin</span>
-      </motion.div>
+      </div>
+
       <div className="mt-5 text-[10px] uppercase tracking-[0.4em] text-white/40">
         Sound on for the full experience
       </div>

@@ -250,3 +250,21 @@ body[data-a11y-contrast="high"] * {
   transform: translate3d(0, 30%, 0);
   backface-visibility: hidden;
 }
+
+/* Boot gate pill — compositor-only pulse so the big amber shadow
+ * doesn't repaint every frame the way a framer-motion repeat does. */
+@keyframes pillPulse {
+  0%, 100% { transform: translateZ(0) scale(1); }
+  50%      { transform: translateZ(0) scale(1.045); }
+}
+.pill-pulse {
+  animation: pillPulse 1.8s ease-in-out infinite;
+  will-change: transform;
+  transform: translateZ(0);
+}
+.pill-pulse.is-pressed {
+  animation: none;
+  transform: translateZ(0) scale(0.95);
+  transition: transform 140ms ease-out;
+}
+
