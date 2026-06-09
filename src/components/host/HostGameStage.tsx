@@ -59,6 +59,13 @@ type RoomState = {
   sudden_death_session_ids: string[] | null;
 };
 
+export type WrongPick = {
+  questionId: string;
+  questionText: string;
+  correctText: string;
+  picks: { sessionId: string; nickname: string; pickedText: string }[];
+};
+
 type Player = {
   id: string;
   session_id: string;
@@ -665,6 +672,47 @@ export function HostGameStage({ room }: Props) {
     return () => window.clearTimeout(id);
   }, [state?.phase, state?.current_question_id, state?.current_correct_index, players]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Capture wrong picks per question so CreditsStage can show the
+  // "Funniest Moments" wall of actual dumb answers people locked in.
+  // Pure in-memory; lost on refresh (acceptable — credits runs same session).
+  const wrongPicksRef = useRef<WrongPick[]>([]);
+  const wrongPicksSeenRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!state) return;
+    const isFinal = state.phase === "final_reveal";
+    const isReveal = state.phase === "reveal";
+    if (!isReveal && !isFinal) return;
+    const qid = state.current_question_id;
+    const correctIdx = state.current_correct_index;
+    const answers = state.current_answers;
+    if (!qid || correctIdx === null || !answers) return;
+    const key = `${isFinal ? "F" : "R"}:${qid}`;
+    if (wrongPicksSeenRef.current.has(key)) return;
+    wrongPicksSeenRef.current.add(key);
+    const picks = players
+      .filter((p) => !p.is_audience)
+      .map((p) => {
+        const pickedIdx = isFinal ? p.final_answer : p.current_answer;
+        if (pickedIdx === null || pickedIdx === undefined) return null;
+        if (pickedIdx === correctIdx) return null;
+        const pickedText = answers[pickedIdx];
+        if (!pickedText) return null;
+        return { sessionId: p.session_id, nickname: p.nickname, pickedText };
+      })
+      .filter((x): x is { sessionId: string; nickname: string; pickedText: string } => x !== null);
+    if (picks.length === 0) return;
+    wrongPicksRef.current = [
+      ...wrongPicksRef.current,
+      {
+        questionId: qid,
+        questionText: state.current_question_text ?? "",
+        correctText: answers[correctIdx] ?? "",
+        picks,
+      },
+    ];
+  }, [state?.phase, state?.current_question_id, state?.current_correct_index, players]); // eslint-disable-line react-hooks/exhaustive-deps
+
+
   // ── Per-round name rotation so we don't just shout the fastest finger every Q
   const SLOTS = ["first_blood", "last_to_lock", "first_blood", "random_jab", "last_to_lock"] as const;
   type Slot = (typeof SLOTS)[number];
@@ -1161,6 +1209,7 @@ export function HostGameStage({ room }: Props) {
     return (
       <CreditsStage
         players={players}
+        wrongPicks={wrongPicksRef.current}
         onPlayAgain={() => {
           restartGameFn({
             data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
@@ -1169,6 +1218,7 @@ export function HostGameStage({ room }: Props) {
       />
     );
   }
+
 
   if (state.phase === "ended") {
     const resultsUrl =

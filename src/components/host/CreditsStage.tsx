@@ -17,10 +17,19 @@ type Player = {
   is_audience: boolean;
 };
 
+type WrongPick = {
+  questionId: string;
+  questionText: string;
+  correctText: string;
+  picks: { sessionId: string; nickname: string; pickedText: string }[];
+};
+
 type Props = {
   players: Player[];
+  wrongPicks?: WrongPick[];
   onPlayAgain: () => void;
 };
+
 
 type Award = {
   key: AwardKey;
@@ -149,7 +158,54 @@ function PolaroidCard({ award, rotate }: { award: Award; rotate: number }) {
   );
 }
 
-export function CreditsStage({ players, onPlayAgain }: Props) {
+function DumbAnswerCard({
+  questionText,
+  correctText,
+  nickname,
+  pickedText,
+  rotate,
+}: {
+  questionText: string;
+  correctText: string;
+  nickname: string;
+  pickedText: string;
+  rotate: number;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 30, rotate: rotate - 6, scale: 0.9 }}
+      whileInView={{ opacity: 1, y: 0, rotate, scale: 1 }}
+      viewport={{ once: true, margin: "-10%" }}
+      transition={{ type: "spring", stiffness: 140, damping: 16 }}
+      className="relative inline-block w-64 rounded-lg bg-[#f5ecd6] p-3 shadow-[0_18px_40px_-15px_rgba(0,0,0,0.65)]"
+      style={{ transform: `rotate(${rotate}deg)` }}
+    >
+      <div className="absolute -top-2 left-1/2 h-5 w-20 -translate-x-1/2 rotate-[-3deg] bg-rose-200/70 mix-blend-multiply shadow-sm" />
+      <div className="rounded bg-gradient-to-br from-rose-100 to-rose-200 p-3">
+        <div className="line-clamp-3 text-[11px] italic leading-snug text-amber-950/80">
+          “{questionText}”
+        </div>
+        <div className="mt-3 font-mono text-[10px] uppercase tracking-[0.25em] text-rose-900/70">
+          {nickname} said
+        </div>
+        <div className="mt-1 font-display text-2xl font-black uppercase leading-tight tracking-tight text-rose-900">
+          {pickedText}
+        </div>
+        <div className="mt-3 border-t border-rose-900/15 pt-2">
+          <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-emerald-900/70">
+            Actually
+          </div>
+          <div className="mt-0.5 text-sm font-bold text-emerald-900">{correctText}</div>
+        </div>
+      </div>
+      <div className="mt-2 px-1 text-center font-mono text-[10px] uppercase tracking-[0.3em] text-amber-900/70">
+        💥 Funniest Moment
+      </div>
+    </motion.div>
+  );
+}
+
+export function CreditsStage({ players, wrongPicks, onPlayAgain }: Props) {
   const live = useMemo(() => players.filter((p) => !p.is_audience), [players]);
   const ranked = useMemo(() => [...live].sort((a, b) => b.score - a.score), [live]);
   const winner = ranked[0];
@@ -158,6 +214,44 @@ export function CreditsStage({ players, onPlayAgain }: Props) {
   if (rotationsRef.current.length !== awards.length) {
     rotationsRef.current = awards.map((_, i) => ((i * 37) % 7) - 3);
   }
+
+  // Flatten captured wrong picks into per-(player,question) cards, then pick
+  // the funniest 6: questions where multiple players whiffed score higher,
+  // ties broken by original round order so the latest rounds bubble up.
+  const dumbAnswers = useMemo(() => {
+    const list = wrongPicks ?? [];
+    type Card = {
+      key: string;
+      questionText: string;
+      correctText: string;
+      nickname: string;
+      pickedText: string;
+      groupSize: number;
+      order: number;
+    };
+    const cards: Card[] = [];
+    list.forEach((wp, qOrder) => {
+      const groupSize = wp.picks.length;
+      wp.picks.forEach((pk) => {
+        cards.push({
+          key: `${wp.questionId}-${pk.sessionId}`,
+          questionText: wp.questionText,
+          correctText: wp.correctText,
+          nickname: pk.nickname,
+          pickedText: pk.pickedText,
+          groupSize,
+          order: qOrder,
+        });
+      });
+    });
+    cards.sort((a, b) => b.groupSize - a.groupSize || b.order - a.order);
+    return cards.slice(0, 6);
+  }, [wrongPicks]);
+  const dumbRotationsRef = useRef<number[]>([]);
+  if (dumbRotationsRef.current.length !== dumbAnswers.length) {
+    dumbRotationsRef.current = dumbAnswers.map((_, i) => ((i * 53) % 9) - 4);
+  }
+
 
   // Music + opening line + scheduled award roasts.
   useEffect(() => {
@@ -272,11 +366,37 @@ export function CreditsStage({ players, onPlayAgain }: Props) {
           </div>
         )}
 
-        {/* Funniest Moments — Polaroid wall */}
-        {awards.length > 0 && (
+        {/* Funniest Moments — actual dumb answers people locked in */}
+        {dumbAnswers.length > 0 && (
           <div className="w-full">
             <div className="text-[11px] font-bold uppercase tracking-[0.6em] text-amber-300/80">
               Funniest Moments
+            </div>
+            <div className="mx-auto mt-2 flex items-center justify-center gap-2">
+              <div className="h-px w-12 bg-amber-300/40" />
+              <span className="text-amber-300/60">😬</span>
+              <div className="h-px w-12 bg-amber-300/40" />
+            </div>
+            <div className="mt-8 flex flex-wrap items-start justify-center gap-x-6 gap-y-8">
+              {dumbAnswers.map((d, i) => (
+                <DumbAnswerCard
+                  key={d.key}
+                  questionText={d.questionText}
+                  correctText={d.correctText}
+                  nickname={d.nickname}
+                  pickedText={d.pickedText}
+                  rotate={dumbRotationsRef.current[i] ?? 0}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tonight's Awards — generic accolades */}
+        {awards.length > 0 && (
+          <div className="w-full">
+            <div className="text-[11px] font-bold uppercase tracking-[0.6em] text-amber-300/80">
+              Tonight's Awards
             </div>
             <div className="mx-auto mt-2 flex items-center justify-center gap-2">
               <div className="h-px w-12 bg-amber-300/40" />
@@ -290,6 +410,7 @@ export function CreditsStage({ players, onPlayAgain }: Props) {
             </div>
           </div>
         )}
+
 
         {/* Highlight Reel — best & worst per player */}
         {live.length > 0 && (
