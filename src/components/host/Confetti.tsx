@@ -118,12 +118,9 @@ export function Confetti({ triggerKey, continuous = false, count = 160 }: Props)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    spawnBurst(canvas.clientWidth, canvas.clientHeight);
-    function spawnBurst(w: number, h: number) {
-      // Defer to module helper below
-      spawnBurstImpl(particlesRef.current, w, h, count, "sides");
-    }
+    spawnBurst(particlesRef.current, canvas.clientWidth, canvas.clientHeight, count, "sides");
   }, [triggerKey, count]);
+
 
   return (
     <canvas
