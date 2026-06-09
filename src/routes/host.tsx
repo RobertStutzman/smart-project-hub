@@ -74,6 +74,7 @@ function HostPage() {
   const setConfigFn = useServerFn(setRoomConfig);
   const toggleTeamModeFn = useServerFn(toggleTeamMode);
   const setPhaseFn = useServerFn(setPhase);
+  const restartGameFn = useServerFn(restartGame);
 
   const [room, setRoom] = useState<{ id: string; roomCode: string; hostSessionId: string } | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
