@@ -350,6 +350,10 @@ export function HostGameStage({ room }: Props) {
     if (lastPlayedExplanationIdRef.current === qid) return;
     lastPlayedExplanationIdRef.current = qid;
 
+    // Tell the reveal auto-advance hook to wait for us.
+    resetExplanationFor(qid);
+    markExplanationExpected(qid);
+
     // Stop any previous explanation read
     if (explanationTtsAudioRef.current) {
       try {
@@ -364,8 +368,14 @@ export function HostGameStage({ room }: Props) {
     const timer = window.setTimeout(() => {
       // Queue behind any in-flight persona reaction so they don't overlap.
       void playVoiceUrl(url, {
-        onStart: () => duckMusic(true),
-        onEnd: () => duckMusic(false),
+        onStart: () => {
+          duckMusic(true);
+          markExplanationStarted(qid);
+        },
+        onEnd: () => {
+          duckMusic(false);
+          markExplanationEnded(qid);
+        },
       });
       explanationTtsAudioRef.current = null;
     }, 3800);
@@ -378,6 +388,7 @@ export function HostGameStage({ room }: Props) {
   useEffect(() => {
     if (state?.phase !== "reveal") {
       lastPlayedExplanationIdRef.current = null;
+      resetExplanationFor(null);
       if (explanationTtsAudioRef.current) {
         try {
           explanationTtsAudioRef.current.pause();
