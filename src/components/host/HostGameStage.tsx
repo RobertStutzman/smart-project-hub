@@ -59,6 +59,13 @@ type RoomState = {
   sudden_death_session_ids: string[] | null;
 };
 
+export type WrongPick = {
+  questionId: string;
+  questionText: string;
+  correctText: string;
+  picks: { sessionId: string; nickname: string; pickedText: string }[];
+};
+
 type Player = {
   id: string;
   session_id: string;
