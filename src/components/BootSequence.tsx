@@ -135,7 +135,7 @@ export function BootSequence({ onComplete }: Props) {
           key="boot"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.4 }}
+          transition={{ duration: 0.6, ease: SOFT_EASE }}
           className="fixed inset-0 z-[100] overflow-hidden bg-[oklch(0.06_0.02_270)] text-white"
         >
           {/* Background grain + glow shared across all stages */}
@@ -160,8 +160,8 @@ export function BootSequence({ onComplete }: Props) {
             </div>
           )}
 
-          <AnimatePresence mode="wait">
-            {stage === "gate" && <GateStage key="gate" />}
+          <AnimatePresence>
+            {stage === "gate" && <GateStage key="gate" pressed={gatePressed} />}
             {stage === "splash" && <SplashStage key="splash" />}
             {stage === "credits" && <CreditsStage key="credits" />}
           </AnimatePresence>
