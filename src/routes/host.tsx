@@ -463,7 +463,14 @@ function HostPage() {
     });
   }
 
-  useRevealAutoAdvance(room?.roomCode ?? "", room?.hostSessionId ?? "", roomPhase, roundNumber);
+  useRevealAutoAdvance(
+    room?.roomCode ?? "",
+    room?.hostSessionId ?? "",
+    roomPhase,
+    roundNumber,
+    currentQuestionId,
+    hasExplanationTts,
+  );
 
   async function endAndStartNewRoom() {
     if (!room) return;
