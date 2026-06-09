@@ -726,7 +726,7 @@ function HostPage() {
               Drop
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 justify-self-end">
             {!isFullscreen && (
               <button
                 onClick={toggleFullscreen}
