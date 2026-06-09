@@ -587,6 +587,10 @@ function HostPage() {
         <HostGameStage room={room} />
         <AudienceFeed />
         <Chyron />
+        <AchievementToast />
+        <InstantReplay />
+
+
 
         <div className="fixed right-4 top-4 z-50 flex gap-2">
 
