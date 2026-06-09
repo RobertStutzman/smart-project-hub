@@ -713,14 +713,14 @@ function HostPage() {
         }}
       >
         {/* TOP BAR */}
-        <header className="flex flex-none items-center justify-between gap-3 pb-[1vh]">
+        <header className="grid flex-none grid-cols-[1fr_auto_1fr] items-center gap-3 pb-[1vh]">
           <button
             onClick={() => navigate({ to: "/" })}
-            className="text-xs text-white/60 hover:text-white"
+            className="justify-self-start text-xs text-white/60 hover:text-white"
           >
             ← Home
           </button>
-          <div className="font-display text-base font-black tracking-tight text-white/90">
+          <div className="justify-self-center font-display text-base font-black tracking-tight text-white/90">
             Beat the{" "}
             <span className="bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text text-transparent">
               Drop
