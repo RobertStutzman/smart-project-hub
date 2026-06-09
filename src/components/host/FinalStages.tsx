@@ -69,11 +69,8 @@ export function FinalWagerStage({ players }: { players: Player[] }) {
       )}
 
 
-      {/* Heartbeat ring */}
-      <div
-        className="pointer-events-none absolute inset-4 rounded-3xl final-heartbeat ring-2 ring-amber-300/40"
-        style={{ ["--hb" as string]: `${hbSec.toFixed(2)}s` }}
-      />
+      {/* Static ring (no heartbeat in final round) */}
+      <div className="pointer-events-none absolute inset-4 rounded-3xl ring-2 ring-amber-300/30" />
 
       {/* All-in ribbon */}
       {allIn.length > 0 && (
