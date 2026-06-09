@@ -24,6 +24,7 @@ import { bakeAllQuestionTTS, bakeAllExplanationTTS, getExplanationTTSStats } fro
 import { supabase } from "@/integrations/supabase/client";
 import { CATEGORIES } from "@/lib/categories";
 import { listCategories } from "@/lib/rooms.functions";
+import { CapacityWidget } from "@/components/admin/CapacityWidget";
 
 type CategoryOption = { name: string; count: number };
 
