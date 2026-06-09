@@ -41,9 +41,7 @@ export function FinalWagerStage({ players }: { players: Player[] }) {
     };
   }, []);
 
-  // Heartbeat tempo: faster as more locks come in.
-  const progress = total > 0 ? locked / total : 0;
-  const hbSec = 1.05 - progress * 0.45; // 1.05s → 0.6s
+  // Heartbeat removed — final round no longer shows a countdown/pulse.
 
   // All-in callouts: any top-3 player who wagered their entire score.
   const allIn = top3.filter((p) => p.final_wager > 0 && p.final_wager === p.score);
