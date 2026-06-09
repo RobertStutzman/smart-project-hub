@@ -26,6 +26,9 @@ import { useTheme } from "@/components/ThemeProvider";
 import { play, setMuted as setSoundMuted, startMusic, stopMusic, type Sfx } from "@/lib/sound-engine";
 import { HostGameStage, useRevealAutoAdvance } from "@/components/host/HostGameStage";
 import { Chyron } from "@/components/host/Chyron";
+import { AchievementToast } from "@/components/host/AchievementToast";
+import { InstantReplay } from "@/components/host/InstantReplay";
+
 
 import { AudienceFeed } from "@/components/host/AudienceFeed";
 import { useHostStageMode } from "@/hooks/useHostStageMode";
