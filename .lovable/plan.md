@@ -1,22 +1,25 @@
-## Rename "persona" → "Vox catchphrases" on the Sounds page
+## Make "Bake question voiceovers" run until done (no 100 cap)
 
-Goal: make it obvious this button bakes host hype lines, not question reads.
+The Explanation panel already auto-loops batches until everything's baked. The Question panel does one batch of 100 and stops, which is why you have to keep re-clicking. Make it match.
 
-### Edits in `src/routes/_authenticated/admin-sounds.tsx`
+### Edit `src/routes/_authenticated/admin-sounds.tsx` — `QuestionVoiceoversPanel`
 
-Button label states (line ~250-256):
-- Baking: `🎭 Baking catchphrases…`
-- Fully baked: `🎭 Vox catchphrases fully baked (X/Y) — re-bake?`
-- Partial: `🎭 Bake X missing Vox catchphrase(s) (baked/total done)`
-- Initial: `🎭 Bake Vox catchphrases`
+Replace `runBake` with a loop that mirrors `ExplanationVoiceoversPanel.run`:
+- Compute `remaining = stats.total - stats.baked` (or full `total` when `force`).
+- `toast.loading(...)` with live progress: `Narrating questions… X / N`.
+- `while (safety++ < 200)` call `bakeAllFn({ data: { force, limit: 25 } })`, accumulate `totalBaked` and `totalErrors`, update toast + `setProgress`, break when `r.total === 0` or `r.baked === 0` (no more left to do).
+- On finish, `toast.success` and `refresh()` stats.
 
-Confirm dialog (line ~175-177):
-- With count: `Bake X missing Vox catchphrase(s)? These are the host's hype lines ("Lock in!", "Fingers on buzzers!", round transitions) — not question reads. Already-baked lines are skipped. Calls ElevenLabs — takes ~1 minute.`
-- Fallback: `Pre-bake the Vox catchphrases (host hype lines, not question reads)? Already-baked are skipped. Calls ElevenLabs once per missing line. ~1 minute.`
+Button label changes:
+- `🎤 Bake missing (100 at a time)` → `🎤 Bake all missing questions`
+- Keep "Re-bake ALL (overwrite)" button; routed through the same loop with `force: true`.
 
-Toast (line 187): `Baked X Vox catchphrases (Y already done)`
+Confirm dialog updated to: *"Bake all missing question voiceovers? Calls ElevenLabs once per question (~80 chars each). Runs automatically in batches until done — leave this tab open."*
 
-Add a one-line helper under the button row clarifying: *"Catchphrases = host hype lines. To narrate questions, use the Question voiceovers panel above."*
+### Server side — `src/lib/announcer.functions.ts`
+No change needed. `bakeAllQuestionTTS` already accepts `limit` up to 500 and the loop uses 25/batch so each call stays well under the Worker request budget. Keeps the 250ms ElevenLabs spacing.
 
 ### Out of scope
-No changes to server functions, file names (`host-persona.ts`, `persona-live.ts`), DB columns, or behavior. Pure label/copy change.
+- Not changing voice, model, or per-question text.
+- Not touching the cost circuit-breaker (`TTS_CAP_PER_GAME`) — that's the live in-game cap, separate from this bake.
+- Not removing the safety counter; 200 batches × 25 = 5000 questions ceiling, plenty of headroom.

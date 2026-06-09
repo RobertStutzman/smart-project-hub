@@ -788,31 +788,45 @@ function QuestionVoiceoversPanel() {
   }, [refresh]);
 
   async function runBake(force: boolean) {
-    const verb = force ? "Re-bake ALL" : "Bake missing";
+    const verb = force ? "Re-bake ALL" : "Bake all missing";
     if (
       !window.confirm(
-        `${verb} question voiceovers? Calls ElevenLabs once per question (~80 chars each). Runs in batches of 100 — re-click to continue if there are more.`,
+        `${verb} question voiceovers? Calls ElevenLabs once per question (~80 chars each). Runs automatically in batches until done — leave this tab open.`,
       )
     )
       return;
     setRunning(true);
-    setProgress("Working…");
+    const remaining = stats
+      ? force
+        ? stats.total
+        : Math.max(0, stats.total - stats.baked)
+      : 0;
+    setProgress(`Narrating questions… 0 / ${remaining}`);
+    const toastId = toast.loading(`Narrating questions… 0 / ${remaining}`);
+    let totalBaked = 0;
+    let totalErrors = 0;
+    let safety = 0;
     try {
-      const res = await bakeAllFn({ data: { force, limit: 100 } });
-      setProgress(
-        `Baked ${res.baked}, skipped ${res.skipped}, errors ${res.errors.length} (batch of ${res.total}).`,
-      );
-      if (res.errors.length) {
-        toast.warning(`${res.errors.length} error(s): ${res.errors[0].message}`);
-      } else {
-        toast.success(`Baked ${res.baked} voiceover(s)`);
+      while (safety++ < 200) {
+        const r = await bakeAllFn({ data: { force, limit: 25 } });
+        totalBaked += r.baked;
+        totalErrors += r.errors.length;
+        const msg = `Narrating questions… ${totalBaked} / ${remaining}${totalErrors ? ` · ${totalErrors} errors` : ""}`;
+        toast.loading(msg, { id: toastId });
+        setProgress(msg);
+        if (r.total === 0 || r.baked === 0) break;
       }
-      await refresh();
+      toast.success(
+        `Done! Baked ${totalBaked} question voiceover${totalBaked === 1 ? "" : "s"}${totalErrors ? ` · ${totalErrors} errors` : ""}.`,
+        { id: toastId },
+      );
+      setProgress(null);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error((err as Error).message, { id: toastId });
       setProgress(null);
     } finally {
       setRunning(false);
+      await refresh();
     }
   }
 
@@ -848,7 +862,7 @@ function QuestionVoiceoversPanel() {
           disabled={running}
           className="rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 px-4 py-2 text-sm font-bold text-black shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {running ? "Baking…" : "🎤 Bake missing (100 at a time)"}
+          {running ? "Baking…" : "🎤 Bake all missing questions"}
         </button>
         <button
           type="button"
