@@ -103,9 +103,24 @@ function PlayPage() {
   const [room, setRoom] = useState<RoomState | null>(null);
   const [me, setMe] = useState<Me | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [serverOffsetMs, setServerOffsetMs] = useState(0);
   const [eliminatedFlash, setEliminatedFlash] = useState(false);
   const [wagerDraft, setWagerDraft] = useState<number>(0);
   const lastDroppedSig = useRef("");
+
+  // Compute and apply a server-clock offset from a freshly-received row's
+  // host_last_seen_at (server-written ISO). Guards against device clock skew
+  // which would otherwise leave the "reading" lead-in stuck on and the
+  // answer tiles greyed out / disabled.
+  const applyServerOffset = (hostLastSeenAt?: string | null) => {
+    if (!hostLastSeenAt) return;
+    const serverMs = Date.parse(hostLastSeenAt);
+    if (!Number.isFinite(serverMs)) return;
+    const localMs = Date.now();
+    // Only trust recent heartbeats (host alive within ~30s by local clock).
+    if (Math.abs(localMs - serverMs) > 5 * 60 * 1000) return;
+    setServerOffsetMs(serverMs - localMs);
+  };
 
   useEffect(() => {
     const s = loadPlayerSession();
