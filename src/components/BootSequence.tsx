@@ -84,7 +84,8 @@ export function BootSequence({ onComplete }: Props) {
   useEffect(() => {
     function unlockAudioAndStart() {
       startAmbienceBeds();
-      setStage("splash");
+      setGatePressed(true);
+      window.setTimeout(() => setStage("splash"), 140);
     }
     function advance() {
       if (completedRef.current) return;
