@@ -20,9 +20,11 @@ type Props = {
 };
 
 const STAGE_DURATIONS: Record<Exclude<Stage, "gate">, number> = {
-  splash: 2200,
-  credits: 4000,
+  splash: 3400,
+  credits: 5200,
 };
+
+const SOFT_EASE = [0.22, 1, 0.36, 1] as const;
 
 function isStandaloneLaunch(): boolean {
   if (typeof window === "undefined") return false;
