@@ -5,8 +5,11 @@ import { useEffect } from "react";
  * playback, listen for ANY user gesture and retry on each one until
  * play() resolves. Once playback succeeds, detach the listeners.
  */
-export function useLobbyChatter() {
+export function useLobbyChatter(opts: { enabled?: boolean } = {}) {
+  const enabled = opts.enabled ?? true;
   useEffect(() => {
+    if (!enabled) return;
+
     let cancelled = false;
     let detach: (() => void) | undefined;
     let unsubBlocked: (() => void) | undefined;
