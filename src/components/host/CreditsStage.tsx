@@ -158,7 +158,7 @@ function PolaroidCard({ award, rotate }: { award: Award; rotate: number }) {
   );
 }
 
-export function CreditsStage({ players, onPlayAgain }: Props) {
+export function CreditsStage({ players, wrongPicks, onPlayAgain }: Props) {
   const live = useMemo(() => players.filter((p) => !p.is_audience), [players]);
   const ranked = useMemo(() => [...live].sort((a, b) => b.score - a.score), [live]);
   const winner = ranked[0];
@@ -167,6 +167,44 @@ export function CreditsStage({ players, onPlayAgain }: Props) {
   if (rotationsRef.current.length !== awards.length) {
     rotationsRef.current = awards.map((_, i) => ((i * 37) % 7) - 3);
   }
+
+  // Flatten captured wrong picks into per-(player,question) cards, then pick
+  // the funniest 6: questions where multiple players whiffed score higher,
+  // ties broken by original round order so the latest rounds bubble up.
+  const dumbAnswers = useMemo(() => {
+    const list = wrongPicks ?? [];
+    type Card = {
+      key: string;
+      questionText: string;
+      correctText: string;
+      nickname: string;
+      pickedText: string;
+      groupSize: number;
+      order: number;
+    };
+    const cards: Card[] = [];
+    list.forEach((wp, qOrder) => {
+      const groupSize = wp.picks.length;
+      wp.picks.forEach((pk) => {
+        cards.push({
+          key: `${wp.questionId}-${pk.sessionId}`,
+          questionText: wp.questionText,
+          correctText: wp.correctText,
+          nickname: pk.nickname,
+          pickedText: pk.pickedText,
+          groupSize,
+          order: qOrder,
+        });
+      });
+    });
+    cards.sort((a, b) => b.groupSize - a.groupSize || b.order - a.order);
+    return cards.slice(0, 6);
+  }, [wrongPicks]);
+  const dumbRotationsRef = useRef<number[]>([]);
+  if (dumbRotationsRef.current.length !== dumbAnswers.length) {
+    dumbRotationsRef.current = dumbAnswers.map((_, i) => ((i * 53) % 9) - 4);
+  }
+
 
   // Music + opening line + scheduled award roasts.
   useEffect(() => {
