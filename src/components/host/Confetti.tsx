@@ -72,6 +72,7 @@ export function Confetti({ triggerKey, continuous = false, count = 160 }: Props)
       ) {
         lastEmitRef.current = t;
         spawnBurst(particlesRef.current, w, h, 5, "top");
+
       }
 
       const ps = particlesRef.current;
