@@ -11,7 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { resumeAudioContext } from "@/lib/sound-engine";
+import { resumeAudioContext, retryBlockedMusic } from "@/lib/sound-engine";
 import { resumeAmbienceContext, retryBlockedAmbience } from "@/lib/ambience-engine";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeParticles } from "@/components/ThemeParticles";
