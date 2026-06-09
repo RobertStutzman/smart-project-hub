@@ -90,6 +90,8 @@ function HostPage() {
   const [origin, setOrigin] = useState("");
   const [roomPhase, setRoomPhase] = useState<string>("lobby");
   const [roundNumber, setRoundNumber] = useState<number>(0);
+  const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
+  const [hasExplanationTts, setHasExplanationTts] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showHowTo, setShowHowTo] = useState(false);
   const [catNudgeSeen, setCatNudgeSeen] = useState(true);
