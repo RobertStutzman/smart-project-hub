@@ -260,10 +260,10 @@ function AdminPage() {
           </div>
         </header>
 
-
-
+        <CapacityWidget />
 
         <AIGenerator generate={generateFn} bulkInsert={bulkFn} onInserted={reload} categories={mergedCategories} />
+
 
         <GeminiImporter bulkInsert={bulkFn} onInserted={reload} />
 
