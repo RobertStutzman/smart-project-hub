@@ -11,9 +11,12 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { resumeAudioContext } from "@/lib/sound-engine";
+import { resumeAmbienceContext, retryBlockedAmbience } from "@/lib/ambience-engine";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeParticles } from "@/components/ThemeParticles";
 import { Toaster } from "sonner";
+
 
 function NotFoundComponent() {
   return (
@@ -137,6 +140,37 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  // Global first-gesture audio unlock. Browsers leave AudioContexts suspended
+  // until ctx.resume() is called synchronously from a user gesture. The
+  // announcer uses HTMLAudio (no unlock needed) but music + crowd ambience
+  // use Web Audio — without this, they stay silent until something else
+  // happens to call resume() from a gesture frame.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let done = false;
+    const unlock = () => {
+      if (done) return;
+      done = true;
+      // Synchronously resume both AudioContexts inside the gesture frame.
+      resumeAudioContext();
+      resumeAmbienceContext();
+      // Retry any ambience layers that were requested while blocked.
+      setTimeout(() => retryBlockedAmbience(), 50);
+      window.removeEventListener("pointerdown", unlock, true);
+      window.removeEventListener("keydown", unlock, true);
+      window.removeEventListener("touchstart", unlock, true);
+    };
+
+    window.addEventListener("pointerdown", unlock, true);
+    window.addEventListener("keydown", unlock, true);
+    window.addEventListener("touchstart", unlock, true);
+    return () => {
+      window.removeEventListener("pointerdown", unlock, true);
+      window.removeEventListener("keydown", unlock, true);
+      window.removeEventListener("touchstart", unlock, true);
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
@@ -150,3 +184,4 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
+

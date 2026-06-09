@@ -20,6 +20,11 @@ const SCHEDULE_TICK_MS = 2000;
 let muted = false;
 let handedOff = false;
 
+// Track which layers were requested while the context was blocked, so we can
+// resume them after the user's first gesture unlocks audio.
+const wanted = new Set<"chatter" | "crowd" | "drumroll">();
+
+
 function isClient() {
   return typeof window !== "undefined";
 }
@@ -332,18 +337,44 @@ function stopLoop(layer: LoopLayer, fadeMs: number) {
 
 export function startLobbyChatter(): Promise<boolean> {
   if (!isClient() || muted || handedOff) return Promise.resolve(false);
+  wanted.add("chatter");
   return startLoop(chatter);
 }
 
 export function startCrowd(): Promise<boolean> {
   if (!isClient() || muted || handedOff) return Promise.resolve(false);
+  wanted.add("crowd");
   return startLoop(crowd);
 }
 
 export function startDrumroll(): Promise<boolean> {
   if (!isClient() || muted || handedOff) return Promise.resolve(false);
+  wanted.add("drumroll");
   return startLoop(drumroll);
 }
+
+/**
+ * Synchronously create (if needed) and resume the ambience AudioContext.
+ * Call from inside a user gesture handler to unlock playback.
+ */
+export function resumeAmbienceContext(): void {
+  const ctx = getCtx();
+  if (ctx && ctx.state === "suspended") {
+    void ctx.resume();
+  }
+}
+
+/**
+ * Retry any layers that were requested while the AudioContext was blocked.
+ * Safe to call multiple times; layers already playing are no-ops.
+ */
+export function retryBlockedAmbience(): void {
+  if (!isClient() || muted || handedOff) return;
+  if (wanted.has("chatter")) void startLoop(chatter);
+  if (wanted.has("crowd")) void startLoop(crowd);
+  if (wanted.has("drumroll")) void startLoop(drumroll);
+}
+
 
 /** Plays cymbal swell, fades out ambience, ready for game-show music. */
 export function climaxAndHandoff() {
@@ -354,12 +385,14 @@ export function climaxAndHandoff() {
     swell.volume = CYMBAL_VOL;
     swell.play().catch(() => {});
   }
+  wanted.clear();
   stopLoop(chatter, 700);
   stopLoop(crowd, 700);
   stopLoop(drumroll, 500);
 }
 
 export function stopAllAmbience() {
+  wanted.clear();
   stopLoop(chatter, 0);
   stopLoop(crowd, 0);
   stopLoop(drumroll, 0);
@@ -367,9 +400,12 @@ export function stopAllAmbience() {
 
 /** Fade out host buildup layers only; chatter persists as the pre-game layer. */
 export function stopLobbyBuildup() {
+  wanted.delete("crowd");
+  wanted.delete("drumroll");
   stopLoop(crowd, 600);
   stopLoop(drumroll, 500);
 }
+
 
 export function setAmbienceMuted(v: boolean) {
   muted = v;
