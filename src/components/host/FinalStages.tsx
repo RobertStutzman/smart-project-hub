@@ -88,9 +88,10 @@ export function FinalWagerStage({ players }: { players: Player[] }) {
 
       {/* Heartbeat ring — pulses faster as time runs out */}
       <div
-        className={`pointer-events-none absolute inset-4 rounded-3xl ring-2 transition-colors ${
-          danger ? "ring-rose-400/70 final-heartbeat" : "ring-amber-300/40 final-heartbeat-slow"
+        className={`pointer-events-none absolute inset-4 rounded-3xl ring-2 final-heartbeat transition-colors ${
+          danger ? "ring-rose-400/70" : "ring-amber-300/40"
         }`}
+        style={{ ["--hb" as string]: danger ? "0.55s" : "1.4s" } as React.CSSProperties}
       />
 
       {/* All-in ribbon */}
