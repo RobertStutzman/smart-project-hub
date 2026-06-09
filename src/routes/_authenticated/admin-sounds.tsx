@@ -173,8 +173,8 @@ function EventsPanel({
   async function handleGeneratePersona() {
     const missing = personaStats ? personaStats.total - personaStats.baked : null;
     const msg = missing != null
-      ? `Bake ${missing} missing persona line${missing === 1 ? "" : "s"}? Already-baked lines are skipped. Calls ElevenLabs — takes ~1 minute.`
-      : "Pre-bake the Vox catchphrases? Already-baked lines are skipped. Calls ElevenLabs once per missing line. Takes ~1 minute.";
+      ? `Bake ${missing} missing Vox catchphrase${missing === 1 ? "" : "s"}? These are the host's hype lines ("Lock in!", "Fingers on buzzers!", round transitions) — NOT question reads. Already-baked lines are skipped. Calls ElevenLabs — takes ~1 minute.`
+      : `Pre-bake the Vox catchphrases (host hype lines, not question reads)? Already-baked are skipped. Calls ElevenLabs once per missing line. ~1 minute.`;
     if (!window.confirm(msg)) return;
     setGeneratingPersona(true);
     try {
@@ -184,7 +184,7 @@ function EventsPanel({
           `Baked ${res.generated}/${res.total} (${res.skipped} skipped). Errors: ${res.errors.join("; ")}`,
         );
       } else {
-        toast.success(`Baked ${res.generated} persona lines (${res.skipped} already done)`);
+        toast.success(`Baked ${res.generated} Vox catchphrases (${res.skipped} already done)`);
       }
       await loadPersonaStats();
       await onChange();
@@ -248,12 +248,12 @@ function EventsPanel({
             className="rounded-full bg-amber-600 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-amber-400/30 transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {generatingPersona
-              ? "Baking…"
+              ? "🎭 Baking catchphrases…"
               : personaStats
                 ? personaStats.baked >= personaStats.total
-                  ? `🎭 Persona fully baked (${personaStats.baked}/${personaStats.total}) — re-bake?`
-                  : `🎭 Bake ${personaStats.total - personaStats.baked} missing persona line${personaStats.total - personaStats.baked === 1 ? "" : "s"} (${personaStats.baked}/${personaStats.total} done)`
-                : "🎭 Bake persona catchphrases"}
+                  ? `🎭 Vox catchphrases fully baked (${personaStats.baked}/${personaStats.total}) — re-bake?`
+                  : `🎭 Bake ${personaStats.total - personaStats.baked} missing Vox catchphrase${personaStats.total - personaStats.baked === 1 ? "" : "s"} (${personaStats.baked}/${personaStats.total} done)`
+                : "🎭 Bake Vox catchphrases"}
           </button>
           <button
             onClick={() => void handleGenerate()}
@@ -268,6 +268,9 @@ function EventsPanel({
         Empty events fall back to the built-in synth sounds. The AI pack uses
         ElevenLabs to create a hype game-show host voice + lobby music in one
         click.
+      </p>
+      <p className="mt-2 text-xs text-amber-300/80">
+        🎭 Catchphrases = host hype lines ("Lock in!", "Fingers on buzzers!", round transitions). To narrate the actual trivia questions, use the <strong>Question voiceovers</strong> panel below.
       </p>
 
       <WelcomePreview />
