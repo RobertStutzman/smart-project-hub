@@ -51,6 +51,7 @@ type RoomState = {
   current_answers: string[] | null;
   current_correct_index: number | null;
   current_explanation: string | null;
+  current_category: string | null;
   question_started_at: string | null;
   question_duration_ms: number;
   dropped_indexes: number[];
@@ -58,6 +59,7 @@ type RoomState = {
   round_number: number;
   sudden_death_session_ids: string[] | null;
 };
+
 
 export type WrongPick = {
   questionId: string;
@@ -222,7 +224,7 @@ export function HostGameStage({ room }: Props) {
       const { data: r } = await supabase
         .from("rooms")
         .select(
-          "id, room_code, phase, current_question_id, current_question_text, current_question_tts_url, current_explanation_tts_url, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number, sudden_death_session_ids",
+          "id, room_code, phase, current_question_id, current_question_text, current_question_tts_url, current_explanation_tts_url, current_answers, current_correct_index, current_explanation, current_category, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number, sudden_death_session_ids",
         )
         .eq("id", room.id)
         .maybeSingle();
@@ -1294,7 +1296,9 @@ export function HostGameStage({ room }: Props) {
           mediaUrl={(state as { current_media_url?: string | null }).current_media_url ?? null}
           mediaType={(state as { current_media_type?: string | null }).current_media_type ?? null}
           questionNumber={state.round_number ?? 1}
+          category={state.current_category}
         />
+
         <RoundSplash round={Math.min(4, Math.ceil((state.round_number ?? 1) / 5))} />
 
       </>
@@ -1424,7 +1428,9 @@ export function HostGameStage({ room }: Props) {
           players={livePlayers}
           mediaUrl={(state as { current_media_url?: string | null }).current_media_url ?? null}
           mediaType={(state as { current_media_type?: string | null }).current_media_type ?? null}
+          category={state.current_category}
         />
+
 
       </div>
     );
