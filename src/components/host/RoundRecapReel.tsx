@@ -2,6 +2,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { speakPersona } from "@/lib/host-persona";
 import { speakAboutPlayer } from "@/lib/persona-live";
+import { playCreditsMusic } from "@/lib/sound-engine";
+
+// Shared transition for every beat — uniform crossfade + gentle drift so the
+// reel scrolls smoothly instead of snapping between mismatched motion styles.
+const BEAT_T = { duration: 0.45, ease: [0.22, 1, 0.36, 1] as const };
+const BEAT_INITIAL = { opacity: 0, y: 14 };
+const BEAT_ANIMATE = { opacity: 1, y: 0 };
+const BEAT_EXIT = { opacity: 0, y: -14 };
 
 type Player = {
   id: string;
