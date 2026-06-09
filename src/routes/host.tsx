@@ -770,54 +770,7 @@ function HostPage() {
               : "Waiting for players…"}
           </motion.button>
 
-          <div className="relative flex flex-col items-center">
-            <AnimatePresence>
-              {!catNudgeSeen && (
-                <motion.div
-                  key="cat-nudge"
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: [0, -6, 0] }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{
-                    opacity: { duration: 0.4 },
-                    y: { duration: 1.8, repeat: Infinity, ease: "easeInOut" },
-                  }}
-                  className="pointer-events-none absolute -top-16 flex flex-col items-center"
-                  style={{ filter: "drop-shadow(0 0 12px oklch(0.85 0.18 85 / 0.5))" }}
-                >
-                  <span
-                    className="whitespace-nowrap text-[11px] font-black uppercase tracking-[0.25em] text-amber-200"
-                    style={{ fontFamily: "'Caveat', 'Comic Sans MS', cursive", letterSpacing: "0.05em", fontSize: "1.05rem", textTransform: "none" }}
-                  >
-                    psst — pick your categories!
-                  </span>
-                  <svg
-                    width="46"
-                    height="40"
-                    viewBox="0 0 46 40"
-                    fill="none"
-                    className="mt-0.5 text-amber-300"
-                    aria-hidden
-                  >
-                    <path
-                      d="M6 4 C 14 14, 8 22, 22 28"
-                      stroke="currentColor"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                      fill="none"
-                    />
-                    <path
-                      d="M16 24 L22 30 L28 22"
-                      stroke="currentColor"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      fill="none"
-                    />
-                  </svg>
-                </motion.div>
-              )}
-            </AnimatePresence>
+          <div className="relative flex items-center justify-center">
             <button
               onClick={openSettings}
               className="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-4 py-1.5 text-[clamp(0.65rem,1.2svh,0.8rem)] font-semibold uppercase tracking-[0.2em] text-white/70 backdrop-blur transition hover:bg-white/10 hover:text-amber-200"
@@ -825,6 +778,53 @@ function HostPage() {
               <Shuffle className="h-3.5 w-3.5" />
               {mixLabel}
             </button>
+            <AnimatePresence>
+              {!catNudgeSeen && (
+                <motion.div
+                  key="cat-nudge"
+                  initial={{ opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: [0, 6, 0] }}
+                  exit={{ opacity: 0, x: 8 }}
+                  transition={{
+                    opacity: { duration: 0.4 },
+                    x: { duration: 1.8, repeat: Infinity, ease: "easeInOut" },
+                  }}
+                  className="pointer-events-none absolute left-full top-1/2 ml-2 hidden -translate-y-1/2 items-center gap-1 sm:flex"
+                  style={{ filter: "drop-shadow(0 0 10px oklch(0.85 0.18 85 / 0.45))" }}
+                >
+                  <svg
+                    width="34"
+                    height="18"
+                    viewBox="0 0 34 18"
+                    fill="none"
+                    className="text-amber-300"
+                    aria-hidden
+                  >
+                    <path
+                      d="M30 9 C 22 9, 14 4, 4 9"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      fill="none"
+                    />
+                    <path
+                      d="M10 4 L4 9 L10 14"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      fill="none"
+                    />
+                  </svg>
+                  <span
+                    className="whitespace-nowrap text-amber-200"
+                    style={{ fontFamily: "'Caveat', 'Comic Sans MS', cursive", fontSize: "1.05rem" }}
+                  >
+                    pick your categories!
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
 
