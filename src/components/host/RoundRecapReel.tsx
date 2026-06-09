@@ -177,10 +177,10 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
         render: () => (
           <motion.div
             key="scoreboard"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            initial={BEAT_INITIAL}
+            animate={BEAT_ANIMATE}
+            exit={BEAT_EXIT}
+            transition={BEAT_T}
             className="flex w-full max-w-3xl flex-col gap-4 overflow-hidden"
           >
             <div className="text-center text-[11px] font-black uppercase tracking-[0.6em] text-amber-300/80">
@@ -267,10 +267,10 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
         render: () => (
           <motion.div
             key="fastest"
-            initial={{ opacity: 0, x: -120 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 120 }}
-            transition={{ type: "spring", stiffness: 160, damping: 18 }}
+            initial={BEAT_INITIAL}
+            animate={BEAT_ANIMATE}
+            exit={BEAT_EXIT}
+            transition={BEAT_T}
             className="flex max-w-[92vw] items-center gap-5 overflow-hidden text-left sm:gap-6"
           >
             <Avatar p={fastest} ring="border-rose-300/70" glow="shadow-[0_0_60px_oklch(0.7_0.2_20/0.55)]" />
@@ -306,10 +306,10 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
         render: () => (
           <motion.div
             key="streak"
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.1 }}
-            transition={{ type: "spring", stiffness: 180, damping: 16 }}
+            initial={BEAT_INITIAL}
+            animate={BEAT_ANIMATE}
+            exit={BEAT_EXIT}
+            transition={BEAT_T}
             className="flex max-w-[92vw] items-center gap-5 overflow-hidden text-left sm:gap-6"
           >
             <Avatar p={streakKing} size="h-32 w-32" ring="border-orange-400/80" glow="shadow-[0_0_70px_oklch(0.75_0.2_50/0.7)]" />
@@ -343,10 +343,10 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
         render: () => (
           <motion.div
             key="mvp"
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.1 }}
-            transition={{ type: "spring", stiffness: 180, damping: 16 }}
+            initial={BEAT_INITIAL}
+            animate={BEAT_ANIMATE}
+            exit={BEAT_EXIT}
+            transition={BEAT_T}
             className="flex max-w-[92vw] items-center gap-5 overflow-hidden text-left sm:gap-6"
           >
             <Avatar p={mvp} size="h-32 w-32" />
@@ -380,10 +380,10 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
         render: () => (
           <motion.div
             key="spoon"
-            initial={{ opacity: 0, y: 40, rotate: -3 }}
-            animate={{ opacity: 1, y: 0, rotate: -2 }}
-            exit={{ opacity: 0, y: 40, rotate: 3 }}
-            transition={{ type: "spring", stiffness: 160, damping: 18 }}
+            initial={BEAT_INITIAL}
+            animate={BEAT_ANIMATE}
+            exit={BEAT_EXIT}
+            transition={BEAT_T}
             className="relative flex max-w-[92vw] items-center gap-5 overflow-hidden text-left sm:gap-6"
           >
             <div className="absolute inset-x-0 -top-10 mx-auto h-40 w-[120%] -translate-y-1/2 rounded-full bg-rose-900/30 blur-3xl" />
@@ -440,10 +440,10 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
         render: () => (
           <motion.div
             key="zeroes"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -30 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
+            initial={BEAT_INITIAL}
+            animate={BEAT_ANIMATE}
+            exit={BEAT_EXIT}
+            transition={BEAT_T}
             className="flex max-w-[92vw] flex-col items-center gap-4 text-center"
           >
             <div className="text-[11px] font-black uppercase tracking-[0.4em] text-zinc-300">
@@ -499,10 +499,10 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
         render: () => (
           <motion.div
             key="climb"
-            initial={{ opacity: 0, y: 60 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -40 }}
-            transition={{ type: "spring", stiffness: 180, damping: 18 }}
+            initial={BEAT_INITIAL}
+            animate={BEAT_ANIMATE}
+            exit={BEAT_EXIT}
+            transition={BEAT_T}
             className="flex max-w-[92vw] items-center gap-5 overflow-hidden text-left sm:gap-6"
           >
             <Avatar p={climber.p} size="h-32 w-32" ring="border-emerald-300/80" glow="shadow-[0_0_70px_oklch(0.75_0.2_150/0.65)]" />
@@ -536,10 +536,10 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
         render: () => (
           <motion.div
             key="drop"
-            initial={{ opacity: 0, y: -40 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 40 }}
-            transition={{ type: "spring", stiffness: 160, damping: 18 }}
+            initial={BEAT_INITIAL}
+            animate={BEAT_ANIMATE}
+            exit={BEAT_EXIT}
+            transition={BEAT_T}
             className="flex max-w-[92vw] items-center gap-5 overflow-hidden text-left sm:gap-6"
           >
             <Avatar p={faller.p} size="h-32 w-32" desat ring="border-rose-300/70" glow="shadow-[0_0_60px_oklch(0.5_0.2_25/0.55)]" />
@@ -564,14 +564,14 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     // beat: To the board
     list.push({
       key: "board",
-      durationMs: 1800,
+      durationMs: 2200,
       render: () => (
         <motion.div
           key="board"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
+          initial={BEAT_INITIAL}
+          animate={BEAT_ANIMATE}
+          exit={BEAT_EXIT}
+          transition={BEAT_T}
           className="text-center"
         >
           <div className="text-[11px] font-black uppercase tracking-[0.6em] text-amber-300/80">
