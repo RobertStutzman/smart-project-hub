@@ -33,7 +33,14 @@ export function IntroStage({ players, onDone }: Props) {
   useEffect(() => {
     // Hype line via TTS as the title card lands
     play("whoosh");
-    speakPersona(pickLine("intro_hype", players.length));
+    const w = window as unknown as { __btdReplayIntro?: boolean };
+    if (w.__btdReplayIntro) {
+      w.__btdReplayIntro = false;
+      speakPersona(pickWelcomeBack(), { preset: "hype", interrupt: true });
+    } else {
+      speakPersona(pickLine("intro_hype", players.length));
+    }
+
 
     const timers: number[] = [];
     const at = (ms: number, fn: () => void) =>
