@@ -387,19 +387,12 @@ export const setAudienceMode = createServerFn({ method: "POST" })
 // Return all distinct categories that have questions in the DB, with counts.
 // Drives the "Surprise Mix" picker in the host lobby.
 export const listCategories = createServerFn({ method: "GET" }).handler(async () => {
-  const { data, error } = await supabaseAdmin
-    .from("questions")
-    .select("category");
+  const { data, error } = await supabaseAdmin.rpc("list_question_categories");
   if (error) throw new Error(error.message);
-  const counts = new Map<string, number>();
-  for (const row of data ?? []) {
-    const c = (row as { category: string }).category;
-    if (!c) continue;
-    counts.set(c, (counts.get(c) ?? 0) + 1);
-  }
+  const rows = (data ?? []) as Array<{ name: string; count: number | string }>;
   return {
-    categories: Array.from(counts.entries())
-      .map(([name, count]) => ({ name, count }))
+    categories: rows
+      .map((r) => ({ name: r.name, count: Number(r.count) }))
       .sort((a, b) => a.name.localeCompare(b.name)),
   };
 });
