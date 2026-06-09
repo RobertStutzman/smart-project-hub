@@ -237,3 +237,16 @@ body[data-a11y-contrast="high"] * {
   to { opacity: 0; transform: scale(1.05); }
 }
 .final-slam-fadeout { animation: finalSlamFadeOut 0.7s ease-in both; }
+
+/* Credits roll — GPU-only transform keyframe to avoid framer-motion jank
+ * during a 48-second linear scroll. */
+@keyframes creditsRoll {
+  0%   { transform: translate3d(0, 30%, 0); }
+  100% { transform: translate3d(0, -110%, 0); }
+}
+.credits-roll {
+  animation: creditsRoll 48s linear forwards;
+  will-change: transform;
+  transform: translate3d(0, 30%, 0);
+  backface-visibility: hidden;
+}
