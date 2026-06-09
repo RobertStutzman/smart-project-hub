@@ -319,11 +319,37 @@ export function CreditsStage({ players, wrongPicks, onPlayAgain }: Props) {
           </div>
         )}
 
-        {/* Funniest Moments — Polaroid wall */}
-        {awards.length > 0 && (
+        {/* Funniest Moments — actual dumb answers people locked in */}
+        {dumbAnswers.length > 0 && (
           <div className="w-full">
             <div className="text-[11px] font-bold uppercase tracking-[0.6em] text-amber-300/80">
               Funniest Moments
+            </div>
+            <div className="mx-auto mt-2 flex items-center justify-center gap-2">
+              <div className="h-px w-12 bg-amber-300/40" />
+              <span className="text-amber-300/60">😬</span>
+              <div className="h-px w-12 bg-amber-300/40" />
+            </div>
+            <div className="mt-8 flex flex-wrap items-start justify-center gap-x-6 gap-y-8">
+              {dumbAnswers.map((d, i) => (
+                <DumbAnswerCard
+                  key={d.key}
+                  questionText={d.questionText}
+                  correctText={d.correctText}
+                  nickname={d.nickname}
+                  pickedText={d.pickedText}
+                  rotate={dumbRotationsRef.current[i] ?? 0}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tonight's Awards — generic accolades */}
+        {awards.length > 0 && (
+          <div className="w-full">
+            <div className="text-[11px] font-bold uppercase tracking-[0.6em] text-amber-300/80">
+              Tonight's Awards
             </div>
             <div className="mx-auto mt-2 flex items-center justify-center gap-2">
               <div className="h-px w-12 bg-amber-300/40" />
@@ -337,6 +363,7 @@ export function CreditsStage({ players, wrongPicks, onPlayAgain }: Props) {
             </div>
           </div>
         )}
+
 
         {/* Highlight Reel — best & worst per player */}
         {live.length > 0 && (
