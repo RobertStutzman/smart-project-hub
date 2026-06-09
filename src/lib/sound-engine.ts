@@ -58,6 +58,26 @@ export function isMuted() {
   return muted;
 }
 
+/**
+ * Synchronously create (if needed) and resume the AudioContext.
+ * Must be called from inside a user gesture handler to actually unlock playback.
+ */
+export function resumeAudioContext(): void {
+  if (typeof window === "undefined") return;
+  if (!ctx) {
+    const Ctor =
+      (window.AudioContext as typeof AudioContext | undefined) ??
+      ((window as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext as typeof AudioContext | undefined);
+    if (!Ctor) return;
+    ctx = new Ctor();
+  }
+  if (ctx.state === "suspended") {
+    void ctx.resume();
+  }
+}
+
+
 function tone(
   freq: number,
   duration: number,
