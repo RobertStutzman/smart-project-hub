@@ -11,7 +11,7 @@ import { HeartbeatBackground } from "@/components/HeartbeatBackground";
 import { AudienceSoundboard } from "@/components/AudienceSoundboard";
 
 import { Haptics } from "@/hooks/use-haptics";
-import { play, startMusic, stopMusic } from "@/lib/sound-engine";
+import { play, stopMusic } from "@/lib/sound-engine";
 import { AccessibilityToggle } from "@/components/AccessibilityToggle";
 import { PlayerWagerStage } from "@/components/play/PlayerWagerStage";
 import { PlayerVictoryScreen } from "@/components/play/PlayerVictoryScreen";
