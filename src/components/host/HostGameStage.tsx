@@ -31,6 +31,9 @@ import { WinnerSpotlight } from "./WinnerSpotlight";
 import { RoundRecapReel } from "./RoundRecapReel";
 import { RoundSplash } from "./RoundSplash";
 import { WildcardBanner } from "./WildcardBanner";
+import { emitAchievement } from "@/lib/achievement-bus";
+import { triggerReplay } from "@/lib/replay-bus";
+
 import { QRCodeSVG } from "qrcode.react";
 import {
   resetExplanationFor,
