@@ -300,8 +300,11 @@ function AdminPage() {
         {toolTab === "maintain" && (
           <div className="flex flex-col gap-6">
             <ExplanationBackfill onUpdated={reload} />
-            <ExplanationTTSBackfill />
             <DuplicateAnswersRepair onUpdated={reload} />
+            <p className="text-xs text-muted-foreground">
+              Narrating questions or "Did you know?" lives on the{" "}
+              <a href="/admin-sounds" className="font-bold underline">Sounds</a> page.
+            </p>
           </div>
         )}
 
