@@ -49,6 +49,7 @@ export function BootSequence({ onComplete }: Props) {
     isStandaloneLaunch() ? "splash" : "gate",
   );
   const [dismissing, setDismissing] = useState(false);
+  const [gatePressed, setGatePressed] = useState(false);
   const completedRef = useRef(false);
 
   // On standalone launches, unlock audio immediately.
