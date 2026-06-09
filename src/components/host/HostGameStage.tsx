@@ -1469,6 +1469,7 @@ export function useRevealAutoAdvance(
   hostSessionId: string,
   phase: string | undefined,
   roundNumber: number,
+  hasExplanationTts: boolean,
 ) {
   const setPhaseFn = useServerFn(setPhase);
   const nextQuestionFn = useServerFn(nextQuestion);
@@ -1478,14 +1479,17 @@ export function useRevealAutoAdvance(
       roundNumber > 0 &&
       (roundNumber % QUESTIONS_PER_ROUND === 0 || roundNumber >= FINAL_ROUND_NUMBER);
 
-    const BASELINE_MS = 6000;
-    const HARD_CAP_MS = 14000;
-    const POLL_MS = 250;
+    // Reveal card animates in over ~3.8s before "Did you know?" starts playing.
+    // Give it that much plus a small margin to actually start speaking.
+    const SPEECH_START_DEADLINE_MS = hasExplanationTts ? 7000 : 4500;
+    const SAFETY_CAP_MS = 45000; // only catches stuck/never-ending audio
+    const POLL_MS = 200;
     const start = Date.now();
 
     let pollId: number | null = null;
     let advanced = false;
     let cancelled = false;
+    let sawSpeech = false;
 
     const advance = () => {
       if (advanced || cancelled) return;
@@ -1501,37 +1505,49 @@ export function useRevealAutoAdvance(
       }
     };
 
-    const baselineId = window.setTimeout(() => {
-      // After baseline, wait for the Did You Know voice (or any queued line)
-      // to finish before advancing. Hard cap protects against stuck audio.
-      void import("@/lib/elf-voice").then(({ isElfSpeaking }) => {
-        if (advanced || cancelled) return;
-        if (!isElfSpeaking()) {
-          advance();
+    void import("@/lib/elf-voice").then(({ isElfSpeaking }) => {
+      if (advanced || cancelled) return;
+      pollId = window.setInterval(() => {
+        if (cancelled) {
+          if (pollId !== null) window.clearInterval(pollId);
+          pollId = null;
           return;
         }
-        pollId = window.setInterval(() => {
-          if (cancelled) {
-            if (pollId !== null) window.clearInterval(pollId);
-            pollId = null;
-            return;
-          }
-          if (!isElfSpeaking() || Date.now() - start >= HARD_CAP_MS) {
+        const elapsed = Date.now() - start;
+        const speaking = isElfSpeaking();
+        if (speaking) {
+          sawSpeech = true;
+          if (elapsed >= SAFETY_CAP_MS) {
             if (pollId !== null) window.clearInterval(pollId);
             pollId = null;
             advance();
           }
-        }, POLL_MS);
-      });
-    }, BASELINE_MS);
+          return;
+        }
+        // Not currently speaking.
+        if (sawSpeech) {
+          // She started and finished — go now.
+          if (pollId !== null) window.clearInterval(pollId);
+          pollId = null;
+          advance();
+          return;
+        }
+        // She never started. If we've waited long enough for the read to
+        // kick in and it didn't, there's no narration — advance.
+        if (elapsed >= SPEECH_START_DEADLINE_MS) {
+          if (pollId !== null) window.clearInterval(pollId);
+          pollId = null;
+          advance();
+        }
+      }, POLL_MS);
+    });
 
     return () => {
       cancelled = true;
-      window.clearTimeout(baselineId);
       if (pollId !== null) {
         window.clearInterval(pollId);
         pollId = null;
       }
     };
-  }, [phase, roundNumber, roomCode, hostSessionId, setPhaseFn, nextQuestionFn]);
+  }, [phase, roundNumber, roomCode, hostSessionId, setPhaseFn, nextQuestionFn, hasExplanationTts]);
 }

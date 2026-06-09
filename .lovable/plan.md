@@ -1,43 +1,34 @@
-## Capacity Health Widget on `/admin`
+## Goal
 
-Add a live status card at the top of the admin page that tells you, at a glance, how close you are to maxing out the current Cloud plan.
+On the reveal screen, advance to the next question **the instant The Elf finishes reading "Did you know?"** — never before, never after a fixed pad.
 
-### What it shows
+## What's wrong today (in `useRevealAutoAdvance`, `HostGameStage.tsx`)
 
-A single card with four metrics, each with a 🟢/🟡/🔴 dot and a "% of estimated ceiling" bar:
+1. `BASELINE_MS = 6000` — forces a 6-second minimum on reveal even when the explanation is 2 seconds of audio. Feels like dead air.
+2. `HARD_CAP_MS = 14000` — yanks to the next question even if the announcer is still talking. Long explanations get clipped.
+3. The advance check polls `isElfSpeaking()` every 250ms, which is fine, but only *after* the 6s baseline.
 
-1. **Active lobbies** — count of `rooms` in `lobby` / `in_progress` states updated in the last 10 min
-2. **Live players** — count of `players` joined to those active rooms
-3. **DB connections** — from `supabase--db_health` (used / max)
-4. **DB size & WAL** — from `supabase--db_health`
+## Fix
 
-Thresholds (matches what we discussed):
-- 🟢 under 40% of ceiling
-- 🟡 40–70% — plan upgrade
-- 🔴 70%+ — upgrade now
+Rewrite `useRevealAutoAdvance` so timing is driven by the announcer, not a stopwatch:
 
-Estimated ceilings for the current Cloud tier are hardcoded constants at the top of the widget (easy to bump later): `MAX_LOBBIES = 200`, `MAX_PLAYERS = 1600`, `MAX_CONNECTIONS` comes from db_health directly. We can tune those after you do a load test.
+1. **Wait for the explanation read to actually start** (it kicks off ~3.8s into reveal — see the `explanationTtsAudioRef` effect at line ~340). Short grace window of ~1s polling for `isElfSpeaking()` to flip *true* first, so we don't race past it.
+2. **Once she's speaking, poll every 200ms** for `isElfSpeaking()` to flip false.
+3. **The moment it flips false → advance** (no extra breath; user explicitly wants "as soon as announcer is done").
+4. **No hard cap.** Replace with a generous safety net (~45s) that only exists to recover from a stuck/never-ending audio element — not to interrupt a normal read.
+5. **No-TTS fallback**: if after ~5s of reveal we've never detected speech starting AND `state.current_explanation_tts_url` is null, advance immediately. This covers the 732 unbaked explanations so they don't sit on a silent reveal screen.
 
-Auto-refreshes every 30s via TanStack Query. Manual "Refresh" button too.
+Net effect:
+- Short 2s explanation → ~2s reveal, then next.
+- Long 12s explanation → full 12s read, then next.
+- Missing audio → ~5s and move on, no awkward 14s pad.
 
-### Files
+## Files
 
-- **New** `src/lib/health.functions.ts` — one `createServerFn` (`getCapacityHealth`) gated by `requireSupabaseAuth` + admin role check. Internally:
-  - counts active rooms/players via `supabaseAdmin`
-  - calls the same data source `supabase--db_health` exposes (Supabase project API). For v1 we'll just return the room/player counts plus a `connections` field populated from `pg_stat_activity` via `supabaseAdmin.rpc` — simpler than wiring the management API. (If you'd rather pull straight from `db_health`, I can swap that in.)
-- **New** `src/components/admin/CapacityWidget.tsx` — presentational card, uses `useQuery({ refetchInterval: 30_000 })`.
-- **Edit** `src/routes/_authenticated/admin.tsx` — render `<CapacityWidget />` right under the header (around line 262), above the existing tools.
+- `src/components/host/HostGameStage.tsx` — rewrite `useRevealAutoAdvance` (lines 1467–1537). No other behavior changes.
 
-### Out of scope (per your call)
+## Out of scope
 
-- No email alerts
-- No domain setup
-- No persisted history / charts — just current snapshot
-
-### One open question
-
-For the connection count, do you want me to:
-- (a) pull it from `pg_stat_activity` via a small SQL helper (no extra setup, slightly approximate), or
-- (b) skip connections for now and just show lobbies + players + DB size (the two numbers you actually control day-to-day)?
-
-I'd lean (b) — simpler, and connections aren't your bottleneck until you're already in trouble on the other two. Let me know which you want and I'll build it.
+- Not touching the 3.8s delay before "Did you know?" starts (that's the reveal card animation timing).
+- Not touching final-round reveal (`final_reveal`, separate 7s timer).
+- Not re-baking missing narrations (separate ask).
