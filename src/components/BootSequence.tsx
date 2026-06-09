@@ -11,7 +11,7 @@ import { startLobbyChatter, startCrowd } from "@/lib/ambience-engine";
  * on the host start screen instead, so we don't surface them twice.
  */
 
-const SKIP_KEY = "btd:boot:done";
+// Boot splash always plays per visit; only ?nosplash=1 dev override skips it.
 
 type Stage = "gate" | "splash" | "credits";
 
@@ -119,14 +119,10 @@ export function BootSequence({ onComplete }: Props) {
   function complete() {
     if (completedRef.current) return;
     completedRef.current = true;
-    try {
-      window.sessionStorage.setItem(SKIP_KEY, "1");
-    } catch {
-      /* sessionStorage may be unavailable in private mode */
-    }
     setDismissing(true);
     window.setTimeout(onComplete, 600);
   }
+
 
   return (
     <AnimatePresence>
@@ -347,9 +343,6 @@ export function shouldShowBoot(): boolean {
   if (typeof window === "undefined") return false;
   const url = new URL(window.location.href);
   if (url.searchParams.get("nosplash") === "1") return false;
-  try {
-    return window.sessionStorage.getItem(SKIP_KEY) !== "1";
-  } catch {
-    return true;
-  }
+  return true;
 }
+

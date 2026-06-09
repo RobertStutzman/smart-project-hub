@@ -46,19 +46,22 @@ export function IntroStage({ players, onDone }: Props) {
       speakPersona("Alright… here we go in three!");
       play("tick");
     });
-    at(6900, () => {
+    at(7300, () => {
       setCount(2);
       play("tick");
     });
-    at(7600, () => {
+    at(8400, () => {
       setCount(1);
       play("tick");
     });
-    at(8300, () => setStep("go"));
-    at(10500, () => {
+    at(9500, () => {
+      setStep("go");
       play("whoosh");
+    });
+    at(11200, () => {
       onDoneRef.current();
     });
+
 
     const onKey = (e: KeyboardEvent) => {
       if (e.code === "Space") {
@@ -188,28 +191,32 @@ export function IntroStage({ players, onDone }: Props) {
         {step === "countdown" && (
           <motion.div
             key={`count-${count}`}
-            initial={{ opacity: 0, scale: 0.5 }}
+            initial={{ opacity: 0, scale: 0.6 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.4 }}
-            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            exit={{ opacity: 0, scale: 1.5 }}
+            transition={{
+              opacity: { duration: 0.25, ease: [0.22, 1, 0.36, 1] },
+              scale: { duration: 0.25, ease: [0.22, 1, 0.36, 1] },
+            }}
             className="relative text-center"
           >
             <div className="text-[11px] font-bold uppercase tracking-[0.6em] text-amber-300/90">
               Get ready
             </div>
             <div
-              className="mt-2 font-display text-[28vw] font-black uppercase leading-none tracking-tight text-transparent sm:text-[20vw]"
+              className="mt-2 font-display text-[34vw] font-black uppercase leading-none tracking-tight text-transparent sm:text-[24vw]"
               style={{
                 backgroundImage:
                   "linear-gradient(180deg, oklch(0.97 0.15 90) 0%, oklch(0.70 0.22 50) 100%)",
                 WebkitBackgroundClip: "text",
                 backgroundClip: "text",
-                filter: "drop-shadow(0 10px 50px oklch(0.85 0.22 70 / 0.7))",
+                filter: "drop-shadow(0 14px 70px oklch(0.85 0.22 70 / 0.85))",
               }}
             >
               {count}
             </div>
           </motion.div>
+
         )}
 
         {step === "go" && (
