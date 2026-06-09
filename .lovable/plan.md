@@ -1,33 +1,35 @@
-# Fix #1 — Phantom Round 5 (one extra question before Final)
+# Fix #2 — "Did you know?" cut off before winner screen
 
 ## Problem
-The game is meant to be 4 rounds × 5 questions = 20 questions, then 1 final question. Instead, after Round 4 finishes (question 20), a single extra question plays (question 21) before the final intro fires. That's the "Round 5 with one question" you saw.
+After the final question's reveal, the announcer's "Did you know?" gets cut mid-sentence as the screen flips to the winner crowning.
 
 ## Root cause
-In `src/components/host/HostGameStage.tsx`:
+In `src/components/host/HostGameStage.tsx` Effect A (lines 1044–1056), the `final_reveal → ended` transition uses a fixed 7-second timeout regardless of whether the explanation TTS is still playing:
 
 ```ts
-const FINAL_ROUND_NUMBER = 21;
+if (phase === "final_reveal") {
+  if (topScoreTied) return;
+  const id = window.setTimeout(() => endGameFn(...), 7000);
+  return () => window.clearTimeout(id);
+}
 ```
 
-This constant gates two transitions:
-
-1. **Leaderboard auto-advance** (line ~640): after the round-end leaderboard, if `completedQuestionNumber >= FINAL_ROUND_NUMBER` it calls `startFinalRound`, otherwise it calls `nextQuestion`. With the threshold at 21, completing q20 → calls `nextQuestion` → q21 plays. Only after q21 does it transition to final.
-2. **`useRevealAutoAdvance`** (line ~1557): treats `roundNumber >= FINAL_ROUND_NUMBER` (i.e. only q21+) as the final question's reveal, with the regular `roundNumber % 5 === 0` branch covering end-of-round leaderboards.
+The regular per-question reveal already solves this — `useRevealAutoAdvance` polls `getExplanationStateFor(qid).ended` (from `src/lib/explanation-playback.ts`) and only advances once the explanation has actually finished, with a 45 s safety cap to catch hung audio. The final reveal never got that treatment.
 
 ## Fix
-Change the constant to `20` so completing q20 jumps straight to `startFinalRound`. The display math (`getCompletedRoundNumber = floor(q/5)`, RoundSplash `min(4, ceil(q/5))`) is already correct for a 20-question + final layout, so no other edits needed.
+Replace the fixed 7 s timer for `final_reveal` with the same explanation-aware polling loop used by `useRevealAutoAdvance`:
 
-```ts
-const FINAL_ROUND_NUMBER = 20;
-```
+- Wait for `getExplanationStateFor(state.current_question_id)` to report `expected && ended`, then call `endGameFn`.
+- If no explanation is expected for the final question, fall back to the existing "persona reaction finished" heuristic (`isElfSpeaking` having gone true→false), with a 7 s floor so we don't snap the winner screen up the instant the sting ends.
+- 45 s safety cap — same as the regular reveal — so a stuck audio element never strands us on the final reveal.
+- Keep the `topScoreTied` early-return so sudden death still works.
 
-The `useRevealAutoAdvance` end-of-round condition `(roundNumber % 5 === 0 || roundNumber >= 20)` still works — q20 satisfies both branches and shows the leaderboard once before the final transition.
+The poll mirrors the existing implementation; the only differences are the target phase (`final_reveal`) and the advance action (`endGameFn` instead of `nextQuestion`/`setPhase`).
 
 ## File
-- `src/components/host/HostGameStage.tsx` — one-line change at line 1537.
+- `src/components/host/HostGameStage.tsx` — replace the `final_reveal` branch inside Effect A (lines ~1044–1056) with the polling loop. Add `getExplanationStateFor` import if not already used in this scope (it's used elsewhere in the file via the shared module).
 
 ## Verification
-Run a dry-run game through Round 4. After question 20's reveal + leaderboard, the next screen should be `final_intro` (announcer: "final hype"), not another question.
+Dry-run through the final question. After the reveal, the winner screen should only appear after the announcer finishes the full "Did you know?" line.
 
-After this lands we'll move on to #2 (the cut-off "Did you know?" before winner screen).
+Then we move on to #3 (winner screen / credits roll smoothness, graffiti polish).
