@@ -31,6 +31,13 @@ import { RoundRecapReel } from "./RoundRecapReel";
 import { RoundSplash } from "./RoundSplash";
 import { WildcardBanner } from "./WildcardBanner";
 import { QRCodeSVG } from "qrcode.react";
+import {
+  resetExplanationFor,
+  markExplanationExpected,
+  markExplanationStarted,
+  markExplanationEnded,
+  getExplanationStateFor,
+} from "@/lib/explanation-playback";
 
 type RoomState = {
   id: string;
