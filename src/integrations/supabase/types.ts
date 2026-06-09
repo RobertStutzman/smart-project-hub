@@ -235,6 +235,32 @@ export type Database = {
         }
         Relationships: []
       }
+      room_secrets: {
+        Row: {
+          correct_index: number | null
+          room_id: string
+          updated_at: string
+        }
+        Insert: {
+          correct_index?: number | null
+          room_id: string
+          updated_at?: string
+        }
+        Update: {
+          correct_index?: number | null
+          room_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_secrets_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: true
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rooms: {
         Row: {
           allow_late_joiners: boolean
