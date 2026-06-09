@@ -188,14 +188,14 @@ export function BootSequence({ onComplete }: Props) {
   );
 }
 
-function GateStage() {
+function GateStage({ pressed = false }: { pressed?: boolean }) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.4 }}
-      className="relative flex h-full w-full flex-col items-center justify-center text-center"
+      transition={{ duration: 0.7, ease: SOFT_EASE }}
+      className="absolute inset-0 flex flex-col items-center justify-center text-center"
     >
       <div
         className="pointer-events-none absolute inset-0"
@@ -224,8 +224,16 @@ function GateStage() {
         </span>
       </motion.div>
       <motion.div
-        animate={{ scale: [1, 1.06, 1] }}
-        transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+        animate={
+          pressed
+            ? { scale: 0.95 }
+            : { scale: [1, 1.06, 1] }
+        }
+        transition={
+          pressed
+            ? { duration: 0.14, ease: "easeOut" }
+            : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }
+        }
         className="mt-12 inline-flex items-center gap-3 rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-10 py-5 font-display text-base font-black uppercase tracking-[0.25em] text-amber-950 shadow-[0_0_60px_oklch(0.85_0.18_85/0.5)]"
       >
         <span>Tap or press any key to begin</span>
@@ -240,11 +248,11 @@ function GateStage() {
 function SplashStage() {
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.92 }}
+      initial={{ opacity: 0, scale: 0.94 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 1.05 }}
-      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      className="relative flex h-full w-full flex-col items-center justify-center"
+      exit={{ opacity: 0, scale: 1.04 }}
+      transition={{ duration: 0.7, ease: SOFT_EASE }}
+      className="absolute inset-0 flex flex-col items-center justify-center"
     >
       <div
         className="pointer-events-none absolute inset-0"
@@ -291,8 +299,8 @@ function CreditsStage() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
-      className="relative flex h-full w-full flex-col items-center justify-center text-center"
+      transition={{ duration: 0.7, ease: SOFT_EASE }}
+      className="absolute inset-0 flex flex-col items-center justify-center text-center"
     >
       <motion.div
         initial={{ opacity: 0, y: 20 }}
