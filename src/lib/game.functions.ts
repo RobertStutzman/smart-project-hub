@@ -4,6 +4,12 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const MAX_POINTS = 1000;
 const STREAK_BONUS = 1.1;
+// Grace window at the very start of a question: any lock within this many
+// ms of `question_started_at` is treated as if it happened at t=0 and yields
+// full points. Without this, network roundtrip + reaction time make a true
+// 1000 unreachable (Kahoot/HQ use the same idea).
+const POINTS_GRACE_MS = 1500;
+
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
