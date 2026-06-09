@@ -105,7 +105,7 @@ export function FinalWagerStage({ players }: { players: Player[] }) {
         </div>
       </div>
 
-      {/* Counter */}
+      {/* Status */}
       <div className="relative flex flex-col items-center justify-center text-center">
         <div className="text-xs font-bold uppercase tracking-[0.5em] text-amber-300/90">
           Place your wager
@@ -113,15 +113,8 @@ export function FinalWagerStage({ players }: { players: Player[] }) {
         <div className="mt-3 font-display text-5xl font-black leading-tight">
           All players are betting…
         </div>
-        <div
-          key={`lock-${locked}`}
-          className="mt-8 font-mono text-7xl font-black text-amber-300 [animation:scale-in_0.25s_ease-out]"
-        >
-          {locked}
-          <span className="text-3xl text-amber-300/50"> / {total}</span>
-        </div>
-        <div className="mt-2 text-sm uppercase tracking-[0.3em] text-amber-200/70">
-          wagers locked
+        <div className="mt-6 text-sm uppercase tracking-[0.3em] text-amber-200/60">
+          {locked === total ? "All wagers locked" : "Waiting on wagers…"}
         </div>
       </div>
     </div>
