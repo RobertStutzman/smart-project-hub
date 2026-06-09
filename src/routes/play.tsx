@@ -399,7 +399,7 @@ function PlayPage() {
   return (
     <main className="relative h-[100dvh] overflow-hidden bg-gradient-to-b from-[oklch(0.32_0.07_275)] via-[oklch(0.28_0.06_280)] to-[oklch(0.32_0.07_275)] text-white">
       <HeartbeatBackground secondsLeft={room.phase === "question" ? remainingS : null} />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,oklch(0.45_0.25_295/0.3),transparent_60%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,oklch(0.7_0.18_295/0.25),transparent_65%)]" />
 
       <div className="relative mx-auto flex h-[100dvh] min-h-0 max-w-md flex-col gap-3 p-4">
 
