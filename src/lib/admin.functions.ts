@@ -152,7 +152,7 @@ export const deleteQuestion = createServerFn({ method: "POST" })
 export const bulkInsertQuestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
-    z.object({ rows: z.array(QuestionInput).min(1).max(500) }).parse,
+    z.object({ rows: z.array(QuestionInput).min(1).max(1000) }).parse,
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
