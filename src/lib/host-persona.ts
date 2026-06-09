@@ -782,6 +782,9 @@ export function pickLine(moment: Moment, seed: string | number = Date.now()): st
       : Math.floor(seed);
   const idx = Math.abs(base + dailyBucket) % pool.length;
   return pool[idx];
+}
+
+
 
 /** Quips for IntroStage when this room has already played a game. */
 export const WELCOME_BACK_LINES: string[] = [
