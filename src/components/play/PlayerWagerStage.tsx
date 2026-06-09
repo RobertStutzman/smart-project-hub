@@ -1,5 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+const WAGER_DURATION_S = 30;
 
 type Props = {
   score: number;
