@@ -1,77 +1,53 @@
-## Current category counts (live from DB)
+## Goal
 
-Canonical categories (from `src/lib/categories.ts`):
+Resolve every finding from the latest security scan so players cannot cheat by reading correct answers, and tighten storage/realtime/function exposure.
 
-| Category | Have | Need to reach ~200 |
-| --- | --- | --- |
-| General Knowledge | 207 | ✅ done |
-| Movies | 27 | +173 |
-| Movie Sci-Fi | 314 | ✅ done |
-| TV Shows | 20 | +180 |
-| Music | 27 | +173 |
-| 80's Music | 140 | +60 |
-| Sports | 20 | +180 |
-| Science | 20 | +180 |
-| Geography | 20 | +180 |
-| History | 20 | +180 |
-| Chapter & Verse | 140 | +60 |
+## Changes
 
-Non-canonical categories also in DB (not in the picker — flag for cleanup or merge): `All things Hollywood (95)`, `Comedy Classics (40)`, `Famous Hollywood Movies (40)`, `Popular Movies (40)`, `Twilight Saga (20)`. Likely candidates to merge into `Movies` rather than top up.
+### 1. Hide quiz answers (`questions` table)
+- Drop the public `questions_select_all` policy.
+- Keep admin SELECT only. All gameplay already reads `questions` via server functions using `supabaseAdmin`, so no client code breaks.
 
-## What I'll deliver
-No code changes. Just a single, paste-ready Gemini prompt that:
-- Targets one category at a time (so you can run it 8x for the eight that need topping up).
-- Asks for exactly the count needed per run, American-audience tuned.
-- Outputs strict JSON matching your `questions` table columns so you can bulk-insert.
-- Enforces difficulty mix, no duplicates, plausible wrong answers, short explanation, no media.
+### 2. Stop polling-cheat on `rooms.current_correct_index`
+- Add new column `rooms.revealed_correct_index INTEGER NULL`.
+- Server functions that currently set `current_correct_index` at question start keep doing so (server needs it for scoring) — but `revealed_correct_index` stays NULL until the reveal phase, when the server copies the value over.
+- Replace public SELECT on `rooms` with a policy that exposes a safe set of columns via a view-style approach: simplest reliable route is a Postgres VIEW `public.rooms_public` that excludes `current_correct_index` (and other host-only fields like `host_session_id`, `saboteur_session_id`, `tts_*`, `roast_candidates`) but includes `revealed_correct_index`. Lock the base `rooms` table SELECT to admin + service_role only.
+- Update `src/routes/play.tsx`, `src/components/host/HostGameStage.tsx` (player-side reads), `src/routes/results.$roomId.tsx`, `src/routes/audience.tsx`, and `src/routes/dev.tsx` to read from `rooms_public` and use `revealed_correct_index` for the green-check display. Host-side reads keep using `rooms` via server fns.
+- Update realtime: add the view's underlying table to publication coverage so postgres_changes still work, or switch the client subscription to listen on `rooms` filtered server-side. Simpler: keep realtime on `rooms`, but the public payload only contains the safe columns because RLS will filter out the row entirely for non-admin clients — so move the client to read via a server fn `getRoomPublicState` polled on each realtime tick. We will use the view-based approach (simpler and keeps current realtime behavior intact via `rooms_public`).
 
-## The prompt (use with `google/gemini-2.5-pro`, temperature ~0.8)
+### 3. Lock `room_questions`
+- Drop public SELECT, keep admin/service-role access only. Only server fns touch it today.
 
-```
-You are writing trivia questions for an American pub-style trivia app.
+### 4. Avatars bucket hardening
+- Drop `avatars_anon_insert`, `avatars_anon_update`, `avatars_public_read`.
+- New INSERT policy: path must match `{roomCode}/*` AND filename must start with the caller's `sessionId-` prefix. Because uploads are anonymous, enforce path shape only (`name ~ '^[A-Z]{4}/[A-Za-z0-9-]+-\d+\.(jpg|jpeg|png|webp)$'`) and add a per-file size cap via bucket settings.
+- Remove the broad UPDATE policy entirely (uploads are write-once with timestamped filenames).
+- Narrow SELECT to objects matching the same path pattern (prevents bucket listing while keeping direct public URLs working).
 
-CATEGORY: <<<CATEGORY_NAME>>>
-COUNT: <<<N>>>          // e.g. 180
+### 5. Realtime channel authorization
+- Add a default-deny RLS policy on `realtime.messages` for broadcast/presence topics. The app only uses `postgres_changes` (table replication), which is governed by table RLS, so denying broadcast/presence is safe.
 
-Audience: U.S. general adult audience. Use American spelling, American sports
-(NFL/MLB/NBA/NHL/NCAA over soccer/cricket), U.S. pop culture, U.S. history
-weighting, Fahrenheit/miles where natural. Avoid UK-only references.
+### 6. SECURITY DEFINER function exposure
+- `REVOKE EXECUTE ... FROM anon, authenticated` on `public.list_question_categories` and on `public.has_role`. `has_role` is still callable from RLS policies because RLS evaluates as table owner. The server fn `listCategories` will call the function via `supabaseAdmin` (service_role retains EXECUTE).
 
-Write COUNT multiple-choice questions for CATEGORY. Output ONLY a valid JSON
-array — no prose, no markdown fences. Each item must match this schema EXACTLY:
+### 7. Extension in public schema
+- Move whichever extension is in `public` (likely `pg_trgm` or similar) to the `extensions` schema with `ALTER EXTENSION ... SET SCHEMA extensions`.
 
-{
-  "category": "<<<CATEGORY_NAME>>>",
-  "subcategory": "short tag, e.g. 'NFL', '1990s', 'Astronomy'",
-  "question_text": "Single sentence question, <= 140 chars.",
-  "correct_answer": "Short answer, <= 60 chars.",
-  "wrong_1": "Plausible distractor, same type/length as correct_answer.",
-  "wrong_2": "Plausible distractor.",
-  "wrong_3": "Plausible distractor.",
-  "explanation": "1 sentence, <= 180 chars, factual flavor.",
-  "difficulty": "easy" | "medium" | "hard"
-}
+### 8. Public bucket listing
+- Covered by #4 (narrowed avatars SELECT policy).
 
-Hard rules:
-1. Exactly COUNT items.
-2. Difficulty mix: 35% easy, 45% medium, 20% hard.
-3. No duplicate questions and no near-duplicates (same answer phrased differently).
-4. The correct answer must be unambiguous and verifiable as of 2024.
-5. All four options must be the same kind of thing (all years, all people, all
-   films, etc.) and similar length. No "all of the above" / "none".
-6. No questions that depend on images, audio, or video.
-7. No politics-of-the-day, no living-person controversies, no NSFW.
-8. Spread subcategories — don't cluster 50 questions on one franchise/decade.
-9. Keep answers concise; never put the answer inside the question.
-10. Return ONLY the JSON array. No commentary, no trailing text.
+## Technical Notes
 
-Begin.
-```
+- All DB changes ship in one migration. Code edits land right after migration approval so the regenerated `types.ts` includes the new view and column.
+- Files expected to change:
+  - `src/routes/play.tsx` — switch room read to `rooms_public`, swap `current_correct_index` → `revealed_correct_index`.
+  - `src/routes/audience.tsx`, `src/routes/results.$roomId.tsx`, `src/routes/dev.tsx` — same swap.
+  - `src/components/host/HostGameStage.tsx` — host realtime subscription stays on `rooms` via server fn (host has `host_session_id`, already gated server-side); read of `current_correct_index` unchanged on host stage.
+  - `src/lib/game.functions.ts` — at reveal-phase transitions, also `UPDATE rooms SET revealed_correct_index = current_correct_index`. At question-start, `revealed_correct_index = NULL`.
+  - `src/lib/rooms.functions.ts` — `listCategories` already uses `supabaseAdmin`, no change.
+- After migration runs, types regenerate; only then make the code edits.
 
-## How to run it
-- Replace `<<<CATEGORY_NAME>>>` and `<<<N>>>` per category from the table above.
-- Run once per category that needs topping up (8 runs).
-- For very large counts (180) Gemini may truncate — if so, ask for two halves (e.g. "first 90, easy+medium" then "next 90, medium+hard") and concatenate.
-- Save each response as `questions-<category>.json`, then bulk-insert into `public.questions`.
+## Out of scope
 
-Want me to also wire up an admin "Generate with AI" button that calls Lovable AI with this prompt and inserts straight into the DB? Say the word and I'll plan that next.
+- No UI redesign, no copy changes, no gameplay flow changes beyond hiding the answer until reveal.
+- Existing avatar files that don't match the new path pattern will become inaccessible via list — direct URLs still resolve. The nightly cleanup job already prunes old files.
