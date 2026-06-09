@@ -817,8 +817,7 @@ function HostPage() {
                     />
                   </svg>
                   <span
-                    className="whitespace-nowrap text-amber-200"
-                    style={{ fontFamily: "'Caveat', 'Comic Sans MS', cursive", fontSize: "1.05rem" }}
+                    className="whitespace-nowrap text-[11px] font-bold uppercase tracking-[0.25em] text-amber-200"
                   >
                     psst — you can pick your categories!
                   </span>
