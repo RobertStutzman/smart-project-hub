@@ -281,7 +281,7 @@ function FinalRevealRow({
   prevScore: number;
   showCrown: boolean;
 }) {
-  const animatedScore = useCountUp(visible ? player.score : prevScore, 600, prevScore);
+  const displayScore = visible ? player.score : prevScore;
   if (!visible) {
     return <div className="h-[68px]" aria-hidden />;
   }
