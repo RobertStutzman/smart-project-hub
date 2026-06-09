@@ -281,7 +281,7 @@ function PlayPage() {
 
   if (!session || !room) {
     return (
-      <main className="grid min-h-screen place-items-center bg-background text-muted-foreground">
+      <main className="grid min-h-screen place-items-center bg-background text-white/75">
         Loading…
       </main>
     );
@@ -397,13 +397,13 @@ function PlayPage() {
 
 
   return (
-    <main className="relative h-[100dvh] overflow-hidden bg-background text-foreground">
+    <main className="relative h-[100dvh] overflow-hidden bg-gradient-to-b from-[oklch(0.32_0.07_275)] via-[oklch(0.28_0.06_280)] to-[oklch(0.32_0.07_275)] text-white">
       <HeartbeatBackground secondsLeft={room.phase === "question" ? remainingS : null} />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,oklch(0.45_0.25_295/0.3),transparent_60%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,oklch(0.7_0.18_295/0.25),transparent_65%)]" />
 
       <div className="relative mx-auto flex h-[100dvh] min-h-0 max-w-md flex-col gap-3 p-4">
 
-        <header className="flex items-center justify-between gap-2 text-xs uppercase tracking-[0.25em] text-muted-foreground">
+        <header className="flex items-center justify-between gap-2 text-xs uppercase tracking-[0.25em] text-white/75">
           <span>Room {session.roomCode}</span>
           <AccessibilityToggle />
           <button
@@ -418,10 +418,10 @@ function PlayPage() {
           </button>
         </header>
 
-        <div className="rounded-2xl border border-border bg-card/50 p-4 backdrop-blur">
+        <div className="rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur">
           <div className="flex items-end justify-between gap-3">
             <div>
-              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-white/75">
                 {isAudience ? "Audience" : "Player"}
               </div>
               <div className="flex items-center gap-2">
@@ -440,7 +440,7 @@ function PlayPage() {
             </div>
             {!isAudience && (
               <div className="text-right">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-white/75">
                   Score
                 </div>
                 <div className="font-mono text-2xl font-black">{me?.score ?? 0}</div>
@@ -461,7 +461,7 @@ function PlayPage() {
           </div>
           <button
             onClick={() => void toggleAudience()}
-            className="mt-3 w-full rounded-lg border border-dashed border-border/70 px-3 py-1.5 text-[11px] uppercase tracking-[0.18em] text-muted-foreground hover:text-foreground"
+            className="mt-3 w-full rounded-lg border border-dashed border-white/25 px-3 py-1.5 text-[11px] uppercase tracking-[0.18em] text-white/75 hover:text-foreground"
           >
             Switch to {isAudience ? "player" : "audience"} mode
           </button>
@@ -654,7 +654,7 @@ function PlayPage() {
                   <div className={`mt-2 font-mono text-5xl font-black ${(me?.current_round_score ?? 0) >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
                     {(me?.current_round_score ?? 0) > 0 ? "+" : ""}{me?.current_round_score ?? 0}
                   </div>
-                  <div className="mt-4 text-xs uppercase tracking-widest text-muted-foreground">Final score</div>
+                  <div className="mt-4 text-xs uppercase tracking-widest text-white/75">Final score</div>
                   <div className="font-mono text-4xl font-black text-amber-200">{me?.score ?? 0}</div>
                   {room.current_explanation && room.current_explanation.trim().length > 0 && (
                     <div className="mt-5 rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-400/20 to-amber-600/10 p-5 text-left shadow-[0_10px_40px_-15px_rgba(251,191,36,0.5)] animate-scale-in">
@@ -702,9 +702,9 @@ function PlayPage() {
                     },
                     roast: {
                       label: "Roast vote · check TV",
-                      border: "border-border",
-                      bg: "bg-card/30",
-                      text: "text-muted-foreground",
+                      border: "border-white/20",
+                      bg: "bg-white/8",
+                      text: "text-white/75",
                     },
                   };
                   const wc = room.wildcard ? WILDCARD_TOP[room.wildcard] : null;
@@ -714,12 +714,12 @@ function PlayPage() {
                   return (
                     <div
                       className={`flex items-center justify-between rounded-2xl border px-4 py-2 backdrop-blur ${
-                        wc ? `${wc.border} ${wc.bg}` : "border-border bg-card/30"
+                        wc ? `${wc.border} ${wc.bg}` : "border-white/20 bg-white/8"
                       } ${wc?.pulse ? "animate-pulse" : ""}`}
                     >
                       <div
                         className={`text-[10px] uppercase tracking-[0.25em] ${
-                          wc ? `font-black ${wc.text}` : "text-muted-foreground"
+                          wc ? `font-black ${wc.text}` : "text-white/75"
                         }`}
                       >
                         {label}
@@ -738,7 +738,7 @@ function PlayPage() {
                         questionStartedAt={room.question_started_at}
                         hasAnswer={me?.current_answer !== null && me?.current_answer !== undefined}
                       />
-                      <div className="font-mono text-xl font-black text-muted-foreground">
+                      <div className="font-mono text-xl font-black text-white/75">
                         {Math.ceil(remainingS)}s
                       </div>
                     </div>
@@ -751,7 +751,7 @@ function PlayPage() {
                 {/* Question text on phone — scroll internally if very long
                     so it never steals height from the answer tiles below. */}
                 {room.current_question_text && room.wildcard !== "roast" && (
-                  <div className="max-h-[18vh] shrink-0 overflow-y-auto rounded-2xl border border-border bg-card/40 px-4 py-2 text-center backdrop-blur">
+                  <div className="max-h-[18vh] shrink-0 overflow-y-auto rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-center backdrop-blur">
                     <div className="text-sm font-bold leading-snug text-foreground sm:text-base">
                       {room.current_question_text}
                     </div>
@@ -825,7 +825,7 @@ function PlayPage() {
                       <div className={`font-mono text-2xl font-black ${(me.current_round_score ?? 0) > 0 ? "text-emerald-300" : "text-rose-300"}`}>
                         {(me.current_round_score ?? 0) > 0 ? "+" : ""}{me.current_round_score ?? 0}
                       </div>
-                      <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.25em] text-muted-foreground">
+                      <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.25em] text-white/75">
                         score {me.score}
                       </div>
                     </div>
@@ -836,7 +836,7 @@ function PlayPage() {
                     covers the gap and the extra line wastes height. */}
                 {room.phase === "reveal" &&
                   !(room.current_explanation && room.current_explanation.trim().length > 0) && (
-                    <div className="text-center text-xs uppercase tracking-[0.25em] text-muted-foreground animate-pulse">
+                    <div className="text-center text-xs uppercase tracking-[0.25em] text-white/75 animate-pulse">
                       Next question incoming…
                     </div>
                   )}
@@ -855,19 +855,19 @@ function PlayPage() {
 
               </>
             ) : room.phase === "leaderboard" ? (
-              <div className="grid flex-1 place-items-center rounded-3xl border border-border bg-card/40 p-6 text-center backdrop-blur animate-scale-in">
+              <div className="grid flex-1 place-items-center rounded-3xl border border-white/20 bg-white/10 p-6 text-center backdrop-blur animate-scale-in">
                 <div>
                   <div className="text-[10px] font-bold uppercase tracking-[0.35em] text-amber-300/80">
                     Standings on TV
                   </div>
                   <div className="mt-3 font-mono text-6xl font-black text-foreground">{me?.score ?? 0}</div>
-                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground">your score</div>
+                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.3em] text-white/75">your score</div>
                   {(me?.streak_count ?? 0) >= 2 && (
                     <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-amber-300/15 px-3 py-1 text-sm font-bold text-amber-300">
                       🔥 {me?.streak_count} in a row
                     </div>
                   )}
-                  <div className="mt-5 text-xs uppercase tracking-[0.25em] text-muted-foreground animate-pulse">
+                  <div className="mt-5 text-xs uppercase tracking-[0.25em] text-white/75 animate-pulse">
                     Next round incoming…
                   </div>
                 </div>
@@ -896,7 +896,7 @@ function PlayPage() {
               ⏸
             </div>
             <h3 className="mt-4 text-2xl font-bold">Host disconnected</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-sm text-white/75">
               Waiting to resume… your score and place are saved.
             </p>
           </div>
@@ -942,7 +942,7 @@ function PlayerPointsTicker({
         : "text-rose-400";
   return (
     <div className="flex flex-col items-end leading-none">
-      <div className="text-[8px] font-bold uppercase tracking-[0.3em] text-muted-foreground">
+      <div className="text-[8px] font-bold uppercase tracking-[0.3em] text-white/75">
         {hasAnswer ? "Locked" : "Lock now"}
       </div>
       <div className={`font-mono text-2xl font-black tabular-nums ${color}`}>
@@ -983,11 +983,11 @@ function LobbyWaitingCard({ nickname, avatarUrl, playerCount }: { nickname: stri
           <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300">You're in</div>
           <div className="mt-1 text-2xl font-black text-foreground">{nickname || "Player"}</div>
         </div>
-        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 text-xs font-semibold text-muted-foreground">
+        <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-card/60 px-3 py-1 text-xs font-semibold text-white/75">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
           {playerCount} {playerCount === 1 ? "player" : "players"} in the room
         </div>
-        <div className="min-h-[2.5rem] max-w-xs px-2 text-sm text-muted-foreground transition-opacity">
+        <div className="min-h-[2.5rem] max-w-xs px-2 text-sm text-white/75 transition-opacity">
           <span key={tipIdx} className="inline-block animate-fade-in italic">"{LOBBY_TIPS[tipIdx]}"</span>
         </div>
         <div className="text-[10px] uppercase tracking-[0.3em] text-amber-300/70 animate-pulse">
