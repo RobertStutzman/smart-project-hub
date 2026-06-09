@@ -1,32 +1,34 @@
 ## Goal
 
-After the user taps "Tap or press any key to begin," the next two screens (splash + credits) flash by before their animations finish, and the transitions feel snappy/clunky. Slow them down and smooth the crossfades.
+Replace the bright purple browser icon with an on-brand "BTD" monogram in the game's amber/gold gradient on the dark navy background.
 
-## Changes — `src/components/BootSequence.tsx`
+## Changes
 
-### 1. Stage durations
-Currently splash = 2200ms, credits = 4000ms. The splash subtitle alone doesn't finish animating until ~1700ms, leaving only ~500ms of read time before it auto-advances.
+### 1. Generate three new PNG icons
+Use the agent image tool (premium tier for legible typography) to produce a tight, square monogram:
 
-- `splash`: 2200 → **3400ms** (subtitle fully in by 1.7s, then ~1.7s read/breathe)
-- `credits`: 4000 → **5200ms** (dots in by 2.2s, then ~3s to read the tagline)
+- **Mark**: "BTD" in heavy display sans (black weight, slight negative tracking), centered.
+- **Letter color**: amber-to-gold vertical gradient matching the wordmark — top `oklch(0.97 0.18 90)` → bottom `oklch(0.65 0.25 35)`.
+- **Background**: deep navy `oklch(0.06 0.02 270)` with a faint warm rim glow at bottom.
+- **Padding**: ~12% inset so the letters stay readable at favicon size.
+- **No subtitle, no tagline, no extra glyphs.**
 
-### 2. Smoother stage transitions
-The current `AnimatePresence mode="wait"` between gate → splash → credits causes a brief blank gap (exit must finish before enter starts). Replace with a clean crossfade:
+Saved at:
+- `public/icon-512.png` (master 1024→512)
+- `public/icon-192.png` (downscaled crop of same render)
+- `public/apple-touch-icon.png` (180×180)
 
-- Switch the inner `<AnimatePresence mode="wait">` to **default mode** (concurrent) so the next stage fades in while the previous fades out.
-- Bump each stage's `initial`/`exit` durations from ~0.4–0.6s to **0.7s** with a soft `ease: [0.22, 1, 0.36, 1]` for a polished crossfade.
+All three are the same artwork, sized differently. Generate the 512 first, then downscale via `nix run nixpkgs#imagemagick` to keep the mark pixel-identical across sizes.
 
-### 3. Gate → splash handoff
-On the user's tap, the gate currently snaps to splash. Keep behavior (audio unlock + advance) but smooth the handoff:
+### 2. Add a 32×32 favicon (optional polish)
+The current setup only ships 192/512 PNGs. Browsers fall back to `/favicon.ico` requests; add a 32×32 PNG at `public/favicon.png` and register it in `src/routes/__root.tsx` (`{ rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon.png" }`). Keeps the tab icon sharp.
 
-- Add a 100ms tap acknowledgement on the Tap-to-begin pill (scale 1 → 0.97 → 1) before switching stage. Purely visual; no logic change.
-- The crossfade above takes care of the rest.
-
-### 4. Final dismiss → landing
-The whole boot overlay fades out in 400ms — short and the landing pops in abruptly. Bump dismiss to **600ms** with the same soft easing so it melts into the landing page.
+### 3. Bump manifest cache
+No code change needed to `manifest.webmanifest` — it already points at `/icon-192.png` and `/icon-512.png` by path. The new files replace the old in place, so existing references resolve.
 
 ## Out of scope
-- Stage content, copy, audio cues, ambience start-up, and the "press any key to skip" affordance are untouched.
+- Wordmark, splash screens, in-app branding — all untouched.
+- `manifest.webmanifest` theme colors — review separately if the user wants the install/PWA chrome retinted.
 
 ## Result
-Tap-to-begin → soft press → crossfade into splash (3.4s) → crossfade into credits (5.2s) → fade into landing (0.6s). No more flashy hard cuts; each stage has room to breathe.
+Browser tab + bookmark + PWA install icon all show a clean amber-gold "BTD" on dark navy — matches the "Beat the Drop" wordmark and the dark game theme.
