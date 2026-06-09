@@ -263,6 +263,8 @@ import lobbyTrivia from "@/assets/audio/music/lobby_trivia.mp3.asset.json";
 import finalSting from "@/assets/audio/final/final_sting.mp3.asset.json";
 import finalWagerBed from "@/assets/audio/final/final_wager_bed.mp3.asset.json";
 import creditsOutro from "@/assets/audio/music/credits_outro.mp3.asset.json";
+import bootSting from "@/assets/audio/music/boot_sting.mp3.asset.json";
+import bootStationId from "@/assets/audio/voice/boot_station_id.mp3.asset.json";
 
 const DEFAULT_EVENT_CLIPS: Partial<Record<GameEvent, CustomClip>> = {
   lobby_music: { url: lobbyTrivia.url, volume: 0.22, loop: true },
@@ -271,6 +273,73 @@ const DEFAULT_EVENT_CLIPS: Partial<Record<GameEvent, CustomClip>> = {
 // Final-round underscore bed (separate from the one-shot "final" sting).
 export const FINAL_WAGER_BED_URL: string = finalWagerBed.url;
 export const CREDITS_OUTRO_URL: string = creditsOutro.url;
+
+// ─── Boot intro: one-shot music sting + voiced station ID ──────────
+let bootMusicAudio: HTMLAudioElement | null = null;
+let bootMusicBaseVol = 0.32;
+let bootVoiceAudio: HTMLAudioElement | null = null;
+
+/** Start the boot intro music sting (one-shot, ~9s). */
+export function playBootMusic(volume = 0.32) {
+  if (muted || typeof window === "undefined") return;
+  stopBootMusic(0);
+  try {
+    bootMusicAudio = new Audio(bootSting.url);
+    bootMusicAudio.loop = false;
+    const base = Math.max(0, Math.min(1, volume));
+    bootMusicBaseVol = base;
+    bootMusicAudio.volume = base;
+    bootMusicAudio.play().catch(() => {});
+  } catch {
+    /* noop */
+  }
+}
+/** Fade out + stop the boot intro music. */
+export function stopBootMusic(fadeMs = 600) {
+  const a = bootMusicAudio;
+  bootMusicAudio = null;
+  if (!a) return;
+  if (fadeMs <= 0) {
+    try { a.pause(); a.currentTime = 0; } catch { /* noop */ }
+    return;
+  }
+  const startVol = a.volume;
+  const steps = 14;
+  let i = 0;
+  const id = window.setInterval(() => {
+    i++;
+    a.volume = Math.max(0, startVol * (1 - i / steps));
+    if (i >= steps) {
+      window.clearInterval(id);
+      try { a.pause(); a.currentTime = 0; } catch { /* noop */ }
+    }
+  }, Math.max(20, fadeMs / steps));
+}
+/** Play the voiced station ID over the boot music, auto-ducking the bed. */
+export function playBootStationId(volume = 0.95) {
+  if (muted || typeof window === "undefined") return;
+  try {
+    if (bootVoiceAudio) {
+      bootVoiceAudio.pause();
+    }
+    bootVoiceAudio = new Audio(bootStationId.url);
+    bootVoiceAudio.volume = Math.max(0, Math.min(1, volume));
+    // Duck the music bed under the voice.
+    if (bootMusicAudio) {
+      bootMusicAudio.volume = bootMusicBaseVol * 0.38;
+    }
+    const restore = () => {
+      if (bootMusicAudio) bootMusicAudio.volume = bootMusicBaseVol;
+      bootVoiceAudio = null;
+    };
+    bootVoiceAudio.addEventListener("ended", restore, { once: true });
+    bootVoiceAudio.addEventListener("error", restore, { once: true });
+    bootVoiceAudio.play().catch(restore);
+  } catch {
+    /* noop */
+  }
+}
+
 
 let creditsAudio: HTMLAudioElement | null = null;
 let creditsBaseVol: number | null = null;
