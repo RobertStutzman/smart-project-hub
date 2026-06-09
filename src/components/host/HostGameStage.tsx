@@ -594,10 +594,11 @@ export function HostGameStage({ room }: Props) {
       });
       if (text) {
         duckMusic(true);
-        import("@/lib/elf-voice").then(({ speakAsElf }) => {
-          speakAsElf(text, { preset: "hype" }).finally(() => duckMusic(false));
-        }).catch(() => duckMusic(false));
+        calloutDoneRef.current = import("@/lib/elf-voice")
+          .then(({ speakAsElf }) => speakAsElf(text, { preset: "hype" }))
+          .finally(() => duckMusic(false));
       }
+
 
     }
   }, [state?.phase, state?.round_number, state?.current_question_id]);
