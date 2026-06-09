@@ -342,6 +342,7 @@ function stopLoopAudio() {
     synthLoopTimer = null;
   }
   currentLoopMode = null;
+  pendingMusicMode = null;
 }
 
 /** Start lobby/tense background music. Uses uploaded clip for lobby_music if assigned. */
