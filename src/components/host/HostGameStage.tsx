@@ -1209,6 +1209,7 @@ export function HostGameStage({ room }: Props) {
     return (
       <CreditsStage
         players={players}
+        wrongPicks={wrongPicksRef.current}
         onPlayAgain={() => {
           restartGameFn({
             data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
@@ -1217,6 +1218,7 @@ export function HostGameStage({ room }: Props) {
       />
     );
   }
+
 
   if (state.phase === "ended") {
     const resultsUrl =
