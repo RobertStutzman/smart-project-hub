@@ -343,9 +343,6 @@ export function shouldShowBoot(): boolean {
   if (typeof window === "undefined") return false;
   const url = new URL(window.location.href);
   if (url.searchParams.get("nosplash") === "1") return false;
-  try {
-    return window.sessionStorage.getItem(SKIP_KEY) !== "1";
-  } catch {
-    return true;
-  }
+  return true;
 }
+
