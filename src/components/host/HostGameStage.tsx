@@ -1041,18 +1041,86 @@ export function HostGameStage({ room }: Props) {
       return () => window.clearTimeout(id);
     }
 
-    // Reveal → end after 7s (skip when top score is tied; host triggers sudden death)
+    // Reveal → end after the "Did you know?" explanation actually finishes
+    // (mirrors useRevealAutoAdvance). Fixed-timer cutoffs would clip the TTS.
+    // Skip when top score is tied; the host triggers sudden death.
     if (phase === "final_reveal") {
       if (topScoreTied) return;
       const key = `reveal-${stateId}-${suddenDeathKey}`;
       if (finalAdvancedRef.current === key) return;
-      const id = window.setTimeout(() => {
+
+      const qid = state.current_question_id ?? null;
+      const hasExplanation = !!state.current_explanation;
+      const MIN_HOLD_MS = 7000; // never snap the winner up faster than the old timer
+      const SAFETY_CAP_MS = 45000;
+      const POLL_MS = 200;
+      const start = Date.now();
+
+      let pollId: number | null = null;
+      let cancelled = false;
+      let sawSpeech = false;
+
+      const fire = () => {
+        if (finalAdvancedRef.current === key || cancelled) return;
         finalAdvancedRef.current = key;
         endGameFn({
           data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
         }).catch(() => {});
-      }, 7000);
-      return () => window.clearTimeout(id);
+      };
+
+      void import("@/lib/elf-voice").then(({ isElfSpeaking }) => {
+        if (cancelled || finalAdvancedRef.current === key) return;
+        pollId = window.setInterval(() => {
+          if (cancelled) {
+            if (pollId !== null) window.clearInterval(pollId);
+            pollId = null;
+            return;
+          }
+          const elapsed = Date.now() - start;
+          if (elapsed >= SAFETY_CAP_MS) {
+            if (pollId !== null) window.clearInterval(pollId);
+            pollId = null;
+            fire();
+            return;
+          }
+
+          if (hasExplanation && qid) {
+            const exp = getExplanationStateFor(qid);
+            if (exp.expected && exp.ended && elapsed >= MIN_HOLD_MS) {
+              if (pollId !== null) window.clearInterval(pollId);
+              pollId = null;
+              fire();
+            }
+            return;
+          }
+
+          // No explanation expected — fall back to persona-reaction heuristic.
+          const speaking = isElfSpeaking();
+          if (speaking) {
+            sawSpeech = true;
+            return;
+          }
+          if (sawSpeech && elapsed >= MIN_HOLD_MS) {
+            if (pollId !== null) window.clearInterval(pollId);
+            pollId = null;
+            fire();
+            return;
+          }
+          if (elapsed >= MIN_HOLD_MS && !sawSpeech) {
+            if (pollId !== null) window.clearInterval(pollId);
+            pollId = null;
+            fire();
+          }
+        }, POLL_MS);
+      });
+
+      return () => {
+        cancelled = true;
+        if (pollId !== null) {
+          window.clearInterval(pollId);
+          pollId = null;
+        }
+      };
     }
 
     // Ended → auto-roll credits after 20s
