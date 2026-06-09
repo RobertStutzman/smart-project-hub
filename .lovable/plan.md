@@ -1,25 +1,22 @@
-## Goal
+## Rename "persona" → "Vox catchphrases" on the Sounds page
 
-Consolidate all sound/voice baking on the **Sounds** page. Keep the Maintain tab for text-only work.
+Goal: make it obvious this button bakes host hype lines, not question reads.
 
-## What moves
+### Edits in `src/routes/_authenticated/admin-sounds.tsx`
 
-**Move `ExplanationTTSBackfill`** (🔊 "Narrate Did you know?" — bakes Elf audio for explanations) from the Maintain tab in `admin.tsx` to the Sounds page (`admin-sounds.tsx`), placing it directly next to the existing `QuestionVoiceoversPanel` (🎙 "Narrate questions") so both voice bakers sit together.
+Button label states (line ~250-256):
+- Baking: `🎭 Baking catchphrases…`
+- Fully baked: `🎭 Vox catchphrases fully baked (X/Y) — re-bake?`
+- Partial: `🎭 Bake X missing Vox catchphrase(s) (baked/total done)`
+- Initial: `🎭 Bake Vox catchphrases`
 
-## What stays
+Confirm dialog (line ~175-177):
+- With count: `Bake X missing Vox catchphrase(s)? These are the host's hype lines ("Lock in!", "Fingers on buzzers!", round transitions) — not question reads. Already-baked lines are skipped. Calls ElevenLabs — takes ~1 minute.`
+- Fallback: `Pre-bake the Vox catchphrases (host hype lines, not question reads)? Already-baked are skipped. Calls ElevenLabs once per missing line. ~1 minute.`
 
-- **`ExplanationBackfill`** (💡 "Did you know? backfill" — LLM writes the explanation TEXT) stays on the Maintain tab. It's not sound, it's just words.
-- **`QuestionVoiceoversPanel`** stays on Sounds where it already is.
-- In-game playback, server functions, and ElevenLabs wiring — untouched.
+Toast (line 187): `Baked X Vox catchphrases (Y already done)`
 
-## Steps
+Add a one-line helper under the button row clarifying: *"Catchphrases = host hype lines. To narrate questions, use the Question voiceovers panel above."*
 
-1. In `src/routes/_authenticated/admin-sounds.tsx`: import `getExplanationTTSStats` and `bakeAllExplanationTTS` from `@/lib/announcer.functions`. Add a new panel component (or inline-import the existing one) that mirrors the look of `QuestionVoiceoversPanel`. Mount it next to that panel.
-2. In `src/routes/_authenticated/admin.tsx`: remove the `<ExplanationTTSBackfill />` render from the Maintain tab and delete its component definition + related imports (`bakeAllExplanationTTS`, `getExplanationTTSStats`) if no longer used.
-3. Verify Maintain tab still renders cleanly with just the two remaining cards: 💡 backfill + 🛠 duplicate-answers repair.
-
-## Out of scope
-
-- Re-baking anything that's currently mid-run.
-- Renaming buttons or restyling.
-- Touching the cost circuit-breaker / `TTS_CAP_PER_GAME` panel already on Sounds.
+### Out of scope
+No changes to server functions, file names (`host-persona.ts`, `persona-live.ts`), DB columns, or behavior. Pure label/copy change.
