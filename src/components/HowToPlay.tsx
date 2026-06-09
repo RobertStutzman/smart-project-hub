@@ -42,14 +42,36 @@ export function HowToPlay({ onComplete }: { onComplete: () => void }) {
     return () => clearTimeout(t);
   }, [idx, onComplete]);
 
+  // Narrate the current slide via the persona voice. Interrupts the previous
+  // slide's line on advance, and cancels on unmount/skip.
+  useEffect(() => {
+    let cancelled = false;
+    const slide = SLIDES[idx];
+    void import("@/lib/host-persona").then(({ speakPersona }) => {
+      if (cancelled) return;
+      speakPersona(`${slide.title}. ${slide.body}`, { interrupt: true, preset: "hype" });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [idx]);
+
   useEffect(() => {
     function skip(e: KeyboardEvent | MouseEvent) {
       if (e instanceof KeyboardEvent && e.code !== "Enter" && e.code !== "Space" && e.code !== "Escape") return;
+      void import("@/lib/elf-voice").then(({ cancelElfSpeech }) => cancelElfSpeech());
       onComplete();
     }
     window.addEventListener("keydown", skip);
     return () => window.removeEventListener("keydown", skip);
   }, [onComplete]);
+
+  // Cancel any in-flight narration when the component unmounts (rules done).
+  useEffect(() => {
+    return () => {
+      void import("@/lib/elf-voice").then(({ cancelElfSpeech }) => cancelElfSpeech());
+    };
+  }, []);
 
   const slide = SLIDES[idx];
 
