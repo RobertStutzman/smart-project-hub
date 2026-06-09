@@ -563,13 +563,23 @@ function HostPage() {
     persistEnabled(next);
   }
 
-  function actuallyStart() {
+  async function actuallyStart() {
     if (!room) return;
     play("whoosh");
-    setPhaseFn({
-      data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "intro" },
-    }).catch((e) => setError((e as Error).message));
+    try {
+      // Always reset per-game state before launching, so a stale row from a
+      // previous ended game can't bump round_number into the final-round range.
+      await restartGameFn({
+        data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+      });
+      await setPhaseFn({
+        data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "intro" },
+      });
+    } catch (e) {
+      setError((e as Error).message);
+    }
   }
+
 
   function handleStartClick() {
     if (!canStart) {
