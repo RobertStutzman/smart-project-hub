@@ -140,7 +140,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     // beat: Round splash
     list.push({
       key: "splash",
-      durationMs: 2200,
+      durationMs: BEAT_MS,
       render: () => (
         <motion.div
           key="splash"
@@ -179,7 +179,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
       const maxRoundScore = Math.max(1, top8[0]?.current_round_score ?? 1);
       list.push({
         key: "scoreboard",
-        durationMs: 3200,
+        durationMs: SCOREBOARD_MS,
         speak: () => speakPersona(`Here's how round ${roundNumber} shook out.`),
         render: () => (
           <motion.div
@@ -269,7 +269,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     if (fastest) {
       list.push({
         key: "fastest",
-        durationMs: 2100,
+        durationMs: BEAT_MS,
         speak: () => speakPersona(`Fastest finger: ${fastest.nickname}!`),
         render: () => (
           <motion.div
@@ -303,7 +303,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     if (hasStreak && streakKing) {
       list.push({
         key: "streak",
-        durationMs: 2000,
+        durationMs: BEAT_MS,
         speak: () =>
           void speakAboutPlayer({
             nickname: streakKing.nickname,
@@ -340,7 +340,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     if (mvp && (mvp.current_round_score ?? 0) > 0) {
       list.push({
         key: "mvp",
-        durationMs: 2400,
+        durationMs: BEAT_MS,
         speak: () =>
           void speakAboutPlayer({
             nickname: mvp.nickname,
@@ -377,7 +377,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     if (woodenSpoon) {
       list.push({
         key: "spoon",
-        durationMs: 2400,
+        durationMs: BEAT_MS,
         speak: () =>
           void speakAboutPlayer({
             nickname: woodenSpoon.nickname,
@@ -436,7 +436,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
             : `${zeroes[0].nickname}, ${zeroes[1].nickname} and ${zeroes.length - 2} more`;
       list.push({
         key: "zeroes",
-        durationMs: 2200,
+        durationMs: BEAT_MS,
         speak: () =>
           void speakAboutPlayer({
             nickname: zeroes[0].nickname,
@@ -496,7 +496,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
       const climber = biggestClimb;
       list.push({
         key: "climb",
-        durationMs: 2200,
+        durationMs: BEAT_MS,
         speak: () =>
           void speakAboutPlayer({
             nickname: climber.p.nickname,
@@ -534,7 +534,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
       const faller = biggestDrop;
       list.push({
         key: "drop",
-        durationMs: 2200,
+        durationMs: BEAT_MS,
         speak: () =>
           void speakAboutPlayer({
             nickname: faller.p.nickname,
@@ -571,7 +571,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     // beat: To the board
     list.push({
       key: "board",
-      durationMs: 2200,
+      durationMs: BEAT_MS,
       render: () => (
         <motion.div
           key="board"
