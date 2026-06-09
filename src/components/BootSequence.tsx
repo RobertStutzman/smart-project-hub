@@ -38,10 +38,12 @@ function isStandaloneLaunch(): boolean {
   return navStandalone === true;
 }
 
-function startAmbienceBeds() {
-  void startLobbyChatter();
-  void startCrowd();
+function startBootIntroAudio() {
+  // One-shot music sting; voice ID layered ~1.2s in.
+  playBootMusic(0.34);
+  window.setTimeout(() => playBootStationId(0.95), 1200);
 }
+
 
 export function BootSequence({ onComplete }: Props) {
   // When launched from an installed PWA / TWA, skip the tap-to-begin gate.
