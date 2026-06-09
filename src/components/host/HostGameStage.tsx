@@ -534,9 +534,13 @@ export function HostGameStage({ room }: Props) {
 
 
   // Round intro sting + voice — only when transitioning INTO question phase
-  // from a non-question phase. Announces "Round N!" only at the start of a
-  // new round (Q1/6/11/16); other questions get neutral hype lines.
-  const lastRoundStingRef = useRef<number>(0);
+  // from a non-question phase. The pre-baked "round_intro" voice clip
+  // literally says "New round." so only play it on true round openers
+  // (Q1/6/11/16). All other questions get just a neutral whoosh + the
+  // mid-round "Question N" callout.
+  // Keyed by question identity (not just round_number) so realtime remounts
+  // don't re-fire the same callout when the counter hasn't actually changed.
+  const lastRoundStingKeyRef = useRef<string>("");
   const prevPhaseRef = useRef<string>("");
   useEffect(() => {
     if (!state) return;
@@ -545,15 +549,21 @@ export function HostGameStage({ room }: Props) {
     prevPhaseRef.current = state.phase;
     const enteringFromBreak =
       prev === "lobby" || prev === "leaderboard" || prev === "reveal" || prev === "";
+    const key = `${q}|${state.current_question_id ?? ""}`;
     if (
       state.phase === "question" &&
       q > 0 &&
-      q !== lastRoundStingRef.current &&
+      key !== lastRoundStingKeyRef.current &&
       enteringFromBreak
     ) {
-      lastRoundStingRef.current = q;
-      playEvent("round_intro");
-      play("whoosh");
+      lastRoundStingKeyRef.current = key;
+      const qInRound = ((q - 1) % 5) + 1;
+      const isRoundOpener = qInRound === 1; // Q1, Q6, Q11, Q16
+      if (isRoundOpener) {
+        playEvent("round_intro");
+      } else {
+        play("whoosh");
+      }
       const text = getRoundCallout({
         questionNumber: q,
         wildcard: (state.wildcard ?? null) as WildcardKind | null,
@@ -566,7 +576,7 @@ export function HostGameStage({ room }: Props) {
       }
 
     }
-  }, [state?.phase, state?.round_number]);
+  }, [state?.phase, state?.round_number, state?.current_question_id]);
 
 
   // Phase-driven event stings
