@@ -49,6 +49,7 @@ export const QuestionStage = memo(function QuestionStage({
   mediaUrl,
   mediaType,
   questionNumber = 1,
+  hideTimer = false,
 }: Props) {
   // Anchor the intro on when THIS host first observed the new question.
   // The server schedules `question_started_at` ~6s in the future, but realtime
