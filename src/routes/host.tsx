@@ -56,7 +56,8 @@ const HOWTO_KEY = "btd:howto-shown";
 
 const MUTE_KEY = "btd:muted";
 
-const CATEGORIES_KEY = "btd:enabled-categories";
+const CATEGORIES_KEY = "btd:enabled-categories:v2";
+const CAT_NUDGE_KEY = "dt:host:cat-nudge-seen";
 
 function HostPage() {
   const navigate = useNavigate();
@@ -91,6 +92,7 @@ function HostPage() {
   const [roundNumber, setRoundNumber] = useState<number>(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showHowTo, setShowHowTo] = useState(false);
+  const [catNudgeSeen, setCatNudgeSeen] = useState(true);
   const initRef = useRef(false);
   const playersRef = useRef<Player[]>([]);
   const pausedRef = useRef(false);
