@@ -63,7 +63,7 @@ const HOWTO_KEY = "btd:howto-shown";
 const MUTE_KEY = "btd:muted";
 
 const CATEGORIES_KEY = "btd:enabled-categories:v2";
-const CAT_NUDGE_KEY = "dt:host:cat-nudge-seen:v2";
+
 
 function HostPage() {
   const navigate = useNavigate();
@@ -101,7 +101,7 @@ function HostPage() {
   const [hasExplanationTts, setHasExplanationTts] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showHowTo, setShowHowTo] = useState(false);
-  const [catNudgeSeen, setCatNudgeSeen] = useState(true);
+  
   const initRef = useRef(false);
   const playersRef = useRef<Player[]>([]);
   const pausedRef = useRef(false);
@@ -116,16 +116,11 @@ function HostPage() {
   useEffect(() => {
     setOrigin(window.location.host);
     setMuted(window.localStorage.getItem(MUTE_KEY) === "1");
-    setCatNudgeSeen(window.localStorage.getItem(CAT_NUDGE_KEY) === "1");
   }, []);
 
   const openSettings = useCallback(() => {
     setSettingsOpen(true);
-    if (!catNudgeSeen) {
-      setCatNudgeSeen(true);
-      try { window.localStorage.setItem(CAT_NUDGE_KEY, "1"); } catch {}
-    }
-  }, [catNudgeSeen]);
+  }, []);
 
   // Auto-create or resume room on mount
   useEffect(() => {
@@ -871,7 +866,7 @@ function HostPage() {
               {mixLabel}
             </button>
             <AnimatePresence>
-              {!catNudgeSeen && (
+              {true && (
                 <motion.div
                   key="cat-nudge"
                   initial={{ opacity: 0, x: 8 }}
