@@ -639,3 +639,120 @@ export function playRandomDrop() {
   }
 }
 
+// ─── Adaptive timer-driven intensity ───────────────────────────────
+// A persistent low rumble + filtered noise bed that ramps with `intensity`
+// (0..1, where 1 = timer nearly out). Lives independently of the music loop
+// so it works whether the tense synth loop or an uploaded bed is playing.
+
+type IntensityNodes = {
+  rumbleOsc: OscillatorNode;
+  rumbleGain: GainNode;
+  subOsc: OscillatorNode;
+  subGain: GainNode;
+  noiseFilter: BiquadFilterNode;
+  noiseGain: GainNode;
+};
+let intensityNodes: IntensityNodes | null = null;
+
+function ensureIntensityNodes(a: AudioContext): IntensityNodes {
+  if (intensityNodes) return intensityNodes;
+  const t0 = a.currentTime;
+
+  const rumbleOsc = a.createOscillator();
+  rumbleOsc.type = "sawtooth";
+  rumbleOsc.frequency.setValueAtTime(48, t0);
+  const rumbleGain = a.createGain();
+  rumbleGain.gain.setValueAtTime(0, t0);
+  rumbleOsc.connect(rumbleGain).connect(a.destination);
+  rumbleOsc.start(t0);
+
+  const subOsc = a.createOscillator();
+  subOsc.type = "sine";
+  subOsc.frequency.setValueAtTime(36, t0);
+  const subGain = a.createGain();
+  subGain.gain.setValueAtTime(0, t0);
+  subOsc.connect(subGain).connect(a.destination);
+  subOsc.start(t0);
+
+  const buf = a.createBuffer(1, a.sampleRate * 2, a.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  const noiseSrc = a.createBufferSource();
+  noiseSrc.buffer = buf;
+  noiseSrc.loop = true;
+  const noiseFilter = a.createBiquadFilter();
+  noiseFilter.type = "bandpass";
+  noiseFilter.frequency.setValueAtTime(220, t0);
+  noiseFilter.Q.setValueAtTime(0.7, t0);
+  const noiseGain = a.createGain();
+  noiseGain.gain.setValueAtTime(0, t0);
+  noiseSrc.connect(noiseFilter).connect(noiseGain).connect(a.destination);
+  noiseSrc.start(t0);
+
+  intensityNodes = { rumbleOsc, rumbleGain, subOsc, subGain, noiseFilter, noiseGain };
+  return intensityNodes;
+}
+
+/**
+ * Set adaptive music intensity 0..1 (0=calm, 1=timer almost out).
+ *   <0.5  silent;  0.5-0.75 low rumble;  0.75-0.9 sub joins;  >0.9 noise swell.
+ */
+export function setMusicIntensity(intensity: number) {
+  if (typeof window === "undefined") return;
+  const i = muted ? 0 : Math.max(0, Math.min(1, intensity));
+  const a = ac();
+  if (!a) return;
+  const nodes = ensureIntensityNodes(a);
+  const t = a.currentTime;
+
+  const rumble = i < 0.5 ? 0 : Math.min(1, (i - 0.5) / 0.4) * 0.16;
+  const sub = i < 0.75 ? 0 : Math.min(1, (i - 0.75) / 0.25) * 0.22;
+  const noise = i < 0.9 ? 0 : Math.min(1, (i - 0.9) / 0.1) * 0.06;
+
+  nodes.rumbleGain.gain.cancelScheduledValues(t);
+  nodes.rumbleGain.gain.linearRampToValueAtTime(rumble, t + 0.25);
+  nodes.subGain.gain.cancelScheduledValues(t);
+  nodes.subGain.gain.linearRampToValueAtTime(sub, t + 0.25);
+  nodes.noiseGain.gain.cancelScheduledValues(t);
+  nodes.noiseGain.gain.linearRampToValueAtTime(noise, t + 0.2);
+
+  nodes.rumbleOsc.frequency.cancelScheduledValues(t);
+  nodes.rumbleOsc.frequency.linearRampToValueAtTime(48 + i * 8, t + 0.3);
+  nodes.noiseFilter.frequency.cancelScheduledValues(t);
+  nodes.noiseFilter.frequency.linearRampToValueAtTime(220 + i * 600, t + 0.3);
+}
+
+// ─── Per-player walk-on stinger (synth, ~0.4s, ducked under VO) ────
+export type WalkOnVariant = "riser" | "brass" | "blip" | "scratch";
+const WALK_ON_VARIANTS: WalkOnVariant[] = ["riser", "brass", "blip", "scratch"];
+
+export function playWalkOnStinger(indexOrVariant: number | WalkOnVariant = 0) {
+  if (muted) return;
+  const v: WalkOnVariant =
+    typeof indexOrVariant === "string"
+      ? indexOrVariant
+      : WALK_ON_VARIANTS[((indexOrVariant % WALK_ON_VARIANTS.length) + WALK_ON_VARIANTS.length) % WALK_ON_VARIANTS.length];
+  const s = 0.7;
+  switch (v) {
+    case "riser":
+      sweep(220, 980, 0.36, "sawtooth", 0.14 * s);
+      tone(1320, 0.08, "triangle", 0.16 * s, 0.3);
+      break;
+    case "brass":
+      tone(330, 0.18, "sawtooth", 0.22 * s);
+      tone(440, 0.22, "sawtooth", 0.18 * s, 0.03);
+      tone(660, 0.18, "triangle", 0.14 * s, 0.06);
+      break;
+    case "blip":
+      tone(880, 0.06, "square", 0.16 * s);
+      tone(1320, 0.07, "square", 0.14 * s, 0.07);
+      tone(1760, 0.08, "square", 0.12 * s, 0.14);
+      break;
+    case "scratch":
+      sweep(2400, 320, 0.16, "sawtooth", 0.14 * s);
+      noise(0.12, 0.08 * s);
+      break;
+  }
+}
+
+
