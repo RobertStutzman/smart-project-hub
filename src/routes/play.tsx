@@ -748,14 +748,16 @@ function PlayPage() {
                 })()}
 
 
-                {/* Question text on phone */}
+                {/* Question text on phone — scroll internally if very long
+                    so it never steals height from the answer tiles below. */}
                 {room.current_question_text && room.wildcard !== "roast" && (
-                  <div className="rounded-2xl border border-border bg-card/40 px-4 py-3 text-center backdrop-blur">
-                    <div className="line-clamp-4 text-base font-bold leading-snug text-foreground">
+                  <div className="max-h-[18vh] shrink-0 overflow-y-auto rounded-2xl border border-border bg-card/40 px-4 py-2 text-center backdrop-blur">
+                    <div className="text-sm font-bold leading-snug text-foreground sm:text-base">
                       {room.current_question_text}
                     </div>
                   </div>
                 )}
+
 
                 {/* LOCKED IN confirmation */}
                 {room.phase === "question" &&
