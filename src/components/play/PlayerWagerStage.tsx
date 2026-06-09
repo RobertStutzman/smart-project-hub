@@ -161,6 +161,26 @@ export function PlayerWagerStage({
         <div className="mt-1 text-xs text-white/50">
           0 – <span className="font-mono font-bold text-white/80">{max}</span> pts on the line
         </div>
+
+        {/* Countdown */}
+        <div className="mt-3 flex items-center justify-center gap-3">
+          <span
+            className={`font-mono text-3xl font-black tabular-nums ${
+              danger ? "text-rose-300 animate-pulse" : "text-amber-200"
+            }`}
+          >
+            {secondsLeft}s
+          </span>
+          <span className="text-[10px] uppercase tracking-[0.3em] text-white/40">
+            to lock
+          </span>
+        </div>
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+          <div
+            className={`h-full transition-all ${danger ? "bg-rose-400" : "bg-amber-300"}`}
+            style={{ width: `${timeProgress * 100}%` }}
+          />
+        </div>
       </div>
 
       <div className="relative flex flex-1 flex-col items-center justify-center gap-4">
