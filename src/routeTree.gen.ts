@@ -24,7 +24,6 @@ import { Route as ResultsRoomIdRouteImport } from './routes/results.$roomId'
 import { Route as LegalTermsRouteImport } from './routes/legal.terms'
 import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
 import { Route as LegalContactRouteImport } from './routes/legal.contact'
-import { Route as AuthenticatedAdminTtsRouteImport } from './routes/_authenticated/admin-tts'
 import { Route as AuthenticatedAdminSoundsRouteImport } from './routes/_authenticated/admin-sounds'
 import { Route as AuthenticatedAdminQuestionsRouteImport } from './routes/_authenticated/admin-questions'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
@@ -105,11 +104,6 @@ const LegalContactRoute = LegalContactRouteImport.update({
   path: '/legal/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedAdminTtsRoute = AuthenticatedAdminTtsRouteImport.update({
-  id: '/admin-tts',
-  path: '/admin-tts',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedAdminSoundsRoute =
   AuthenticatedAdminSoundsRouteImport.update({
     id: '/admin-sounds',
@@ -153,7 +147,6 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRoute
   '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
-  '/admin-tts': typeof AuthenticatedAdminTtsRoute
   '/legal/contact': typeof LegalContactRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
@@ -175,7 +168,6 @@ export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminRoute
   '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
-  '/admin-tts': typeof AuthenticatedAdminTtsRoute
   '/legal/contact': typeof LegalContactRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
@@ -199,7 +191,6 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/_authenticated/admin-sounds': typeof AuthenticatedAdminSoundsRoute
-  '/_authenticated/admin-tts': typeof AuthenticatedAdminTtsRoute
   '/legal/contact': typeof LegalContactRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
@@ -223,7 +214,6 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin-questions'
     | '/admin-sounds'
-    | '/admin-tts'
     | '/legal/contact'
     | '/legal/privacy'
     | '/legal/terms'
@@ -245,7 +235,6 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin-questions'
     | '/admin-sounds'
-    | '/admin-tts'
     | '/legal/contact'
     | '/legal/privacy'
     | '/legal/terms'
@@ -268,7 +257,6 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/admin-questions'
     | '/_authenticated/admin-sounds'
-    | '/_authenticated/admin-tts'
     | '/legal/contact'
     | '/legal/privacy'
     | '/legal/terms'
@@ -405,13 +393,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LegalContactRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/admin-tts': {
-      id: '/_authenticated/admin-tts'
-      path: '/admin-tts'
-      fullPath: '/admin-tts'
-      preLoaderRoute: typeof AuthenticatedAdminTtsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/admin-sounds': {
       id: '/_authenticated/admin-sounds'
       path: '/admin-sounds'
@@ -454,14 +435,12 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAdminQuestionsRoute: typeof AuthenticatedAdminQuestionsRoute
   AuthenticatedAdminSoundsRoute: typeof AuthenticatedAdminSoundsRoute
-  AuthenticatedAdminTtsRoute: typeof AuthenticatedAdminTtsRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAdminQuestionsRoute: AuthenticatedAdminQuestionsRoute,
   AuthenticatedAdminSoundsRoute: AuthenticatedAdminSoundsRoute,
-  AuthenticatedAdminTtsRoute: AuthenticatedAdminTtsRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
