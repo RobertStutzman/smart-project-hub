@@ -1469,7 +1469,7 @@ export function useRevealAutoAdvance(
   hostSessionId: string,
   phase: string | undefined,
   roundNumber: number,
-  hasExplanationTts: boolean,
+  hasExplanationTts: boolean = true,
 ) {
   const setPhaseFn = useServerFn(setPhase);
   const nextQuestionFn = useServerFn(nextQuestion);
