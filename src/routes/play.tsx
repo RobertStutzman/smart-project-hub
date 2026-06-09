@@ -294,12 +294,17 @@ function PlayPage() {
   const startMs = room.question_started_at
     ? new Date(room.question_started_at).getTime()
     : 0;
-  const readSecondsLeft = room.question_started_at
-    ? Math.max(0, (startMs - now) / 1000)
+  // Use server-adjusted clock so device clock skew can't lock the tiles.
+  const serverNow = now + serverOffsetMs;
+  const rawReadSecondsLeft = room.question_started_at
+    ? Math.max(0, (startMs - serverNow) / 1000)
     : 0;
+  // Belt-and-suspenders: lead-in is at most ~6s. If we think it's > 10s,
+  // assume our offset is wrong and unlock the tiles.
+  const readSecondsLeft = rawReadSecondsLeft > 10 ? 0 : rawReadSecondsLeft;
   const reading = readSecondsLeft > 0 && room.phase === "question";
   const remainingS = room.question_started_at
-    ? Math.max(0, room.question_duration_ms / 1000 - Math.max(0, (now - startMs) / 1000))
+    ? Math.max(0, room.question_duration_ms / 1000 - Math.max(0, (serverNow - startMs) / 1000))
     : null;
 
   // Wildcard derived state
