@@ -290,11 +290,13 @@ export function HostGameStage({ room }: Props) {
   // Play The Elf reading the question whenever a new one lands
   const questionTtsAudioRef = useRef<HTMLAudioElement | null>(null);
   const lastPlayedQuestionIdRef = useRef<string | null>(null);
+  // Resolves when the mid-round "Question N" callout finishes so the question
+  // read can wait for it instead of trampling/being delayed by it.
+  const calloutDoneRef = useRef<Promise<unknown>>(Promise.resolve());
   useEffect(() => {
     const qid = state?.current_question_id ?? null;
     const url = state?.current_question_tts_url ?? null;
     const phase = state?.phase;
-    const startedAt = state?.question_started_at ?? null;
     // Only play during actual question phases, and only once per question
     if (!qid || !url || (phase !== "question" && phase !== "final_question")) {
       return;
@@ -312,25 +314,38 @@ export function HostGameStage({ room }: Props) {
       questionTtsAudioRef.current = null;
     }
 
-    // Wait until the 3-2-1 countdown is finished (question_started_at)
-    // so the "next question!" announcement doesn't overlap the read.
-    const startMs = startedAt ? new Date(startedAt).getTime() : Date.now();
-    const delay = Math.max(0, startMs - Date.now());
+    // Fire the read at the moment the question text is on screen
+    // (matches QuestionStage's intro: text appears ~2s after this effect runs),
+    // then wait briefly for the round callout to finish so they don't overlap.
+    const VISIBLE_AT_MS = 2000;
+    const CALLOUT_GRACE_MS = 1200;
 
-    const timer = window.setTimeout(() => {
-      // Route through the shared voice queue with interrupt — question prompt
-      // is the main event and should jump any in-flight persona line.
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      if (cancelled) return;
+      try {
+        await Promise.race([
+          calloutDoneRef.current,
+          new Promise((r) => window.setTimeout(r, CALLOUT_GRACE_MS)),
+        ]);
+      } catch {
+        /* ignore */
+      }
+      if (cancelled) return;
       void playVoiceUrl(url, {
         interrupt: true,
         onStart: () => duckMusic(true),
         onEnd: () => duckMusic(false),
       });
-      // Keep ref non-null so the cleanup path below still no-ops safely.
       questionTtsAudioRef.current = null;
-    }, delay);
+    }, VISIBLE_AT_MS);
 
-    return () => window.clearTimeout(timer);
-  }, [state?.current_question_id, state?.current_question_tts_url, state?.phase, state?.question_started_at]);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [state?.current_question_id, state?.current_question_tts_url, state?.phase]);
+
 
 
   // Stop any lingering question read when leaving question phases
@@ -579,10 +594,11 @@ export function HostGameStage({ room }: Props) {
       });
       if (text) {
         duckMusic(true);
-        import("@/lib/elf-voice").then(({ speakAsElf }) => {
-          speakAsElf(text, { preset: "hype" }).finally(() => duckMusic(false));
-        }).catch(() => duckMusic(false));
+        calloutDoneRef.current = import("@/lib/elf-voice")
+          .then(({ speakAsElf }) => speakAsElf(text, { preset: "hype" }))
+          .finally(() => duckMusic(false));
       }
+
 
     }
   }, [state?.phase, state?.round_number, state?.current_question_id]);
