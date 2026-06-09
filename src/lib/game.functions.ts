@@ -4,6 +4,12 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const MAX_POINTS = 1000;
 const STREAK_BONUS = 1.1;
+// Grace window at the very start of a question: any lock within this many
+// ms of `question_started_at` is treated as if it happened at t=0 and yields
+// full points. Without this, network roundtrip + reaction time make a true
+// 1000 unreachable (Kahoot/HQ use the same idea).
+const POINTS_GRACE_MS = 1500;
+
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -460,8 +466,10 @@ export const endQuestion = createServerFn({ method: "POST" })
         answered += 1;
         correctCount += 1;
         if (lockedMs) totalMs += lockedMs - startMs;
-        const remaining = Math.max(0, durationMs - ((lockedMs ?? startMs + durationMs) - startMs)) / 1000;
+        const elapsedMs = Math.max(0, (lockedMs ?? startMs + durationMs) - startMs - POINTS_GRACE_MS);
+        const remaining = Math.max(0, durationMs - elapsedMs) / 1000;
         let base = Math.round((remaining / (durationMs / 1000)) * MAX_POINTS);
+
         if (nextStreak >= 3) base = Math.round(base * STREAK_BONUS);
         if (rubberIds.has(p.id)) base = Math.round(base * 1.25); // rubber-banding (hidden)
         if (pending2x) {

@@ -919,14 +919,21 @@ function PlayerPointsTicker({
   questionStartedAt: string | null;
   hasAnswer: boolean;
 }) {
+  // Mirror server-side POINTS_GRACE_MS — first 1.5s of question yields max.
+  const GRACE_S = 1.5;
   let points: number;
   if (hasAnswer && lockedAt && questionStartedAt) {
-    const elapsed = (new Date(lockedAt).getTime() - new Date(questionStartedAt).getTime()) / 1000;
+    const elapsed = Math.max(
+      0,
+      (new Date(lockedAt).getTime() - new Date(questionStartedAt).getTime()) / 1000 - GRACE_S,
+    );
     const remainingAtLock = Math.max(0, totalS - elapsed);
     points = Math.max(0, Math.round((remainingAtLock / totalS) * 1000));
   } else {
-    points = Math.max(0, Math.round((Math.max(0, remainingS) / totalS) * 1000));
+    const effectiveRemaining = Math.min(totalS, Math.max(0, remainingS) + GRACE_S);
+    points = Math.max(0, Math.round((effectiveRemaining / totalS) * 1000));
   }
+
   const color =
     points >= 500
       ? "text-amber-300"
