@@ -58,7 +58,16 @@ export function IntroStage({ players, onDone }: Props) {
       }
     });
 
-    at(2600, () => setStep("roster"));
+    at(2600, () => {
+      setStep("roster");
+      // Walk-on stingers — one per contestant, staggered to match the
+      // card pop animation (0.08s delay each, +200ms initial offset).
+      const maxStingers = Math.min(players.length, 10);
+      for (let i = 0; i < maxStingers; i++) {
+        at(200 + i * 220, () => playWalkOnStinger(i));
+      }
+    });
+
     at(5500, () => {
       // Guarantee a clean slate before the countdown line — if the intro
       // quip ran long for any reason, cut it cleanly so it never overlaps
