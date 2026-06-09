@@ -525,6 +525,10 @@ function CsvDropzone({
 
   async function insert() {
     if (!preview) return;
+    if (preview.length > 1000) {
+      toast.error(`CSV has ${preview.length} rows; max is 1000 per import. Split the file and try again.`);
+      return;
+    }
     setBusy(true);
     try {
       const rows = preview.map((r) => ({
