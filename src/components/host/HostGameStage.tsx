@@ -348,7 +348,7 @@ export function HostGameStage({ room }: Props) {
     const qid = state?.current_question_id ?? null;
     const url = state?.current_explanation_tts_url ?? null;
     const phase = state?.phase;
-    if (!qid || !url || phase !== "reveal") return;
+    if (!qid || !url || (phase !== "reveal" && phase !== "final_reveal")) return;
     if (lastPlayedExplanationIdRef.current === qid) return;
     lastPlayedExplanationIdRef.current = qid;
 
@@ -388,7 +388,7 @@ export function HostGameStage({ room }: Props) {
   // Reset the "played explanation" gate when we leave reveal so the next
   // question's explanation can play.
   useEffect(() => {
-    if (state?.phase !== "reveal") {
+    if (state?.phase !== "reveal" && state?.phase !== "final_reveal") {
       lastPlayedExplanationIdRef.current = null;
       resetExplanationFor(null);
       if (explanationTtsAudioRef.current) {
