@@ -820,7 +820,7 @@ function HostPage() {
                     className="whitespace-nowrap text-amber-200"
                     style={{ fontFamily: "'Caveat', 'Comic Sans MS', cursive", fontSize: "1.05rem" }}
                   >
-                    pick your categories!
+                    psst — you can pick your categories!
                   </span>
                 </motion.div>
               )}
