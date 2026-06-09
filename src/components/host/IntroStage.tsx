@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { HOST_NAME, pickLine, speakPersona } from "@/lib/host-persona";
+import { HOST_NAME, pickLine, pickWelcomeBack, speakPersona } from "@/lib/host-persona";
 import { play } from "@/lib/sound-engine";
 
 type Player = {
