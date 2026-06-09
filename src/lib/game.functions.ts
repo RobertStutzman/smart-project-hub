@@ -60,6 +60,23 @@ async function getRoomByHost(roomCode: string, hostSessionId: string) {
   return data;
 }
 
+// Read the secret correct-answer index for a room. Lives in a server-only
+// table so anonymous clients can't poll it during the question phase.
+async function getSecretCorrectIndex(roomId: string): Promise<number | null> {
+  const { data } = await supabaseAdmin
+    .from("room_secrets")
+    .select("correct_index")
+    .eq("room_id", roomId)
+    .maybeSingle();
+  return (data as { correct_index: number | null } | null)?.correct_index ?? null;
+}
+
+async function setSecretCorrectIndex(roomId: string, correctIndex: number | null) {
+  await supabaseAdmin
+    .from("room_secrets")
+    .upsert({ room_id: roomId, correct_index: correctIndex, updated_at: new Date().toISOString() });
+}
+
 // Wildcards fire on the last question of each 5-question "round" — i.e.
 // questions 5, 10, 15, 20 — rotating through the 7 types. Q21 (final) is
 // always skipped; the final drop is its own beat.
