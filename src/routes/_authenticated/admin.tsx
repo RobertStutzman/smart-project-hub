@@ -262,21 +262,55 @@ function AdminPage() {
           </div>
         </header>
 
-        <CapacityWidget />
+        <section className="rounded-3xl border border-border bg-card/40 p-2 backdrop-blur">
+          <div role="tablist" className="flex flex-wrap gap-1">
+            {([
+              { id: "add", label: "➕ Add questions" },
+              { id: "maintain", label: "🛠️ Maintain" },
+              { id: "health", label: "📊 Health" },
+            ] as const).map((t) => {
+              const active = toolTab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setToolTab(t.id)}
+                  className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
+                    active
+                      ? "bg-primary text-primary-foreground shadow"
+                      : "text-muted-foreground hover:bg-card/60"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        </section>
 
-        <AIGenerator generate={generateFn} bulkInsert={bulkFn} onInserted={reload} categories={mergedCategories} />
+        {toolTab === "add" && (
+          <div className="flex flex-col gap-6">
+            <AIGenerator generate={generateFn} bulkInsert={bulkFn} onInserted={reload} categories={mergedCategories} />
+            <GeminiImporter bulkInsert={bulkFn} onInserted={reload} />
+            <CsvDropzone bulkInsert={bulkFn} onInserted={reload} />
+          </div>
+        )}
 
+        {toolTab === "maintain" && (
+          <div className="flex flex-col gap-6">
+            <ExplanationBackfill onUpdated={reload} />
+            <ExplanationTTSBackfill />
+            <DuplicateAnswersRepair onUpdated={reload} />
+          </div>
+        )}
 
-        <GeminiImporter bulkInsert={bulkFn} onInserted={reload} />
+        {toolTab === "health" && (
+          <div className="flex flex-col gap-6">
+            <CapacityWidget />
+          </div>
+        )}
 
-        <ExplanationBackfill onUpdated={reload} />
-
-        <ExplanationTTSBackfill />
-
-
-        <DuplicateAnswersRepair onUpdated={reload} />
-
-        <CsvDropzone bulkInsert={bulkFn} onInserted={reload} />
 
         <section className="rounded-3xl border border-border bg-card/40 p-6 backdrop-blur">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
