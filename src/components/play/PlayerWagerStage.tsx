@@ -75,6 +75,20 @@ export function PlayerWagerStage({
   const pct = max > 0 ? wagerDraft / max : 0;
   const tier = useMemo(() => riskTier(pct), [pct]);
 
+  // Mount-based 30s countdown to match the host's auto-advance.
+  const [startMs] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(id);
+  }, []);
+  const secondsLeft = Math.max(
+    0,
+    Math.ceil(WAGER_DURATION_S - (now - startMs) / 1000),
+  );
+  const timeProgress = Math.min(1, (now - startMs) / (WAGER_DURATION_S * 1000));
+  const danger = secondsLeft <= 5 && !locked;
+
   // Tick haptic when crossing tier thresholds
   useEffect(() => {
     if (locked) return;
