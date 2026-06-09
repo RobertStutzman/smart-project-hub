@@ -164,7 +164,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
       list.push({
         key: "scoreboard",
         durationMs: 3200,
-        speak: () => speakPersona(`Here's how round ${roundNumber} shook out.`, { interrupt: true }),
+        speak: () => speakPersona(`Here's how round ${roundNumber} shook out.`),
         render: () => (
           <motion.div
             key="scoreboard"

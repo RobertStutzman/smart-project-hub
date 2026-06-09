@@ -1,63 +1,40 @@
-## Goal
+## Two real problems
 
-Make both score displays read like a real broadcast scoreboard, not a row of floating numbers. Replace the avatar-strip "Scoreboard" beat and the floating podium blocks with proportional, ranked, labeled bars.
+1. **Wildcard Q5 explanation gets cut off** — the previously approved fix to `useRevealAutoAdvance` was never landed; the hook still advances out of `reveal` the instant the persona reaction stops, before the "Did you know?" explanation has even started playing (because it's queued behind the persona reaction and personalized callout, then auto-advance lands in the gap and moves the room to `leaderboard`).
+2. **Announcer talking over himself** — two places call into the voice queue with `interrupt: true` while another line may still be in flight:
+   - `RoundRecapReel.tsx` scoreboard beat: `speakPersona("Here's how round N shook out.", { interrupt: true })` — kills any explanation line still playing when the recap mounts at start of `leaderboard`.
+   - `HostGameStage.tsx` round/wildcard callout (~line 546): `speakAsElf(text, { interrupt: true, preset: "hype" })` — kills any tail of leaderboard/recap voice when the next question's phase flips to `question`.
 
-## Files
+## Fix
 
-- `src/components/host/RoundRecapReel.tsx` — replace the `scoreboard` beat
-- `src/components/host/Leaderboard.tsx` — replace the podium + rest split with a single ranked bar chart
+### A. Land the explanation-playback signal (fixes #1)
 
-## 1. Recap "Scoreboard" beat (round-score chart)
+**New `src/lib/explanation-playback.ts`** — module-level state: `{ qid, expected, started, ended }` with `markExplanationExpected(qid)`, `markExplanationStarted(qid)`, `markExplanationEnded(qid)`, `resetExplanationFor(qid)`, `getExplanationStateFor(qid)`.
 
-Replace the centered row of 8 avatars + `+N` numbers with a horizontal-bar ranked chart of THIS round's scores.
+**`src/components/host/HostGameStage.tsx`** — in the explanation `useEffect` (lines ~338–367):
+- On the qid+url+reveal entry, call `resetExplanationFor(qid)` and `markExplanationExpected(qid)` immediately (before the 3800ms setTimeout).
+- Inside `playVoiceUrl`'s `onStart`/`onEnd`, also call `markExplanationStarted(qid)` / `markExplanationEnded(qid)`.
+- In the "leave reveal" effect (lines ~371–383), call `resetExplanationFor(null)`.
 
-Layout (top 8 players, sorted by `current_round_score` desc):
+**`useRevealAutoAdvance` (same file)** — gate advance on explanation state:
+- Read `current_question_id` from the caller. Update its signature to accept `currentQuestionId: string | null` and `hasExplanation: boolean`, and update the call site in `src/routes/host.tsx`.
+- In the poll: if `hasExplanation` is true, do NOT advance on the `sawSpeech && !speaking` heuristic. Only advance when `getExplanationStateFor(qid).ended === true`, OR when the 45 s safety cap trips.
+- Keep the "no explanation at all" branch (`elapsed >= SPEECH_START_DEADLINE_MS && !sawSpeech`) for rooms where `hasExplanation === false`, so they still move on after the persona reaction ends.
 
-```text
-RANK | AVATAR  NAME              [████████████████████  ] +120
-  1  | (img)   ALEX     ⚡        [██████████████        ]  +90
-  2  | (img)   SAM                [█████                 ]  +30
-  ...
-```
+### B. Stop the queue-interruptors (fixes #2)
 
-Per row:
-- Fixed-width rank column (`1`–`8`), monospace, bold.
-- 36px avatar with thin ring.
-- Nickname (display font, truncate), small icons inline: ⚡ if `current_round_fastest`, 🔥 if `streak_count >= 3`.
-- Bar track (`bg-white/5`, rounded) filling left-to-right to `score / maxScore` width, animated from 0 → final width with a 120ms stagger per row using framer-motion. Gold gradient for #1, white/amber for the rest. Subtle inner shadow for depth.
-- Right-aligned `+score` in mono, emerald for >0, zinc for 0.
+**`src/components/host/RoundRecapReel.tsx`** — drop `{ interrupt: true }` from the scoreboard `speakPersona` call (line 167). The recap line should queue behind anything still in flight, not cut it.
 
-Header strip above the bars: small uppercase eyebrow "Round {N} · Round scores".
-Height capped to fit the stage; if >8 players, show top 8 and a "+N more" pill at the bottom right. Speak line unchanged.
+**`src/components/host/HostGameStage.tsx`** — drop `{ interrupt: true }` from the round/wildcard callout `speakAsElf` (line 546). The callout already fires only when entering `question` from a break, and queuing keeps the leaderboard/recap voice from being chopped off mid-sentence.
 
-## 2. Leaderboard (cumulative chart)
+### Out of scope
 
-Drop the 3 raised podium blocks + separate `<ol>` list. Replace with one unified ranked bar chart of ALL players by total `score`, same row pattern as above but tuned for "season standings":
-
-- Rank column with gold/silver/bronze pill for ranks 1–3, plain mono number for 4+.
-- Avatar 44px.
-- Nickname + inline streak/fastest icons.
-- Bar fills to `score / maxScore`. Tone: gold gradient (1st), silver (2nd), bronze (3rd), neutral white/10 for the rest.
-- Right side shows total `score` (mono, large) and, if `current_round_score` is set and non-zero, a small delta chip underneath in emerald/rose (`+12` / `−4`).
-- Smooth `layout` animation so rank changes glide between rounds.
-- Top of board: small eyebrow "Standings · After round {N}" (pass `roundNumber` as a prop; default-safe if missing).
-
-Container: max-w-4xl, dark glass card, generous row spacing, divider lines between rows (`border-white/5`).
-
-## Style notes
-
-- No emoji-heavy decoration. Keep the existing display/mono font pairing.
-- Bars use solid tokens already in the file (amber/emerald/rose/zinc) — no new colors.
-- Animations: enter-row stagger ~80–120ms, bar fill ~700ms `easeOut`, layout spring for rank changes. Nothing else moves.
-- Readable at 10 ft: nickname `text-lg`, score `text-2xl`, bar height `h-3`.
-
-## Out of scope
-
-- No data shape changes; only consumes existing `Player` fields.
-- No backend / RLS / DB changes.
-- Other recap beats (MVP, fastest, streak, spoon, climb, drop) untouched.
-- No countdown reintroduction.
+- No edits to `elf-voice.ts`, `persona-live.ts`, `announcer.functions.ts`, ambience/music engines, DB, RLS, the wildcard banner, or the new leaderboard/recap bar charts.
+- Other `interrupt: true` callers (`HowToPlay.tsx` slide changes, `CreditsStage.tsx` open) are intentional UX cancels and stay as-is.
 
 ## Verification
 
-- Visual check at `/host` after a round ends: bars animate in ranked order, totals legible, podium replaced with a proper bar chart, layout doesn't overflow at 934px or 1920px wide.
+- Run a wildcard Q5: persona reaction → personalized callout → "Did you know?" plays to completion → THEN room flips to leaderboard. The announcer never overlaps himself; recap line waits its turn.
+- Run a normal Q (non-wildcard, with explanation): same — explanation plays to completion before nextQuestion fires.
+- Run a question with no baked explanation (hasExplanation=false): existing 4.5 s deadline still advances after the persona reaction ends.
+- Safety cap still bounds a hung audio element at 45 s.
