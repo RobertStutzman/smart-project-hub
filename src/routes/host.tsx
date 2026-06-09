@@ -107,7 +107,16 @@ function HostPage() {
   useEffect(() => {
     setOrigin(window.location.host);
     setMuted(window.localStorage.getItem(MUTE_KEY) === "1");
+    setCatNudgeSeen(window.localStorage.getItem(CAT_NUDGE_KEY) === "1");
   }, []);
+
+  const openSettings = useCallback(() => {
+    setSettingsOpen(true);
+    if (!catNudgeSeen) {
+      setCatNudgeSeen(true);
+      try { window.localStorage.setItem(CAT_NUDGE_KEY, "1"); } catch {}
+    }
+  }, [catNudgeSeen]);
 
   // Auto-create or resume room on mount
   useEffect(() => {
