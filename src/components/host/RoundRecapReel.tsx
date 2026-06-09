@@ -6,10 +6,17 @@ import { playCreditsMusic } from "@/lib/sound-engine";
 
 // Shared transition for every beat — uniform crossfade + gentle drift so the
 // reel scrolls smoothly instead of snapping between mismatched motion styles.
-const BEAT_T = { duration: 0.45, ease: [0.22, 1, 0.36, 1] as const };
+const BEAT_T = { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const };
 const BEAT_INITIAL = { opacity: 0, y: 14 };
 const BEAT_ANIMATE = { opacity: 1, y: 0 };
 const BEAT_EXIT = { opacity: 0, y: -14 };
+
+// Even, predictable pacing — viewers complained the old per-beat durations
+// (2.0–3.2s) felt rushed and irregular. Hold each celebratory card long
+// enough to read names + stats; give the scoreboard extra room.
+const BEAT_MS = 3200;
+const SCOREBOARD_MS = 5000;
+
 
 type Player = {
   id: string;
