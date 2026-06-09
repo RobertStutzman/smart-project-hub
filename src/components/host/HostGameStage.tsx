@@ -719,7 +719,31 @@ export function HostGameStage({ room }: Props) {
         void speakPersona(pickLine(moment, qid));
       }
     }, 900);
+    // Perfect-round achievement: everyone answered correctly.
+    if (moment === "all_correct" && live.length >= 2) {
+      emitAchievement({
+        kicker: "Perfect Round",
+        title: "Everyone nailed it",
+        subtitle: `${live.length}/${live.length} correct`,
+        icon: "🎯",
+        tone: "emerald",
+        dedupe: `perfect-${qid}`,
+      });
+    }
+    // Total whiff is its own visual beat.
+    if (moment === "all_wrong" && live.length >= 3) {
+      emitAchievement({
+        kicker: "Total Whiff",
+        title: "Nobody got it",
+        subtitle: `0/${live.length} correct`,
+        icon: "💀",
+        tone: "rose",
+        ttl: 2400,
+        dedupe: `whiff-${qid}`,
+      });
+    }
     return () => window.clearTimeout(id);
+
   }, [state?.phase, state?.current_question_id, state?.current_correct_index, players]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Capture wrong picks per question so CreditsStage can show the
