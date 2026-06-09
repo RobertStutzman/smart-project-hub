@@ -22,8 +22,10 @@ import {
 } from "@/lib/sounds.functions";
 import {
   bakeAllQuestionTTS,
+  bakeAllExplanationTTS,
   generateAnnouncerPack,
   generatePersonaPack,
+  getExplanationTTSStats,
   getPersonaPackStats,
   getQuestionTTSStats,
   getTTSCacheStats,
