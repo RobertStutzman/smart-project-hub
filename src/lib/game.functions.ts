@@ -1308,3 +1308,81 @@ export const generateRoast = createServerFn({ method: "POST" })
       };
     }
   });
+
+// ============================================================
+// RESTART GAME — wipe per-game state, keep room + players
+// ============================================================
+
+export const restartGame = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      hostSessionId: z.string().min(8).max(128),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const room = await getRoomByHost(data.roomCode, data.hostSessionId);
+
+    // Reset room-level per-game state.
+    await supabaseAdmin
+      .from("rooms")
+      .update({
+        phase: "lobby",
+        status: "lobby",
+        round_number: 0,
+        current_category: null,
+        current_question_id: null,
+        current_question_text: null,
+        current_answers: null,
+        current_correct_index: null,
+        current_explanation: null,
+        current_explanation_tts_url: null,
+        current_question_tts_url: null,
+        current_media_url: null,
+        current_media_type: null,
+        question_started_at: null,
+        dropped_indexes: [],
+        wildcard: null,
+        saboteur_session_id: null,
+        glitch_active_until: null,
+        glitch_used: false,
+        roast_candidates: null,
+        sudden_death_session_ids: [],
+        is_paused: false,
+      })
+      .eq("id", room.id);
+
+    // Reset per-player game state. Keep identity (nickname, avatar, team, session_id, is_audience).
+    await supabaseAdmin
+      .from("players")
+      .update({
+        score: 0,
+        current_round_score: 0,
+        current_round_fastest: false,
+        streak_count: 0,
+        best_streak: 0,
+        last_answer_correct: null,
+        current_answer: null,
+        current_answer_locked_at: null,
+        correct_count: 0,
+        wrong_count: 0,
+        fastest_count: 0,
+        total_response_ms: 0,
+        answered_count: 0,
+        used_2x: false,
+        pending_2x: false,
+        final_wager: 0,
+        final_answer: null,
+        final_locked_at: null,
+        comeback_bonus: false,
+      })
+      .eq("room_id", room.id);
+
+    // Clear used-question history so the new game can re-pick from the full pool.
+    await supabaseAdmin
+      .from("room_questions")
+      .delete()
+      .eq("room_id", room.id);
+
+    return { ok: true };
+  });
