@@ -27,6 +27,11 @@ export type GameEvent =
 let ctx: AudioContext | null = null;
 let muted = false;
 
+// Track music that was requested but couldn't start (autoplay blocked, etc).
+// Replayed by retryBlockedMusic() after a user gesture.
+let pendingMusicMode: "lobby" | "tense" | null = null;
+let pendingMusicTempo = 480;
+
 function ac(): AudioContext | null {
   if (typeof window === "undefined") return null;
   if (!ctx) {
@@ -62,19 +67,38 @@ export function isMuted() {
  * Synchronously create (if needed) and resume the AudioContext.
  * Must be called from inside a user gesture handler to actually unlock playback.
  */
-export function resumeAudioContext(): void {
-  if (typeof window === "undefined") return;
+export function resumeAudioContext(): boolean {
+  if (typeof window === "undefined") return false;
   if (!ctx) {
     const Ctor =
       (window.AudioContext as typeof AudioContext | undefined) ??
       ((window as unknown as { webkitAudioContext?: typeof AudioContext })
         .webkitAudioContext as typeof AudioContext | undefined);
-    if (!Ctor) return;
+    if (!Ctor) return false;
     ctx = new Ctor();
   }
   if (ctx.state === "suspended") {
     void ctx.resume();
   }
+  return ctx.state === "running";
+}
+
+/**
+ * Retry music playback that was previously blocked by autoplay.
+ * Call from a user-gesture handler. No-op if nothing is pending or already playing.
+ */
+export function retryBlockedMusic(): void {
+  if (typeof window === "undefined" || muted) return;
+  if (!pendingMusicMode) return;
+  // If a loop is already running, clear the pending flag.
+  if (loopAudio && !loopAudio.paused) {
+    pendingMusicMode = null;
+    return;
+  }
+  const mode = pendingMusicMode;
+  const tempo = pendingMusicTempo;
+  pendingMusicMode = null;
+  startMusic(mode, tempo);
 }
 
 
@@ -318,6 +342,7 @@ function stopLoopAudio() {
     synthLoopTimer = null;
   }
   currentLoopMode = null;
+  pendingMusicMode = null;
 }
 
 /** Start lobby/tense background music. Uses uploaded clip for lobby_music if assigned. */
@@ -332,10 +357,20 @@ export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
       if (typeof window === "undefined") return;
       loopAudio = new Audio(clip.url);
       loopAudio.loop = clip.loop;
-      // Cap music well below voice so announcer/TTS is always intelligible.
       const base = Math.max(0, Math.min(1, clip.volume));
       loopAudio.volume = Math.min(base, 0.25) * (duckActive ? 0.25 : 1);
-      loopAudio.play().catch(() => {});
+      const playPromise = loopAudio.play();
+      // Remember intent so retryBlockedMusic() can resume after a gesture.
+      pendingMusicMode = mode;
+      pendingMusicTempo = tempoMs;
+      playPromise
+        .then(() => {
+          pendingMusicMode = null;
+        })
+        .catch(() => {
+          // Autoplay blocked — leave pendingMusicMode set so a later
+          // user gesture can retry via retryBlockedMusic().
+        });
       return;
     }
   }
