@@ -46,19 +46,22 @@ export function IntroStage({ players, onDone }: Props) {
       speakPersona("Alright… here we go in three!");
       play("tick");
     });
-    at(6900, () => {
+    at(7300, () => {
       setCount(2);
       play("tick");
     });
-    at(7600, () => {
+    at(8400, () => {
       setCount(1);
       play("tick");
     });
-    at(8300, () => setStep("go"));
-    at(10500, () => {
+    at(9500, () => {
+      setStep("go");
       play("whoosh");
+    });
+    at(11200, () => {
       onDoneRef.current();
     });
+
 
     const onKey = (e: KeyboardEvent) => {
       if (e.code === "Space") {
