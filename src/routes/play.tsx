@@ -442,7 +442,7 @@ function PlayPage() {
         </div>
 
         {isAudience ? (
-          <AudienceSoundboard roomCode={session.roomCode} />
+          <AudienceSoundboard roomCode={session.roomCode} nickname={session.nickname} sessionId={session.sessionId} />
         ) : room.phase === "ended" ? (
           me ? (
             <PlayerVictoryScreen

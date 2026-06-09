@@ -103,6 +103,11 @@ export function retryBlockedMusic(): void {
 }
 
 
+// Transient gain multiplier applied to tone/sweep/noise. Set by play(sfx, scale)
+// so audience-triggered synth SFX can sit under music/announcer without
+// changing every existing call site.
+let synthVolumeScale = 1;
+
 function tone(
   freq: number,
   duration: number,
@@ -118,7 +123,7 @@ function tone(
   osc.type = type;
   osc.frequency.setValueAtTime(freq, t0);
   g.gain.setValueAtTime(0.0001, t0);
-  g.gain.exponentialRampToValueAtTime(gain, t0 + 0.01);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0001, gain * synthVolumeScale), t0 + 0.01);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
   osc.connect(g).connect(a.destination);
   osc.start(t0);
@@ -141,7 +146,7 @@ function sweep(
   osc.frequency.setValueAtTime(from, t0);
   osc.frequency.exponentialRampToValueAtTime(Math.max(to, 1), t0 + duration);
   g.gain.setValueAtTime(0.0001, t0);
-  g.gain.exponentialRampToValueAtTime(gain, t0 + 0.02);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0001, gain * synthVolumeScale), t0 + 0.02);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
   osc.connect(g).connect(a.destination);
   osc.start(t0);
@@ -158,13 +163,23 @@ function noise(duration: number, gain = 0.15) {
   const src = a.createBufferSource();
   const g = a.createGain();
   src.buffer = buf;
-  g.gain.setValueAtTime(gain, t0);
+  g.gain.setValueAtTime(Math.max(0.0001, gain * synthVolumeScale), t0);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
   src.connect(g).connect(a.destination);
   src.start(t0);
 }
 
-export function play(sfx: Sfx) {
+export function play(sfx: Sfx, volumeScale = 1) {
+  const prevScale = synthVolumeScale;
+  synthVolumeScale = Math.max(0, volumeScale);
+  try {
+    playInner(sfx);
+  } finally {
+    synthVolumeScale = prevScale;
+  }
+}
+
+function playInner(sfx: Sfx) {
   switch (sfx) {
     case "tap":
       tone(440, 0.05, "square", 0.05);

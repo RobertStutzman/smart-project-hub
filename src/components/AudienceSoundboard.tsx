@@ -8,9 +8,9 @@ const REACTIONS = ["🔥", "💀", "😂", "❤️", "👏", "🤯"] as const;
 type Reaction = (typeof REACTIONS)[number];
 type Float = { id: number; emoji: Reaction; x: number };
 
-type Props = { roomCode: string };
+type Props = { roomCode: string; nickname: string; sessionId: string };
 
-export function AudienceSoundboard({ roomCode }: Props) {
+export function AudienceSoundboard({ roomCode, nickname, sessionId }: Props) {
   const [tabId, setTabId] = useState<AudienceTab["id"]>("gross");
   const [floats, setFloats] = useState<Float[]>([]);
   const idRef = useRef(0);
@@ -33,14 +33,14 @@ export function AudienceSoundboard({ roomCode }: Props) {
     };
   }, [roomCode]);
 
-  async function firePad(padId: string, url: string, volume: number) {
+  async function firePad(padId: string, url: string, volume: number, label: string, emoji: string) {
     Haptics.tap();
     // Local preview so the audience hears their own pad too
     playClipUrl(url, Math.min(0.6, volume), padId);
     await channelRef.current?.send({
       type: "broadcast",
       event: "sfx_url",
-      payload: { padId, url, volume },
+      payload: { padId, url, volume, nickname, sessionId, label, emoji },
     });
   }
 
@@ -49,8 +49,13 @@ export function AudienceSoundboard({ roomCode }: Props) {
     const id = ++idRef.current;
     setFloats((f) => [...f, { id, emoji, x: Math.random() * 80 + 10 }]);
     setTimeout(() => setFloats((f) => f.filter((x) => x.id !== id)), 1800);
-    await channelRef.current?.send({ type: "broadcast", event: "react", payload: { emoji } });
+    await channelRef.current?.send({
+      type: "broadcast",
+      event: "react",
+      payload: { emoji, nickname, sessionId },
+    });
   }
+
 
   const activeTab = AUDIENCE_TABS.find((t) => t.id === tabId) ?? AUDIENCE_TABS[0];
 
@@ -123,7 +128,7 @@ export function AudienceSoundboard({ roomCode }: Props) {
         {activeTab.pads.map((p) => (
           <button
             key={p.id}
-            onClick={() => void firePad(p.id, p.url, p.volume)}
+            onClick={() => void firePad(p.id, p.url, p.volume, p.label, p.emoji)}
             className={`flex flex-col items-center gap-1 rounded-2xl ${activeTab.color} px-2 py-4 text-white active:scale-95 transition hover:brightness-110`}
           >
             <span className="text-3xl leading-none">{p.emoji}</span>

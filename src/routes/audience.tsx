@@ -104,7 +104,12 @@ function AudiencePage() {
 
   async function sendReaction(sfx: string) {
     try {
-      await sfxChannelRef.current?.send({ type: "broadcast", event: "sfx", payload: { sfx } });
+      const sid = getOrCreateSessionId();
+      await sfxChannelRef.current?.send({
+        type: "broadcast",
+        event: "sfx",
+        payload: { sfx, nickname: nickname.trim(), sessionId: sid },
+      });
     } catch {}
   }
 
