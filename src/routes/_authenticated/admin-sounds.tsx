@@ -22,8 +22,10 @@ import {
 } from "@/lib/sounds.functions";
 import {
   bakeAllQuestionTTS,
+  bakeAllExplanationTTS,
   generateAnnouncerPack,
   generatePersonaPack,
+  getExplanationTTSStats,
   getPersonaPackStats,
   getQuestionTTSStats,
   getTTSCacheStats,
@@ -271,6 +273,8 @@ function EventsPanel({
       <WelcomePreview />
 
       <QuestionVoiceoversPanel />
+
+      <ExplanationVoiceoversPanel />
 
       <TTSCacheStatsPanel />
 
@@ -855,6 +859,101 @@ function QuestionVoiceoversPanel() {
       {progress && (
         <p className="mt-3 text-xs text-muted-foreground">{progress}</p>
       )}
+    </div>
+  );
+}
+
+function ExplanationVoiceoversPanel() {
+  const statsFn = useServerFn(getExplanationTTSStats);
+  const bakeFn = useServerFn(bakeAllExplanationTTS);
+  const [stats, setStats] = useState<{ total: number; baked: number } | null>(null);
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      setStats(await statsFn());
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  }, [statsFn]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  async function run() {
+    setRunning(true);
+    const remaining = stats ? Math.max(0, stats.total - stats.baked) : 0;
+    setProgress(`Narrating… 0 / ${remaining}`);
+    const toastId = toast.loading(`Narrating "Did you know?"… 0 / ${remaining}`);
+    let totalBaked = 0;
+    let totalErrors = 0;
+    let safety = 0;
+    try {
+      while (safety++ < 100) {
+        const r = await bakeFn({ data: { limit: 25 } });
+        totalBaked += r.baked;
+        totalErrors += r.errors.length;
+        const msg = `Narrating "Did you know?"… ${totalBaked} / ${remaining}${totalErrors ? ` · ${totalErrors} errors` : ""}`;
+        toast.loading(msg, { id: toastId });
+        setProgress(msg);
+        if (r.total === 0 || r.baked === 0) break;
+      }
+      toast.success(
+        `Done! Narrated ${totalBaked} explanation${totalBaked === 1 ? "" : "s"}${totalErrors ? ` · ${totalErrors} errors` : ""}.`,
+        { id: toastId },
+      );
+      setProgress(null);
+    } catch (e) {
+      toast.error((e as Error).message, { id: toastId });
+      setProgress(null);
+    } finally {
+      setRunning(false);
+      await refresh();
+    }
+  }
+
+  const remaining = stats ? Math.max(0, stats.total - stats.baked) : null;
+  const pct = stats && stats.total > 0 ? Math.round((stats.baked / stats.total) * 100) : 0;
+
+  return (
+    <div className="mt-6 rounded-2xl border border-border bg-card/30 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-violet-300/80">
+            Explanation voiceovers
+          </div>
+          <h3 className="text-lg font-bold">The Elf reads every "Did you know?"</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {stats === null
+              ? "Checking how many explanations still need narration…"
+              : remaining === 0
+                ? `All ${stats.baked} explanations are narrated.`
+                : `${remaining} still need baking — one-time cost, cached forever.`}
+          </p>
+        </div>
+        <div className="text-right">
+          <div className="text-2xl font-black tabular-nums">
+            {stats ? `${stats.baked} / ${stats.total}` : "…"}
+          </div>
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">
+            {pct}% baked
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => void run()}
+          disabled={running || remaining === null || remaining === 0}
+          className="rounded-full bg-gradient-to-r from-violet-400 to-fuchsia-400 px-4 py-2 text-sm font-bold text-black shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {running ? "Narrating…" : "💡 Bake missing explanations"}
+        </button>
+      </div>
+      {progress && <p className="mt-3 text-xs text-muted-foreground">{progress}</p>}
     </div>
   );
 }

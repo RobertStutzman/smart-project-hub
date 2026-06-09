@@ -20,7 +20,7 @@ import {
   upsertQuestion,
 } from "@/lib/admin.functions";
 import { dedupeKey } from "@/lib/dedupe";
-import { bakeAllQuestionTTS, bakeAllExplanationTTS, getExplanationTTSStats } from "@/lib/announcer.functions";
+import { bakeAllQuestionTTS, bakeAllExplanationTTS } from "@/lib/announcer.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { CATEGORIES } from "@/lib/categories";
 import { listCategories } from "@/lib/rooms.functions";
@@ -300,8 +300,11 @@ function AdminPage() {
         {toolTab === "maintain" && (
           <div className="flex flex-col gap-6">
             <ExplanationBackfill onUpdated={reload} />
-            <ExplanationTTSBackfill />
             <DuplicateAnswersRepair onUpdated={reload} />
+            <p className="text-xs text-muted-foreground">
+              Narrating questions or "Did you know?" lives on the{" "}
+              <a href="/admin-sounds" className="font-bold underline">Sounds</a> page.
+            </p>
           </div>
         )}
 
@@ -980,87 +983,6 @@ function ExplanationBackfill({ onUpdated }: { onUpdated: () => Promise<void> | v
   );
 }
 
-function ExplanationTTSBackfill() {
-  const statsFn = useServerFn(getExplanationTTSStats);
-  const bakeFn = useServerFn(bakeAllExplanationTTS);
-  const [stats, setStats] = useState<{ total: number; baked: number } | null>(null);
-  const [running, setRunning] = useState(false);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        setStats(await statsFn());
-      } catch {
-        /* ignore */
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function refresh() {
-    try {
-      setStats(await statsFn());
-    } catch {
-      /* ignore */
-    }
-  }
-
-  async function run() {
-    setRunning(true);
-    const remaining = stats ? Math.max(0, stats.total - stats.baked) : 0;
-    const toastId = toast.loading(`Narrating "Did you know?"… 0 / ${remaining}`);
-    let totalBaked = 0;
-    let totalErrors = 0;
-    let safety = 0;
-    try {
-      while (safety++ < 100) {
-        const r = await bakeFn({ data: { limit: 25 } });
-        totalBaked += r.baked;
-        totalErrors += r.errors.length;
-        toast.loading(
-          `Narrating "Did you know?"… ${totalBaked} / ${remaining}${totalErrors ? ` · ${totalErrors} errors` : ""}`,
-          { id: toastId },
-        );
-        if (r.total === 0 || r.baked === 0) break;
-      }
-      toast.success(
-        `Done! Narrated ${totalBaked} explanation${totalBaked === 1 ? "" : "s"}${totalErrors ? ` · ${totalErrors} errors` : ""}.`,
-        { id: toastId },
-      );
-    } catch (e) {
-      toast.error((e as Error).message, { id: toastId });
-    } finally {
-      setRunning(false);
-      await refresh();
-    }
-  }
-
-  const remaining = stats ? Math.max(0, stats.total - stats.baked) : null;
-
-  return (
-    <section className="rounded-3xl border border-violet-500/30 bg-violet-500/5 p-6 backdrop-blur">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold">🔊 Narrate "Did you know?"</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {stats === null
-              ? "Checking how many explanations still need narration…"
-              : remaining === 0
-                ? `All ${stats.baked} explanations are narrated. The Elf reads them on the host screen during the reveal.`
-                : `${stats.baked} of ${stats.total} explanations have Elf narration. ${remaining} still need baking — one-time cost, cached forever.`}
-          </p>
-        </div>
-        <button
-          onClick={run}
-          disabled={running || remaining === null || remaining === 0}
-          className="rounded-full bg-violet-500 px-5 py-2 text-sm font-semibold text-violet-950 disabled:opacity-50"
-        >
-          {running ? "Narrating…" : "Bake narration"}
-        </button>
-      </div>
-    </section>
-  );
-}
 
 function DuplicateAnswersRepair({ onUpdated }: { onUpdated: () => Promise<void> | void }) {
   const countFn = useServerFn(countDuplicateAnswers);
