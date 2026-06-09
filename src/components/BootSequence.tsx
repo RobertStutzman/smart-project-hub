@@ -125,7 +125,7 @@ export function BootSequence({ onComplete }: Props) {
       /* sessionStorage may be unavailable in private mode */
     }
     setDismissing(true);
-    window.setTimeout(onComplete, 450);
+    window.setTimeout(onComplete, 600);
   }
 
   return (
