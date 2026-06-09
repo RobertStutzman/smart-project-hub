@@ -2,6 +2,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { speakPersona } from "@/lib/host-persona";
 import { speakAboutPlayer } from "@/lib/persona-live";
+import { playCreditsMusic } from "@/lib/sound-engine";
+
+// Shared transition for every beat — uniform crossfade + gentle drift so the
+// reel scrolls smoothly instead of snapping between mismatched motion styles.
+const BEAT_T = { duration: 0.45, ease: [0.22, 1, 0.36, 1] as const };
+const BEAT_INITIAL = { opacity: 0, y: 14 };
+const BEAT_ANIMATE = { opacity: 1, y: 0 };
+const BEAT_EXIT = { opacity: 0, y: -14 };
 
 type Player = {
   id: string;
@@ -125,14 +133,15 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     // beat: Round splash
     list.push({
       key: "splash",
-      durationMs: 1800,
+      durationMs: 2200,
       render: () => (
         <motion.div
           key="splash"
-          initial={{ opacity: 0, scale: 1.25, letterSpacing: "0.05em" }}
-          animate={{ opacity: 1, scale: 1, letterSpacing: "0.15em" }}
-          exit={{ opacity: 0, scale: 0.92 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
+          initial={BEAT_INITIAL}
+          animate={BEAT_ANIMATE}
+          exit={BEAT_EXIT}
+          transition={BEAT_T}
+          style={{ willChange: "transform, opacity" }}
           className="max-w-full overflow-hidden text-center"
         >
           <div className="text-[11px] font-black uppercase tracking-[0.6em] text-amber-300/80">
@@ -168,10 +177,10 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
         render: () => (
           <motion.div
             key="scoreboard"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            initial={BEAT_INITIAL}
+            animate={BEAT_ANIMATE}
+            exit={BEAT_EXIT}
+            transition={BEAT_T}
             className="flex w-full max-w-3xl flex-col gap-4 overflow-hidden"
           >
             <div className="text-center text-[11px] font-black uppercase tracking-[0.6em] text-amber-300/80">
@@ -258,10 +267,10 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
         render: () => (
           <motion.div
             key="fastest"
-            initial={{ opacity: 0, x: -120 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 120 }}
-            transition={{ type: "spring", stiffness: 160, damping: 18 }}
+            initial={BEAT_INITIAL}
+            animate={BEAT_ANIMATE}
+            exit={BEAT_EXIT}
+            transition={BEAT_T}
             className="flex max-w-[92vw] items-center gap-5 overflow-hidden text-left sm:gap-6"
           >
             <Avatar p={fastest} ring="border-rose-300/70" glow="shadow-[0_0_60px_oklch(0.7_0.2_20/0.55)]" />
@@ -297,10 +306,10 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
         render: () => (
           <motion.div
             key="streak"
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.1 }}
-            transition={{ type: "spring", stiffness: 180, damping: 16 }}
+            initial={BEAT_INITIAL}
+            animate={BEAT_ANIMATE}
+            exit={BEAT_EXIT}
+            transition={BEAT_T}
             className="flex max-w-[92vw] items-center gap-5 overflow-hidden text-left sm:gap-6"
           >
             <Avatar p={streakKing} size="h-32 w-32" ring="border-orange-400/80" glow="shadow-[0_0_70px_oklch(0.75_0.2_50/0.7)]" />
@@ -334,10 +343,10 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
         render: () => (
           <motion.div
             key="mvp"
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.1 }}
-            transition={{ type: "spring", stiffness: 180, damping: 16 }}
+            initial={BEAT_INITIAL}
+            animate={BEAT_ANIMATE}
+            exit={BEAT_EXIT}
+            transition={BEAT_T}
             className="flex max-w-[92vw] items-center gap-5 overflow-hidden text-left sm:gap-6"
           >
             <Avatar p={mvp} size="h-32 w-32" />
@@ -371,10 +380,10 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
         render: () => (
           <motion.div
             key="spoon"
-            initial={{ opacity: 0, y: 40, rotate: -3 }}
-            animate={{ opacity: 1, y: 0, rotate: -2 }}
-            exit={{ opacity: 0, y: 40, rotate: 3 }}
-            transition={{ type: "spring", stiffness: 160, damping: 18 }}
+            initial={BEAT_INITIAL}
+            animate={BEAT_ANIMATE}
+            exit={BEAT_EXIT}
+            transition={BEAT_T}
             className="relative flex max-w-[92vw] items-center gap-5 overflow-hidden text-left sm:gap-6"
           >
             <div className="absolute inset-x-0 -top-10 mx-auto h-40 w-[120%] -translate-y-1/2 rounded-full bg-rose-900/30 blur-3xl" />
@@ -431,10 +440,10 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
         render: () => (
           <motion.div
             key="zeroes"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -30 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
+            initial={BEAT_INITIAL}
+            animate={BEAT_ANIMATE}
+            exit={BEAT_EXIT}
+            transition={BEAT_T}
             className="flex max-w-[92vw] flex-col items-center gap-4 text-center"
           >
             <div className="text-[11px] font-black uppercase tracking-[0.4em] text-zinc-300">
@@ -490,10 +499,10 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
         render: () => (
           <motion.div
             key="climb"
-            initial={{ opacity: 0, y: 60 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -40 }}
-            transition={{ type: "spring", stiffness: 180, damping: 18 }}
+            initial={BEAT_INITIAL}
+            animate={BEAT_ANIMATE}
+            exit={BEAT_EXIT}
+            transition={BEAT_T}
             className="flex max-w-[92vw] items-center gap-5 overflow-hidden text-left sm:gap-6"
           >
             <Avatar p={climber.p} size="h-32 w-32" ring="border-emerald-300/80" glow="shadow-[0_0_70px_oklch(0.75_0.2_150/0.65)]" />
@@ -527,10 +536,10 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
         render: () => (
           <motion.div
             key="drop"
-            initial={{ opacity: 0, y: -40 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 40 }}
-            transition={{ type: "spring", stiffness: 160, damping: 18 }}
+            initial={BEAT_INITIAL}
+            animate={BEAT_ANIMATE}
+            exit={BEAT_EXIT}
+            transition={BEAT_T}
             className="flex max-w-[92vw] items-center gap-5 overflow-hidden text-left sm:gap-6"
           >
             <Avatar p={faller.p} size="h-32 w-32" desat ring="border-rose-300/70" glow="shadow-[0_0_60px_oklch(0.5_0.2_25/0.55)]" />
@@ -555,14 +564,14 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     // beat: To the board
     list.push({
       key: "board",
-      durationMs: 1800,
+      durationMs: 2200,
       render: () => (
         <motion.div
           key="board"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
+          initial={BEAT_INITIAL}
+          animate={BEAT_ANIMATE}
+          exit={BEAT_EXIT}
+          transition={BEAT_T}
           className="text-center"
         >
           <div className="text-[11px] font-black uppercase tracking-[0.6em] text-amber-300/80">
@@ -590,6 +599,9 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
   // Schedule beat advances + voice triggers.
   useEffect(() => {
     setBeatIdx(0);
+    // Celebratory outro bed — kept quiet so persona voice lines sit on top.
+    // Not stopped on unmount so it hands off seamlessly to CreditsStage.
+    playCreditsMusic(0.18);
     const timers: number[] = [];
     // Fire beat 0's voice immediately (if any).
     beats[0]?.speak?.();
@@ -617,21 +629,13 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
   return (
     <div className="relative h-full w-full overflow-hidden bg-black text-white">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(0.22_0.04_270/0.95),oklch(0.05_0.02_270)_75%)]" />
-      {/* sweeping light bar — retimed to the full reel */}
+      {/* sweeping light bar — gentle, retimed to the full reel */}
       <motion.div
         key={`sweep-${triggerKey}`}
         initial={{ x: "-30%", opacity: 0 }}
-        animate={{ x: "120%", opacity: [0, 0.5, 0] }}
+        animate={{ x: "120%", opacity: [0, 0.25, 0] }}
         transition={{ duration: totalMs / 1000, ease: "easeInOut" }}
-        className="pointer-events-none absolute inset-y-0 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-amber-300/15 to-transparent"
-      />
-      {/* film grain */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.08] mix-blend-overlay"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
-        }}
+        className="pointer-events-none absolute inset-y-0 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-amber-300/[0.08] to-transparent"
       />
 
       <div className="relative grid h-full min-h-0 place-items-center overflow-hidden p-5 sm:p-7">
