@@ -150,7 +150,7 @@ function PlayPage() {
         return;
       }
       setRoom(r as RoomState);
-      const { data: p } = await supabase
+      applyServerOffset((r as RoomState).host_last_seen_at);
         .from("players")
         .select(
           "id, session_id, nickname, avatar_url, score, streak_count, is_audience, current_answer, current_answer_locked_at, current_round_score, last_answer_correct, used_2x, pending_2x, correct_count, wrong_count, fastest_count, best_streak, total_response_ms, answered_count, final_wager, final_answer, final_locked_at, comeback_bonus, team",
