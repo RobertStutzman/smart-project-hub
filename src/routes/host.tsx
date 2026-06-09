@@ -428,19 +428,66 @@ function HostPage() {
 
 
   // Subscribe to audience soundboard broadcasts → play SFX from TV speakers
+  // Capped to a low volume so they sit under music/announcer, and mirrored to
+  // the bottom-left audience feed so players can see who triggered them.
   useEffect(() => {
     if (!room) return;
+    const AUDIENCE_MAX_VOLUME = 0.3;
     const channel = supabase
       .channel(`sfx-${room.roomCode}`)
       .on("broadcast", { event: "sfx" }, (msg) => {
-        const sfx = (msg.payload as { sfx?: Sfx } | undefined)?.sfx;
-        if (sfx) play(sfx);
+        const p = msg.payload as
+          | { sfx?: Sfx; nickname?: string; sessionId?: string }
+          | undefined;
+        if (p?.sfx) {
+          play(p.sfx, 0.4);
+          void import("@/lib/audience-feed").then(({ emitAudienceFeed }) =>
+            emitAudienceFeed({
+              kind: "sfx",
+              nickname: p.nickname || "Audience",
+              label: p.sfx,
+            }),
+          );
+        }
       })
       .on("broadcast", { event: "sfx_url" }, (msg) => {
-        const p = msg.payload as { padId?: string; url?: string; volume?: number } | undefined;
+        const p = msg.payload as
+          | {
+              padId?: string;
+              url?: string;
+              volume?: number;
+              nickname?: string;
+              sessionId?: string;
+              label?: string;
+              emoji?: string;
+            }
+          | undefined;
         if (p?.url) {
+          const vol = Math.min(AUDIENCE_MAX_VOLUME, (p.volume ?? 0.9) * 0.35);
           void import("@/lib/sound-engine").then(({ playClipUrl }) =>
-            playClipUrl(p.url!, p.volume ?? 0.9, p.padId),
+            playClipUrl(p.url!, vol, p.padId),
+          );
+          void import("@/lib/audience-feed").then(({ emitAudienceFeed }) =>
+            emitAudienceFeed({
+              kind: "pad",
+              nickname: p.nickname || "Audience",
+              emoji: p.emoji,
+              label: p.label,
+            }),
+          );
+        }
+      })
+      .on("broadcast", { event: "react" }, (msg) => {
+        const p = msg.payload as
+          | { emoji?: string; nickname?: string; sessionId?: string }
+          | undefined;
+        if (p?.emoji) {
+          void import("@/lib/audience-feed").then(({ emitAudienceFeed }) =>
+            emitAudienceFeed({
+              kind: "react",
+              nickname: p.nickname || "Audience",
+              emoji: p.emoji,
+            }),
           );
         }
       })
@@ -449,6 +496,7 @@ function HostPage() {
       void supabase.removeChannel(channel);
     };
   }, [room]);
+
 
   const joinUrl = useMemo(() => {
     if (!origin || !room) return "";
@@ -508,7 +556,9 @@ function HostPage() {
     return (
       <main className="fixed inset-0 overflow-hidden">
         <HostGameStage room={room} />
+        <AudienceFeed />
         <div className="fixed right-4 top-4 z-50 flex gap-2">
+
           {!isFullscreen && (
             <button
               onClick={toggleFullscreen}
