@@ -20,6 +20,11 @@ const SCHEDULE_TICK_MS = 2000;
 let muted = false;
 let handedOff = false;
 
+// Track which layers were requested while the context was blocked, so we can
+// resume them after the user's first gesture unlocks audio.
+const wanted = new Set<"chatter" | "crowd" | "drumroll">();
+
+
 function isClient() {
   return typeof window !== "undefined";
 }
