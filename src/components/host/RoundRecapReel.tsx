@@ -133,14 +133,15 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     // beat: Round splash
     list.push({
       key: "splash",
-      durationMs: 1800,
+      durationMs: 2200,
       render: () => (
         <motion.div
           key="splash"
-          initial={{ opacity: 0, scale: 1.25, letterSpacing: "0.05em" }}
-          animate={{ opacity: 1, scale: 1, letterSpacing: "0.15em" }}
-          exit={{ opacity: 0, scale: 0.92 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
+          initial={BEAT_INITIAL}
+          animate={BEAT_ANIMATE}
+          exit={BEAT_EXIT}
+          transition={BEAT_T}
+          style={{ willChange: "transform, opacity" }}
           className="max-w-full overflow-hidden text-center"
         >
           <div className="text-[11px] font-black uppercase tracking-[0.6em] text-amber-300/80">
