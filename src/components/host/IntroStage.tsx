@@ -20,7 +20,10 @@ type Props = {
  * Total runtime ≈ 8.5s. Host can press Space to skip.
  */
 export function IntroStage({ players, onDone }: Props) {
-  const [step, setStep] = useState<"title" | "roster" | "go">("title");
+  const [step, setStep] = useState<
+    "title" | "roster" | "countdown" | "go"
+  >("title");
+  const [count, setCount] = useState(3);
   const onDoneRef = useRef(onDone);
 
   useEffect(() => {
@@ -32,30 +35,45 @@ export function IntroStage({ players, onDone }: Props) {
     play("whoosh");
     speakPersona(pickLine("intro_hype", players.length));
 
-    const t1 = window.setTimeout(() => setStep("roster"), 2600);
-    const t2 = window.setTimeout(() => setStep("go"), 6200);
-    const t3 = window.setTimeout(() => {
+    const timers: number[] = [];
+    const at = (ms: number, fn: () => void) =>
+      timers.push(window.setTimeout(fn, ms));
+
+    at(2600, () => setStep("roster"));
+    at(6200, () => {
+      setStep("countdown");
+      setCount(3);
+      speakPersona("Alright… here we go in three!");
+      play("tick");
+    });
+    at(6900, () => {
+      setCount(2);
+      play("tick");
+    });
+    at(7600, () => {
+      setCount(1);
+      play("tick");
+    });
+    at(8300, () => setStep("go"));
+    at(10500, () => {
       play("whoosh");
       onDoneRef.current();
-    }, 8400);
+    });
 
     const onKey = (e: KeyboardEvent) => {
       if (e.code === "Space") {
         e.preventDefault();
-        window.clearTimeout(t1);
-        window.clearTimeout(t2);
-        window.clearTimeout(t3);
+        timers.forEach((t) => window.clearTimeout(t));
         onDoneRef.current();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => {
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
-      window.clearTimeout(t3);
+      timers.forEach((t) => window.clearTimeout(t));
       window.removeEventListener("keydown", onKey);
     };
   }, [players.length]);
+
 
   return (
     <div
@@ -167,7 +185,35 @@ export function IntroStage({ players, onDone }: Props) {
           </motion.div>
         )}
 
+        {step === "countdown" && (
+          <motion.div
+            key={`count-${count}`}
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.4 }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            className="relative text-center"
+          >
+            <div className="text-[11px] font-bold uppercase tracking-[0.6em] text-amber-300/90">
+              Get ready
+            </div>
+            <div
+              className="mt-2 font-display text-[28vw] font-black uppercase leading-none tracking-tight text-transparent sm:text-[20vw]"
+              style={{
+                backgroundImage:
+                  "linear-gradient(180deg, oklch(0.97 0.15 90) 0%, oklch(0.70 0.22 50) 100%)",
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                filter: "drop-shadow(0 10px 50px oklch(0.85 0.22 70 / 0.7))",
+              }}
+            >
+              {count}
+            </div>
+          </motion.div>
+        )}
+
         {step === "go" && (
+
           <motion.div
             key="go"
             initial={{ opacity: 0, scale: 0.7 }}
