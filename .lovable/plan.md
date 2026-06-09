@@ -1,48 +1,49 @@
 ## Goal
 
-When the host returns from credits/ended back to the QR lobby (Play Again, or any path that drops phase back to `lobby` after a finished game), give the announcer a silent beat and skip the re‑welcome chatter — players are still in the room and don't need another opener.
+On game 2+ (any IntroStage that runs after the host has finished at least one game in this session), have the announcer drop a fun "welcome back" one‑liner over the title card instead of the normal `intro_hype` line.
 
 ## Changes
 
-### 1. Track "this is a replay, not a fresh room" in `src/components/host/HostGameStage.tsx`
+### 1. New quip pool
 
-Add a `playedOnceRef` that flips true the first time `state.phase` leaves `lobby`. When we return to `lobby` with that flag set, treat it as a replay lobby:
+Add a `WELCOME_BACK_LINES` array to `src/lib/host-persona.ts` (lives alongside the existing `LINES` map). ~6 short, dry/punchy lines, e.g.:
+- "Back for more, huh? Let's do it again."
+- "Round two. Same chaos, fresh questions."
+- "Couldn't stay away. I respect that."
+- "Welcome back, contestants. The drop is hungry."
+- "You again? Good. I was just warming up."
+- "Rematch incoming. No mercy this time."
 
-- Hard cancel speech on the transition:
-  - `import("@/lib/elf-voice").then(m => m.cancelElfSpeech())`
-  - `import("@/lib/host-persona").then(m => m.cancelPersona?.())` (if present; otherwise fall back to `cancelElfSpeech` only)
-- Reset the per‑game refs so a future game still gets fresh callouts on its own round 1:
-  - `welcomeFiredRef.current = false`
-  - `finalShowdownFiredRef.current = false`
-  - `lastRoundStingKeyRef.current = ""`
-- Set a window‑scoped flag `window.__btdReplayLobby = true` (cleared once consumed) so the lobby‑banter effect in `src/routes/host.tsx` can see it on the next render.
+Export a `pickWelcomeBack()` helper that returns a random line.
 
-### 2. Quiet the replay lobby in `src/routes/host.tsx`
+### 2. Track "this is a replay intro" on the client
 
-In the existing lobby‑announcer effect (the one that fires `speakOpener` at +2.4s and a quip every 10s):
+In `src/components/host/HostGameStage.tsx`, the existing `playedOnceRef` already flips true the first time we leave lobby in this room. Read a window flag the same way we did for the replay lobby:
 
-- On entry, read+clear `window.__btdReplayLobby`. If true:
-  - Skip the opener entirely.
-  - Delay the rotating quip interval start by ~12s and stretch the cadence to ~25s for this lobby session (so it's a near‑silent bed; players aren't being re‑pitched the join instructions).
-  - Also call `cancelElfSpeech()` once on mount to drain any leftover credits/persona TTS that beat the cancel in step 1.
+When the ambience effect detects `state.phase === "lobby" && ambienceHandedRef.current` (the Play Again branch), set:
+```ts
+(window as any).__btdReplayIntro = true;
+```
+alongside the existing `__btdReplayLobby` flag. This survives until the next IntroStage reads it.
 
-Fresh lobbies (first time `/host` opens for a brand‑new room) keep the current opener + 10s cadence.
+### 3. Swap the intro line in `src/components/host/IntroStage.tsx`
 
-### 3. Ambience handoff cleanup in `HostGameStage.tsx`
+In the mount effect, instead of unconditionally `speakPersona(pickLine("intro_hype", ...))`:
 
-The existing `state.phase === "lobby" && ambienceHandedRef.current` branch already resets ambience on Play Again. Add a tiny silent beat:
+```ts
+const replay = (window as any).__btdReplayIntro === true;
+if (replay) {
+  (window as any).__btdReplayIntro = false;
+  speakPersona(pickWelcomeBack(), { preset: "hype", interrupt: true });
+} else {
+  speakPersona(pickLine("intro_hype", players.length));
+}
+```
 
-- Before `resetAmbience()` / `startCrowd()`, call `stopMusic()` and wait ~600ms via a `setTimeout` before `startMusic("lobby", 1200)` (longer fade in for the replay).
-
-This produces the "silent beat → quiet lobby" feel the user picked.
+Keep all other timing/visuals identical — the title card, roster, 3‑2‑1‑GO sequence we just tuned stays exactly as is.
 
 ## Out of scope
 
-- No "Rematch!" splash card (user picked silent option).
-- No changes to the player‑side flow — players stay joined and see whatever the host route normally shows.
-- No changes to the credits stage itself; it already cancels speech and music on Play Again.
-
-## Technical notes
-
-- `cancelElfSpeech` exists in `src/lib/elf-voice.ts` and is the canonical "shut up now" call. If `host-persona` doesn't export a cancel, it ultimately routes through elf‑voice so the single cancel still drains it.
-- Using a `window.__btdReplayLobby` boolean (rather than React state) avoids cross‑component prop plumbing for a one‑shot signal; it's cleared on read so it can't leak into a later session.
+- No changes to the replay lobby (still silent per the previous request).
+- No name‑drops or rematch‑count references (user picked the rotating quip option).
+- No new sounds — reuses existing persona TTS path.
