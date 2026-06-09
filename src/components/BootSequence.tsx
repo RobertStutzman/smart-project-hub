@@ -11,7 +11,7 @@ import { startLobbyChatter, startCrowd } from "@/lib/ambience-engine";
  * on the host start screen instead, so we don't surface them twice.
  */
 
-const SKIP_KEY = "btd:boot:done";
+// Boot splash always plays per visit; only ?nosplash=1 dev override skips it.
 
 type Stage = "gate" | "splash" | "credits";
 
