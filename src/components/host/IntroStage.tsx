@@ -34,23 +34,41 @@ export function IntroStage({ players, onDone }: Props) {
     // Hype line via TTS as the title card lands
     play("whoosh");
     const w = window as unknown as { __btdReplayIntro?: boolean };
-    if (w.__btdReplayIntro) {
+    const isReplayIntro = w.__btdReplayIntro === true;
+    if (isReplayIntro) {
       w.__btdReplayIntro = false;
-      speakPersona(pickWelcomeBack(), { preset: "hype", interrupt: true });
-    } else {
-      speakPersona(pickLine("intro_hype", players.length));
     }
-
 
     const timers: number[] = [];
     const at = (ms: number, fn: () => void) =>
       timers.push(window.setTimeout(fn, ms));
 
+    // Timing budget:
+    //   t=0      whoosh + ambience handoff
+    //   t=900    welcome-back quip (replay) OR intro hype (fresh)
+    //            — ~2.6s line length, comfortably ends before t=5500
+    //   t=2600   roster
+    //   t=5500   hard cancel any lingering intro speech (safety net)
+    //   t=6200   countdown "3" + "Alright… here we go in three!" (interrupts)
+    at(900, () => {
+      if (isReplayIntro) {
+        speakPersona(pickWelcomeBack(), { preset: "hype", interrupt: true });
+      } else {
+        speakPersona(pickLine("intro_hype", players.length), { interrupt: true });
+      }
+    });
+
     at(2600, () => setStep("roster"));
+    at(5500, () => {
+      // Guarantee a clean slate before the countdown line — if the intro
+      // quip ran long for any reason, cut it cleanly so it never overlaps
+      // the 3-2-1 callout or the subsequent first-question TTS.
+      void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
+    });
     at(6200, () => {
       setStep("countdown");
       setCount(3);
-      speakPersona("Alright… here we go in three!");
+      speakPersona("Alright… here we go in three!", { interrupt: true });
       play("tick");
     });
     at(7300, () => {
@@ -68,6 +86,7 @@ export function IntroStage({ players, onDone }: Props) {
     at(11200, () => {
       onDoneRef.current();
     });
+
 
 
     const onKey = (e: KeyboardEvent) => {
