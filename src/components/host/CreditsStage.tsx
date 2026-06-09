@@ -158,6 +158,53 @@ function PolaroidCard({ award, rotate }: { award: Award; rotate: number }) {
   );
 }
 
+function DumbAnswerCard({
+  questionText,
+  correctText,
+  nickname,
+  pickedText,
+  rotate,
+}: {
+  questionText: string;
+  correctText: string;
+  nickname: string;
+  pickedText: string;
+  rotate: number;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 30, rotate: rotate - 6, scale: 0.9 }}
+      whileInView={{ opacity: 1, y: 0, rotate, scale: 1 }}
+      viewport={{ once: true, margin: "-10%" }}
+      transition={{ type: "spring", stiffness: 140, damping: 16 }}
+      className="relative inline-block w-64 rounded-lg bg-[#f5ecd6] p-3 shadow-[0_18px_40px_-15px_rgba(0,0,0,0.65)]"
+      style={{ transform: `rotate(${rotate}deg)` }}
+    >
+      <div className="absolute -top-2 left-1/2 h-5 w-20 -translate-x-1/2 rotate-[-3deg] bg-rose-200/70 mix-blend-multiply shadow-sm" />
+      <div className="rounded bg-gradient-to-br from-rose-100 to-rose-200 p-3">
+        <div className="line-clamp-3 text-[11px] italic leading-snug text-amber-950/80">
+          “{questionText}”
+        </div>
+        <div className="mt-3 font-mono text-[10px] uppercase tracking-[0.25em] text-rose-900/70">
+          {nickname} said
+        </div>
+        <div className="mt-1 font-display text-2xl font-black uppercase leading-tight tracking-tight text-rose-900">
+          {pickedText}
+        </div>
+        <div className="mt-3 border-t border-rose-900/15 pt-2">
+          <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-emerald-900/70">
+            Actually
+          </div>
+          <div className="mt-0.5 text-sm font-bold text-emerald-900">{correctText}</div>
+        </div>
+      </div>
+      <div className="mt-2 px-1 text-center font-mono text-[10px] uppercase tracking-[0.3em] text-amber-900/70">
+        💥 Funniest Moment
+      </div>
+    </motion.div>
+  );
+}
+
 export function CreditsStage({ players, wrongPicks, onPlayAgain }: Props) {
   const live = useMemo(() => players.filter((p) => !p.is_audience), [players]);
   const ranked = useMemo(() => [...live].sort((a, b) => b.score - a.score), [live]);
