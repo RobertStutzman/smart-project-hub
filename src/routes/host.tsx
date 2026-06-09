@@ -25,6 +25,7 @@ import { CATEGORIES, DEFAULT_OFF_CATEGORIES, MIX_CATEGORY, emojiForCategory } fr
 import { useTheme } from "@/components/ThemeProvider";
 import { play, setMuted as setSoundMuted, startMusic, stopMusic, type Sfx } from "@/lib/sound-engine";
 import { HostGameStage, useRevealAutoAdvance } from "@/components/host/HostGameStage";
+import { AudienceFeed } from "@/components/host/AudienceFeed";
 import { useHostStageMode } from "@/hooks/useHostStageMode";
 import { useHostHotkeys } from "@/hooks/useHostHotkeys";
 import { HowToPlay } from "@/components/HowToPlay";
