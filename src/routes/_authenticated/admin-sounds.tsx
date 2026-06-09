@@ -269,6 +269,9 @@ function EventsPanel({
         ElevenLabs to create a hype game-show host voice + lobby music in one
         click.
       </p>
+      <p className="mt-2 text-xs text-amber-300/80">
+        🎭 Catchphrases = host hype lines ("Lock in!", "Fingers on buzzers!", round transitions). To narrate the actual trivia questions, use the <strong>Question voiceovers</strong> panel below.
+      </p>
 
       <WelcomePreview />
 
