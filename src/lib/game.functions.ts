@@ -174,6 +174,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
         })
         .eq("id", room.id);
       if (error) throw new Error(error.message);
+      await setSecretCorrectIndex(room.id, null);
       return { ok: true, questionId: null, wildcard };
     }
 
@@ -283,7 +284,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
         current_category: (q as { category?: string | null }).category ?? null,
         current_question_text: q.question_text,
         current_answers: answers,
-        current_correct_index: correctIndex,
+        current_correct_index: null, // kept secret until reveal; stored in room_secrets
         current_explanation: (q as { explanation?: string | null }).explanation ?? null,
         current_media_url: media.url,
         current_media_type: media.type,
@@ -302,6 +303,8 @@ export const nextQuestion = createServerFn({ method: "POST" })
 
     if (error) throw new Error(error.message);
 
+    await setSecretCorrectIndex(room.id, correctIndex);
+
     return { ok: true, questionId: q.id, wildcard };
   });
 
@@ -314,12 +317,13 @@ export const dropWrongAnswer = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const room = await getRoomByHost(data.roomCode, data.hostSessionId);
-    if (room.phase !== "question" || room.current_correct_index === null) {
+    const secretIdx = await getSecretCorrectIndex(room.id);
+    if (room.phase !== "question" || secretIdx === null) {
       return { ok: false, dropped: null };
     }
     const dropped: number[] = room.dropped_indexes ?? [];
     const candidates = [0, 1, 2, 3].filter(
-      (i) => i !== room.current_correct_index && !dropped.includes(i),
+      (i) => i !== secretIdx && !dropped.includes(i),
     );
     if (candidates.length === 0) return { ok: false, dropped: null };
     const pick = candidates[Math.floor(Math.random() * candidates.length)];
@@ -352,7 +356,8 @@ export const endQuestion = createServerFn({ method: "POST" })
     const roastCandidates =
       (room.roast_candidates as { session_id: string; nickname: string }[] | null) ?? null;
 
-    if (!isRoast && room.current_correct_index === null) return { ok: false };
+    const secretIdx = await getSecretCorrectIndex(room.id);
+    if (!isRoast && secretIdx === null) return { ok: false };
 
     const { data: players } = await supabaseAdmin
       .from("players")
@@ -362,7 +367,7 @@ export const endQuestion = createServerFn({ method: "POST" })
 
     const startMs = new Date(room.question_started_at).getTime();
     const durationMs = room.question_duration_ms ?? 15000;
-    const correctIdx = room.current_correct_index;
+    const correctIdx = secretIdx;
 
     type Update = {
       id: string;
@@ -576,9 +581,10 @@ export const endQuestion = createServerFn({ method: "POST" })
       }
     }
 
+    // Reveal: now safe to expose the correct answer publicly.
     await supabaseAdmin
       .from("rooms")
-      .update({ phase: "reveal" })
+      .update({ phase: "reveal", current_correct_index: correctIdx })
       .eq("id", room.id);
 
     return { ok: true };
@@ -797,7 +803,7 @@ export const startFinalRound = createServerFn({ method: "POST" })
         current_category: q.category ?? null,
         current_question_text: q.question_text,
         current_answers: answers,
-        current_correct_index: correctIndex,
+        current_correct_index: null, // secret until final_reveal
         current_explanation: (q as { explanation?: string | null }).explanation ?? null,
         current_media_url: finalMedia.url,
         current_media_type: finalMedia.type,
@@ -813,6 +819,8 @@ export const startFinalRound = createServerFn({ method: "POST" })
       })
       .eq("id", room.id);
     if (error) throw new Error(error.message);
+
+    await setSecretCorrectIndex(room.id, correctIndex);
 
     return { ok: true, questionId: q.id };
   });
@@ -912,7 +920,7 @@ export const scoreFinalRound = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const room = await getRoomByHost(data.roomCode, data.hostSessionId);
-    const correctIdx = room.current_correct_index;
+    const correctIdx = await getSecretCorrectIndex(room.id);
     if (correctIdx === null || correctIdx === undefined) {
       throw new Error("No final question set");
     }
@@ -948,7 +956,7 @@ export const scoreFinalRound = createServerFn({ method: "POST" })
 
     await supabaseAdmin
       .from("rooms")
-      .update({ phase: "final_reveal" })
+      .update({ phase: "final_reveal", current_correct_index: correctIdx })
       .eq("id", room.id);
     return { ok: true };
   });
@@ -1063,7 +1071,7 @@ export const startSuddenDeath = createServerFn({ method: "POST" })
         current_question_id: q.id,
         current_question_text: q.question_text,
         current_answers: answers,
-        current_correct_index: correctIndex,
+        current_correct_index: null, // secret until final_reveal
         current_explanation: (q as { explanation?: string | null }).explanation ?? null,
         current_media_url: null,
         current_media_type: null,
@@ -1081,6 +1089,8 @@ export const startSuddenDeath = createServerFn({ method: "POST" })
       .eq("id", room.id);
     if (error) throw new Error(error.message);
 
+    await setSecretCorrectIndex(room.id, correctIndex);
+
     return { ok: true, cohortSize: cohort.length };
   });
 
@@ -1095,8 +1105,13 @@ export const resolveSuddenDeath = createServerFn({ method: "POST" })
     const room = await getRoomByHost(data.roomCode, data.hostSessionId);
     if (room.phase !== "sudden_death") return { ok: false, reason: "wrong-phase" as const };
     const cohort = (room.sudden_death_session_ids as string[] | null) ?? [];
-    const correctIdx = room.current_correct_index;
+    const correctIdx = await getSecretCorrectIndex(room.id);
     if (correctIdx === null || correctIdx === undefined) return { ok: false, reason: "no-q" as const };
+    // Now safe to reveal publicly.
+    await supabaseAdmin
+      .from("rooms")
+      .update({ current_correct_index: correctIdx })
+      .eq("id", room.id);
 
     const { data: players } = await supabaseAdmin
       .from("players")
