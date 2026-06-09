@@ -932,9 +932,16 @@ export function HostGameStage({ room }: Props) {
         }, 1200);
         // best-effort, no cleanup needed beyond setting refs
         void id;
+        // Auto instant-replay graphic on late-game leader swap.
+        if (round >= 3) {
+          window.setTimeout(() => {
+            triggerReplay({ caption: `New #1 — ${top.nickname}`, dedupe: `leader-replay-${round}` });
+          }, 600);
+        }
       }
     }
     lastLeaderRef.current = top.session_id;
+
 
     // ── Round MVP voice is owned by the RoundRecapReel (synced with beats). ──
     if (round >= 1 && roundRecapFiredForRoundRef.current !== round) {
