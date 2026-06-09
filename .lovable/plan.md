@@ -1,35 +1,38 @@
-# Fix #2 — "Did you know?" cut off before winner screen
-
 ## Problem
-After the final question's reveal, the announcer's "Did you know?" gets cut mid-sentence as the screen flips to the winner crowning.
 
-## Root cause
-In `src/components/host/HostGameStage.tsx` Effect A (lines 1044–1056), the `final_reveal → ended` transition uses a fixed 7-second timeout regardless of whether the explanation TTS is still playing:
+On phones, the player screen (`src/routes/play.tsx`) is a fixed `h-screen` flex column with no scroll. When stacked content exceeds the viewport the answer tile grid (`flex-1`) is squeezed and its bottom row gets cut off. Two cases triggered it:
 
-```ts
-if (phase === "final_reveal") {
-  if (topScoreTied) return;
-  const id = window.setTimeout(() => endGameFn(...), 7000);
-  return () => window.clearTimeout(id);
-}
-```
-
-The regular per-question reveal already solves this — `useRevealAutoAdvance` polls `getExplanationStateFor(qid).ended` (from `src/lib/explanation-playback.ts`) and only advances once the explanation has actually finished, with a 45 s safety cap to catch hung audio. The final reveal never got that treatment.
+1. **Question phase** — a long question text in a `line-clamp-4` block can eat ~6 lines of vertical space, leaving the 2×2 tile grid too short to show all four tiles fully on small phones.
+2. **Reveal phase** — the same grid is still mounted, *plus* the +score result panel, "Next question incoming…" line, and the "Did you know?" amber box are appended below. Long explanations push everything off-screen.
 
 ## Fix
-Replace the fixed 7 s timer for `final_reveal` with the same explanation-aware polling loop used by `useRevealAutoAdvance`:
 
-- Wait for `getExplanationStateFor(state.current_question_id)` to report `expected && ended`, then call `endGameFn`.
-- If no explanation is expected for the final question, fall back to the existing "persona reaction finished" heuristic (`isElfSpeaking` having gone true→false), with a 7 s floor so we don't snap the winner screen up the instant the sting ends.
-- 45 s safety cap — same as the regular reveal — so a stuck audio element never strands us on the final reveal.
-- Keep the `topScoreTied` early-return so sudden death still works.
+Keep the page itself non-scrollable (so people don't accidentally swipe past the tiles), but make the content adapt so the answer grid is always fully visible.
 
-The poll mirrors the existing implementation; the only differences are the target phase (`final_reveal`) and the advance action (`endGameFn` instead of `nextQuestion`/`setPhase`).
+### A. Question phase
 
-## File
-- `src/components/host/HostGameStage.tsx` — replace the `final_reveal` branch inside Effect A (lines ~1044–1056) with the polling loop. Add `getExplanationStateFor` import if not already used in this scope (it's used elsewhere in the file via the shared module).
+- Tighten the question card: drop from `line-clamp-4` + `text-base` to a fluid `line-clamp-3` with `text-sm sm:text-base`, smaller vertical padding (`py-2`), and a max-height with internal scroll (`max-h-[18vh] overflow-y-auto`) so a wall-of-text question scrolls inside its own card instead of stealing height from the tiles.
+- Give the AnswerGrid wrapper a guaranteed minimum height (`min-h-[42vh]`) so the tiles can never collapse below readable size.
+
+### B. Reveal phase
+
+- Move the "Did you know?" amber box into a single bottom panel that *replaces* the answer-grid wrapper on reveal once the result+score row has been shown for a moment, OR (simpler) make it a vertically-scrollable column below the grid with `max-h-[28vh] overflow-y-auto`, smaller padding, and `text-base` instead of `text-lg`.
+- Reduce the +score panel's padding (`px-3 py-2`, smaller score type) so reveal-state stacking fits.
+- Drop the "Next question incoming…" line when an explanation is showing (it's redundant with the auto-advance).
+
+### C. Container
+
+- Switch `main` from `h-screen` to `h-[100dvh]` so iOS Safari's URL bar collapsing doesn't shave 60px off the layout.
+- Add `min-h-0` to the question-phase wrapper so flex children actually shrink correctly inside the column.
+
+## Files touched
+
+- `src/routes/play.tsx` — question-card sizing, reveal-panel sizing, container height, conditional "Next question incoming…".
+- (No changes to `AnswerGrid.tsx`; sizing is driven by parent.)
 
 ## Verification
-Dry-run through the final question. After the reveal, the winner screen should only appear after the announcer finishes the full "Did you know?" line.
 
-Then we move on to #3 (winner screen / credits roll smoothness, graffiti polish).
+Dry-run on a 375×667 viewport (small phone) with:
+- A long 3-sentence question + 4 long answer labels → confirm all four tiles visible and tappable.
+- Reveal phase with a 2-sentence "Did you know?" → confirm tiles + result + explanation all visible (explanation scrolls internally if it overflows).
+- Reveal phase with a short explanation → confirm no awkward empty space.

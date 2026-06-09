@@ -397,11 +397,12 @@ function PlayPage() {
 
 
   return (
-    <main className="relative h-screen overflow-hidden bg-background text-foreground">
+    <main className="relative h-[100dvh] overflow-hidden bg-background text-foreground">
       <HeartbeatBackground secondsLeft={room.phase === "question" ? remainingS : null} />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,oklch(0.45_0.25_295/0.3),transparent_60%)]" />
 
-      <div className="relative mx-auto flex h-screen max-w-md flex-col gap-4 p-4">
+      <div className="relative mx-auto flex h-[100dvh] min-h-0 max-w-md flex-col gap-3 p-4">
+
         <header className="flex items-center justify-between gap-2 text-xs uppercase tracking-[0.25em] text-muted-foreground">
           <span>Room {session.roomCode}</span>
           <AccessibilityToggle />
@@ -747,14 +748,16 @@ function PlayPage() {
                 })()}
 
 
-                {/* Question text on phone */}
+                {/* Question text on phone — scroll internally if very long
+                    so it never steals height from the answer tiles below. */}
                 {room.current_question_text && room.wildcard !== "roast" && (
-                  <div className="rounded-2xl border border-border bg-card/40 px-4 py-3 text-center backdrop-blur">
-                    <div className="line-clamp-4 text-base font-bold leading-snug text-foreground">
+                  <div className="max-h-[18vh] shrink-0 overflow-y-auto rounded-2xl border border-border bg-card/40 px-4 py-2 text-center backdrop-blur">
+                    <div className="text-sm font-bold leading-snug text-foreground sm:text-base">
                       {room.current_question_text}
                     </div>
                   </div>
                 )}
+
 
                 {/* LOCKED IN confirmation */}
                 {room.phase === "question" &&
@@ -771,7 +774,7 @@ function PlayPage() {
                   )}
 
                 <div
-                  className={`min-h-0 flex-1 transition ${
+                  className={`min-h-[42vh] flex-1 transition ${
                     buttonsScrambled ? "rotate-1 scale-[1.02] blur-sm" : ""
                   } ${reading ? "pointer-events-none opacity-50" : ""}`}
                   style={
@@ -780,6 +783,7 @@ function PlayPage() {
                       : undefined
                   }
                 >
+
                   <AnswerGrid
                     disabled={room.phase !== "question" || reading}
                     labels={
@@ -803,7 +807,7 @@ function PlayPage() {
                 )}
                 {room.phase === "reveal" && me && me.last_answer_correct !== null && me.last_answer_correct !== undefined && (
                   <div
-                    className={`flex items-center justify-between gap-3 rounded-2xl border-2 px-4 py-3 backdrop-blur animate-scale-in ${
+                    className={`flex shrink-0 items-center justify-between gap-3 rounded-2xl border-2 px-3 py-2 backdrop-blur animate-scale-in ${
                       me.last_answer_correct
                         ? "border-emerald-400/70 bg-emerald-500/15 shadow-[0_0_30px_oklch(0.7_0.2_150/0.4)]"
                         : "border-rose-400/70 bg-rose-500/15"
@@ -813,37 +817,42 @@ function PlayPage() {
                       <div className={`text-[10px] font-black uppercase tracking-[0.35em] ${me.last_answer_correct ? "text-emerald-200" : "text-rose-200"}`}>
                         {me.last_answer_correct ? "✓ Correct" : "✗ Wrong"}
                       </div>
-                      <div className="mt-0.5 text-sm font-semibold text-foreground/85">
+                      <div className="mt-0.5 text-xs font-semibold text-foreground/85">
                         {me.last_answer_correct ? "Nice lock-in." : "Shake it off."}
                       </div>
                     </div>
                     <div className="text-right leading-none">
-                      <div className={`font-mono text-3xl font-black ${(me.current_round_score ?? 0) > 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                      <div className={`font-mono text-2xl font-black ${(me.current_round_score ?? 0) > 0 ? "text-emerald-300" : "text-rose-300"}`}>
                         {(me.current_round_score ?? 0) > 0 ? "+" : ""}{me.current_round_score ?? 0}
                       </div>
-                      <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.25em] text-muted-foreground">
+                      <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.25em] text-muted-foreground">
                         score {me.score}
                       </div>
                     </div>
                   </div>
                 )}
-                {room.phase === "reveal" && (
-                  <div className="text-center text-xs uppercase tracking-[0.25em] text-muted-foreground animate-pulse">
-                    Next question incoming…
-                  </div>
-                )}
+                {/* "Next question incoming…" — only show when there's NO
+                    explanation, otherwise the Did-you-know box already
+                    covers the gap and the extra line wastes height. */}
+                {room.phase === "reveal" &&
+                  !(room.current_explanation && room.current_explanation.trim().length > 0) && (
+                    <div className="text-center text-xs uppercase tracking-[0.25em] text-muted-foreground animate-pulse">
+                      Next question incoming…
+                    </div>
+                  )}
                 {room.phase === "reveal" &&
                   room.current_explanation &&
                   room.current_explanation.trim().length > 0 && (
-                    <div className="rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-400/20 to-amber-600/10 p-5 text-center shadow-[0_10px_40px_-15px_rgba(251,191,36,0.5)] animate-scale-in">
-                      <div className="text-xs font-bold uppercase tracking-[0.35em] text-amber-300">
+                    <div className="max-h-[28vh] shrink-0 overflow-y-auto rounded-3xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-400/20 to-amber-600/10 p-3 text-center shadow-[0_10px_40px_-15px_rgba(251,191,36,0.5)] animate-scale-in">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.35em] text-amber-300">
                         💡 Did you know?
                       </div>
-                      <div className="mt-2 text-lg font-semibold leading-relaxed text-amber-50">
+                      <div className="mt-1.5 text-sm font-semibold leading-relaxed text-amber-50 sm:text-base">
                         {room.current_explanation}
                       </div>
                     </div>
                   )}
+
               </>
             ) : room.phase === "leaderboard" ? (
               <div className="grid flex-1 place-items-center rounded-3xl border border-border bg-card/40 p-6 text-center backdrop-blur animate-scale-in">
