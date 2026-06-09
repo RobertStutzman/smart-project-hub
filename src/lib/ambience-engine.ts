@@ -385,12 +385,14 @@ export function climaxAndHandoff() {
     swell.volume = CYMBAL_VOL;
     swell.play().catch(() => {});
   }
+  wanted.clear();
   stopLoop(chatter, 700);
   stopLoop(crowd, 700);
   stopLoop(drumroll, 500);
 }
 
 export function stopAllAmbience() {
+  wanted.clear();
   stopLoop(chatter, 0);
   stopLoop(crowd, 0);
   stopLoop(drumroll, 0);
@@ -398,9 +400,12 @@ export function stopAllAmbience() {
 
 /** Fade out host buildup layers only; chatter persists as the pre-game layer. */
 export function stopLobbyBuildup() {
+  wanted.delete("crowd");
+  wanted.delete("drumroll");
   stopLoop(crowd, 600);
   stopLoop(drumroll, 500);
 }
+
 
 export function setAmbienceMuted(v: boolean) {
   muted = v;
