@@ -381,12 +381,22 @@ function HostPage() {
   }, [room?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Lobby announcer banter — opener + rotating quips every 10s while waiting.
+  // On a replay lobby (host hit Play Again), stay quiet: no opener and a
+  // much longer cadence so the announcer doesn't re-pitch the join steps.
   useEffect(() => {
     if (!room) return;
     if (roomPhase !== "lobby") return;
     let cancelled = false;
     const history: string[] = [];
     const code = room.roomCode;
+
+    const win = window as unknown as { __btdReplayLobby?: boolean };
+    const isReplayLobby = win.__btdReplayLobby === true;
+    if (isReplayLobby) {
+      win.__btdReplayLobby = false;
+      // Drain anything still queued from credits/persona.
+      void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
+    }
 
     const speakOpener = async () => {
       const [{ speakPersona }, { pickOpener }] = await Promise.all([
@@ -396,10 +406,12 @@ function HostPage() {
       if (cancelled) return;
       speakPersona(pickOpener(), { preset: "hype" });
     };
-    // Slight delay so the welcome clip + cymbal don't trample the opener.
-    const openerTimer = window.setTimeout(() => {
-      void speakOpener();
-    }, 2400);
+    // Skip the opener entirely on a replay lobby.
+    const openerTimer = isReplayLobby
+      ? null
+      : window.setTimeout(() => {
+          void speakOpener();
+        }, 2400);
 
     const tick = async () => {
       if (cancelled) return;
@@ -416,14 +428,25 @@ function HostPage() {
       if (history.length > 6) history.shift();
       speakPersona(spoken, { preset: "hype" });
     };
-    const interval = window.setInterval(() => void tick(), 10_000);
+    // Replay lobby: wait 12s before first quip, then every 25s. Fresh lobby
+    // keeps the original 10s cadence.
+    const firstQuipDelay = isReplayLobby ? 12_000 : 10_000;
+    const quipCadence = isReplayLobby ? 25_000 : 10_000;
+    let interval: number | null = null;
+    const firstQuipTimer = window.setTimeout(() => {
+      if (cancelled) return;
+      void tick();
+      interval = window.setInterval(() => void tick(), quipCadence);
+    }, firstQuipDelay);
 
     return () => {
       cancelled = true;
-      window.clearTimeout(openerTimer);
-      window.clearInterval(interval);
+      if (openerTimer !== null) window.clearTimeout(openerTimer);
+      window.clearTimeout(firstQuipTimer);
+      if (interval !== null) window.clearInterval(interval);
     };
   }, [room?.id, roomPhase]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
 
 
