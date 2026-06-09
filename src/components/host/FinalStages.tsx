@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { play, playEvent, playWagerBed, stopWagerBed } from "@/lib/sound-engine";
 
-import { useStaggeredReveal, useRevealStages } from "@/hooks/useFinalRoundFx";
+import { useStaggeredReveal, useRevealStages, useCountUp } from "@/hooks/useFinalRoundFx";
+
+const WAGER_DURATION_S = 30;
 
 type Player = {
   id: string;
