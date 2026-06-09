@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { HOST_NAME, pickLine, pickWelcomeBack, speakPersona } from "@/lib/host-persona";
-import { play } from "@/lib/sound-engine";
+import { play, playWalkOnStinger } from "@/lib/sound-engine";
 
 type Player = {
   id: string;
@@ -59,6 +59,16 @@ export function IntroStage({ players, onDone }: Props) {
     });
 
     at(2600, () => setStep("roster"));
+    // Walk-on stingers — one per contestant, staggered to match the
+    // card pop animation (220ms cadence, starting ~150ms after roster appears).
+    {
+      const maxStingers = Math.min(players.length, 10);
+      for (let i = 0; i < maxStingers; i++) {
+        at(2750 + i * 220, () => playWalkOnStinger(i));
+      }
+    }
+
+
     at(5500, () => {
       // Guarantee a clean slate before the countdown line — if the intro
       // quip ran long for any reason, cut it cleanly so it never overlaps

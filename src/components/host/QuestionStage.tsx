@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { play } from "@/lib/sound-engine";
+import { play, setMusicIntensity } from "@/lib/sound-engine";
 import { ShatteredFaces } from "./ShatteredFaces";
 import { ShutterTransition } from "./ShutterTransition";
 import { CategoryReveal } from "./CategoryReveal";
@@ -132,6 +132,19 @@ export const QuestionStage = memo(function QuestionStage({
     const id = window.setInterval(() => setPulse((p) => !p), tempo);
     return () => window.clearInterval(id);
   }, [secondsLeft, phase]);
+
+  // Adaptive music intensity — ramps a rumble/sub layer as timer drains.
+  // 0 outside the question phase; otherwise (1 - secondsLeft/totalS).
+  useEffect(() => {
+    if (phase !== "question" || reading) {
+      setMusicIntensity(0);
+      return;
+    }
+    const i = 1 - Math.max(0, Math.min(1, secondsLeft / Math.max(1, totalS)));
+    setMusicIntensity(i);
+  }, [secondsLeft, totalS, phase, reading]);
+  useEffect(() => () => setMusicIntensity(0), []);
+
 
 
   const { lockedByIndex, lockedCount } = useMemo<{
