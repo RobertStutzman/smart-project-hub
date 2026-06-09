@@ -17,10 +17,19 @@ type Player = {
   is_audience: boolean;
 };
 
+type WrongPick = {
+  questionId: string;
+  questionText: string;
+  correctText: string;
+  picks: { sessionId: string; nickname: string; pickedText: string }[];
+};
+
 type Props = {
   players: Player[];
+  wrongPicks?: WrongPick[];
   onPlayAgain: () => void;
 };
+
 
 type Award = {
   key: AwardKey;
