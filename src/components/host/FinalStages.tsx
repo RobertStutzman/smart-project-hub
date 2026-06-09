@@ -43,7 +43,22 @@ export function FinalWagerStage({ players }: { players: Player[] }) {
     };
   }, []);
 
-  // Heartbeat removed — final round no longer shows a countdown/pulse.
+  // Mount-based 30s wager countdown (matches the host's auto-advance window).
+  const [startMs] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(id);
+  }, []);
+  const secondsLeft = Math.max(
+    0,
+    Math.ceil(WAGER_DURATION_S - (now - startMs) / 1000),
+  );
+  const progress = Math.min(1, (now - startMs) / (WAGER_DURATION_S * 1000));
+  const danger = secondsLeft <= 5;
+
+  // Animate the locked counter so it punches up as wagers come in.
+  const animatedLocked = useCountUp(locked, 400);
 
   // All-in callouts: any top-3 player who wagered their entire score.
   const allIn = top3.filter((p) => p.final_wager > 0 && p.final_wager === p.score);
