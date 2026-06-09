@@ -88,6 +88,7 @@ function AdminPage() {
   const [editing, setEditing] = useState<DraftQuestion | null>(null);
   const [working, setWorking] = useState(false);
   const [dbCategories, setDbCategories] = useState<CategoryOption[]>([]);
+  const [toolTab, setToolTab] = useState<"add" | "maintain" | "health">("add");
   const listCategoriesFn = useServerFn(listCategories);
 
   const mergedCategories = useMemo<CategoryOption[]>(() => {
