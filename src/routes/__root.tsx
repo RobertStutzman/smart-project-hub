@@ -147,27 +147,27 @@ function RootComponent() {
   // happens to call resume() from a gesture frame.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    let done = false;
-    const unlock = () => {
-      if (done) return;
-      done = true;
-      // Synchronously resume both AudioContexts inside the gesture frame.
-      resumeAudioContext();
+    const tryUnlock = () => {
+      const running = resumeAudioContext();
       resumeAmbienceContext();
-      // Retry any ambience layers that were requested while blocked.
+      // Always retry — these are no-ops when nothing is pending / already playing.
+      retryBlockedMusic();
+      // Slight delay lets the AudioContext flip to 'running' before scheduling.
       setTimeout(() => retryBlockedAmbience(), 50);
-      window.removeEventListener("pointerdown", unlock, true);
-      window.removeEventListener("keydown", unlock, true);
-      window.removeEventListener("touchstart", unlock, true);
+      if (running) {
+        window.removeEventListener("pointerdown", tryUnlock, true);
+        window.removeEventListener("keydown", tryUnlock, true);
+        window.removeEventListener("touchstart", tryUnlock, true);
+      }
     };
 
-    window.addEventListener("pointerdown", unlock, true);
-    window.addEventListener("keydown", unlock, true);
-    window.addEventListener("touchstart", unlock, true);
+    window.addEventListener("pointerdown", tryUnlock, true);
+    window.addEventListener("keydown", tryUnlock, true);
+    window.addEventListener("touchstart", tryUnlock, true);
     return () => {
-      window.removeEventListener("pointerdown", unlock, true);
-      window.removeEventListener("keydown", unlock, true);
-      window.removeEventListener("touchstart", unlock, true);
+      window.removeEventListener("pointerdown", tryUnlock, true);
+      window.removeEventListener("keydown", tryUnlock, true);
+      window.removeEventListener("touchstart", tryUnlock, true);
     };
   }, []);
 
