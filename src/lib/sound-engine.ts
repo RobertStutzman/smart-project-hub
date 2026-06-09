@@ -7,6 +7,7 @@ export type Sfx =
   | "wrong"
   | "drop"
   | "tick"
+  | "tickHeavy"
   | "airhorn"
   | "crickets"
   | "boo"
