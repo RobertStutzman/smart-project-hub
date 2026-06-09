@@ -1,24 +1,26 @@
-## Plan
+## Round recap: add celebration music + smooth scrolling
 
-1. **Fix the spoken line selection**
-   - Update the announcer line helper so it can tell the difference between:
-     - absolute game question number (`1..20`), and
-     - question number inside the current round (`1..5`).
-   - Keep “Round N / New round” wording only for true round openers: questions `1`, `6`, `11`, and `16`.
-   - Use normal “Question N” wording for all other questions.
+### 1. Celebration music during the recap reel
+`src/components/host/RoundRecapReel.tsx`
+- On mount (per `triggerKey`), call `playCreditsMusic(0.18)` from `@/lib/sound-engine` to start the celebratory outro bed (same track Credits already uses, just quieter so persona voice lines sit on top).
+- Do NOT stop it on unmount — if the recap rolls into Credits, the same track keeps playing seamlessly. If recap goes back to the lobby/next round, the existing `startMusic("lobby"|"tense")` in `HostGameStage` already calls `stopCreditsMusic` internally, so no extra cleanup needed.
 
-2. **Fix the trigger guard**
-   - Update the host-stage announcement effect so the “round intro” audio/sting logic is keyed by the actual question identity, not just the numeric counter.
-   - This prevents duplicate or stale “new round” callouts after realtime updates, remounts, or phase transitions.
+`src/lib/sound-engine.ts`
+- Tiny guard in `playCreditsMusic`: if `creditsAudio` is already playing the same `creditsOutro.url`, just update its target volume instead of stop+restart. Prevents the "blip" when CreditsStage runs `playCreditsMusic` 700 ms after mount on top of the recap-started instance.
 
-3. **Preserve wildcard behavior**
-   - Wildcard questions (`5`, `10`, `15`, `20`) will still announce as wildcard moments, but not as a new round.
-   - Final question behavior stays separate and unchanged.
+### 2. Smooth scrolling between beats
+`src/components/host/RoundRecapReel.tsx`
+- Remove the SVG film-grain overlay (lines ~628-635). That noise layer is literally what reads as "grainy."
+- Tone the sweeping light bar down (`via-amber-300/8`, slower) so it doesn't strobe.
+- Unify every beat's enter/exit into a single soft crossfade + 12 px vertical drift (one shared `transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}`). Today some beats slide ±120 px on X with springs while others fade — that mismatch is what makes the cuts feel choppy.
+- Switch `<AnimatePresence mode="wait">` → `mode="popLayout"` and wrap the stage in a relative container so outgoing and incoming beats can crossfade over the same frame instead of waiting for the exit to finish before the next one starts (kills the dead beat between cards).
+- Bump each beat's `durationMs` floor to ≥ `enter (0.5s) + hold + exit (0.5s)` — current 1800 ms beats (splash, outro) get bumped to 2200 ms so the exit isn't clipped.
+- Add `will-change: transform, opacity` to the motion containers so the browser promotes them to their own layer (smoother on lower-end devices).
 
-## Technical details
+### Out of scope
+- No changes to which beats appear, copy, persona callouts, scoreboard data, Credits stage visuals, or HostGameStage scheduling.
+- No new audio assets; reusing existing `credits_outro.mp3`.
 
-- Files to change:
-  - `src/lib/round-callouts.ts`
-  - `src/components/host/HostGameStage.tsx`
-- No backend/database changes.
-- No changes to recap visuals or scoring.
+### Technical notes
+- `popLayout` is the right mode here because beats are absolutely centered in a grid cell — they don't reflow on swap, so we want overlap, not sequential.
+- The volume of `playCreditsMusic(0.18)` is intentionally lower than Credits' own `0.22` so voice TTS during recap stays intelligible; ducking via `duckMusic()` (already wired in sound-engine) will still apply when callouts fire.
