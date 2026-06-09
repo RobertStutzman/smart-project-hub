@@ -151,18 +151,16 @@ function RootComponent() {
     const unlock = () => {
       if (done) return;
       done = true;
-      void Promise.all([
-        import("@/lib/sound-engine").then((m) => m.resumeAudioContext()),
-        import("@/lib/ambience-engine").then((m) => {
-          m.resumeAmbienceContext();
-          // Give resume() a tick to land before retrying blocked layers.
-          setTimeout(() => m.retryBlockedAmbience(), 50);
-        }),
-      ]);
+      // Synchronously resume both AudioContexts inside the gesture frame.
+      resumeAudioContext();
+      resumeAmbienceContext();
+      // Retry any ambience layers that were requested while blocked.
+      setTimeout(() => retryBlockedAmbience(), 50);
       window.removeEventListener("pointerdown", unlock, true);
       window.removeEventListener("keydown", unlock, true);
       window.removeEventListener("touchstart", unlock, true);
     };
+
     window.addEventListener("pointerdown", unlock, true);
     window.addEventListener("keydown", unlock, true);
     window.addEventListener("touchstart", unlock, true);
