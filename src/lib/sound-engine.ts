@@ -67,19 +67,38 @@ export function isMuted() {
  * Synchronously create (if needed) and resume the AudioContext.
  * Must be called from inside a user gesture handler to actually unlock playback.
  */
-export function resumeAudioContext(): void {
-  if (typeof window === "undefined") return;
+export function resumeAudioContext(): boolean {
+  if (typeof window === "undefined") return false;
   if (!ctx) {
     const Ctor =
       (window.AudioContext as typeof AudioContext | undefined) ??
       ((window as unknown as { webkitAudioContext?: typeof AudioContext })
         .webkitAudioContext as typeof AudioContext | undefined);
-    if (!Ctor) return;
+    if (!Ctor) return false;
     ctx = new Ctor();
   }
   if (ctx.state === "suspended") {
     void ctx.resume();
   }
+  return ctx.state === "running";
+}
+
+/**
+ * Retry music playback that was previously blocked by autoplay.
+ * Call from a user-gesture handler. No-op if nothing is pending or already playing.
+ */
+export function retryBlockedMusic(): void {
+  if (typeof window === "undefined" || muted) return;
+  if (!pendingMusicMode) return;
+  // If a loop is already running, clear the pending flag.
+  if (loopAudio && !loopAudio.paused) {
+    pendingMusicMode = null;
+    return;
+  }
+  const mode = pendingMusicMode;
+  const tempo = pendingMusicTempo;
+  pendingMusicMode = null;
+  startMusic(mode, tempo);
 }
 
 
