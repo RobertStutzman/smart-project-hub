@@ -274,6 +274,8 @@ function EventsPanel({
 
       <QuestionVoiceoversPanel />
 
+      <ExplanationVoiceoversPanel />
+
       <TTSCacheStatsPanel />
 
       <HostMomentsPanel />
