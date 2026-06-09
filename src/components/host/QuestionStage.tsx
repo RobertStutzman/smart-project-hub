@@ -210,7 +210,7 @@ export const QuestionStage = memo(function QuestionStage({
         style={{
           background:
             "radial-gradient(ellipse at center, transparent 45%, oklch(0.45 0.28 25 / 0.55) 100%)",
-          opacity: phase === "question" && secondsLeft <= 5 && pulse ? 1 : 0,
+          opacity: !hideTimer && phase === "question" && secondsLeft <= 5 && pulse ? 1 : 0,
         }}
       />
 
@@ -224,14 +224,16 @@ export const QuestionStage = memo(function QuestionStage({
               ? "Live · Eliminate the wrong"
               : "Reveal"}
         </div>
-        <div className="flex items-center gap-4">
-          {phase === "question" && !reading && (
-            <PointsTicker secondsLeft={secondsLeft} max={totalS} />
-          )}
-          {reading ? null : (
-            <TimerRing seconds={secondsLeft} max={totalS} active={phase === "question"} />
-          )}
-        </div>
+        {!hideTimer && (
+          <div className="flex items-center gap-4">
+            {phase === "question" && !reading && (
+              <PointsTicker secondsLeft={secondsLeft} max={totalS} />
+            )}
+            {reading ? null : (
+              <TimerRing seconds={secondsLeft} max={totalS} active={phase === "question"} />
+            )}
+          </div>
+        )}
       </div>
 
 
