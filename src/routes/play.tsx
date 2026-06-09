@@ -208,10 +208,9 @@ function PlayPage() {
       }).catch(() => {});
     }, 15000);
 
-    // Only tick the clock when the question phase is active — avoids 5/s re-renders during lobby/recap/credits
-    const tick = setInterval(() => {
-      setNow((prev) => (room?.phase === "question" ? Date.now() : prev));
-    }, 250);
+    // Stable clock — always ticks while mounted. Used by the question read /
+    // countdown logic; phone never plays background music.
+    const tick = setInterval(() => setNow(Date.now()), 250);
 
 
     return () => {
@@ -222,14 +221,10 @@ function PlayPage() {
     };
   }, [session, heartbeatFn, navigate]);
 
-  // Music
+  // Stop any music that might have been started by an older build when leaving.
   useEffect(() => {
-    if (!room) return;
-    if (room.phase === "question") startMusic("tense", 380);
-    else if (room.phase === "lobby") startMusic("lobby", 540);
-    else stopMusic();
     return () => stopMusic();
-  }, [room?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // Detect when MY selected answer just got dropped
   useEffect(() => {
