@@ -185,7 +185,35 @@ export function IntroStage({ players, onDone }: Props) {
           </motion.div>
         )}
 
+        {step === "countdown" && (
+          <motion.div
+            key={`count-${count}`}
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.4 }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            className="relative text-center"
+          >
+            <div className="text-[11px] font-bold uppercase tracking-[0.6em] text-amber-300/90">
+              Get ready
+            </div>
+            <div
+              className="mt-2 font-display text-[28vw] font-black uppercase leading-none tracking-tight text-transparent sm:text-[20vw]"
+              style={{
+                backgroundImage:
+                  "linear-gradient(180deg, oklch(0.97 0.15 90) 0%, oklch(0.70 0.22 50) 100%)",
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                filter: "drop-shadow(0 10px 50px oklch(0.85 0.22 70 / 0.7))",
+              }}
+            >
+              {count}
+            </div>
+          </motion.div>
+        )}
+
         {step === "go" && (
+
           <motion.div
             key="go"
             initial={{ opacity: 0, scale: 0.7 }}
