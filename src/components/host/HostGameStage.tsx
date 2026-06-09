@@ -561,7 +561,7 @@ export function HostGameStage({ room }: Props) {
       if (text) {
         duckMusic(true);
         import("@/lib/elf-voice").then(({ speakAsElf }) => {
-          speakAsElf(text, { interrupt: true, preset: "hype" }).finally(() => duckMusic(false));
+          speakAsElf(text, { preset: "hype" }).finally(() => duckMusic(false));
         }).catch(() => duckMusic(false));
       }
 
