@@ -53,6 +53,7 @@ export function setMuted(v: boolean) {
     stopMusic();
     stopCreditsMusic(0);
     stopWagerBed(0);
+    stopBootMusic(0);
   }
   // Mirror mute into ambience layer (lazy import to avoid cycle in SSR).
   if (typeof window !== "undefined") {
