@@ -1487,7 +1487,8 @@ export function useRevealAutoAdvance(
   hostSessionId: string,
   phase: string | undefined,
   roundNumber: number,
-  hasExplanationTts: boolean = true,
+  currentQuestionId: string | null = null,
+  hasExplanation: boolean = true,
 ) {
   const setPhaseFn = useServerFn(setPhase);
   const nextQuestionFn = useServerFn(nextQuestion);
@@ -1498,8 +1499,8 @@ export function useRevealAutoAdvance(
       (roundNumber % QUESTIONS_PER_ROUND === 0 || roundNumber >= FINAL_ROUND_NUMBER);
 
     // Reveal card animates in over ~3.8s before "Did you know?" starts playing.
-    // Give it that much plus a small margin to actually start speaking.
-    const SPEECH_START_DEADLINE_MS = hasExplanationTts ? 7000 : 4500;
+    // Give the persona reaction that much plus a small margin to actually start.
+    const SPEECH_START_DEADLINE_MS = hasExplanation ? 7000 : 4500;
     const SAFETY_CAP_MS = 45000; // only catches stuck/never-ending audio
     const POLL_MS = 200;
     const start = Date.now();
@@ -1532,26 +1533,43 @@ export function useRevealAutoAdvance(
           return;
         }
         const elapsed = Date.now() - start;
-        const speaking = isElfSpeaking();
-        if (speaking) {
-          sawSpeech = true;
-          if (elapsed >= SAFETY_CAP_MS) {
+
+        // Safety cap always wins — never let a hung audio element strand us.
+        if (elapsed >= SAFETY_CAP_MS) {
+          if (pollId !== null) window.clearInterval(pollId);
+          pollId = null;
+          advance();
+          return;
+        }
+
+        // If we expect an explanation for this question, wait until it has
+        // actually finished playing before advancing — persona reactions and
+        // personalized callouts queue ahead of it, and the old
+        // `sawSpeech && !speaking` heuristic would fire in the gap between
+        // them and cut the explanation off (most visible on wildcard Q5).
+        if (hasExplanation && currentQuestionId) {
+          const exp = getExplanationStateFor(currentQuestionId);
+          if (exp.expected && exp.ended) {
             if (pollId !== null) window.clearInterval(pollId);
             pollId = null;
             advance();
           }
           return;
         }
-        // Not currently speaking.
+
+        // No explanation expected — fall back to the old persona-reaction
+        // heuristic so rooms without a baked DYK still move on.
+        const speaking = isElfSpeaking();
+        if (speaking) {
+          sawSpeech = true;
+          return;
+        }
         if (sawSpeech) {
-          // She started and finished — go now.
           if (pollId !== null) window.clearInterval(pollId);
           pollId = null;
           advance();
           return;
         }
-        // She never started. If we've waited long enough for the read to
-        // kick in and it didn't, there's no narration — advance.
         if (elapsed >= SPEECH_START_DEADLINE_MS) {
           if (pollId !== null) window.clearInterval(pollId);
           pollId = null;
@@ -1567,5 +1585,5 @@ export function useRevealAutoAdvance(
         pollId = null;
       }
     };
-  }, [phase, roundNumber, roomCode, hostSessionId, setPhaseFn, nextQuestionFn, hasExplanationTts]);
+  }, [phase, roundNumber, roomCode, hostSessionId, currentQuestionId, hasExplanation, setPhaseFn, nextQuestionFn]);
 }
