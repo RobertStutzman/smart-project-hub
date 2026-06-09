@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { play } from "@/lib/sound-engine";
-import { startLobbyChatter, startCrowd } from "@/lib/ambience-engine";
+import { play, playBootMusic, stopBootMusic, playBootStationId } from "@/lib/sound-engine";
+
 
 /**
  * Jackbox-style boot sequence — plays once when the app first loads.
