@@ -520,20 +520,45 @@ export function HostGameStage({ room }: Props) {
 
   // Tense music during question, lobby during lobby
   const ambienceHandedRef = useRef(false);
+  const playedOnceRef = useRef(false);
   useEffect(() => {
     if (!state) return;
+    // Mark "this room has played a game" the first time we leave lobby.
+    if (state.phase !== "lobby") {
+      playedOnceRef.current = true;
+    }
     // On first transition out of "lobby", climax the crowd ambience
     // and hand off to the existing game-show music.
     if (state.phase !== "lobby" && !ambienceHandedRef.current) {
       ambienceHandedRef.current = true;
       void import("@/lib/ambience-engine").then((m) => m.climaxAndHandoff());
     } else if (state.phase === "lobby" && ambienceHandedRef.current) {
-      // Returning to lobby (play again) — re-arm ambience for next start.
+      // Returning to lobby (play again) — silent beat, then re-arm.
       ambienceHandedRef.current = false;
-      void import("@/lib/ambience-engine").then((m) => {
-        m.resetAmbience();
-        m.startCrowd();
-      });
+      // Hard cancel any in-flight TTS so credits/persona doesn't talk over
+      // the replay lobby. Mark the next lobby pass as a "replay lobby" so
+      // the announcer banter in /host stays quiet.
+      try {
+        (window as unknown as { __btdReplayLobby?: boolean }).__btdReplayLobby = true;
+      } catch {
+        /* ignore */
+      }
+      void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
+      // Reset per-game callout latches so a fresh game still welcomes players.
+      welcomeFiredRef.current = false;
+      finalShowdownFiredRef.current = false;
+      lastRoundStingKeyRef.current = "";
+      // Silent beat, then ambience back.
+      stopMusic();
+      window.setTimeout(() => {
+        void import("@/lib/ambience-engine").then((m) => {
+          m.resetAmbience();
+          m.startCrowd();
+        });
+        startMusic("lobby", 1200);
+      }, 600);
+      // Skip the immediate startMusic below — the timeout handles it.
+      return;
     }
     if (state.phase === "question" || state.phase === "final_question")
       startMusic("tense", 380);
@@ -545,6 +570,7 @@ export function HostGameStage({ room }: Props) {
     } else if (state.phase === "final_intro" || state.phase === "final_wager")
       startMusic("tense", 520);
     else stopMusic();
+
 
     // Pause ember particles during active question phases — the screen is
     // already busy with tile animations + timer, and particles aren't visible
