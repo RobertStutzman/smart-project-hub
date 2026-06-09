@@ -137,6 +137,39 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  // Global first-gesture audio unlock. Browsers leave AudioContexts suspended
+  // until ctx.resume() is called synchronously from a user gesture. The
+  // announcer uses HTMLAudio (no unlock needed) but music + crowd ambience
+  // use Web Audio — without this, they stay silent until something else
+  // happens to call resume() from a gesture frame.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let done = false;
+    const unlock = () => {
+      if (done) return;
+      done = true;
+      void Promise.all([
+        import("@/lib/sound-engine").then((m) => m.resumeAudioContext()),
+        import("@/lib/ambience-engine").then((m) => {
+          m.resumeAmbienceContext();
+          // Give resume() a tick to land before retrying blocked layers.
+          setTimeout(() => m.retryBlockedAmbience(), 50);
+        }),
+      ]);
+      window.removeEventListener("pointerdown", unlock, true);
+      window.removeEventListener("keydown", unlock, true);
+      window.removeEventListener("touchstart", unlock, true);
+    };
+    window.addEventListener("pointerdown", unlock, true);
+    window.addEventListener("keydown", unlock, true);
+    window.addEventListener("touchstart", unlock, true);
+    return () => {
+      window.removeEventListener("pointerdown", unlock, true);
+      window.removeEventListener("keydown", unlock, true);
+      window.removeEventListener("touchstart", unlock, true);
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
@@ -150,3 +183,4 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
+
