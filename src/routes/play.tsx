@@ -881,10 +881,10 @@ function PlayPage() {
 
       {/* Eliminated-answer flash */}
       {eliminatedFlash && (
-        <div className="pointer-events-none fixed inset-0 z-40 grid place-items-center bg-rose-600/80 backdrop-blur-sm">
-          <div className="text-center">
-            <div className="text-4xl font-black">ANSWER ELIMINATED!</div>
-            <div className="mt-2 text-lg font-semibold">CHOOSE AGAIN</div>
+        <div className="pointer-events-none fixed inset-x-0 top-3 z-40 flex justify-center px-4 animate-scale-in">
+          <div className="rounded-full border-2 border-rose-300 bg-rose-600/95 px-4 py-2 text-center shadow-[0_10px_30px_-10px_oklch(0.55_0.22_25/0.7)]">
+            <div className="text-sm font-black uppercase tracking-[0.25em] text-white">Answer eliminated</div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.3em] text-rose-100/90">Pick again — fast!</div>
           </div>
         </div>
       )}
