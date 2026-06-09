@@ -103,9 +103,24 @@ function PlayPage() {
   const [room, setRoom] = useState<RoomState | null>(null);
   const [me, setMe] = useState<Me | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [serverOffsetMs, setServerOffsetMs] = useState(0);
   const [eliminatedFlash, setEliminatedFlash] = useState(false);
   const [wagerDraft, setWagerDraft] = useState<number>(0);
   const lastDroppedSig = useRef("");
+
+  // Compute and apply a server-clock offset from a freshly-received row's
+  // host_last_seen_at (server-written ISO). Guards against device clock skew
+  // which would otherwise leave the "reading" lead-in stuck on and the
+  // answer tiles greyed out / disabled.
+  const applyServerOffset = (hostLastSeenAt?: string | null) => {
+    if (!hostLastSeenAt) return;
+    const serverMs = Date.parse(hostLastSeenAt);
+    if (!Number.isFinite(serverMs)) return;
+    const localMs = Date.now();
+    // Only trust recent heartbeats (host alive within ~30s by local clock).
+    if (Math.abs(localMs - serverMs) > 5 * 60 * 1000) return;
+    setServerOffsetMs(serverMs - localMs);
+  };
 
   useEffect(() => {
     const s = loadPlayerSession();
@@ -135,6 +150,7 @@ function PlayPage() {
         return;
       }
       setRoom(r as RoomState);
+      applyServerOffset((r as RoomState).host_last_seen_at);
       const { data: p } = await supabase
         .from("players")
         .select(
@@ -173,7 +189,11 @@ function PlayPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "rooms", filter: `room_code=eq.${session.roomCode}` },
         (payload) => {
-          if (payload.new) setRoom(payload.new as RoomState);
+          if (payload.new) {
+            const next = payload.new as RoomState;
+            setRoom(next);
+            applyServerOffset(next.host_last_seen_at);
+          }
         },
       )
       .on(
@@ -274,12 +294,17 @@ function PlayPage() {
   const startMs = room.question_started_at
     ? new Date(room.question_started_at).getTime()
     : 0;
-  const readSecondsLeft = room.question_started_at
-    ? Math.max(0, (startMs - now) / 1000)
+  // Use server-adjusted clock so device clock skew can't lock the tiles.
+  const serverNow = now + serverOffsetMs;
+  const rawReadSecondsLeft = room.question_started_at
+    ? Math.max(0, (startMs - serverNow) / 1000)
     : 0;
+  // Belt-and-suspenders: lead-in is at most ~6s. If we think it's > 10s,
+  // assume our offset is wrong and unlock the tiles.
+  const readSecondsLeft = rawReadSecondsLeft > 10 ? 0 : rawReadSecondsLeft;
   const reading = readSecondsLeft > 0 && room.phase === "question";
   const remainingS = room.question_started_at
-    ? Math.max(0, room.question_duration_ms / 1000 - Math.max(0, (now - startMs) / 1000))
+    ? Math.max(0, room.question_duration_ms / 1000 - Math.max(0, (serverNow - startMs) / 1000))
     : null;
 
   // Wildcard derived state
