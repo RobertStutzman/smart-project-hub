@@ -356,10 +356,20 @@ export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
       if (typeof window === "undefined") return;
       loopAudio = new Audio(clip.url);
       loopAudio.loop = clip.loop;
-      // Cap music well below voice so announcer/TTS is always intelligible.
       const base = Math.max(0, Math.min(1, clip.volume));
       loopAudio.volume = Math.min(base, 0.25) * (duckActive ? 0.25 : 1);
-      loopAudio.play().catch(() => {});
+      const playPromise = loopAudio.play();
+      // Remember intent so retryBlockedMusic() can resume after a gesture.
+      pendingMusicMode = mode;
+      pendingMusicTempo = tempoMs;
+      playPromise
+        .then(() => {
+          pendingMusicMode = null;
+        })
+        .catch(() => {
+          // Autoplay blocked — leave pendingMusicMode set so a later
+          // user gesture can retry via retryBlockedMusic().
+        });
       return;
     }
   }
