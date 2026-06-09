@@ -25,6 +25,8 @@ import { CATEGORIES, DEFAULT_OFF_CATEGORIES, MIX_CATEGORY, emojiForCategory } fr
 import { useTheme } from "@/components/ThemeProvider";
 import { play, setMuted as setSoundMuted, startMusic, stopMusic, type Sfx } from "@/lib/sound-engine";
 import { HostGameStage, useRevealAutoAdvance } from "@/components/host/HostGameStage";
+import { Chyron } from "@/components/host/Chyron";
+
 import { AudienceFeed } from "@/components/host/AudienceFeed";
 import { useHostStageMode } from "@/hooks/useHostStageMode";
 import { useHostHotkeys } from "@/hooks/useHostHotkeys";
@@ -581,6 +583,8 @@ function HostPage() {
       <main className="fixed inset-0 overflow-hidden">
         <HostGameStage room={room} />
         <AudienceFeed />
+        <Chyron />
+
         <div className="fixed right-4 top-4 z-50 flex gap-2">
 
           {!isFullscreen && (

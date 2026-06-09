@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { play } from "@/lib/sound-engine";
 import { ShatteredFaces } from "./ShatteredFaces";
 import { ShutterTransition } from "./ShutterTransition";
+import { CategoryReveal } from "./CategoryReveal";
+
 
 type Player = {
   id: string;
@@ -27,7 +29,10 @@ type Props = {
   mediaType?: string | null; // 'image' | 'audio'
   questionNumber?: number;
   hideTimer?: boolean;
+  /** Optional category name e.g. "Movies" — drives the category-reveal card during the intro. */
+  category?: string | null;
 };
+
 
 
 const LETTERS = ["A", "B", "C", "D"] as const;
@@ -50,7 +55,9 @@ export const QuestionStage = memo(function QuestionStage({
   mediaType,
   questionNumber = 1,
   hideTimer = false,
+  category = null,
 }: Props) {
+
   // Anchor the intro on when THIS host first observed the new question.
   // The server schedules `question_started_at` ~6s in the future, but realtime
   // delivery latency can eat into that window, randomly shortening the intro.
@@ -283,6 +290,16 @@ export const QuestionStage = memo(function QuestionStage({
         zIndex={30}
         position="absolute"
       />
+
+      {/* Broadcast-style category reveal — sits above the shutter during the
+          first read-phase, then exits as the question text fades in. */}
+      <CategoryReveal
+        category={category}
+        visible={showBadge}
+        subline={`Question ${questionNumber}`}
+        zIndex={35}
+      />
+
 
 
 
