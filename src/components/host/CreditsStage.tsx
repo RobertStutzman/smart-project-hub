@@ -330,12 +330,9 @@ export function CreditsStage({ players, wrongPicks, onPlayAgain }: Props) {
         Skip ⏭
       </button>
 
-      {/* Scrolling credits column */}
-      <motion.div
-        initial={{ y: "30%" }}
-        animate={{ y: "-110%" }}
-        transition={{ duration: 48, ease: "linear" }}
-        className="absolute left-0 right-0 mx-auto flex w-full max-w-3xl flex-col items-center gap-14 px-8 pb-32 pt-32 text-center"
+      {/* Scrolling credits column — CSS keyframe for smooth GPU transform */}
+      <div
+        className="credits-roll absolute left-0 right-0 mx-auto flex w-full max-w-3xl flex-col items-center gap-14 px-8 pb-32 pt-32 text-center"
       >
         {/* Winner card */}
         {winner && (
@@ -494,7 +491,8 @@ export function CreditsStage({ players, wrongPicks, onPlayAgain }: Props) {
             Drop Trivia · A trivia bloodsport
           </div>
         </div>
-      </motion.div>
+      </div>
+
 
       {/* Play again CTA — pinned bottom, fades in at the end */}
       <motion.div

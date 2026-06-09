@@ -32,7 +32,7 @@ type Props = {
   count?: number;
 };
 
-export function Confetti({ triggerKey, continuous = false, count = 220 }: Props) {
+export function Confetti({ triggerKey, continuous = false, count = 160 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const particlesRef = useRef<Particle[]>([]);
   const rafRef = useRef<number | null>(null);
@@ -46,7 +46,9 @@ export function Confetti({ triggerKey, continuous = false, count = 220 }: Props)
     if (!ctx) return;
 
     const resize = () => {
-      const dpr = window.devicePixelRatio || 1;
+      // Cap DPR at 1.5 — full-viewport canvas at 3x retina was the main
+      // source of fill-rate jank ("graffiti" look from choppy specks).
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       canvas.width = canvas.clientWidth * dpr;
       canvas.height = canvas.clientHeight * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -54,21 +56,32 @@ export function Confetti({ triggerKey, continuous = false, count = 220 }: Props)
     resize();
     window.addEventListener("resize", resize);
 
+    // Hard cap so a long winner screen can't pile up hundreds of sprites.
+    const MAX_PARTICLES = 220;
+
     const step = (t: number) => {
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
       ctx.clearRect(0, 0, w, h);
 
-      if (continuous && t - lastEmitRef.current > 60) {
+      // Gentler continuous rain — fewer particles, slower cadence.
+      if (
+        continuous &&
+        t - lastEmitRef.current > 180 &&
+        particlesRef.current.length < MAX_PARTICLES
+      ) {
         lastEmitRef.current = t;
-        spawnBurst(particlesRef.current, w, h, 12, "top");
+        spawnBurst(particlesRef.current, w, h, 5, "top");
+
       }
 
       const ps = particlesRef.current;
       for (let i = ps.length - 1; i >= 0; i--) {
         const p = ps[i];
-        p.vy += 0.12; // gravity
-        p.vx *= 0.995;
+        p.vy += 0.08; // softer gravity → smoother, more floaty fall
+        p.vx *= 0.992;
+        // Gentle horizontal sway so pieces drift like real confetti
+        p.vx += Math.sin((t + p.life * 7) * 0.002) * 0.02;
         p.x += p.vx;
         p.y += p.vy;
         p.rot += p.vr;
@@ -81,12 +94,13 @@ export function Confetti({ triggerKey, continuous = false, count = 220 }: Props)
         ctx.translate(p.x, p.y);
         ctx.rotate(p.rot);
         ctx.fillStyle = p.color;
-        ctx.globalAlpha = Math.min(1, p.life / 60);
+        ctx.globalAlpha = Math.min(1, p.life / 80);
         if (p.shape === "rect") {
-          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.5);
+          // Wider, ribbon-like rectangles read as confetti, not specks
+          ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size * 0.45);
         } else {
           ctx.beginPath();
-          ctx.arc(0, 0, p.size * 0.4, 0, Math.PI * 2);
+          ctx.arc(0, 0, p.size * 0.45, 0, Math.PI * 2);
           ctx.fill();
         }
         ctx.restore();
@@ -106,6 +120,7 @@ export function Confetti({ triggerKey, continuous = false, count = 220 }: Props)
     if (!canvas) return;
     spawnBurst(particlesRef.current, canvas.clientWidth, canvas.clientHeight, count, "sides");
   }, [triggerKey, count]);
+
 
   return (
     <canvas
