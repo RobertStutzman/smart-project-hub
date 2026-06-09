@@ -119,14 +119,10 @@ export function BootSequence({ onComplete }: Props) {
   function complete() {
     if (completedRef.current) return;
     completedRef.current = true;
-    try {
-      window.sessionStorage.setItem(SKIP_KEY, "1");
-    } catch {
-      /* sessionStorage may be unavailable in private mode */
-    }
     setDismissing(true);
     window.setTimeout(onComplete, 600);
   }
+
 
   return (
     <AnimatePresence>
