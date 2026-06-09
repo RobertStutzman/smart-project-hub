@@ -1327,8 +1327,8 @@ export function HostGameStage({ room }: Props) {
           players={livePlayers}
           mediaUrl={(state as { current_media_url?: string | null }).current_media_url ?? null}
           mediaType={(state as { current_media_type?: string | null }).current_media_type ?? null}
-          hideTimer
         />
+
       </div>
     );
   }

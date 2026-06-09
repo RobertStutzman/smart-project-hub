@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { play, playEvent, playWagerBed, stopWagerBed } from "@/lib/sound-engine";
 
-import { useStaggeredReveal, useRevealStages } from "@/hooks/useFinalRoundFx";
+import { useStaggeredReveal, useRevealStages, useCountUp } from "@/hooks/useFinalRoundFx";
+
+const WAGER_DURATION_S = 30;
 
 type Player = {
   id: string;
@@ -41,7 +43,22 @@ export function FinalWagerStage({ players }: { players: Player[] }) {
     };
   }, []);
 
-  // Heartbeat removed — final round no longer shows a countdown/pulse.
+  // Mount-based 30s wager countdown (matches the host's auto-advance window).
+  const [startMs] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(id);
+  }, []);
+  const secondsLeft = Math.max(
+    0,
+    Math.ceil(WAGER_DURATION_S - (now - startMs) / 1000),
+  );
+  const progress = Math.min(1, (now - startMs) / (WAGER_DURATION_S * 1000));
+  const danger = secondsLeft <= 5;
+
+  // Animate the locked counter so it punches up as wagers come in.
+  const animatedLocked = useCountUp(locked, 400);
 
   // All-in callouts: any top-3 player who wagered their entire score.
   const allIn = top3.filter((p) => p.final_wager > 0 && p.final_wager === p.score);
@@ -69,8 +86,13 @@ export function FinalWagerStage({ players }: { players: Player[] }) {
       )}
 
 
-      {/* Static ring (no heartbeat in final round) */}
-      <div className="pointer-events-none absolute inset-4 rounded-3xl ring-2 ring-amber-300/30" />
+      {/* Heartbeat ring — pulses faster as time runs out */}
+      <div
+        className={`pointer-events-none absolute inset-4 rounded-3xl ring-2 final-heartbeat transition-colors ${
+          danger ? "ring-rose-400/70" : "ring-amber-300/40"
+        }`}
+        style={{ ["--hb" as string]: danger ? "0.55s" : "1.4s" } as React.CSSProperties}
+      />
 
       {/* All-in ribbon */}
       {allIn.length > 0 && (
@@ -110,16 +132,43 @@ export function FinalWagerStage({ players }: { players: Player[] }) {
         <div className="text-xs font-bold uppercase tracking-[0.5em] text-amber-300/90">
           Place your wager
         </div>
-        <div className="mt-3 font-display text-5xl font-black leading-tight">
-          All players are betting…
+
+        {/* Giant countdown */}
+        <div
+          className={`mt-3 font-display font-black leading-none tabular-nums transition-all ${
+            danger ? "text-rose-300 drop-shadow-[0_0_30px_oklch(0.7_0.25_25/0.7)]" : "text-amber-200 drop-shadow-[0_0_30px_oklch(0.85_0.20_70/0.5)]"
+          }`}
+          style={{ fontSize: danger ? "10rem" : "8rem" }}
+        >
+          {secondsLeft}
         </div>
-        <div className="mt-6 text-sm uppercase tracking-[0.3em] text-amber-200/60">
-          {locked === total ? "All wagers locked" : "Waiting on wagers…"}
+        <div className="text-[10px] uppercase tracking-[0.4em] text-white/50">
+          seconds to lock
+        </div>
+
+        {/* Progress bar */}
+        <div className="mt-6 h-2 w-64 overflow-hidden rounded-full bg-white/10">
+          <div
+            className={`h-full transition-all ${danger ? "bg-rose-400" : "bg-amber-300"}`}
+            style={{ width: `${progress * 100}%` }}
+          />
+        </div>
+
+        {/* Animated locked counter */}
+        <div className="mt-6 flex items-baseline gap-2">
+          <span className="font-mono text-5xl font-black tabular-nums text-amber-200">
+            {animatedLocked}
+          </span>
+          <span className="text-lg font-bold text-white/50">/ {total}</span>
+          <span className="ml-2 text-xs uppercase tracking-[0.3em] text-amber-200/60">
+            wagers locked
+          </span>
         </div>
       </div>
     </div>
   );
 }
+
 
 // ─── Reveal stage ───────────────────────────────────────────────────────
 type RevealProps = {
@@ -281,7 +330,8 @@ function FinalRevealRow({
   prevScore: number;
   showCrown: boolean;
 }) {
-  const displayScore = visible ? player.score : prevScore;
+  const animatedScore = useCountUp(visible ? player.score : prevScore, 700, prevScore);
+  const displayScore = visible ? Math.round(animatedScore) : prevScore;
   if (!visible) {
     return <div className="h-[68px]" aria-hidden />;
   }

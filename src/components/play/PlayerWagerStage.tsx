@@ -1,5 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+const WAGER_DURATION_S = 30;
 
 type Props = {
   score: number;
@@ -73,6 +75,20 @@ export function PlayerWagerStage({
   const pct = max > 0 ? wagerDraft / max : 0;
   const tier = useMemo(() => riskTier(pct), [pct]);
 
+  // Mount-based 30s countdown to match the host's auto-advance.
+  const [startMs] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(id);
+  }, []);
+  const secondsLeft = Math.max(
+    0,
+    Math.ceil(WAGER_DURATION_S - (now - startMs) / 1000),
+  );
+  const timeProgress = Math.min(1, (now - startMs) / (WAGER_DURATION_S * 1000));
+  const danger = secondsLeft <= 5 && !locked;
+
   // Tick haptic when crossing tier thresholds
   useEffect(() => {
     if (locked) return;
@@ -144,6 +160,26 @@ export function PlayerWagerStage({
         </div>
         <div className="mt-1 text-xs text-white/50">
           0 – <span className="font-mono font-bold text-white/80">{max}</span> pts on the line
+        </div>
+
+        {/* Countdown */}
+        <div className="mt-3 flex items-center justify-center gap-3">
+          <span
+            className={`font-mono text-3xl font-black tabular-nums ${
+              danger ? "text-rose-300 animate-pulse" : "text-amber-200"
+            }`}
+          >
+            {secondsLeft}s
+          </span>
+          <span className="text-[10px] uppercase tracking-[0.3em] text-white/40">
+            to lock
+          </span>
+        </div>
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+          <div
+            className={`h-full transition-all ${danger ? "bg-rose-400" : "bg-amber-300"}`}
+            style={{ width: `${timeProgress * 100}%` }}
+          />
         </div>
       </div>
 
