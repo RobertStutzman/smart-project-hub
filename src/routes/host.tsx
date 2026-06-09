@@ -605,7 +605,7 @@ function HostPage() {
 
   return (
     <main
-      className="relative h-[100svh] w-full overflow-hidden text-white"
+      className="relative h-[100vh] w-full overflow-hidden text-white"
       style={{
         background:
           "radial-gradient(ellipse 90% 60% at 50% 30%, oklch(0.22 0.04 270 / 0.95), oklch(0.06 0.02 270) 80%)",
@@ -632,14 +632,14 @@ function HostPage() {
       <div
         className="relative flex h-full flex-col"
         style={{
-          paddingTop: "calc(env(safe-area-inset-top, 0px) + 3svh)",
-          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 3svh)",
+          paddingTop: "calc(env(safe-area-inset-top, 0px) + 3vh)",
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 3vh)",
           paddingLeft: "calc(env(safe-area-inset-left, 0px) + 3vw)",
           paddingRight: "calc(env(safe-area-inset-right, 0px) + 3vw)",
         }}
       >
         {/* TOP BAR */}
-        <header className="flex flex-none items-center justify-between gap-3 pb-[1svh]">
+        <header className="flex flex-none items-center justify-between gap-3 pb-[1vh]">
           <button
             onClick={() => navigate({ to: "/" })}
             className="text-xs text-white/60 hover:text-white"
@@ -680,35 +680,35 @@ function HostPage() {
         )}
 
         {/* HERO — join + room code + QR (fills the middle, no scroll) */}
-        <section className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[1.2svh] overflow-hidden text-center">
-          <div className="text-[clamp(0.65rem,1.3svh,0.85rem)] font-bold uppercase tracking-[0.45em] text-amber-200/80">
+        <section className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[1.2vh] overflow-hidden text-center">
+          <div className="text-[clamp(0.65rem,1.3vh,0.85rem)] font-bold uppercase tracking-[0.45em] text-amber-200/80">
             Game PIN
           </div>
 
 
-          <div className="bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text font-mono text-[clamp(3rem,16svh,8rem)] font-black leading-none tracking-[0.12em] text-transparent drop-shadow-[0_8px_30px_rgba(251,191,36,0.35)]">
+          <div className="bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text font-mono text-[clamp(3rem,16vh,8rem)] font-black leading-none tracking-[0.12em] text-transparent drop-shadow-[0_8px_30px_rgba(251,191,36,0.35)]">
             {creating || !room ? "····" : room.roomCode}
           </div>
 
           {joinUrl && (
             <div
-              className="inline-block rounded-xl bg-white p-[1svh] shadow-[0_0_40px_oklch(0.85_0.18_85/0.32)] ring-1 ring-white/20"
-              style={{ width: "clamp(120px, 22svh, 200px)", height: "clamp(120px, 22svh, 200px)" }}
+              className="inline-block rounded-xl bg-white p-[1vh] shadow-[0_0_40px_oklch(0.85_0.18_85/0.32)] ring-1 ring-white/20"
+              style={{ width: "clamp(120px, 22vh, 200px)", height: "clamp(120px, 22vh, 200px)" }}
             >
               <QRCodeSVG value={joinUrl} size={256} level="M" includeMargin={false} style={{ width: "100%", height: "100%" }} />
             </div>
           )}
 
           {activeCategory && (
-            <div className="text-[clamp(0.7rem,1.4svh,0.95rem)] text-white/60">
+            <div className="text-[clamp(0.7rem,1.4vh,0.95rem)] text-white/60">
               Category: <span className="font-semibold text-amber-200">{activeCategory}</span>
             </div>
           )}
         </section>
 
         {/* PLAYER ROW */}
-        <section className="flex flex-none flex-col items-center gap-[1.5svh]">
-          <div className="flex items-center gap-4 text-[clamp(0.65rem,1.3svh,0.85rem)] font-bold uppercase tracking-[0.35em] text-white/60">
+        <section className="flex flex-none flex-col items-center gap-[1.5vh]">
+          <div className="flex items-center gap-4 text-[clamp(0.65rem,1.3vh,0.85rem)] font-bold uppercase tracking-[0.35em] text-white/60">
             <span className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
               {livePlayers.length} {livePlayers.length === 1 ? "player" : "players"}
@@ -720,10 +720,10 @@ function HostPage() {
               </span>
             )}
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-2" style={{ maxHeight: "12svh", overflow: "hidden" }}>
+          <div className="flex flex-wrap items-center justify-center gap-2" style={{ maxHeight: "12vh", overflow: "hidden" }}>
             <AnimatePresence>
               {livePlayers.length === 0 ? (
-                <div key="lobby-empty" className="text-[clamp(0.75rem,1.6svh,1rem)] text-white/50">
+                <div key="lobby-empty" className="text-[clamp(0.75rem,1.6vh,1rem)] text-white/50">
                   Waiting for players…
                 </div>
               ) : (
@@ -747,7 +747,7 @@ function HostPage() {
                       <span className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-primary to-accent text-xs font-bold text-primary-foreground">
                         {p.nickname.slice(0, 1).toUpperCase()}
                       </span>
-                      <span className="text-[clamp(0.75rem,1.5svh,0.95rem)] font-medium text-white">
+                      <span className="text-[clamp(0.75rem,1.5vh,0.95rem)] font-medium text-white">
                         {p.nickname}
                       </span>
                     </motion.div>
@@ -766,7 +766,7 @@ function HostPage() {
                 : { duration: 0.2 }
             }
             onClick={handleStartClick}
-            className={`rounded-2xl px-[clamp(1.5rem,4vw,3rem)] py-[clamp(0.6rem,1.8svh,1rem)] text-[clamp(1rem,2.4svh,1.5rem)] font-black uppercase tracking-wider shadow-lg transition ${
+            className={`rounded-2xl px-[clamp(1.5rem,4vw,3rem)] py-[clamp(0.6rem,1.8vh,1rem)] text-[clamp(1rem,2.4vh,1.5rem)] font-black uppercase tracking-wider shadow-lg transition ${
               canStart
                 ? "bg-gradient-to-b from-amber-300 to-amber-500 text-black shadow-[0_0_60px_oklch(0.85_0.18_85/0.45)] hover:brightness-110"
                 : "border border-white/15 bg-white/[0.06] text-white/70 hover:bg-white/10"
@@ -780,7 +780,7 @@ function HostPage() {
           <div className="relative flex items-center justify-center">
             <button
               onClick={openSettings}
-              className="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-4 py-1.5 text-[clamp(0.65rem,1.2svh,0.8rem)] font-semibold uppercase tracking-[0.2em] text-white/70 backdrop-blur transition hover:bg-white/10 hover:text-amber-200"
+              className="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-4 py-1.5 text-[clamp(0.65rem,1.2vh,0.8rem)] font-semibold uppercase tracking-[0.2em] text-white/70 backdrop-blur transition hover:bg-white/10 hover:text-amber-200"
             >
               <Shuffle className="h-3.5 w-3.5" />
               {mixLabel}
@@ -857,7 +857,7 @@ function HostPage() {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 28, stiffness: 260 }}
-              className="fixed right-0 top-0 z-50 flex h-[100svh] w-full max-w-md flex-col overflow-y-auto border-l border-white/10 bg-[oklch(0.10_0.02_270)] p-5 shadow-2xl"
+              className="fixed right-0 top-0 z-50 flex h-[100vh] w-full max-w-md flex-col overflow-y-auto border-l border-white/10 bg-[oklch(0.10_0.02_270)] p-5 shadow-2xl"
             >
 
               <div className="mb-4 flex items-center justify-between">
@@ -1047,7 +1047,7 @@ function LobbyTipCarousel() {
     return () => clearInterval(id);
   }, []);
   return (
-    <div className="mt-[1svh] h-[3svh] overflow-hidden">
+    <div className="mt-[1vh] h-[3vh] overflow-hidden">
       <AnimatePresence mode="wait">
         <motion.div
           key={idx}
@@ -1055,7 +1055,7 @@ function LobbyTipCarousel() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.4 }}
-          className="text-center text-[clamp(0.75rem,1.5svh,1rem)] italic text-white/50"
+          className="text-center text-[clamp(0.75rem,1.5vh,1rem)] italic text-white/50"
         >
           "{LOBBY_HOST_TIPS[idx]}"
         </motion.div>

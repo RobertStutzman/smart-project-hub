@@ -1,51 +1,30 @@
-## Funniest Moments: show actual dumb answers, not just avatars
+## Problem
 
-Today the "Funniest Moments" section is just a polaroid wall of generic awards (Champion, Brain of the Night, Fastest Finger, etc.). The user expects it to show the actual wrong picks players locked in — e.g. *"Sarah → 'Tokyo' (it was 'Paris') — Capital of France."*
+The host screen overflows the TV viewport on Amazon Silk (the browser shipped on Fire TV / Fire tablets). Yesterday's pass tightened the layout for normal browsers, but it relies heavily on `svh` / `dvh` viewport units inside `clamp(...)` expressions. Silk's Chromium is older and does not understand `svh`/`dvh` — when a CSS value contains an unsupported unit inside `clamp()`, the whole declaration is dropped, so:
 
-### Approach
-Capture wrong picks during the game in the host tab's memory, then render them as the new "Funniest Moments" wall. No DB schema change — the credits screen runs in the same `HostGameStage` session, so a `useRef` accumulator is enough and avoids a new table + RLS work.
+- `h-[100svh]` falls back to no height → page grows to content height instead of being capped to the TV viewport.
+- `clamp(3rem, 16svh, 8rem)` and the dozens of similar font/size clamps become invalid → text renders at default size and blows past the screen.
+- `maxHeight: "12svh"` on the lobby player chip row never clips, so the lobby list pushes the CTA off-screen.
 
-### Capture (in `HostGameStage.tsx`)
-Add a `wrongPicksRef` shape:
-```ts
-type WrongPick = {
-  questionId: string;
-  questionText: string;
-  correctText: string;
-  picks: { sessionId: string; nickname: string; pickedText: string }[];
-};
-```
-New effect, fires once per question when `phase === "reveal" && current_correct_index !== null`:
-- Compute every non-audience player whose `current_answer !== null && !== correct_index`.
-- Map each to `{ sessionId, nickname, pickedText: state.current_answers[current_answer] }`.
-- Push a `WrongPick` keyed by `current_question_id` (guarded by a `Set<string>` ref so realtime re-emits don't double-add).
+That matches the "doesn't fit my TV screen" symptom: huge text, lobby list overflows, no scaling.
 
-Pass the accumulated list into `<CreditsStage wrongPicks={wrongPicksRef.current} ... />`.
+## Fix
 
-Optional: also capture the final-round reveal (`final_reveal`) using `final_answer` per player, since those are often the most dramatic misses.
+Add plain-`vh` fallbacks everywhere we currently use `svh`/`dvh` so Silk gets a valid declaration. Strategy:
 
-### Render (in `CreditsStage.tsx`)
-Replace the polaroid wall under "Funniest Moments" with the dumb-answer wall. Move the existing award polaroids into a renamed section above ("Tonight's Awards") so we don't lose them — the user only complained about Funniest Moments.
+1. **Root containers** — replace `h-[100svh]` with `h-screen` (which is `100vh`) on `src/routes/host.tsx` line 608 and the side panel on line 860. `100vh` is universally supported and on a TV there is no dynamic browser chrome to worry about, so the `svh` precision isn't needed.
+2. **Clamp expressions** — for every `clamp(min, Nsvh, max)` in `src/routes/host.tsx` (the title, code, QR, lobby chips, CTA button, hint line, etc.), swap the middle term to `Nvh`. Same for the few `1.2svh / 1.5svh / 3svh` gap and padding values. This is a mechanical find-and-replace inside this one file.
+3. **Safe-area padding** — `calc(env(safe-area-inset-top, 0px) + 3svh)` becomes `calc(env(safe-area-inset-top, 0px) + 3vh)`.
+4. **HostGameStage / QuestionStage** — already use `vh` (not `svh`), so no change needed there. Spot-check after the host.tsx edit to confirm nothing else uses `svh`/`dvh`.
+5. **Viewport meta** — leave `width=device-width, initial-scale=1` as-is. Silk honors it; the bug is the unit, not the meta.
 
-For each card on the wall (pick 4-6 of the funniest — e.g. most-confidently-wrong: questions where multiple players picked the same wrong answer, ties broken by round order):
-- Question text (small, italic, top).
-- Player nickname + avatar chip.
-- Big "They said: **{pickedText}**" (rose/red tint).
-- Small "Actually: {correctText}" (emerald tint).
-- Slight rotation for the polaroid feel, same `rotationsRef` pattern already in the file.
+No behavior, copy, or visual design changes for modern browsers — `vh` and `svh` resolve to the same number on a TV (no collapsible chrome), so desktop/Chrome users see no difference.
 
-If there are zero wrong picks (lucky round), hide the section.
+## Verification
 
-### Persona / vox
-No new TTS work. The existing credits music + intro line stays.
+After the swap, load the host route in a normal browser to confirm the layout is visually identical, then ask the user to reload on the Fire TV. If anything still overflows on Silk it will be a specific component, not the global units, and we can target it.
 
-### Out of scope
-- No DB migration or `player_answers` table — purely session-memory.
-- No changes to the Highlight Reel, Cast, or other credits sections.
-- No mid-game UI changes.
+## Out of scope
 
-### Edge cases
-- Audience members excluded.
-- Players who joined late and didn't answer a given Q are excluded.
-- A wrong pick that matches the *only* other player's pick is fine — still listed.
-- If the host refreshes during play, in-memory data is lost (acceptable trade-off; documented).
+- No changes to game logic, announcer, credits, or the wrong-picks wall.
+- No new responsive breakpoints or TV-specific stylesheet — just the unit fallback.
