@@ -1,20 +1,29 @@
-## Host home screen: arrow nudge + all categories on
+## Fix vanishing categories at scale
 
-### 1. Animated arrow + nudge pointing at the Surprise Mix pill
+### Problem
+`listCategories` does `supabase.from("questions").select("category")` which is capped at 1000 rows. Past 1000 questions, any category whose rows fall outside that window disappears from the host's picker.
 
-Add an amber, hand-drawn-style SVG arrow with a small label sitting just above the `🎲 Surprise Mix · all 13 categories` button so hosts realize it's a control.
+### Fix
+Replace the row-fetch-and-count with a real DB-side aggregation via a `SECURITY DEFINER` Postgres function. One round-trip, returns one row per category with its count — scales to millions of rows.
 
-- **Label**: "Pick your categories" in small caps, amber-200.
-- **Arrow**: inline SVG, curved/squiggly, amber stroke with subtle drop-shadow glow, pointing down at the pill.
-- **Motion**: gentle bobble (~6px y-translate, 1.8s easeInOut loop) via `motion.div`.
-- **Dismiss**: hide once the host opens Settings once. Persisted via `localStorage` key `dt:host:cat-nudge-seen=1`.
-- Placed in `src/routes/host.tsx` immediately above the Surprise Mix button (around line 762), wrapped in `<AnimatePresence>`.
+**Migration** — add function:
+```sql
+CREATE OR REPLACE FUNCTION public.list_question_categories()
+RETURNS TABLE(name text, count bigint)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+  SELECT category::text AS name, COUNT(*)::bigint AS count
+  FROM public.questions
+  WHERE category IS NOT NULL AND category <> ''
+  GROUP BY category
+  ORDER BY category;
+$$;
+GRANT EXECUTE ON FUNCTION public.list_question_categories() TO authenticated, service_role;
+```
 
-### 2. All categories on by default
-
-- `src/lib/categories.ts`: change `DEFAULT_OFF_CATEGORIES` from `["Chapter & Verse"]` to `[]`.
-- `src/routes/host.tsx`: bump the `CATEGORIES_KEY` localStorage value from `"dt:host:categories"` to `"dt:host:categories:v2"` so existing hosts get the new "all on" default once, then their choices persist normally.
+**Code** — `src/lib/rooms.functions.ts` `listCategories`:
+Swap the `.from("questions").select("category")` block for `supabaseAdmin.rpc("list_question_categories")`, map rows to `{ name, count: Number(count) }`, keep the same return shape `{ categories: [...] }`.
 
 ### Out of scope
-- No DB changes, no category list edits.
-- Not touching the Settings sheet layout or the Surprise Mix pill styling itself.
+- No UI changes — the host picker reads the new full list automatically.
+- No changes to question filtering / Surprise Mix selection logic.

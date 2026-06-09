@@ -534,6 +534,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      list_question_categories: {
+        Args: never
+        Returns: {
+          count: number
+          name: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "user"
