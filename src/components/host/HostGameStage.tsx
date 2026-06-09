@@ -1311,29 +1311,8 @@ export function HostGameStage({ room }: Props) {
 
   if (state.phase === "final_question") {
     const totalS = state.question_duration_ms / 1000;
-    const danger = remainingS <= 10 && remainingS > 0;
-    const critical = remainingS <= 5 && remainingS > 0;
-    const ringDur = critical ? 0.45 : danger ? 0.9 : 1.6;
-    // Vignette intensifies as remaining drops; from 0 → 0.55 opacity
-    const vignetteAlpha = 0.55 * (1 - Math.max(0, Math.min(1, remainingS / totalS)));
     return (
       <div className="relative h-full">
-        <div
-          className={`pointer-events-none absolute inset-3 z-20 rounded-3xl ${
-            critical
-              ? "final-q-ring-danger ring-4 ring-rose-400/70"
-              : danger
-                ? "final-q-ring-danger ring-4 ring-amber-300/80"
-                : "final-q-ring ring-4 ring-amber-300/60"
-          }`}
-          style={{ ["--rd" as string]: `${ringDur}s` }}
-        />
-        <div
-          className="pointer-events-none absolute inset-0 z-10"
-          style={{
-            background: `radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,${vignetteAlpha.toFixed(2)}) 100%)`,
-          }}
-        />
         <div className="pointer-events-none absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full bg-amber-400/95 px-4 py-1 text-xs font-black uppercase tracking-[0.25em] text-amber-950 shadow">
           ★ Final question
         </div>
@@ -1348,6 +1327,7 @@ export function HostGameStage({ room }: Props) {
           players={livePlayers}
           mediaUrl={(state as { current_media_url?: string | null }).current_media_url ?? null}
           mediaType={(state as { current_media_type?: string | null }).current_media_type ?? null}
+          hideTimer
         />
       </div>
     );

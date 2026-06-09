@@ -26,6 +26,7 @@ type Props = {
   mediaUrl?: string | null;
   mediaType?: string | null; // 'image' | 'audio'
   questionNumber?: number;
+  hideTimer?: boolean;
 };
 
 
@@ -48,6 +49,7 @@ export const QuestionStage = memo(function QuestionStage({
   mediaUrl,
   mediaType,
   questionNumber = 1,
+  hideTimer = false,
 }: Props) {
   // Anchor the intro on when THIS host first observed the new question.
   // The server schedules `question_started_at` ~6s in the future, but realtime
@@ -208,7 +210,7 @@ export const QuestionStage = memo(function QuestionStage({
         style={{
           background:
             "radial-gradient(ellipse at center, transparent 45%, oklch(0.45 0.28 25 / 0.55) 100%)",
-          opacity: phase === "question" && secondsLeft <= 5 && pulse ? 1 : 0,
+          opacity: !hideTimer && phase === "question" && secondsLeft <= 5 && pulse ? 1 : 0,
         }}
       />
 
@@ -222,14 +224,16 @@ export const QuestionStage = memo(function QuestionStage({
               ? "Live · Eliminate the wrong"
               : "Reveal"}
         </div>
-        <div className="flex items-center gap-4">
-          {phase === "question" && !reading && (
-            <PointsTicker secondsLeft={secondsLeft} max={totalS} />
-          )}
-          {reading ? null : (
-            <TimerRing seconds={secondsLeft} max={totalS} active={phase === "question"} />
-          )}
-        </div>
+        {!hideTimer && (
+          <div className="flex items-center gap-4">
+            {phase === "question" && !reading && (
+              <PointsTicker secondsLeft={secondsLeft} max={totalS} />
+            )}
+            {reading ? null : (
+              <TimerRing seconds={secondsLeft} max={totalS} active={phase === "question"} />
+            )}
+          </div>
+        )}
       </div>
 
 

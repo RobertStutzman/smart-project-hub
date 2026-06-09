@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { play, playEvent, playWagerBed, stopWagerBed } from "@/lib/sound-engine";
 
-import { useCountUp, useStaggeredReveal, useRevealStages } from "@/hooks/useFinalRoundFx";
+import { useStaggeredReveal, useRevealStages } from "@/hooks/useFinalRoundFx";
 
 type Player = {
   id: string;
@@ -41,9 +41,7 @@ export function FinalWagerStage({ players }: { players: Player[] }) {
     };
   }, []);
 
-  // Heartbeat tempo: faster as more locks come in.
-  const progress = total > 0 ? locked / total : 0;
-  const hbSec = 1.05 - progress * 0.45; // 1.05s → 0.6s
+  // Heartbeat removed — final round no longer shows a countdown/pulse.
 
   // All-in callouts: any top-3 player who wagered their entire score.
   const allIn = top3.filter((p) => p.final_wager > 0 && p.final_wager === p.score);
@@ -71,11 +69,8 @@ export function FinalWagerStage({ players }: { players: Player[] }) {
       )}
 
 
-      {/* Heartbeat ring */}
-      <div
-        className="pointer-events-none absolute inset-4 rounded-3xl final-heartbeat ring-2 ring-amber-300/40"
-        style={{ ["--hb" as string]: `${hbSec.toFixed(2)}s` }}
-      />
+      {/* Static ring (no heartbeat in final round) */}
+      <div className="pointer-events-none absolute inset-4 rounded-3xl ring-2 ring-amber-300/30" />
 
       {/* All-in ribbon */}
       {allIn.length > 0 && (
@@ -110,7 +105,7 @@ export function FinalWagerStage({ players }: { players: Player[] }) {
         </div>
       </div>
 
-      {/* Counter */}
+      {/* Status */}
       <div className="relative flex flex-col items-center justify-center text-center">
         <div className="text-xs font-bold uppercase tracking-[0.5em] text-amber-300/90">
           Place your wager
@@ -118,15 +113,8 @@ export function FinalWagerStage({ players }: { players: Player[] }) {
         <div className="mt-3 font-display text-5xl font-black leading-tight">
           All players are betting…
         </div>
-        <div
-          key={`lock-${locked}`}
-          className="mt-8 font-mono text-7xl font-black text-amber-300 [animation:scale-in_0.25s_ease-out]"
-        >
-          {locked}
-          <span className="text-3xl text-amber-300/50"> / {total}</span>
-        </div>
-        <div className="mt-2 text-sm uppercase tracking-[0.3em] text-amber-200/70">
-          wagers locked
+        <div className="mt-6 text-sm uppercase tracking-[0.3em] text-amber-200/60">
+          {locked === total ? "All wagers locked" : "Waiting on wagers…"}
         </div>
       </div>
     </div>
@@ -293,7 +281,7 @@ function FinalRevealRow({
   prevScore: number;
   showCrown: boolean;
 }) {
-  const animatedScore = useCountUp(visible ? player.score : prevScore, 600, prevScore);
+  const displayScore = visible ? player.score : prevScore;
   if (!visible) {
     return <div className="h-[68px]" aria-hidden />;
   }
@@ -340,7 +328,7 @@ function FinalRevealRow({
           {delta > 0 ? `+${delta}` : delta}
         </span>
         <span className="font-mono text-2xl font-black text-amber-300">
-          {Math.round(animatedScore)}
+          {displayScore}
         </span>
       </div>
     </div>
