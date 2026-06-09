@@ -14,7 +14,7 @@ import {
   setRoomConfig,
   toggleTeamMode,
 } from "@/lib/rooms.functions";
-import { setPhase } from "@/lib/game.functions";
+import { restartGame, setPhase } from "@/lib/game.functions";
 import {
   loadHostSession,
   saveHostSession,
