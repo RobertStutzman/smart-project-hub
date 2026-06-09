@@ -15,6 +15,13 @@ const IDLE_EMPTY: string[] = [
   "Still no players. I'm starting to take this personally.",
   "Is this thing on? Hello? The code is right there. Use it.",
   "Empty lobby vibes. Don't make me start without you.",
+  "Population: zero. Like my fan club.",
+  "I'll just stand here. Looking pretty. Waiting.",
+  "Nobody? Really? I dressed up for this.",
+  "An empty lobby walks into a bar. That's the joke. That's where we are.",
+  "Cool, cool, cool. Just me and the void.",
+  "If a trivia host hosts in an empty room, does anyone get roasted?",
+  "Calling all humans. This is not a drill. Or maybe it is. I'm bored.",
 ];
 
 const IDLE_LOW: string[] = [
@@ -22,6 +29,11 @@ const IDLE_LOW: string[] = [
   "Just {count} so far. Tell your friends. Beg if you have to.",
   "{count} brave soul. Reminds me of my last birthday party.",
   "We've got {count}. The code is {code}. Pass it around like gossip.",
+  "{count} in. That's a start. Barely.",
+  "{count} player. The chosen one. Or the only one who could find the link.",
+  "{count} so far. Quality over quantity, right? Right?",
+  "Look at you, {count} strong. A small but mighty army.",
+  "{count} brave enough to show up. Respect. Sort of.",
 ];
 
 const IDLE_MID: string[] = [
@@ -29,6 +41,11 @@ const IDLE_MID: string[] = [
   "{count} of you ready to lose with dignity. Beautiful.",
   "We're at {count}. Round it up. I don't trust odd numbers.",
   "{count} players. Code is {code}. Stragglers, this is your moment.",
+  "{count} contestants. Decent turnout. Could be better. No pressure.",
+  "{count} in the room. Half of you look way too confident.",
+  "We're at {count}. Tell that one friend who always claims to be smart.",
+  "{count} players warming up. I see at least two of you Googling already.",
+  "{count} ready to rumble. Or stand awkwardly. Same thing here.",
 ];
 
 const IDLE_HIGH: string[] = [
@@ -36,6 +53,11 @@ const IDLE_HIGH: string[] = [
   "Look at this crowd — {count} strong. Somebody's getting humbled tonight.",
   "{count} contestants warming up. I can smell the desperation already.",
   "{count} in the lobby. Hope you stretched. There will be tears.",
+  "{count} of you! This is a real party now. A sad, competitive party.",
+  "{count} brains assembled. Probably six functional ones. We'll see.",
+  "{count} players. The lobby is full. The egos are fuller.",
+  "{count} in. I have not seen a crowd this hyped since the last fire drill.",
+  "{count} contestants. Choose your enemies wisely.",
 ];
 
 const IDLE_GENERIC: string[] = [
@@ -45,7 +67,18 @@ const IDLE_GENERIC: string[] = [
   "I've waited longer for pizza. Get in here.",
   "If we wait any longer I'm gonna start asking questions to myself.",
   "Whoever's still typing their nickname — there's no prize for creativity.",
+  "Last call for the bathroom break. Truly.",
+  "I'm running out of small talk. And patience.",
+  "The code is {code}. Yes, still. It hasn't changed in the last ten seconds.",
+  "If you're stalling because you're nervous — fair. Also, get in.",
+  "Stretch a hamstring. Crack a knuckle. Anything. We're so close.",
+  "I'd start a podcast in the time it's taking some of you to type a nickname.",
+  "Whoever's debating between two nicknames — they're both bad. Pick one.",
+  "I can hear you scrolling. Pick the dumb one. Commit.",
+  "Final boarding call. Doors closing soonish. Eventually. Hopefully.",
 ];
+
+
 
 function fill(line: string, count: number, code: string): string {
   return line.replaceAll("{count}", String(count)).replaceAll("{code}", code);
