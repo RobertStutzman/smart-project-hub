@@ -24,6 +24,7 @@ import { bakeAllQuestionTTS, bakeAllExplanationTTS, getExplanationTTSStats } fro
 import { supabase } from "@/integrations/supabase/client";
 import { CATEGORIES } from "@/lib/categories";
 import { listCategories } from "@/lib/rooms.functions";
+import { CapacityWidget } from "@/components/admin/CapacityWidget";
 
 type CategoryOption = { name: string; count: number };
 
@@ -260,10 +261,10 @@ function AdminPage() {
           </div>
         </header>
 
-
-
+        <CapacityWidget />
 
         <AIGenerator generate={generateFn} bulkInsert={bulkFn} onInserted={reload} categories={mergedCategories} />
+
 
         <GeminiImporter bulkInsert={bulkFn} onInserted={reload} />
 

@@ -1,14 +1,43 @@
-## Raise CSV import limit from 500 to 1000
+## Capacity Health Widget on `/admin`
 
-The CSV dropzone sends all parsed rows in a single `bulkInsertQuestions` call, and that server function validates `rows` with `z.array(...).min(1).max(500)`. An 800-row CSV fails Zod validation before any insert runs.
+Add a live status card at the top of the admin page that tells you, at a glance, how close you are to maxing out the current Cloud plan.
 
-### Change
+### What it shows
 
-- `src/lib/admin.functions.ts` (line 155): bump `.max(500)` → `.max(1000)` on the `rows` array in the `bulkInsertQuestions` input validator.
-- `src/routes/_authenticated/admin.tsx` (CsvDropzone, ~line 540): update the user-facing helper text / row-count guard if it mentions 500, so the dropzone rejects >1000 with a clear toast instead of a server error.
+A single card with four metrics, each with a 🟢/🟡/🔴 dot and a "% of estimated ceiling" bar:
 
-No DB schema, no auth, no batching changes. The Gemini importer already chunks its own inserts, so it's unaffected.
+1. **Active lobbies** — count of `rooms` in `lobby` / `in_progress` states updated in the last 10 min
+2. **Live players** — count of `players` joined to those active rooms
+3. **DB connections** — from `supabase--db_health` (used / max)
+4. **DB size & WAL** — from `supabase--db_health`
 
-### Why 1000 and not higher
+Thresholds (matches what we discussed):
+- 🟢 under 40% of ceiling
+- 🟡 40–70% — plan upgrade
+- 🔴 70%+ — upgrade now
 
-The bulk insert runs as a single transaction in one server function call. 1000 rows is comfortably within the Worker request/time budget; going much higher risks timeouts on slower networks. For larger one-time imports we'd want true client-side chunking, which we can add later if you regularly drop >1000 at once.
+Estimated ceilings for the current Cloud tier are hardcoded constants at the top of the widget (easy to bump later): `MAX_LOBBIES = 200`, `MAX_PLAYERS = 1600`, `MAX_CONNECTIONS` comes from db_health directly. We can tune those after you do a load test.
+
+Auto-refreshes every 30s via TanStack Query. Manual "Refresh" button too.
+
+### Files
+
+- **New** `src/lib/health.functions.ts` — one `createServerFn` (`getCapacityHealth`) gated by `requireSupabaseAuth` + admin role check. Internally:
+  - counts active rooms/players via `supabaseAdmin`
+  - calls the same data source `supabase--db_health` exposes (Supabase project API). For v1 we'll just return the room/player counts plus a `connections` field populated from `pg_stat_activity` via `supabaseAdmin.rpc` — simpler than wiring the management API. (If you'd rather pull straight from `db_health`, I can swap that in.)
+- **New** `src/components/admin/CapacityWidget.tsx` — presentational card, uses `useQuery({ refetchInterval: 30_000 })`.
+- **Edit** `src/routes/_authenticated/admin.tsx` — render `<CapacityWidget />` right under the header (around line 262), above the existing tools.
+
+### Out of scope (per your call)
+
+- No email alerts
+- No domain setup
+- No persisted history / charts — just current snapshot
+
+### One open question
+
+For the connection count, do you want me to:
+- (a) pull it from `pg_stat_activity` via a small SQL helper (no extra setup, slightly approximate), or
+- (b) skip connections for now and just show lobbies + players + DB size (the two numbers you actually control day-to-day)?
+
+I'd lean (b) — simpler, and connections aren't your bottleneck until you're already in trouble on the other two. Let me know which you want and I'll build it.
