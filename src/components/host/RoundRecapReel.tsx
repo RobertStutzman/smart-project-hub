@@ -599,6 +599,9 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
   // Schedule beat advances + voice triggers.
   useEffect(() => {
     setBeatIdx(0);
+    // Celebratory outro bed — kept quiet so persona voice lines sit on top.
+    // Not stopped on unmount so it hands off seamlessly to CreditsStage.
+    playCreditsMusic(0.18);
     const timers: number[] = [];
     // Fire beat 0's voice immediately (if any).
     beats[0]?.speak?.();
@@ -626,21 +629,13 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
   return (
     <div className="relative h-full w-full overflow-hidden bg-black text-white">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(0.22_0.04_270/0.95),oklch(0.05_0.02_270)_75%)]" />
-      {/* sweeping light bar — retimed to the full reel */}
+      {/* sweeping light bar — gentle, retimed to the full reel */}
       <motion.div
         key={`sweep-${triggerKey}`}
         initial={{ x: "-30%", opacity: 0 }}
-        animate={{ x: "120%", opacity: [0, 0.5, 0] }}
+        animate={{ x: "120%", opacity: [0, 0.25, 0] }}
         transition={{ duration: totalMs / 1000, ease: "easeInOut" }}
-        className="pointer-events-none absolute inset-y-0 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-amber-300/15 to-transparent"
-      />
-      {/* film grain */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.08] mix-blend-overlay"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
-        }}
+        className="pointer-events-none absolute inset-y-0 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-amber-300/[0.08] to-transparent"
       />
 
       <div className="relative grid h-full min-h-0 place-items-center overflow-hidden p-5 sm:p-7">
