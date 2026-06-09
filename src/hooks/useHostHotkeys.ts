@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { triggerReplay } from "@/lib/replay-bus";
 
 /**
  * Global keyboard / remote-control bindings for the host screen.
@@ -7,7 +8,7 @@ import { useEffect } from "react";
  *                   Firestick & TV-browser remote "OK" buttons map to Enter,
  *                   giving one-button gameplay. (Space is reserved for pause.)
  *   F             → toggle browser fullscreen (passed in from caller).
-
+ *   R             → fire the "INSTANT REPLAY" lower-third graphic.
  *
  * Each phase tags its "advance" button with data-host-primary="true". The
  * hook just clicks the first visible one — no state-machine coupling.
@@ -41,9 +42,16 @@ export function useHostHotkeys(toggleFullscreen: () => void | Promise<void>) {
       if (e.key === "f" || e.key === "F") {
         e.preventDefault();
         void toggleFullscreen();
+        return;
+      }
+
+      if (e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        triggerReplay({ caption: "Manual cue" });
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [toggleFullscreen]);
 }
+

@@ -291,4 +291,16 @@ body[data-a11y-contrast="high"] * {
   animation: rankFlash 720ms ease-out;
 }
 
+/* Achievement toast: top-edge shimmer sweep */
+@keyframes achievementSweep {
+  0%   { transform: translateX(-100%); opacity: 0; }
+  20%  { opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
+
+/* Instant-replay tape-scan stripe scroll */
+@keyframes replayScan {
+  0%   { background-position: 0 0; }
+  100% { background-position: 24px 0; }
+}
 

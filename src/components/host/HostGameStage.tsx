@@ -31,6 +31,9 @@ import { WinnerSpotlight } from "./WinnerSpotlight";
 import { RoundRecapReel } from "./RoundRecapReel";
 import { RoundSplash } from "./RoundSplash";
 import { WildcardBanner } from "./WildcardBanner";
+import { emitAchievement } from "@/lib/achievement-bus";
+import { triggerReplay } from "@/lib/replay-bus";
+
 import { QRCodeSVG } from "qrcode.react";
 import {
   resetExplanationFor,
@@ -716,7 +719,31 @@ export function HostGameStage({ room }: Props) {
         void speakPersona(pickLine(moment, qid));
       }
     }, 900);
+    // Perfect-round achievement: everyone answered correctly.
+    if (moment === "all_correct" && live.length >= 2) {
+      emitAchievement({
+        kicker: "Perfect Round",
+        title: "Everyone nailed it",
+        subtitle: `${live.length}/${live.length} correct`,
+        icon: "🎯",
+        tone: "emerald",
+        dedupe: `perfect-${qid}`,
+      });
+    }
+    // Total whiff is its own visual beat.
+    if (moment === "all_wrong" && live.length >= 3) {
+      emitAchievement({
+        kicker: "Total Whiff",
+        title: "Nobody got it",
+        subtitle: `0/${live.length} correct`,
+        icon: "💀",
+        tone: "rose",
+        ttl: 2400,
+        dedupe: `whiff-${qid}`,
+      });
+    }
     return () => window.clearTimeout(id);
+
   }, [state?.phase, state?.current_question_id, state?.current_correct_index, players]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Capture wrong picks per question so CreditsStage can show the
@@ -905,9 +932,16 @@ export function HostGameStage({ room }: Props) {
         }, 1200);
         // best-effort, no cleanup needed beyond setting refs
         void id;
+        // Auto instant-replay graphic on late-game leader swap.
+        if (round >= 3) {
+          window.setTimeout(() => {
+            triggerReplay({ caption: `New #1 — ${top.nickname}`, dedupe: `leader-replay-${round}` });
+          }, 600);
+        }
       }
     }
     lastLeaderRef.current = top.session_id;
+
 
     // ── Round MVP voice is owned by the RoundRecapReel (synced with beats). ──
     if (round >= 1 && roundRecapFiredForRoundRef.current !== round) {
@@ -939,6 +973,15 @@ export function HostGameStage({ room }: Props) {
           });
         }, 5400);
         void id;
+        emitAchievement({
+          kicker: "Comeback",
+          title: `${cb.nickname} climbed ${cb.ranksClimbed} spots`,
+          subtitle: "Back in the top 3",
+          icon: "🚀",
+          tone: "violet",
+          dedupe: `comeback-${cb.nickname}-${round}`,
+        });
+
       }
     }
 
