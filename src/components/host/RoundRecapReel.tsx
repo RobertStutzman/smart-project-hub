@@ -6,10 +6,17 @@ import { playCreditsMusic } from "@/lib/sound-engine";
 
 // Shared transition for every beat — uniform crossfade + gentle drift so the
 // reel scrolls smoothly instead of snapping between mismatched motion styles.
-const BEAT_T = { duration: 0.45, ease: [0.22, 1, 0.36, 1] as const };
+const BEAT_T = { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const };
 const BEAT_INITIAL = { opacity: 0, y: 14 };
 const BEAT_ANIMATE = { opacity: 1, y: 0 };
 const BEAT_EXIT = { opacity: 0, y: -14 };
+
+// Even, predictable pacing — viewers complained the old per-beat durations
+// (2.0–3.2s) felt rushed and irregular. Hold each celebratory card long
+// enough to read names + stats; give the scoreboard extra room.
+const BEAT_MS = 3200;
+const SCOREBOARD_MS = 5000;
+
 
 type Player = {
   id: string;
@@ -133,7 +140,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     // beat: Round splash
     list.push({
       key: "splash",
-      durationMs: 2200,
+      durationMs: BEAT_MS,
       render: () => (
         <motion.div
           key="splash"
@@ -172,7 +179,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
       const maxRoundScore = Math.max(1, top8[0]?.current_round_score ?? 1);
       list.push({
         key: "scoreboard",
-        durationMs: 3200,
+        durationMs: SCOREBOARD_MS,
         speak: () => speakPersona(`Here's how round ${roundNumber} shook out.`),
         render: () => (
           <motion.div
@@ -262,7 +269,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     if (fastest) {
       list.push({
         key: "fastest",
-        durationMs: 2100,
+        durationMs: BEAT_MS,
         speak: () => speakPersona(`Fastest finger: ${fastest.nickname}!`),
         render: () => (
           <motion.div
@@ -296,7 +303,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     if (hasStreak && streakKing) {
       list.push({
         key: "streak",
-        durationMs: 2000,
+        durationMs: BEAT_MS,
         speak: () =>
           void speakAboutPlayer({
             nickname: streakKing.nickname,
@@ -333,7 +340,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     if (mvp && (mvp.current_round_score ?? 0) > 0) {
       list.push({
         key: "mvp",
-        durationMs: 2400,
+        durationMs: BEAT_MS,
         speak: () =>
           void speakAboutPlayer({
             nickname: mvp.nickname,
@@ -370,7 +377,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     if (woodenSpoon) {
       list.push({
         key: "spoon",
-        durationMs: 2400,
+        durationMs: BEAT_MS,
         speak: () =>
           void speakAboutPlayer({
             nickname: woodenSpoon.nickname,
@@ -429,7 +436,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
             : `${zeroes[0].nickname}, ${zeroes[1].nickname} and ${zeroes.length - 2} more`;
       list.push({
         key: "zeroes",
-        durationMs: 2200,
+        durationMs: BEAT_MS,
         speak: () =>
           void speakAboutPlayer({
             nickname: zeroes[0].nickname,
@@ -489,7 +496,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
       const climber = biggestClimb;
       list.push({
         key: "climb",
-        durationMs: 2200,
+        durationMs: BEAT_MS,
         speak: () =>
           void speakAboutPlayer({
             nickname: climber.p.nickname,
@@ -527,7 +534,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
       const faller = biggestDrop;
       list.push({
         key: "drop",
-        durationMs: 2200,
+        durationMs: BEAT_MS,
         speak: () =>
           void speakAboutPlayer({
             nickname: faller.p.nickname,
@@ -564,7 +571,7 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     // beat: To the board
     list.push({
       key: "board",
-      durationMs: 2200,
+      durationMs: BEAT_MS,
       render: () => (
         <motion.div
           key="board"
