@@ -158,9 +158,12 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
     // beat: Round scoreboard — always shown so the recap has substance
     // even when no conditional beats (MVP/fastest/streak/spoon/zeros) qualify.
     if (real.length > 0) {
+      const top8 = byRoundDesc.slice(0, 8);
+      const overflow = Math.max(0, byRoundDesc.length - top8.length);
+      const maxRoundScore = Math.max(1, top8[0]?.current_round_score ?? 1);
       list.push({
         key: "scoreboard",
-        durationMs: 2600,
+        durationMs: 3200,
         speak: () => speakPersona(`Here's how round ${roundNumber} shook out.`, { interrupt: true }),
         render: () => (
           <motion.div
@@ -169,52 +172,78 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="flex max-w-[94vw] flex-col items-center gap-5 overflow-hidden text-center"
+            className="flex w-full max-w-3xl flex-col gap-4 overflow-hidden"
           >
-            <div className="text-[11px] font-black uppercase tracking-[0.6em] text-amber-300/80">
-              Round {roundNumber} · Scoreboard
+            <div className="text-center text-[11px] font-black uppercase tracking-[0.6em] text-amber-300/80">
+              Round {roundNumber} · Round Scores
             </div>
-            <div className="flex flex-wrap items-end justify-center gap-4 sm:gap-5">
-              {byRoundDesc.slice(0, 8).map((p, i) => {
+            <ol className="flex w-full flex-col divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur">
+              {top8.map((p, i) => {
                 const score = p.current_round_score ?? 0;
-                const top = i === 0 && score > 0;
+                const pct = score > 0 ? Math.max(4, Math.round((score / maxRoundScore) * 100)) : 0;
+                const rank = i + 1;
+                const isTop = rank === 1 && score > 0;
+                const badgeBg =
+                  rank === 1
+                    ? "bg-amber-300 text-amber-950"
+                    : rank === 2
+                    ? "bg-zinc-200 text-zinc-900"
+                    : rank === 3
+                    ? "bg-orange-400 text-orange-950"
+                    : "bg-white/10 text-white/80";
+                const barTone = isTop
+                  ? "bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500"
+                  : score > 0
+                  ? "bg-gradient-to-r from-emerald-400 to-emerald-600"
+                  : "bg-white/10";
                 return (
-                  <motion.div
+                  <motion.li
                     key={p.id}
-                    initial={{ opacity: 0, y: 24, scale: 0.85 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{
-                      delay: 0.18 + i * 0.09,
-                      type: "spring",
-                      stiffness: 240,
-                      damping: 20,
-                    }}
-                    className="flex w-24 flex-col items-center sm:w-28"
+                    initial={{ opacity: 0, x: -16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 + i * 0.08, duration: 0.3, ease: "easeOut" }}
+                    className="flex items-center gap-3 px-4 py-2.5 sm:gap-4 sm:px-5"
                   >
+                    <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-full font-display text-sm font-black ${badgeBg}`}>
+                      {rank}
+                    </div>
                     <Avatar
                       p={p}
-                      size="h-20 w-20 sm:h-24 sm:w-24"
-                      ring={top ? "border-amber-300/80" : "border-white/30"}
-                      glow={
-                        top
-                          ? "shadow-[0_0_55px_oklch(0.85_0.18_85/0.55)]"
-                          : "shadow-[0_0_30px_oklch(0.4_0.05_270/0.5)]"
-                      }
+                      size="h-10 w-10 sm:h-11 sm:w-11"
+                      ring="border-white/20"
+                      glow=""
                     />
-                    <div className="mt-2 max-w-[6.5rem] truncate font-display text-sm font-bold uppercase tracking-wider text-white sm:text-base">
-                      {p.nickname}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 truncate font-display text-base font-bold uppercase tracking-wide text-white sm:text-lg">
+                        <span className="truncate">{p.nickname}</span>
+                        {p.current_round_fastest && <span title="Fastest" className="text-xs">⚡</span>}
+                        {(p.streak_count ?? 0) >= 3 && <span title="On fire" className="text-xs">🔥</span>}
+                      </div>
+                      <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-white/[0.06] shadow-inner">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${pct}%` }}
+                          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.35 + i * 0.08 }}
+                          className={`h-full rounded-full ${barTone} shadow-[0_0_14px_rgba(255,255,255,0.1)_inset]`}
+                        />
+                      </div>
                     </div>
                     <div
-                      className={`mt-1 font-mono text-xl font-black sm:text-2xl ${
-                        score > 0 ? "text-emerald-300" : "text-zinc-400"
+                      className={`w-14 shrink-0 text-right font-mono text-xl font-black tabular-nums sm:text-2xl ${
+                        score > 0 ? "text-emerald-300" : "text-zinc-500"
                       }`}
                     >
                       {score > 0 ? `+${score}` : "0"}
                     </div>
-                  </motion.div>
+                  </motion.li>
                 );
               })}
-            </div>
+            </ol>
+            {overflow > 0 && (
+              <div className="self-end rounded-full bg-white/10 px-3 py-1 font-mono text-xs font-bold text-white/70">
+                +{overflow} more
+              </div>
+            )}
           </motion.div>
         ),
       });
