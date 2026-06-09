@@ -1,5 +1,6 @@
-import { memo } from "react";
+import { memo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { emitChyron } from "@/lib/chyron-bus";
 
 type Player = {
   id: string;
@@ -69,6 +70,77 @@ export const Leaderboard = memo(function Leaderboard({ players }: { players: Pla
   const sorted = [...players].sort((a, b) => b.score - a.score);
   const maxScore = Math.max(1, sorted[0]?.score ?? 1);
 
+  // Track previous rank per player so we can flash rows that moved and emit
+  // chyrons for big climbs / new leaders / streaks.
+  const prevRankRef = useRef<Map<string, number>>(new Map());
+  const prevStreakRef = useRef<Map<string, number>>(new Map());
+  const flashRef = useRef<Map<string, number>>(new Map()); // id -> timestamp of last flash trigger
+  const seededRef = useRef(false);
+
+  useEffect(() => {
+    const nextRank = new Map<string, number>();
+    sorted.forEach((p, i) => nextRank.set(p.id, i + 1));
+
+    // First render after mount: just seed the maps so we don't spam chyrons
+    // for the initial layout.
+    if (!seededRef.current) {
+      prevRankRef.current = nextRank;
+      for (const p of sorted) prevStreakRef.current.set(p.id, p.streak_count ?? 0);
+      seededRef.current = true;
+      return;
+    }
+
+    const now = Date.now();
+    for (const p of sorted) {
+      const newRank = nextRank.get(p.id)!;
+      const oldRank = prevRankRef.current.get(p.id);
+      if (oldRank != null && oldRank !== newRank) {
+        flashRef.current.set(p.id, now);
+        const delta = oldRank - newRank; // positive = climbed
+        // New leader chyron — only when someone NEW takes #1
+        if (newRank === 1 && oldRank > 1) {
+          emitChyron({
+            kicker: "New Leader",
+            title: p.nickname,
+            detail: `Up from #${oldRank}`,
+            icon: "👑",
+            tone: "gold",
+            dedupe: `leader-${p.id}`,
+            ttl: 3200,
+          });
+        } else if (delta >= 2) {
+          emitChyron({
+            kicker: "Big Mover",
+            title: p.nickname,
+            detail: `#${oldRank} → #${newRank}`,
+            icon: "📈",
+            tone: "sky",
+            dedupe: `mover-${p.id}-${newRank}`,
+          });
+        }
+      }
+      // Streak chyrons — fire when a player crosses 3 / 5 / 7+
+      const newStreak = p.streak_count ?? 0;
+      const oldStreak = prevStreakRef.current.get(p.id) ?? 0;
+      if (newStreak > oldStreak && (newStreak === 3 || newStreak === 5 || newStreak >= 7)) {
+        emitChyron({
+          kicker: "On Fire",
+          title: `${p.nickname} — ${newStreak} in a row`,
+          icon: "🔥",
+          tone: "rose",
+          dedupe: `streak-${p.id}-${newStreak}`,
+        });
+      }
+      prevStreakRef.current.set(p.id, newStreak);
+    }
+    prevRankRef.current = nextRank;
+
+    // Sweep stale flash entries (>1.2s old)
+    for (const [id, t] of flashRef.current) {
+      if (now - t > 1200) flashRef.current.delete(id);
+    }
+  }, [sorted]);
+
   return (
     <div className="mx-auto w-full max-w-4xl">
       <ol className="flex w-full flex-col divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur">
@@ -78,6 +150,10 @@ export const Leaderboard = memo(function Leaderboard({ players }: { players: Pla
             const tone = RANK_TONE[rank] ?? DEFAULT_TONE;
             const pct = Math.max(2, Math.round((p.score / maxScore) * 100));
             const delta = p.current_round_score ?? 0;
+            const prevRank = prevRankRef.current.get(p.id);
+            const rankDelta = prevRank != null ? prevRank - rank : 0; // + climbed, - fell
+            const flashAt = flashRef.current.get(p.id);
+            const flashing = flashAt != null && Date.now() - flashAt < 720;
             return (
               <motion.li
                 key={p.id}
@@ -90,7 +166,7 @@ export const Leaderboard = memo(function Leaderboard({ players }: { players: Pla
                   delay: Math.min(i, 8) * 0.05,
                   duration: 0.35,
                 }}
-                className={`flex items-center gap-4 px-5 py-3 ring-1 ring-inset ${tone.rowRing}`}
+                className={`flex items-center gap-4 px-5 py-3 ring-1 ring-inset ${tone.rowRing} ${flashing ? "rank-flash" : ""}`}
               >
                 {/* Rank */}
                 <div
@@ -120,20 +196,34 @@ export const Leaderboard = memo(function Leaderboard({ players }: { players: Pla
                   </div>
                 </div>
 
-                {/* Score + delta */}
+                {/* Score + delta + rank-change arrow */}
                 <div className="flex w-20 shrink-0 flex-col items-end">
                   <div className="font-mono text-2xl font-black leading-none text-white tabular-nums">
                     {p.score}
                   </div>
-                  {delta !== 0 && (
-                    <div
-                      className={`mt-1 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-black tabular-nums ${
-                        delta > 0
-                          ? "bg-emerald-500/15 text-emerald-300"
-                          : "bg-rose-500/15 text-rose-300"
-                      }`}
-                    >
-                      {delta > 0 ? `+${delta}` : `${delta}`}
+                  {(delta !== 0 || rankDelta !== 0) && (
+                    <div className="mt-1 flex items-center gap-1">
+                      {rankDelta !== 0 && (
+                        <span
+                          title={rankDelta > 0 ? `Up ${rankDelta}` : `Down ${Math.abs(rankDelta)}`}
+                          className={`font-mono text-[10px] font-black ${
+                            rankDelta > 0 ? "text-emerald-300" : "text-rose-300"
+                          }`}
+                        >
+                          {rankDelta > 0 ? "▲" : "▼"}
+                        </span>
+                      )}
+                      {delta !== 0 && (
+                        <div
+                          className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] font-black tabular-nums ${
+                            delta > 0
+                              ? "bg-emerald-500/15 text-emerald-300"
+                              : "bg-rose-500/15 text-rose-300"
+                          }`}
+                        >
+                          {delta > 0 ? `+${delta}` : `${delta}`}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
