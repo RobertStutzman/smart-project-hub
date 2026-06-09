@@ -163,12 +163,23 @@ export const listSoundClips = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     const clips = (data ?? []) as SoundClip[];
-    // Sign every clip URL (short list, fine to bulk sign)
-    const withUrls: (SoundClip & { signedUrl: string | null })[] = [];
-    for (const c of clips) {
-      const url = await signPath(c.storage_path).catch(() => null);
-      withUrls.push({ ...c, signedUrl: url });
+    // Bulk-sign all clip URLs in one round-trip (N can be 700+)
+    const paths = clips.map((c) => c.storage_path);
+    let byPath = new Map<string, string>();
+    if (paths.length > 0) {
+      const { data: signed } = await supabaseAdmin.storage
+        .from("question-media")
+        .createSignedUrls(paths, 60 * 60 * 6);
+      byPath = new Map(
+        (signed ?? [])
+          .filter((s) => s.path && s.signedUrl)
+          .map((s) => [s.path as string, s.signedUrl]),
+      );
     }
+    const withUrls = clips.map((c) => ({
+      ...c,
+      signedUrl: byPath.get(c.storage_path) ?? null,
+    }));
     return { clips: withUrls };
   });
 
