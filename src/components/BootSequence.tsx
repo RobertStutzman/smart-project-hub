@@ -54,11 +54,17 @@ export function BootSequence({ onComplete }: Props) {
   const [gatePressed, setGatePressed] = useState(false);
   const completedRef = useRef(false);
 
-  // On standalone launches, unlock audio immediately.
+  // On standalone launches, start the boot intro audio immediately.
   useEffect(() => {
     if (!isStandaloneLaunch()) return;
-    startAmbienceBeds();
+    startBootIntroAudio();
   }, []);
+
+  // Fade out boot music when the overlay is dismissed.
+  useEffect(() => {
+    if (dismissing) stopBootMusic(600);
+  }, [dismissing]);
+
 
   // Advance through stages on a timer.
   useEffect(() => {
