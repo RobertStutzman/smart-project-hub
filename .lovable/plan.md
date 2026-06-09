@@ -1,31 +1,21 @@
-## Restart-game bug fix
+## Lobby header overlap fix
 
-When the host hits "Play again" in Credits we currently just flip `rooms.phase = "lobby"` and leave everything else in place. That leaves last game's `current_category` ("Movies: Sci-Fi") on the room, leaves `current_question_id`, `round_number`, `score`, `current_round_score`, `streak_count`, etc. on the players, and leaves `room_questions` (used-question history) intact. The leftover category renders the extra "Category: …" line in the lobby hero, which crowds the QR / player row layout and collides with the player chip the user saw "stacked on top."
+The header ("← Home" / "Beat the Drop" / Settings) is `flex-none` at the top of a `flex-col h-full` container. Below it the HERO section is `flex-1 justify-center` and stacks "Game PIN" label + giant PIN (`clamp(4rem, 22svh, 12rem)`) + QR card (`clamp(140px, 28svh, 240px)` square) + optional category line + a `gap-[2svh]` between each. Add the player row, Start button, mix-label button below, plus 3svh TV-safe padding top/bottom.
 
-### 1. New server fn: `restartGame` (`src/lib/game.functions.ts`)
-- Host-authed (same auth pattern as `setPhase` / `startFinalRound`).
-- In one handler, for the host's room:
-  - `rooms` update: `phase = "lobby"`, `round_number = 0`, `current_question_id = null`, `current_category = null`, `current_explanation_tts_url = null`, `question_started_at = null`, `current_question_locked_count = 0` (whichever of these columns exist — match the schema used in `nextQuestion`/`startFinalRound`).
-  - `players` update (room-scoped): `score = 0`, `current_round_score = 0`, `current_round_fastest = false`, `streak_count = 0`, `best_streak = 0`, `last_answer_correct = null`, `current_answer = null`, `final_wager = 0`, `final_answer = null`, `final_locked_at = null`, `comeback_bonus = false`. Keep `nickname`, `avatar_url`, `team`, `is_audience`, `session_id` (so the same players stay in the lobby).
-  - `room_questions` delete where `room_id = room.id` (so questions don't repeat on the new game).
-- Keep `allow_late_joiners` and `enabled_categories` as-is (host's picker selections are a session preference, not per-game).
+On TVs at 1080p those clamps add up to roughly 22svh + 28svh + chrome ≈ 60+ svh just for the hero; combined with the player section (~24svh) the column exceeds 100svh. Because the hero is `flex-1 justify-center` with no overflow clip, the oversize content bleeds *up* past the header — that's the "Beat the Drop" overlapping the "Game PIN" line.
 
-### 2. Wire `onPlayAgain` to the new fn (`src/components/host/HostGameStage.tsx`)
-- Replace the `setPhaseFn(... "lobby")` call inside the `credits` branch's `onPlayAgain` with `restartGameFn({ data: { roomCode, hostSessionId } })`.
-- Import + `useServerFn(restartGame)` at the top of the component alongside the other server-fn hooks.
-- `WinnerSpotlight`'s "Roll credits" path is unchanged — restart only happens from Credits → Play Again.
+### Fix: shrink + clip the hero so it can never exceed its slot
+`src/routes/host.tsx`, lobby render only:
 
-### 3. Defensive local-state clear (`src/routes/host.tsx`)
-- In the realtime `rooms` subscription handler, the realtime `UPDATE` will carry the new `current_category = null` and `round_number = 0` and the existing code already mirrors those into local state, so no extra wiring is needed.
-- The visual "player stacked on top of category" symptom disappears as a side effect of `current_category` being cleared (the extra hero line goes away, the layout reflows). No CSS changes planned — if it still overlaps after the data fix we can address layout in a follow-up.
+- HERO `<section>` (line 672): add `overflow-hidden` and a tighter top spacer so it can never bleed under the header. Reduce the inter-row gap from `gap-[2svh]` to `gap-[1.2svh]`.
+- PIN number (line 678): drop clamp from `clamp(4rem, 22svh, 12rem)` → `clamp(3rem, 16svh, 8rem)`. Still huge, but leaves room.
+- QR card (lines 684-685): drop clamp from `clamp(140px, 28svh, 240px)` → `clamp(120px, 22svh, 200px)`.
+- "Game PIN" label (line 673): drop max from `1rem` → `0.85rem` and tighten letter-spacing slightly so it doesn't crowd the giant number above it.
+- Header (line 631): add a thin bottom margin / `pb-[1svh]` so even at the smallest TV-safe height there's a visible gap between header chrome and the hero content top.
+
+No behavioral changes — pure CSS layout tightening on the lobby route. Player row, Start button, settings, modals, and the in-game stages are untouched.
 
 ### Out of scope
-- No changes to `setPhase` itself; existing transitions stay untouched.
-- No changes to the in-lobby category picker, leaderboard, ambience, or audio.
-- Host's `enabled_categories` selection is preserved across restart (intentional — re-picking categories every game is friction).
-
-### Technical notes
-- Use `supabaseAdmin` from `@/integrations/supabase/client.server` like the other handlers in `game.functions.ts`.
-- Reuse the `getRoomByHost(roomCode, hostSessionId)` helper for auth; that's the project's standard pattern in this file.
-- Player updates use `.eq("room_id", room.id)` — single statement, no per-row loop.
-- `room_questions` delete is a single `.delete().eq("room_id", room.id)`.
+- The in-game (`HostGameStage`) layouts.
+- Category picker modal.
+- Mobile player view.

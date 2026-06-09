@@ -628,7 +628,7 @@ function HostPage() {
         }}
       >
         {/* TOP BAR */}
-        <header className="flex flex-none items-center justify-between gap-3">
+        <header className="flex flex-none items-center justify-between gap-3 pb-[1svh]">
           <button
             onClick={() => navigate({ to: "/" })}
             className="text-xs text-white/60 hover:text-white"
@@ -669,20 +669,20 @@ function HostPage() {
         )}
 
         {/* HERO — join + room code + QR (fills the middle, no scroll) */}
-        <section className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[2svh] text-center">
-          <div className="text-[clamp(0.7rem,1.6svh,1rem)] font-bold uppercase tracking-[0.5em] text-amber-200/80">
+        <section className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[1.2svh] overflow-hidden text-center">
+          <div className="text-[clamp(0.65rem,1.3svh,0.85rem)] font-bold uppercase tracking-[0.45em] text-amber-200/80">
             Game PIN
           </div>
 
 
-          <div className="bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text font-mono text-[clamp(4rem,22svh,12rem)] font-black leading-none tracking-[0.12em] text-transparent drop-shadow-[0_8px_30px_rgba(251,191,36,0.35)]">
+          <div className="bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text font-mono text-[clamp(3rem,16svh,8rem)] font-black leading-none tracking-[0.12em] text-transparent drop-shadow-[0_8px_30px_rgba(251,191,36,0.35)]">
             {creating || !room ? "····" : room.roomCode}
           </div>
 
           {joinUrl && (
             <div
               className="inline-block rounded-xl bg-white p-[1svh] shadow-[0_0_40px_oklch(0.85_0.18_85/0.32)] ring-1 ring-white/20"
-              style={{ width: "clamp(140px, 28svh, 240px)", height: "clamp(140px, 28svh, 240px)" }}
+              style={{ width: "clamp(120px, 22svh, 200px)", height: "clamp(120px, 22svh, 200px)" }}
             >
               <QRCodeSVG value={joinUrl} size={256} level="M" includeMargin={false} style={{ width: "100%", height: "100%" }} />
             </div>
