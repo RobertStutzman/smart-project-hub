@@ -1,21 +1,29 @@
-## Lobby header overlap fix
+## Quieter click + game-start countdown
 
-The header ("← Home" / "Beat the Drop" / Settings) is `flex-none` at the top of a `flex-col h-full` container. Below it the HERO section is `flex-1 justify-center` and stacks "Game PIN" label + giant PIN (`clamp(4rem, 22svh, 12rem)`) + QR card (`clamp(140px, 28svh, 240px)` square) + optional category line + a `gap-[2svh]` between each. Add the player row, Start button, mix-label button below, plus 3svh TV-safe padding top/bottom.
+### 1. Tame the click beep
+`src/lib/sound-engine.ts`, in `play()`:
+- `whoosh` (fires on basically every host button click) — drop gain from `0.18` → `0.07` and shorten duration `0.4s` → `0.28s`. Still gives a tactile swoosh, no longer dominates the room.
+- `tap` (UI micro-tap) — drop gain from `0.12` → `0.05`.
 
-On TVs at 1080p those clamps add up to roughly 22svh + 28svh + chrome ≈ 60+ svh just for the hero; combined with the player section (~24svh) the column exceeds 100svh. Because the hero is `flex-1 justify-center` with no overflow clip, the oversize content bleeds *up* past the header — that's the "Beat the Drop" overlapping the "Game PIN" line.
+These are the two click sounds wired to host buttons (Start, Skip, Roll credits, Play again, etc.) and to the player-side tap feedback. No call sites change.
 
-### Fix: shrink + clip the hero so it can never exceed its slot
-`src/routes/host.tsx`, lobby render only:
+### 2. Game-start countdown + announcement
+`src/components/host/IntroStage.tsx` — add a new countdown beat between the existing "roster" and the existing "GO" stinger.
 
-- HERO `<section>` (line 672): add `overflow-hidden` and a tighter top spacer so it can never bleed under the header. Reduce the inter-row gap from `gap-[2svh]` to `gap-[1.2svh]`.
-- PIN number (line 678): drop clamp from `clamp(4rem, 22svh, 12rem)` → `clamp(3rem, 16svh, 8rem)`. Still huge, but leaves room.
-- QR card (lines 684-685): drop clamp from `clamp(140px, 28svh, 240px)` → `clamp(120px, 22svh, 200px)`.
-- "Game PIN" label (line 673): drop max from `1rem` → `0.85rem` and tighten letter-spacing slightly so it doesn't crowd the giant number above it.
-- Header (line 631): add a thin bottom margin / `pb-[1svh]` so even at the smallest TV-safe height there's a visible gap between header chrome and the hero content top.
+Sequence becomes:
+1. `title` — "Tonight on Beat the Drop" + host name + hype TTS line (existing, ~2.6s).
+2. `roster` — contestants reel-in (existing, ~3.6s).
+3. **NEW** `countdown` — speak "Alright… here we go in three!" (one-shot persona line) and animate large `3` → `2` → `1` numbers, each ~700 ms with a `tick` sfx on entry and a soft scale/opacity pop. Final tick at "1" hands off to:
+4. `go` — existing GO stinger, then `onDone()` → first question.
 
-No behavioral changes — pure CSS layout tightening on the lobby route. Player row, Start button, settings, modals, and the in-game stages are untouched.
+Total intro length stretches from ~8.4s to ~11s. Space-to-skip still cancels all of it (kill the new countdown timers too in the cleanup block).
+
+Pure additive UI change inside IntroStage; no phase, server-fn, or HostGameStage edits.
+
+### Memory check
+The project memory forbids reintroducing the giant 3-2-1 *before each question*. This countdown is one-time at the very start of the game (intro phase only), so it's compatible — the per-question "Get Ready / Question N" splash + voice-paced reveal stays exactly as it is.
 
 ### Out of scope
-- The in-game (`HostGameStage`) layouts.
-- Category picker modal.
-- Mobile player view.
+- Per-question intro splash, question timer, reveal, leaderboard, credits — unchanged.
+- Final-round phases — unchanged.
+- No new sfx assets, no new TTS clips; reuses existing `tick` sfx and `speakPersona`.

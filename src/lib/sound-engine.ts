@@ -166,10 +166,10 @@ function noise(duration: number, gain = 0.15) {
 export function play(sfx: Sfx) {
   switch (sfx) {
     case "tap":
-      tone(440, 0.05, "square", 0.12);
+      tone(440, 0.05, "square", 0.05);
       break;
     case "whoosh":
-      sweep(120, 1200, 0.4, "sawtooth", 0.18);
+      sweep(120, 1200, 0.28, "sawtooth", 0.07);
       break;
     case "correct":
       tone(660, 0.1, "triangle", 0.22);
