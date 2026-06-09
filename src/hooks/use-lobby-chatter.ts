@@ -71,5 +71,6 @@ export function useLobbyChatter(opts: { enabled?: boolean } = {}) {
       detach?.();
       unsubBlocked?.();
     };
-  }, []);
+  }, [enabled]);
 }
+
