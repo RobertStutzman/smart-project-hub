@@ -229,21 +229,12 @@ function GateStage({ pressed = false }: { pressed?: boolean }) {
           Drop
         </span>
       </motion.div>
-      <motion.div
-        animate={
-          pressed
-            ? { scale: 0.95 }
-            : { scale: [1, 1.06, 1] }
-        }
-        transition={
-          pressed
-            ? { duration: 0.14, ease: "easeOut" }
-            : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }
-        }
-        className="mt-12 inline-flex items-center gap-3 rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-10 py-5 font-display text-base font-black uppercase tracking-[0.25em] text-amber-950 shadow-[0_0_60px_oklch(0.85_0.18_85/0.5)]"
+      <div
+        className={`pill-pulse${pressed ? " is-pressed" : ""} mt-12 inline-flex items-center gap-3 rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-10 py-5 font-display text-base font-black uppercase tracking-[0.25em] text-amber-950 shadow-[0_0_40px_oklch(0.85_0.18_85/0.45)]`}
       >
         <span>Tap or press any key to begin</span>
-      </motion.div>
+      </div>
+
       <div className="mt-5 text-[10px] uppercase tracking-[0.4em] text-white/40">
         Sound on for the full experience
       </div>
