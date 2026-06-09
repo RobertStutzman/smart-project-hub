@@ -259,7 +259,7 @@ function PlayPage() {
       Haptics.wrong();
       play("wrong");
       setEliminatedFlash(true);
-      window.setTimeout(() => setEliminatedFlash(false), 1400);
+      window.setTimeout(() => setEliminatedFlash(false), 700);
     }
   }, [room?.dropped_indexes, room?.current_question_text, me?.current_answer]); // eslint-disable-line react-hooks/exhaustive-deps
 
