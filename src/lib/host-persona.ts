@@ -784,6 +784,24 @@ export function pickLine(moment: Moment, seed: string | number = Date.now()): st
   return pool[idx];
 }
 
+
+
+/** Quips for IntroStage when this room has already played a game. */
+export const WELCOME_BACK_LINES: string[] = [
+  "Back for more, huh? Let's do it again.",
+  "Round two. Same chaos, fresh questions.",
+  "Couldn't stay away. I respect that.",
+  "Welcome back, contestants. The drop is hungry.",
+  "You again? Good. I was just warming up.",
+  "Rematch incoming. No mercy this time.",
+];
+
+export function pickWelcomeBack(): string {
+  return WELCOME_BACK_LINES[Math.floor(Math.random() * WELCOME_BACK_LINES.length)];
+}
+
+
+
 /** Speak a persona line in The Elf's voice (ElevenLabs). */
 export function speakPersona(text: string, opts?: { volume?: number; interrupt?: boolean; preset?: "hype" | "calm" }) {
   if (typeof window === "undefined") return;

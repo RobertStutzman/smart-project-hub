@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { HOST_NAME, pickLine, speakPersona } from "@/lib/host-persona";
+import { HOST_NAME, pickLine, pickWelcomeBack, speakPersona } from "@/lib/host-persona";
 import { play } from "@/lib/sound-engine";
 
 type Player = {
@@ -33,7 +33,14 @@ export function IntroStage({ players, onDone }: Props) {
   useEffect(() => {
     // Hype line via TTS as the title card lands
     play("whoosh");
-    speakPersona(pickLine("intro_hype", players.length));
+    const w = window as unknown as { __btdReplayIntro?: boolean };
+    if (w.__btdReplayIntro) {
+      w.__btdReplayIntro = false;
+      speakPersona(pickWelcomeBack(), { preset: "hype", interrupt: true });
+    } else {
+      speakPersona(pickLine("intro_hype", players.length));
+    }
+
 
     const timers: number[] = [];
     const at = (ms: number, fn: () => void) =>

@@ -539,10 +539,13 @@ export function HostGameStage({ room }: Props) {
       // the replay lobby. Mark the next lobby pass as a "replay lobby" so
       // the announcer banter in /host stays quiet.
       try {
-        (window as unknown as { __btdReplayLobby?: boolean }).__btdReplayLobby = true;
+        const w = window as unknown as { __btdReplayLobby?: boolean; __btdReplayIntro?: boolean };
+        w.__btdReplayLobby = true;
+        w.__btdReplayIntro = true;
       } catch {
         /* ignore */
       }
+
       void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
       // Reset per-game callout latches so a fresh game still welcomes players.
       welcomeFiredRef.current = false;
