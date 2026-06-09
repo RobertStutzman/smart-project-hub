@@ -86,8 +86,12 @@ export function FinalWagerStage({ players }: { players: Player[] }) {
       )}
 
 
-      {/* Static ring (no heartbeat in final round) */}
-      <div className="pointer-events-none absolute inset-4 rounded-3xl ring-2 ring-amber-300/30" />
+      {/* Heartbeat ring — pulses faster as time runs out */}
+      <div
+        className={`pointer-events-none absolute inset-4 rounded-3xl ring-2 transition-colors ${
+          danger ? "ring-rose-400/70 final-heartbeat" : "ring-amber-300/40 final-heartbeat-slow"
+        }`}
+      />
 
       {/* All-in ribbon */}
       {allIn.length > 0 && (
