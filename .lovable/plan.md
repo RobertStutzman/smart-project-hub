@@ -1,25 +1,20 @@
-## Make "Bake question voiceovers" run until done (no 100 cap)
+## Host home screen: arrow nudge + all categories on
 
-The Explanation panel already auto-loops batches until everything's baked. The Question panel does one batch of 100 and stops, which is why you have to keep re-clicking. Make it match.
+### 1. Animated arrow + nudge pointing at the Surprise Mix pill
 
-### Edit `src/routes/_authenticated/admin-sounds.tsx` — `QuestionVoiceoversPanel`
+Add an amber, hand-drawn-style SVG arrow with a small label sitting just above the `🎲 Surprise Mix · all 13 categories` button so hosts realize it's a control.
 
-Replace `runBake` with a loop that mirrors `ExplanationVoiceoversPanel.run`:
-- Compute `remaining = stats.total - stats.baked` (or full `total` when `force`).
-- `toast.loading(...)` with live progress: `Narrating questions… X / N`.
-- `while (safety++ < 200)` call `bakeAllFn({ data: { force, limit: 25 } })`, accumulate `totalBaked` and `totalErrors`, update toast + `setProgress`, break when `r.total === 0` or `r.baked === 0` (no more left to do).
-- On finish, `toast.success` and `refresh()` stats.
+- **Label**: "Pick your categories" in small caps, amber-200.
+- **Arrow**: inline SVG, curved/squiggly, amber stroke with subtle drop-shadow glow, pointing down at the pill.
+- **Motion**: gentle bobble (~6px y-translate, 1.8s easeInOut loop) via `motion.div`.
+- **Dismiss**: hide once the host opens Settings once. Persisted via `localStorage` key `dt:host:cat-nudge-seen=1`.
+- Placed in `src/routes/host.tsx` immediately above the Surprise Mix button (around line 762), wrapped in `<AnimatePresence>`.
 
-Button label changes:
-- `🎤 Bake missing (100 at a time)` → `🎤 Bake all missing questions`
-- Keep "Re-bake ALL (overwrite)" button; routed through the same loop with `force: true`.
+### 2. All categories on by default
 
-Confirm dialog updated to: *"Bake all missing question voiceovers? Calls ElevenLabs once per question (~80 chars each). Runs automatically in batches until done — leave this tab open."*
-
-### Server side — `src/lib/announcer.functions.ts`
-No change needed. `bakeAllQuestionTTS` already accepts `limit` up to 500 and the loop uses 25/batch so each call stays well under the Worker request budget. Keeps the 250ms ElevenLabs spacing.
+- `src/lib/categories.ts`: change `DEFAULT_OFF_CATEGORIES` from `["Chapter & Verse"]` to `[]`.
+- `src/routes/host.tsx`: bump the `CATEGORIES_KEY` localStorage value from `"dt:host:categories"` to `"dt:host:categories:v2"` so existing hosts get the new "all on" default once, then their choices persist normally.
 
 ### Out of scope
-- Not changing voice, model, or per-question text.
-- Not touching the cost circuit-breaker (`TTS_CAP_PER_GAME`) — that's the live in-game cap, separate from this bake.
-- Not removing the safety counter; 200 batches × 25 = 5000 questions ceiling, plenty of headroom.
+- No DB changes, no category list edits.
+- Not touching the Settings sheet layout or the Surprise Mix pill styling itself.

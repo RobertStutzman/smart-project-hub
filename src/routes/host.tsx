@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { QRCodeSVG } from "qrcode.react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -56,7 +56,8 @@ const HOWTO_KEY = "btd:howto-shown";
 
 const MUTE_KEY = "btd:muted";
 
-const CATEGORIES_KEY = "btd:enabled-categories";
+const CATEGORIES_KEY = "btd:enabled-categories:v2";
+const CAT_NUDGE_KEY = "dt:host:cat-nudge-seen";
 
 function HostPage() {
   const navigate = useNavigate();
@@ -91,6 +92,7 @@ function HostPage() {
   const [roundNumber, setRoundNumber] = useState<number>(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showHowTo, setShowHowTo] = useState(false);
+  const [catNudgeSeen, setCatNudgeSeen] = useState(true);
   const initRef = useRef(false);
   const playersRef = useRef<Player[]>([]);
   const pausedRef = useRef(false);
@@ -105,7 +107,16 @@ function HostPage() {
   useEffect(() => {
     setOrigin(window.location.host);
     setMuted(window.localStorage.getItem(MUTE_KEY) === "1");
+    setCatNudgeSeen(window.localStorage.getItem(CAT_NUDGE_KEY) === "1");
   }, []);
+
+  const openSettings = useCallback(() => {
+    setSettingsOpen(true);
+    if (!catNudgeSeen) {
+      setCatNudgeSeen(true);
+      try { window.localStorage.setItem(CAT_NUDGE_KEY, "1"); } catch {}
+    }
+  }, [catNudgeSeen]);
 
   // Auto-create or resume room on mount
   useEffect(() => {
@@ -645,7 +656,7 @@ function HostPage() {
               </button>
             )}
             <button
-              onClick={() => setSettingsOpen(true)}
+              onClick={openSettings}
               className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-[10px] uppercase tracking-widest text-white/70 backdrop-blur hover:bg-white/10"
               title="Settings"
             >
@@ -759,13 +770,62 @@ function HostPage() {
               : "Waiting for players…"}
           </motion.button>
 
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-4 py-1.5 text-[clamp(0.65rem,1.2svh,0.8rem)] font-semibold uppercase tracking-[0.2em] text-white/70 backdrop-blur transition hover:bg-white/10 hover:text-amber-200"
-          >
-            <Shuffle className="h-3.5 w-3.5" />
-            {mixLabel}
-          </button>
+          <div className="relative flex flex-col items-center">
+            <AnimatePresence>
+              {!catNudgeSeen && (
+                <motion.div
+                  key="cat-nudge"
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: [0, -6, 0] }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{
+                    opacity: { duration: 0.4 },
+                    y: { duration: 1.8, repeat: Infinity, ease: "easeInOut" },
+                  }}
+                  className="pointer-events-none absolute -top-16 flex flex-col items-center"
+                  style={{ filter: "drop-shadow(0 0 12px oklch(0.85 0.18 85 / 0.5))" }}
+                >
+                  <span
+                    className="whitespace-nowrap text-[11px] font-black uppercase tracking-[0.25em] text-amber-200"
+                    style={{ fontFamily: "'Caveat', 'Comic Sans MS', cursive", letterSpacing: "0.05em", fontSize: "1.05rem", textTransform: "none" }}
+                  >
+                    psst — pick your categories!
+                  </span>
+                  <svg
+                    width="46"
+                    height="40"
+                    viewBox="0 0 46 40"
+                    fill="none"
+                    className="mt-0.5 text-amber-300"
+                    aria-hidden
+                  >
+                    <path
+                      d="M6 4 C 14 14, 8 22, 22 28"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      fill="none"
+                    />
+                    <path
+                      d="M16 24 L22 30 L28 22"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      fill="none"
+                    />
+                  </svg>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <button
+              onClick={openSettings}
+              className="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-4 py-1.5 text-[clamp(0.65rem,1.2svh,0.8rem)] font-semibold uppercase tracking-[0.2em] text-white/70 backdrop-blur transition hover:bg-white/10 hover:text-amber-200"
+            >
+              <Shuffle className="h-3.5 w-3.5" />
+              {mixLabel}
+            </button>
+          </div>
 
 
 
