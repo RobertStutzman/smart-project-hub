@@ -165,7 +165,7 @@ export const listSoundClips = createServerFn({ method: "GET" })
     const clips = (data ?? []) as SoundClip[];
     // Bulk-sign all clip URLs in one round-trip (N can be 700+)
     const paths = clips.map((c) => c.storage_path);
-    let byPath = new Map<string, string>();
+    let byPath = new Map<string, string | null>();
     if (paths.length > 0) {
       const { data: signed } = await supabaseAdmin.storage
         .from("question-media")
