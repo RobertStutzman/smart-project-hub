@@ -27,6 +27,11 @@ export type GameEvent =
 let ctx: AudioContext | null = null;
 let muted = false;
 
+// Track music that was requested but couldn't start (autoplay blocked, etc).
+// Replayed by retryBlockedMusic() after a user gesture.
+let pendingMusicMode: "lobby" | "tense" | null = null;
+let pendingMusicTempo = 480;
+
 function ac(): AudioContext | null {
   if (typeof window === "undefined") return null;
   if (!ctx) {
