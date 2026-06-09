@@ -30,13 +30,14 @@ function LandingPage() {
     if (shouldShowBoot()) setShowBoot(true);
   }, []);
 
-  // Autoplay chatter; if blocked, retry on every user gesture until it
-  // succeeds, then detach listeners. Surfaces blocked state via console.
-  useLobbyChatter();
+  // Autoplay chatter once the boot intro has finished — otherwise the
+  // lobby chatter bed fights the boot music sting.
+  useLobbyChatter({ enabled: !showBoot });
 
   return (
     <>
       {showBoot && <BootSequence onComplete={() => setShowBoot(false)} />}
+
       <main
       className="relative min-h-screen overflow-hidden text-white"
       style={{
