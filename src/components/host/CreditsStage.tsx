@@ -491,7 +491,8 @@ export function CreditsStage({ players, wrongPicks, onPlayAgain }: Props) {
             Drop Trivia · A trivia bloodsport
           </div>
         </div>
-      </motion.div>
+      </div>
+
 
       {/* Play again CTA — pinned bottom, fades in at the end */}
       <motion.div
