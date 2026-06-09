@@ -328,7 +328,7 @@ function FinalRevealRow({
           {delta > 0 ? `+${delta}` : delta}
         </span>
         <span className="font-mono text-2xl font-black text-amber-300">
-          {Math.round(animatedScore)}
+          {displayScore}
         </span>
       </div>
     </div>
