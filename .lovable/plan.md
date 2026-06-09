@@ -1,27 +1,33 @@
-## Restart bug: stale `round_number` when starting from QR lobby
+## Announcer silent on final answer — root cause
 
-### Root cause (confirmed against the DB)
-Recent room `LFRD` has `phase='lobby'`, `status='ended'`, `round_number=22`, `current_category='Movie Sci-Fi'`. The host's QR-code lobby (`src/routes/host.tsx`, `actuallyStart`) calls only `setPhase({ phase: "intro" })` — it never calls `restartGame`. Only the in-stage `CreditsStage` → "Play again" path calls `restartGame`.
+The explanation-TTS player in `HostGameStage.tsx` (lines 343-403) hard-checks `phase === "reveal"` before playing `current_explanation_tts_url`. The final round uses `phase === "final_reveal"` instead, so the effect never runs and the announcer stays quiet — even though `startFinalRound` already baked the same `current_explanation_tts_url` URL into the room state (line 811 of `game.functions.ts`).
 
-So whenever a user returns to lobby through any other path (a previous ended game where they didn't click "Roll credits → Play again", a refresh, switching tabs, the "New room" recreate that still leaves stale row data lingering, etc.) and then clicks Start on the QR lobby:
+## Fix
+Make the existing explanation-TTS effect treat `final_reveal` the same as `reveal`.
 
-1. `setPhase("intro")` runs — `round_number` stays at 22.
-2. Intro → `nextQuestion` → `nextRound = 22 + 1 = 23`.
-3. On reveal, the leaderboard auto-advance (`HostGameStage.tsx` line 617) sees `completedQuestionNumber (23) >= FINAL_ROUND_NUMBER (21)` and fires `startFinalRound`.
+In `src/components/host/HostGameStage.tsx`:
 
-Result: 1 question then straight to final round, exactly as reported.
+1. Line 351 — change
+   ```
+   if (!qid || !url || phase !== "reveal") return;
+   ```
+   to
+   ```
+   if (!qid || !url || (phase !== "reveal" && phase !== "final_reveal")) return;
+   ```
 
-### Fix
-Make the QR-lobby Start button always run a clean reset before starting.
+2. Line 391 — change
+   ```
+   if (state?.phase !== "reveal") {
+   ```
+   to
+   ```
+   if (state?.phase !== "reveal" && state?.phase !== "final_reveal") {
+   ```
 
-**`src/routes/host.tsx`**
-- Import `restartGame` alongside the existing server fn imports.
-- Add `const restartGameFn = useServerFn(restartGame);` near the other hook calls.
-- In `actuallyStart()`, await `restartGameFn({ data: { roomCode, hostSessionId } })` first, then call `setPhaseFn({ phase: "intro" })`. Wrap both in the existing try/catch so a reset failure surfaces via `setError`.
+Everything else (the 3.8 s delay so the answer slam lands first, music ducking, the `lastPlayedExplanationIdRef` gate keyed by question id) already works for the final round — it just never runs today because of the phase guard.
 
-`restartGame` is idempotent — running it on a fresh lobby (round 0, no players' scores) is a no-op-shaped update — so this is safe even for first-game starts.
-
-### Out of scope
-- No changes to `HostGameStage` or `restartGame` server fn.
-- No changes to the in-stage Play Again flow (already works).
-- No changes to the new intro countdown or click sfx.
+## Out of scope
+- No new TTS generation, no server-fn changes.
+- No layout/UI changes to `FinalRevealStage`.
+- Sudden-death reveal stays as-is (no explanation TTS associated).
