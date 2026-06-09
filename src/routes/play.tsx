@@ -774,7 +774,7 @@ function PlayPage() {
                   )}
 
                 <div
-                  className={`min-h-0 flex-1 transition ${
+                  className={`min-h-[42vh] flex-1 transition ${
                     buttonsScrambled ? "rotate-1 scale-[1.02] blur-sm" : ""
                   } ${reading ? "pointer-events-none opacity-50" : ""}`}
                   style={
@@ -783,6 +783,7 @@ function PlayPage() {
                       : undefined
                   }
                 >
+
                   <AnswerGrid
                     disabled={room.phase !== "question" || reading}
                     labels={
