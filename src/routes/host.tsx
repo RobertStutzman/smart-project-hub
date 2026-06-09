@@ -789,7 +789,7 @@ function HostPage() {
                     opacity: { duration: 0.4 },
                     x: { duration: 1.8, repeat: Infinity, ease: "easeInOut" },
                   }}
-                  className="pointer-events-none absolute left-full top-1/2 ml-2 hidden -translate-y-1/2 items-center gap-1 sm:flex"
+                  className="pointer-events-none absolute left-full top-1/2 ml-2 flex -translate-y-1/2 items-center gap-1.5 max-sm:left-auto max-sm:right-full max-sm:ml-0 max-sm:mr-2"
                   style={{ filter: "drop-shadow(0 0 10px oklch(0.85 0.18 85 / 0.45))" }}
                 >
                   <svg
@@ -797,7 +797,7 @@ function HostPage() {
                     height="18"
                     viewBox="0 0 34 18"
                     fill="none"
-                    className="text-amber-300"
+                    className="text-amber-300 max-sm:order-2 max-sm:rotate-180"
                     aria-hidden
                   >
                     <path
@@ -817,9 +817,9 @@ function HostPage() {
                     />
                   </svg>
                   <span
-                    className="whitespace-nowrap text-[11px] font-bold uppercase tracking-[0.25em] text-amber-200"
+                    className="whitespace-nowrap text-[11px] font-bold uppercase tracking-[0.25em] text-amber-200 max-sm:order-1"
                   >
-                    psst — you can pick your categories!
+                    pick your categories!
                   </span>
                 </motion.div>
               )}
