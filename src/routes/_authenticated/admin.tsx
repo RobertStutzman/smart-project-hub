@@ -20,7 +20,7 @@ import {
   upsertQuestion,
 } from "@/lib/admin.functions";
 import { dedupeKey } from "@/lib/dedupe";
-import { bakeAllQuestionTTS } from "@/lib/announcer.functions";
+import { bakeAllQuestionTTS, bakeAllExplanationTTS } from "@/lib/announcer.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { CATEGORIES } from "@/lib/categories";
 import { listCategories } from "@/lib/rooms.functions";
