@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { play, playEvent, playWagerBed, stopWagerBed } from "@/lib/sound-engine";
 
-import { useCountUp, useStaggeredReveal, useRevealStages } from "@/hooks/useFinalRoundFx";
+import { useStaggeredReveal, useRevealStages } from "@/hooks/useFinalRoundFx";
 
 type Player = {
   id: string;
