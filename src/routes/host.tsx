@@ -57,7 +57,7 @@ const HOWTO_KEY = "btd:howto-shown";
 const MUTE_KEY = "btd:muted";
 
 const CATEGORIES_KEY = "btd:enabled-categories:v2";
-const CAT_NUDGE_KEY = "dt:host:cat-nudge-seen";
+const CAT_NUDGE_KEY = "dt:host:cat-nudge-seen:v2";
 
 function HostPage() {
   const navigate = useNavigate();
