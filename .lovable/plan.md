@@ -1,38 +1,30 @@
-## Problem
+## Goal
 
-On phones, the player screen (`src/routes/play.tsx`) is a fixed `h-screen` flex column with no scroll. When stacked content exceeds the viewport the answer tile grid (`flex-1`) is squeezed and its bottom row gets cut off. Two cases triggered it:
+On the QR/lobby screen, the announcer should NOT explain the rules. It should:
+1. Say a one-shot "scan the QR code" prompt shortly after the lobby loads.
+2. Continue with the existing ~10-second rotating idle quips (kept).
 
-1. **Question phase** — a long question text in a `line-clamp-4` block can eat ~6 lines of vertical space, leaving the 2×2 tile grid too short to show all four tiles fully on small phones.
-2. **Reveal phase** — the same grid is still mounted, *plus* the +score result panel, "Next question incoming…" line, and the "Did you know?" amber box are appended below. Long explanations push everything off-screen.
+Rules-explanation stays on the next screen (HowToPlay slides, already wired to narrate via `speakPersona`).
 
-## Fix
+## Changes
 
-Keep the page itself non-scrollable (so people don't accidentally swipe past the tiles), but make the content adapt so the answer grid is always fully visible.
+### 1. `src/lib/lobby-banter.ts`
 
-### A. Question phase
+- Replace `OPENER_LINES` with a single, focused set of "scan the QR / type the code" prompts (3–5 variants). These are pure call-to-join lines — no scoring, streaks, rules, or wager talk.
+- Audit `IDLE_*` pools and `IDLE_GENERIC`: remove any line that veers into game mechanics. Current pools are already mostly waiting-room banter ("crickets", "tick tock", "{count} brave soul"); these stay. The ones that mention the code (e.g. "Code is {code}. Stragglers…") are fine — they're join prompts, not rules.
+- Keep `pickOpener()` and `pickLobbyLine()` signatures unchanged.
 
-- Tighten the question card: drop from `line-clamp-4` + `text-base` to a fluid `line-clamp-3` with `text-sm sm:text-base`, smaller vertical padding (`py-2`), and a max-height with internal scroll (`max-h-[18vh] overflow-y-auto`) so a wall-of-text question scrolls inside its own card instead of stealing height from the tiles.
-- Give the AnswerGrid wrapper a guaranteed minimum height (`min-h-[42vh]`) so the tiles can never collapse below readable size.
+### 2. `src/routes/host.tsx` — lobby announcer effect (~lines 383–426)
 
-### B. Reveal phase
+- Keep the opener call (`speakPersona(pickOpener(), …)`) firing once ~2.4s after mount. With the new opener pool, it now says a scan prompt instead of a generic hype line.
+- Keep the existing `setInterval(tick, 10_000)` rotating quips exactly as-is.
+- No other behavior changes.
 
-- Move the "Did you know?" amber box into a single bottom panel that *replaces* the answer-grid wrapper on reveal once the result+score row has been shown for a moment, OR (simpler) make it a vertically-scrollable column below the grid with `max-h-[28vh] overflow-y-auto`, smaller padding, and `text-base` instead of `text-lg`.
-- Reduce the +score panel's padding (`px-3 py-2`, smaller score type) so reveal-state stacking fits.
-- Drop the "Next question incoming…" line when an explanation is showing (it's redundant with the auto-advance).
+### 3. No other files touched
 
-### C. Container
+- `HowToPlay.tsx` already narrates each slide — that's where the rules live. Untouched.
+- `IntroStage.tsx`, `HostGameStage.tsx`, join roll-calls, ambience — untouched.
 
-- Switch `main` from `h-screen` to `h-[100dvh]` so iOS Safari's URL bar collapsing doesn't shave 60px off the layout.
-- Add `min-h-0` to the question-phase wrapper so flex children actually shrink correctly inside the column.
+## Result
 
-## Files touched
-
-- `src/routes/play.tsx` — question-card sizing, reveal-panel sizing, container height, conditional "Next question incoming…".
-- (No changes to `AnswerGrid.tsx`; sizing is driven by parent.)
-
-## Verification
-
-Dry-run on a 375×667 viewport (small phone) with:
-- A long 3-sentence question + 4 long answer labels → confirm all four tiles visible and tappable.
-- Reveal phase with a 2-sentence "Did you know?" → confirm tiles + result + explanation all visible (explanation scrolls internally if it overflows).
-- Reveal phase with a short explanation → confirm no awkward empty space.
+QR screen: welcome clip → crowd ambience → one "scan the QR code" opener → idle quips every ~10s (kept). Click Start → HowToPlay slides narrate the rules. Then the game begins.

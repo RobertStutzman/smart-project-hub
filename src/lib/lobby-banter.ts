@@ -2,12 +2,11 @@
 // Lines may contain `{count}` (current player count) and `{code}` (room code) tokens.
 
 export const OPENER_LINES: string[] = [
-  "Alright! Phones out, codes in — let's get this show on the road.",
-  "Welcome welcome welcome! Scan that code, pick a name, don't embarrass yourself.",
-  "It's trivia time, baby. Grab a phone, type the code, prepare for glory.",
-  "Lights, camera, four little letters. Let's get some players in here.",
-  "Showtime! Type the code on your screen. Yes, that one. Right there.",
-  "Okay people, the code is up. Move with purpose. Move like you mean it.",
+  "Scan the QR code on screen, or type the four-letter code to join.",
+  "Point your camera at the QR code — or punch in the code on screen. Let's get you in.",
+  "Phones up: scan the QR, or type the code. That's your ticket in.",
+  "Grab your phone, scan that QR code, and hop in the lobby.",
+  "Scan the code on screen — QR or four letters, your call.",
 ];
 
 const IDLE_EMPTY: string[] = [
