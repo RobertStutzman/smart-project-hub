@@ -1,8 +1,6 @@
-## Swap cursive nudge label for on-brand typography
+## Bump category-nudge storage key so it shows again
 
-In `src/routes/host.tsx` `cat-nudge` `<span>`:
-- Remove inline `fontFamily: "'Caveat', 'Comic Sans MS', cursive"` and the `fontSize: "1.05rem"` override.
-- Apply the same lobby-chrome treatment: `text-[11px] font-bold uppercase tracking-[0.25em] text-amber-200`.
-- Keep copy: `psst — you can pick your categories!`
+In `src/routes/host.tsx`, change:
+- `CAT_NUDGE_KEY = "dt:host:cat-nudge-seen"` → `"dt:host:cat-nudge-seen:v2"`
 
-Arrow shape, position, animation, and dismiss logic unchanged.
+Existing hosts (including the user) will see the "psst — you can pick your categories!" arrow again on next load. Auto-dismiss on opening Settings is unchanged.
