@@ -1,51 +1,33 @@
-## Problem
+# Fix #1 — Phantom Round 5 (one extra question before Final)
 
-On `/play`, answer tiles are disabled and dimmed to 50% opacity whenever `reading === true`. `reading` is computed purely from the device clock:
+## Problem
+The game is meant to be 4 rounds × 5 questions = 20 questions, then 1 final question. Instead, after Round 4 finishes (question 20), a single extra question plays (question 21) before the final intro fires. That's the "Round 5 with one question" you saw.
+
+## Root cause
+In `src/components/host/HostGameStage.tsx`:
 
 ```ts
-readSecondsLeft = (startMs - Date.now()) / 1000   // startMs = question_started_at from server
-reading = readSecondsLeft > 0 && phase === "question"
+const FINAL_ROUND_NUMBER = 21;
 ```
 
-The host writes `question_started_at = serverNow + 6000ms` (6s reading lead-in, 2.5s for sudden death). If the player's phone clock is even a few seconds behind the server (common on Kindle/Silk and older Android/iOS devices that don't aggressively sync NTP), `startMs - Date.now()` stays positive for the entire question window. Result: tiles look greyed out, taps do nothing, the "super dark" feel comes from the persistent dim + heartbeat vignette never releasing.
+This constant gates two transitions:
 
-This explains the user's symptoms on Silk on iPhone: "couldn't select any answers, UX super dark."
+1. **Leaderboard auto-advance** (line ~640): after the round-end leaderboard, if `completedQuestionNumber >= FINAL_ROUND_NUMBER` it calls `startFinalRound`, otherwise it calls `nextQuestion`. With the threshold at 21, completing q20 → calls `nextQuestion` → q21 plays. Only after q21 does it transition to final.
+2. **`useRevealAutoAdvance`** (line ~1557): treats `roundNumber >= FINAL_ROUND_NUMBER` (i.e. only q21+) as the final question's reveal, with the regular `roundNumber % 5 === 0` branch covering end-of-round leaderboards.
 
 ## Fix
+Change the constant to `20` so completing q20 jumps straight to `startFinalRound`. The display math (`getCompletedRoundNumber = floor(q/5)`, RoundSplash `min(4, ceil(q/5))`) is already correct for a 20-question + final layout, so no other edits needed.
 
-Compute a server-clock offset on the client and use server time (not device time) for the reading/remaining calculations.
+```ts
+const FINAL_ROUND_NUMBER = 20;
+```
 
-### 1. Derive `serverOffsetMs` in `src/routes/play.tsx`
+The `useRevealAutoAdvance` end-of-round condition `(roundNumber % 5 === 0 || roundNumber >= 20)` still works — q20 satisfies both branches and shows the leaderboard once before the final transition.
 
-- Add `const [serverOffsetMs, setServerOffsetMs] = useState(0)`.
-- Every time we receive a fresh room row (initial fetch + every realtime update), compare `room.host_last_seen_at` (server-written ISO, refreshed by host heartbeat every few seconds) to local `Date.now()` at receipt:
-  ```ts
-  const offset = Date.parse(row.host_last_seen_at) - Date.now();
-  setServerOffsetMs(offset);
-  ```
-  Apply only when the timestamp is recent (< 30s old by local clock) so we don't anchor to a stale value when the host is gone.
-
-### 2. Use server time everywhere it matters
-
-Replace `now` (local) with `serverNow = now + serverOffsetMs` in the three time-derived values:
-- `readSecondsLeft = max(0, (startMs - serverNow) / 1000)`
-- `remainingS` calculation
-- The "host stale" check still uses local now vs `host_last_seen_at` directly (already self-consistent).
-
-### 3. Belt-and-suspenders clamp
-
-Even if offset detection somehow fails, clamp `readSecondsLeft` to a sane max: if it exceeds 10s (lead-in is at most 6s), treat as 0. This guarantees tiles unlock once the question phase has been active beyond the lead-in window.
-
-### 4. No other UI changes
-
-`buttonsScrambled`, the heartbeat vignette, and the dim/disabled styling stay as-is — they'll behave correctly once `reading` releases on schedule.
-
-## Files touched
-
-- `src/routes/play.tsx` — add offset state, update room-fetch + realtime handlers to set it, update `readSecondsLeft` / `remainingS`, add 10s clamp on reading.
+## File
+- `src/components/host/HostGameStage.tsx` — one-line change at line 1537.
 
 ## Verification
+Run a dry-run game through Round 4. After question 20's reveal + leaderboard, the next screen should be `final_intro` (announcer: "final hype"), not another question.
 
-- Manually set device clock backwards 30s in a browser devtools / system settings and confirm tiles become tappable as soon as the lead-in elapses.
-- Confirm normal-clock devices behave identically to today (offset ≈ 0).
-- Confirm "Locked" confirmation and reveal styling still work.
+After this lands we'll move on to #2 (the cut-off "Did you know?" before winner screen).

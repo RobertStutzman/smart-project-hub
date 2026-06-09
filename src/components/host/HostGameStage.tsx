@@ -1534,7 +1534,7 @@ export function HostGameStage({ room }: Props) {
 // or at the final question. Between questions within a round, auto-advance to
 // the next question after the reveal.
 const QUESTIONS_PER_ROUND = 5;
-const FINAL_ROUND_NUMBER = 21;
+const FINAL_ROUND_NUMBER = 20;
 
 function getCompletedRoundNumber(completedQuestionNumber: number) {
   return Math.max(1, Math.floor(Math.max(1, completedQuestionNumber) / QUESTIONS_PER_ROUND));
