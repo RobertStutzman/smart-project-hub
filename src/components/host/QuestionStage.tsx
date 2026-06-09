@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { play } from "@/lib/sound-engine";
+import { play, setMusicIntensity } from "@/lib/sound-engine";
 import { ShatteredFaces } from "./ShatteredFaces";
 import { ShutterTransition } from "./ShutterTransition";
 import { CategoryReveal } from "./CategoryReveal";
