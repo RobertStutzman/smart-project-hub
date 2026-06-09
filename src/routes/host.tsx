@@ -164,11 +164,17 @@ function HostPage() {
             round_number?: number;
             team_mode?: boolean;
             current_category?: string | null;
+            current_question_id?: string | null;
+            current_explanation_tts_url?: string | null;
           } | undefined;
           if (next?.phase) setRoomPhase(next.phase);
           if (typeof next?.round_number === "number") setRoundNumber(next.round_number);
           if (typeof next?.team_mode === "boolean") setTeamMode(next.team_mode);
           if (next && "current_category" in next) setActiveCategory(next.current_category ?? null);
+          if (next && "current_question_id" in next) setCurrentQuestionId(next.current_question_id ?? null);
+          if (next && "current_explanation_tts_url" in next) {
+            setHasExplanationTts(Boolean(next.current_explanation_tts_url));
+          }
         },
       )
       .subscribe();
