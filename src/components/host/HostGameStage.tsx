@@ -12,6 +12,7 @@ import {
   scoreFinalRound,
   startSuddenDeath,
   resolveSuddenDeath,
+  restartGame,
 } from "@/lib/game.functions";
 import { QuestionStage, DROP_FALL_MS } from "./QuestionStage";
 import { getRoundCallout, type WildcardKind } from "@/lib/round-callouts";
@@ -171,6 +172,7 @@ export function HostGameStage({ room }: Props) {
   const dropWrongFn = useServerFn(dropWrongAnswer);
   const endQuestionFn = useServerFn(endQuestion);
   const setPhaseFn = useServerFn(setPhase);
+  const restartGameFn = useServerFn(restartGame);
   const endGameFn = useServerFn(endGame);
   const startFinalRoundFn = useServerFn(startFinalRound);
   const startFinalQuestionFn = useServerFn(startFinalQuestion);
@@ -1160,8 +1162,8 @@ export function HostGameStage({ room }: Props) {
       <CreditsStage
         players={players}
         onPlayAgain={() => {
-          setPhaseFn({
-            data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "lobby" },
+          restartGameFn({
+            data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
           }).catch(() => {});
         }}
       />
