@@ -656,7 +656,7 @@ function HostPage() {
               </button>
             )}
             <button
-              onClick={() => setSettingsOpen(true)}
+              onClick={openSettings}
               className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-[10px] uppercase tracking-widest text-white/70 backdrop-blur hover:bg-white/10"
               title="Settings"
             >
