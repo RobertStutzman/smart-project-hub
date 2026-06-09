@@ -1136,7 +1136,7 @@ export function HostGameStage({ room }: Props) {
       const slot = Math.floor(remaining * 4); // 4 ticks/sec under 3s
       if (slot !== lastFinalTickRef.current) {
         lastFinalTickRef.current = slot;
-        play("tick");
+        play("tickHeavy");
       }
     }
   }, [state?.phase, state?.question_started_at, state?.question_duration_ms, now]);

@@ -1,35 +1,55 @@
-## Problem
+## Goal
 
-When a new question starts, there's a noticeable beat of silence between the question appearing on screen and the announcer's voice starting to read it. Cause:
+Replace the thin 1200Hz square-wave "tick" with a warm woodblock-style "tock" + low sub-thump in the final seconds — HQ-Trivia feel, no piercing high end.
 
-1. On phase change into `question`, two voice tracks fire:
-   - The mid-round callout (`speakAsElf("Question N…", { preset: "hype" })`) at `HostGameStage.tsx:582`.
-   - The pre-baked question TTS at `HostGameStage.tsx:320`, scheduled with `setTimeout(..., startMs - Date.now())` — i.e. delayed until `question_started_at`.
+## Change
 
-2. `question_started_at` is the end of the ~6-second on-screen intro (badge → question text → answers → play). The question text actually appears at ~2s into that intro (`QuestionStage.tsx:97` `showQuestion = introPhase >= 2`).
+Single file: `src/lib/sound-engine.ts`, the `case "tick":` branch (lines 184–186).
 
-So the question is visible for ~3–4 seconds before the read starts. The delay used to be there to keep the "Next question!" callout from being trampled — but the user wants the opposite trade-off: callout finishes before the flip, then the read fires the instant the question is on screen.
+Today:
+```ts
+case "tick":
+  tone(1200, 0.04, "square", 0.1);
+  break;
+```
 
-## Fix
+Replace with a layered woodblock hit — a short pitched body (sine/triangle around 320–420Hz with a sharp decay) plus a tiny click transient. This reads as a hollow wooden tock instead of a digital beep, at lower perceived loudness:
 
-Two small changes, both in `src/components/host/HostGameStage.tsx`:
+```ts
+case "tick": {
+  // Warm wooden tock — pitched body + transient click. Lower and rounder
+  // than the old 1200Hz square so the loop under the timer is unobtrusive.
+  sweep(520, 360, 0.06, "triangle", 0.12);   // body, quick downward pitch envelope
+  sweep(1800, 900, 0.018, "sine", 0.05);     // soft attack transient
+  break;
+}
+```
 
-1. **Hold the callout, then flip.** In the round-callout effect (lines 567–586), keep `speakAsElf` but stop deferring the rest of the intro to "fire and forget." Instead, signal completion through a new ref `calloutDoneAtRef.current = performance.now() + estimatedMs` (or resolve a promise stored on a ref). Used by step 2.
+Add a parallel `"tickHeavy"` variant for the final 3 seconds — same wooden body plus a sub-bass thump so urgency lives in the low end, not the highs:
 
-2. **Re-time the question TTS to the moment the question text becomes visible.** Replace the `startMs - Date.now()` delay (line 318) with: wait until the *later* of (a) the question text becoming visible in the intro (≈ `localStart + 2s`, matching `QuestionStage`'s phase-2 boundary) and (b) the callout's estimated end. Then call `playVoiceUrl(url, { interrupt: true, … })`.
-   - Source of truth for "question text visible" lives in `QuestionStage`. To avoid lifting that state, mirror its constants here: `INTRO_BUDGET_S = 6`, phase-2 starts at `4s readSecondsLeft remaining` ≈ `2s after local question start`. Anchor on the local question start using a per-question `performance.now()` ref keyed by `current_question_id`, identical pattern to `QuestionStage.tsx:59-62`.
-   - Drop the question-started_at-anchored wait entirely so realtime latency variance doesn't reintroduce gaps.
+```ts
+case "tickHeavy": {
+  sweep(420, 280, 0.08, "triangle", 0.16);
+  sweep(110, 55, 0.18, "sine", 0.32);        // sub-thump
+  break;
+}
+```
 
-3. **Optional polish:** if the callout is still mid-sentence at the question-visible mark, briefly hold the question read until callout `onEnd` (max ~600ms cap) so the two never overlap. Implement by resolving a `calloutDonePromise` ref from step 1 and `await Promise.race([calloutDone, sleep(600)])` before `playVoiceUrl`.
+Add `"tickHeavy"` to the `SoundName` union at the top of the file.
 
-No DB changes, no server-fn changes, no QuestionStage timing changes — the visual intro keeps its 6-second cadence; only the voice timing moves earlier.
+## Wire-up
+
+In `src/components/host/HostGameStage.tsx`:
+- Line 453 (regular last-5s tick loop): keep `play("tick")`.
+- Line 1139 (final-question sub-3s 4-per-sec loop): swap to `play("tickHeavy")` so the heartbeat-style urgency uses the sub-thump variant.
+- Line 111 in `QuestionStage.tsx` (soft tick as each answer lands during intro): keep `play("tick")` — the new softer tock works there too.
 
 ## Verification
 
-Reload host, start a game, advance through Q1 (round opener) and Q2 (mid-round): the callout should finish, the question screen should be already showing, and the question TTS should start within a beat of the text appearing — no dead silence.
+Reload the host, advance into a question, listen through the final 5 seconds — should sound like a wooden clock instead of a kitchen-timer beep. Trigger the final question to confirm the heavier sub-bass thump under 3s.
 
 ## Out of scope
 
-- No changes to the visual intro phases or timings in `QuestionStage.tsx`.
-- No changes to the round splash (`RoundSplash.tsx` / `ShutterTransition`).
-- No changes to reveal/explanation TTS.
+- No new audio files / CDN assets — staying with the synth engine to keep zero added load.
+- No volume mixer changes, no music bed changes.
+- No visual countdown changes.

@@ -7,6 +7,7 @@ export type Sfx =
   | "wrong"
   | "drop"
   | "tick"
+  | "tickHeavy"
   | "airhorn"
   | "crickets"
   | "boo"
@@ -181,9 +182,19 @@ export function play(sfx: Sfx) {
     case "drop":
       sweep(800, 80, 0.6, "sawtooth", 0.25);
       break;
-    case "tick":
-      tone(1200, 0.04, "square", 0.1);
+    case "tick": {
+      // Warm wooden tock — pitched body + transient click. Lower and rounder
+      // than a digital beep so the loop under the timer is unobtrusive.
+      sweep(520, 360, 0.06, "triangle", 0.12);
+      sweep(1800, 900, 0.018, "sine", 0.05);
       break;
+    }
+    case "tickHeavy": {
+      // Heavier tock with a sub-bass thump for the final-question heartbeat.
+      sweep(420, 280, 0.08, "triangle", 0.16);
+      sweep(110, 55, 0.18, "sine", 0.32);
+      break;
+    }
     case "airhorn":
       tone(180, 0.5, "sawtooth", 0.3);
       tone(220, 0.5, "sawtooth", 0.25, 0.02);
