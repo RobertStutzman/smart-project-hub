@@ -189,7 +189,11 @@ function PlayPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "rooms", filter: `room_code=eq.${session.roomCode}` },
         (payload) => {
-          if (payload.new) setRoom(payload.new as RoomState);
+          if (payload.new) {
+            const next = payload.new as RoomState;
+            setRoom(next);
+            applyServerOffset(next.host_last_seen_at);
+          }
         },
       )
       .on(
