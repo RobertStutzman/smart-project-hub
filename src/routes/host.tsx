@@ -492,7 +492,7 @@ function HostPage() {
 
     for (const p of players) {
       if (p.is_audience) continue;
-      const key = p.session_id ?? p.id;
+      const key = p.id;
       if (!key || announced.has(key)) continue;
       announced.add(key);
       if (isReplaySeed) continue;
