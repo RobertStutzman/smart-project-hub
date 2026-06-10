@@ -250,8 +250,13 @@ export function playVoiceUrl(
       const audio = new Audio(url);
       audio.volume = volume;
       let started = false;
+      let ducked = false;
       const cleanup = () => {
         if (currentAudio === audio) currentAudio = null;
+        if (ducked) {
+          ducked = false;
+          endDuck();
+        }
         if (started) {
           try { opts.onEnd?.(); } catch { /* ignore */ }
         }
@@ -263,6 +268,8 @@ export function playVoiceUrl(
       currentAudio = audio;
       audio.play().then(() => {
         started = true;
+        ducked = true;
+        beginDuck();
         try { opts.onStart?.(); } catch { /* ignore */ }
       }).catch(cleanup);
     });
