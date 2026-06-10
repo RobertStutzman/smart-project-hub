@@ -171,16 +171,18 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
       ),
     });
 
-    // beat: Round scoreboard — always shown so the recap has substance
-    // even when no conditional beats (MVP/fastest/streak/spoon/zeros) qualify.
+    // beat: Standings after round — show TOTAL game scores so players
+    // who scored in earlier rounds aren't shown as "0". The round delta
+    // appears as a small "+N this round" badge beside the total.
     if (real.length > 0) {
-      const top8 = byRoundDesc.slice(0, 8);
-      const overflow = Math.max(0, byRoundDesc.length - top8.length);
-      const maxRoundScore = Math.max(1, top8[0]?.current_round_score ?? 1);
+      const byTotalDesc = [...real].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+      const top8 = byTotalDesc.slice(0, 8);
+      const overflow = Math.max(0, byTotalDesc.length - top8.length);
+      const maxTotal = Math.max(1, top8[0]?.score ?? 1);
       list.push({
         key: "scoreboard",
         durationMs: SCOREBOARD_MS,
-        speak: () => speakPersona(`Here's how round ${roundNumber} shook out.`),
+        speak: () => speakPersona(`Standings after round ${roundNumber}.`),
         render: () => (
           <motion.div
             key="scoreboard"
@@ -191,14 +193,14 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
             className="flex w-full max-w-3xl flex-col gap-4 overflow-hidden"
           >
             <div className="text-center text-[11px] font-black uppercase tracking-[0.6em] text-amber-300/80">
-              Round {roundNumber} · Round Scores
+              Standings after Round {roundNumber}
             </div>
             <ol className="flex w-full flex-col divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur">
               {top8.map((p, i) => {
-                const score = p.current_round_score ?? 0;
-                const pct = score > 0 ? Math.max(4, Math.round((score / maxRoundScore) * 100)) : 0;
+                const total = p.score ?? 0;
+                const delta = p.current_round_score ?? 0;
+                const pct = total > 0 ? Math.max(4, Math.round((total / maxTotal) * 100)) : 0;
                 const rank = i + 1;
-                const isTop = rank === 1 && score > 0;
                 const badgeBg =
                   rank === 1
                     ? "bg-amber-300 text-amber-950"
@@ -207,11 +209,10 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
                     : rank === 3
                     ? "bg-orange-400 text-orange-950"
                     : "bg-white/10 text-white/80";
-                const barTone = isTop
-                  ? "bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500"
-                  : score > 0
-                  ? "bg-gradient-to-r from-emerald-400 to-emerald-600"
-                  : "bg-white/10";
+                const barTone =
+                  rank === 1
+                    ? "bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500"
+                    : "bg-gradient-to-r from-emerald-400 to-emerald-600";
                 return (
                   <motion.li
                     key={p.id}
@@ -244,12 +245,19 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
                         />
                       </div>
                     </div>
-                    <div
-                      className={`w-14 shrink-0 text-right font-mono text-xl font-black tabular-nums sm:text-2xl ${
-                        score > 0 ? "text-emerald-300" : "text-zinc-500"
-                      }`}
-                    >
-                      {score > 0 ? `+${score}` : "0"}
+                    <div className="flex w-24 shrink-0 flex-col items-end gap-0.5 sm:w-28">
+                      <div className="font-mono text-xl font-black tabular-nums text-white sm:text-2xl">
+                        {total}
+                      </div>
+                      {delta !== 0 && (
+                        <div
+                          className={`font-mono text-[11px] font-bold tabular-nums ${
+                            delta > 0 ? "text-emerald-300" : "text-rose-300"
+                          }`}
+                        >
+                          {delta > 0 ? `+${delta}` : delta} this round
+                        </div>
+                      )}
                     </div>
                   </motion.li>
                 );
