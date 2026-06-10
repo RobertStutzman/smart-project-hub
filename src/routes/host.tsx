@@ -10,10 +10,12 @@ import {
   endRoom,
   heartbeatHost,
   listCategories,
+  setDifficultyMode,
   setEnabledCategories,
   setRoomConfig,
   toggleTeamMode,
 } from "@/lib/rooms.functions";
+
 import { restartGame, setPhase } from "@/lib/game.functions";
 import {
   loadHostSession,
