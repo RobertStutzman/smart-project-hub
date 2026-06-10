@@ -428,11 +428,13 @@ function HostPage() {
           void speakOpener();
         }, 2400);
 
+    // Pending-quip counter prevents pile-up if cadence ever outpaces playback,
+    // but unlike a hard isElfSpeaking() skip it still lets a quip queue up
+    // behind the welcome intro / opener so cadence stays consistent.
+    let pendingQuips = 0;
     const tick = async () => {
       if (cancelled) return;
-      // Skip if the elf is still talking — prevents queue backlog over time.
-      const { isElfSpeaking } = await import("@/lib/elf-voice");
-      if (isElfSpeaking()) return;
+      if (pendingQuips >= 1) return;
       const [{ speakPersona }, { pickLobbyLine }] = await Promise.all([
         import("@/lib/host-persona"),
         import("@/lib/lobby-banter"),
@@ -441,7 +443,12 @@ function HostPage() {
       const { spoken, raw } = pickLobbyLine(history, playersRef.current.length, code);
       history.push(raw);
       if (history.length > 6) history.shift();
-      speakPersona(spoken, { preset: "hype" });
+      pendingQuips++;
+      try {
+        await Promise.resolve(speakPersona(spoken, { preset: "hype" }));
+      } finally {
+        pendingQuips = Math.max(0, pendingQuips - 1);
+      }
     };
     // Replay lobby: wait 12s before first quip, then every 25s. Fresh lobby
     // keeps the original 10s cadence.
