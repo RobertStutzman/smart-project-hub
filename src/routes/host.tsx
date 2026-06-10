@@ -395,6 +395,45 @@ function HostPage() {
     };
   }, [room?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Initialize the Elf voice for the QR-code lobby. HostGameStage does this
+  // once the game starts, but lobby quips fire before that component mounts —
+  // without this, lobby lines would call live TTS without a room id (so the
+  // per-game cap can't charge the right room) and skip the pre-baked URL
+  // cache entirely. Mirrors the same wiring HostGameStage does on mount.
+  useEffect(() => {
+    if (!room) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [{ getPersonaCacheMap }, { initPersonaCache, setActiveRoomId, prewarmElfLines }] =
+          await Promise.all([
+            import("@/lib/announcer.functions"),
+            import("@/lib/elf-voice"),
+          ]);
+        setActiveRoomId(room.id);
+        const res = await getPersonaCacheMap();
+        if (cancelled) return;
+        if (res?.map) initPersonaCache(res.map);
+        // Prewarm the actual lobby pool so the 10s cadence isn't stalled
+        // by first-time generation. Pick a representative sample variant for
+        // {count}/{code} tokens so the prewarm hits the same cache keys the
+        // tick will use.
+        try {
+          const { getPrewarmLobbyLines } = await import("@/lib/lobby-banter");
+          prewarmElfLines(getPrewarmLobbyLines(room.roomCode), "hype");
+        } catch {
+          /* prewarm is best-effort */
+        }
+      } catch {
+        /* silent — falls back to live TTS */
+      }
+    })();
+    return () => {
+      cancelled = true;
+      void import("@/lib/elf-voice").then(({ setActiveRoomId }) => setActiveRoomId(null));
+    };
+  }, [room?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Lobby announcer banter — opener + rotating quips every 10s while waiting.
   // On a replay lobby (host hit Play Again), stay quiet: no opener and a
   // much longer cadence so the announcer doesn't re-pitch the join steps.
@@ -404,6 +443,18 @@ function HostPage() {
     let cancelled = false;
     const history: string[] = [];
     const code = room.roomCode;
+
+    // Gated debug logging: window.localStorage.setItem('btd:voice-debug','1')
+    const debug = (() => {
+      try {
+        return window.localStorage.getItem("btd:voice-debug") === "1";
+      } catch {
+        return false;
+      }
+    })();
+    const dlog = (...args: unknown[]) => {
+      if (debug) console.debug("[lobby-quip]", ...args);
+    };
 
     const win = window as unknown as { __btdReplayLobby?: boolean };
     const isReplayLobby = win.__btdReplayLobby === true;
@@ -419,6 +470,7 @@ function HostPage() {
         import("@/lib/lobby-banter"),
       ]);
       if (cancelled) return;
+      dlog("opener");
       speakPersona(pickOpener(), { preset: "hype" });
     };
     // Skip the opener entirely on a replay lobby.
@@ -428,26 +480,36 @@ function HostPage() {
           void speakOpener();
         }, 2400);
 
-    // Pending-quip counter prevents pile-up if cadence ever outpaces playback,
-    // but unlike a hard isElfSpeaking() skip it still lets a quip queue up
-    // behind the welcome intro / opener so cadence stays consistent.
+    // Pending-quip counter prevents pile-up if cadence ever outpaces playback.
+    // Also skip if the shared voice queue is busy with a welcome intro, join
+    // callout, or any other line — avoids quips queueing up behind unrelated
+    // audio and arriving stale.
     let pendingQuips = 0;
     const tick = async () => {
       if (cancelled) return;
-      if (pendingQuips >= 1) return; // a quip is still playing — skip this tick
-      const [{ speakAsElf }, { pickLobbyLine }] = await Promise.all([
+      if (pendingQuips >= 1) {
+        dlog("skip: pending");
+        return;
+      }
+      const [{ speakAsElf, isElfSpeaking }, { pickLobbyLine }] = await Promise.all([
         import("@/lib/elf-voice"),
         import("@/lib/lobby-banter"),
       ]);
       if (cancelled) return;
+      if (isElfSpeaking()) {
+        dlog("skip: busy");
+        return;
+      }
       const { spoken, raw } = pickLobbyLine(history, playersRef.current.length, code);
       history.push(raw);
       if (history.length > 6) history.shift();
       pendingQuips++;
+      dlog("queued:", spoken);
       try {
         // speakAsElf returns the real queued playback promise, so this await
         // only resolves once the line actually finishes (or fails silently).
         await speakAsElf(spoken, { preset: "hype", interrupt: false });
+        dlog("finished");
       } finally {
         pendingQuips = Math.max(0, pendingQuips - 1);
       }
