@@ -93,6 +93,9 @@ function HostPage() {
   const [allCategories, setAllCategories] = useState<{ name: string; count: number }[]>([]);
   const [enabledCats, setEnabledCats] = useState<Set<string>>(new Set());
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  type DifficultyMode = "easy" | "medium" | "hard" | "impossible" | null;
+  const [difficultyMode, setDifficultyModeState] = useState<DifficultyMode>(null);
+
   
   const [allowLate, setAllowLate] = useState(true);
   const [teamMode, setTeamMode] = useState(false);
