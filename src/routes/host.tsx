@@ -175,6 +175,7 @@ function HostPage() {
             current_category?: string | null;
             current_question_id?: string | null;
             current_explanation_tts_url?: string | null;
+            difficulty_mode?: string | null;
           } | undefined;
           if (next?.phase) setRoomPhase(next.phase);
           if (typeof next?.round_number === "number") setRoundNumber(next.round_number);
@@ -184,6 +185,13 @@ function HostPage() {
           if (next && "current_explanation_tts_url" in next) {
             setHasExplanationTts(Boolean(next.current_explanation_tts_url));
           }
+          if (next && "difficulty_mode" in next) {
+            const m = next.difficulty_mode;
+            setDifficultyModeState(
+              m === "easy" || m === "medium" || m === "hard" || m === "impossible" ? m : null,
+            );
+          }
+
         },
       )
       .subscribe();
