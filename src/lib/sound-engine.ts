@@ -737,3 +737,35 @@ export function playWalkOnStinger(indexOrVariant: number | WalkOnVariant = 0) {
 }
 
 
+// ─── End-game music pileup guard ─────────────────────────────────
+// At stage boundaries (final wager → reveal → credits) we'd sometimes get
+// 2–3 music beds layered on top of each other ("4 songs playing at once").
+// `stopOtherMusic(except)` cross-fades every other bed out so only one
+// concurrent music surface ever plays. Called by each music starter below.
+export type MusicBed = "loop" | "credits" | "wager" | "boot";
+export function stopOtherMusic(except: MusicBed, fadeMs = 450) {
+  if (except !== "loop") stopLoopAudio();
+  if (except !== "credits") stopCreditsMusic(fadeMs);
+  if (except !== "wager") stopWagerBed(fadeMs);
+  if (except !== "boot") stopBootMusic(fadeMs);
+}
+
+// Stop ALL audio when the host tab is hidden or the page is being unloaded.
+// Firestick browsers in particular keep audio playing after the user backs
+// out unless we silence on visibilitychange.
+if (typeof window !== "undefined") {
+  const hardStop = () => {
+    try {
+      silenceAllAudio();
+    } catch {
+      /* ignore */
+    }
+  };
+  window.addEventListener("pagehide", hardStop);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") hardStop();
+  });
+}
+
+
+
