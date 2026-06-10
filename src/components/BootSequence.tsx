@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { play, playBootMusic, stopBootMusic, playBootStationId } from "@/lib/sound-engine";
+import { play, playBootMusic, stopBootMusic } from "@/lib/sound-engine";
+import { speakAsElf } from "@/lib/elf-voice";
 
 
 /**
