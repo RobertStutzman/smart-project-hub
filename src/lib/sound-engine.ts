@@ -395,6 +395,7 @@ let wagerBaseVol: number | null = null;
 export function playWagerBed(volume = 0.35) {
   if (muted || typeof window === "undefined") return;
   stopWagerBed();
+  stopOtherMusic("wager", 450);
   try {
     wagerBedAudio = new Audio(finalWagerBed.url);
     wagerBedAudio.loop = true;
