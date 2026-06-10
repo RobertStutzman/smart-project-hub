@@ -1,40 +1,24 @@
-## Problem
+## Plan
 
-In `src/routes/host.tsx` lobby-quip effect (lines ~431–452), the tick currently does:
+1. **Initialize the Elf voice for the QR-code lobby**
+   - Move the room-scoped voice setup that currently only runs inside the in-game stage into the host page lobby as well.
+   - Load the pre-baked persona cache on `/host` as soon as a room exists.
+   - Set the active room id while the QR-code lobby is mounted so live TTS calls are room-scoped instead of untracked.
 
-```ts
-pendingQuips++;
-try {
-  await Promise.resolve(speakPersona(spoken, { preset: "hype" }));
-} finally {
-  pendingQuips--;
-}
-```
+2. **Make lobby quips wait for real voice availability**
+   - Keep the existing no-backlog guard, but ensure lobby quips use the shared voice queue correctly.
+   - Avoid queueing a new lobby line while a welcome intro, opener, join callout, or previous quip is still playing.
+   - Keep skipped ticks as skips, not delayed backlog.
 
-`speakPersona` returns `void` (it swallows the inner `speakAsElf` promise — see `src/lib/host-persona.ts` lines 806–817), so the `await` resolves on the next microtask. The `pendingQuips >= 1` guard never trips, and every 10s tick blindly pushes another line onto the elf-voice queue. After a few minutes the queue is a long backlog of stale quips, so what plays "now" is something requested 60–90s ago — feels like the announcer dropped current quips.
+3. **Prewarm the actual lobby lines**
+   - Export a helper from `lobby-banter` to list the lobby opener/idle lines with token-safe sample variants.
+   - Prewarm those lines after the room code exists, so the 10-second cadence is less likely to stall on first-time TTS generation.
 
-Confirmed in prod: tts_call_log shows cache_hit every 10s on the QR-code screen with no skips, but the actual playback is far behind.
+4. **Add temporary, low-noise diagnostics only if needed**
+   - Add gated debug logs behind a local/session flag like `btd:voice-debug=1`, not always-on production logs.
+   - Logs would show `lobby-quip tick`, `skipped: busy`, `queued`, and `finished`, making cadence verifiable without relying on headless audio.
 
-## Fix
+## Technical notes
 
-Switch the lobby tick to call `speakAsElf` directly (it returns the real queued playback promise) so `pendingQuips` reflects true queue depth and the next tick skips when one is still playing.
-
-1. **`src/routes/host.tsx`** lobby-quip effect:
-   - Import `speakAsElf` from `@/lib/elf-voice` inside the tick instead of `speakPersona`.
-   - `await speakAsElf(spoken, { preset: "hype", interrupt: false })` so the `finally` only runs once the line actually finishes (or fails).
-   - Keep the `pendingQuips >= 1` skip — now it does what was intended (drop a tick if a quip is still in flight, but don't backlog).
-   - Keep cadence as-is: 10s fresh lobby, 25s replay.
-
-2. No other files change. The opener still uses `speakPersona` (one-shot at 2.4s, fine to fire-and-forget).
-
-## Verification
-
-- Open `/host` on the published URL, sit in the lobby for ~60s.
-- Quips audibly cycle ~every 10–12s (allowing for the tail of each line).
-- After 3 minutes of idle, the line you hear matches the recent one — not a 90s-stale one.
-- Check `tts_call_log` for the room: cadence should stay ~10s, no infinite stack.
-- Trigger a few player joins; welcome line plays, then quips resume on cadence without pile-up.
-
-## Files
-
-- `src/routes/host.tsx` — 5-line change inside the existing lobby-quip useEffect.
+- The likely issue is that `HostGameStage` initializes `initPersonaCache()` and `setActiveRoomId(room.id)`, but that component is not mounted on the QR-code lobby screen. Lobby quips therefore fall back to live generation without a room id, and failures are swallowed silently.
+- The fix should stay limited to `src/routes/host.tsx`, `src/lib/lobby-banter.ts`, and possibly `src/lib/elf-voice.ts` for a non-invasive busy-state helper or debug hook.
