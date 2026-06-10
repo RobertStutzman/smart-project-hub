@@ -1028,6 +1028,7 @@ export const startSuddenDeath = createServerFn({ method: "POST" })
       .update({
         current_answer: null,
         current_answer_locked_at: null,
+        current_first_answer: null,
         last_answer_correct: null,
         current_round_score: 0,
       })
