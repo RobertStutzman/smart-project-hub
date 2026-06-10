@@ -1398,6 +1398,7 @@ export const restartGame = createServerFn({ method: "POST" })
         last_answer_correct: null,
         current_answer: null,
         current_answer_locked_at: null,
+        current_first_answer: null,
         correct_count: 0,
         wrong_count: 0,
         fastest_count: 0,
