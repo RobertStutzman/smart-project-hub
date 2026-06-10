@@ -28,8 +28,8 @@ export function CategoryReveal({ category, visible, subline, zIndex = 35 }: Prop
       play("whoosh", 0.45);
       return;
     }
-    // Let the exit animation play
-    const t = window.setTimeout(() => setShown(false), 420);
+    // Let the exit animation play (longer to match the gentler easing below)
+    const t = window.setTimeout(() => setShown(false), 600);
     return () => window.clearTimeout(t);
   }, [visible]);
 
@@ -44,19 +44,18 @@ export function CategoryReveal({ category, visible, subline, zIndex = 35 }: Prop
       aria-hidden
     >
       <motion.div
-        initial={{ rotateX: -90, opacity: 0, y: -24 }}
+        initial={{ scale: 0.86, opacity: 0, y: 14 }}
         animate={
           visible
-            ? { rotateX: 0, opacity: 1, y: 0 }
-            : { rotateX: 90, opacity: 0, y: 24 }
+            ? { scale: 1, opacity: 1, y: 0 }
+            : { scale: 0.96, opacity: 0, y: -10 }
         }
         transition={{
-          duration: 0.55,
+          duration: visible ? 0.7 : 0.5,
           ease: [0.22, 1, 0.36, 1],
         }}
         style={{
-          transformPerspective: 1200,
-          transformOrigin: "center top",
+          transformOrigin: "center center",
         }}
         className="relative flex min-w-[280px] flex-col items-center gap-3 rounded-2xl border border-amber-300/40 bg-gradient-to-br from-amber-500/15 via-black/70 to-black/90 px-8 py-6 shadow-[0_30px_80px_-20px_rgba(252,200,90,0.45)] backdrop-blur-xl sm:min-w-[360px] sm:px-10 sm:py-7"
       >
