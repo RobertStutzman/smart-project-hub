@@ -469,6 +469,70 @@ function HostPage() {
     };
   }, [room?.id, roomPhase]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Lobby player-join welcome callouts. The in-game welcome lives in
+  // HostGameStage; while we're on the QR-code lobby that component isn't
+  // mounted, so we mirror the same batching/quip logic here. A shared
+  // window-scoped Set keyed by room id prevents double-welcoming when the
+  // game starts.
+  const joinQueueRef = useRef<Array<{ name: string; key: string }>>([]);
+  const joinDrainingRef = useRef(false);
+  useEffect(() => {
+    if (!room) return;
+    if (roomPhase !== "lobby") return;
+    const win = window as unknown as {
+      __btdReplayLobby?: boolean;
+      __btdAnnouncedJoins?: Record<string, Set<string>>;
+    };
+    if (!win.__btdAnnouncedJoins) win.__btdAnnouncedJoins = {};
+    if (!win.__btdAnnouncedJoins[room.id]) win.__btdAnnouncedJoins[room.id] = new Set();
+    const announced = win.__btdAnnouncedJoins[room.id];
+    // On a replay lobby everyone was already welcomed last game — seed the
+    // set silently so we don't flood the room with welcomes.
+    const isReplaySeed = win.__btdReplayLobby === true && announced.size === 0;
+
+    for (const p of players) {
+      if (p.is_audience) continue;
+      const key = p.id;
+      if (!key || announced.has(key)) continue;
+      announced.add(key);
+      if (isReplaySeed) continue;
+      joinQueueRef.current.push({ name: p.nickname, key });
+    }
+    if (joinQueueRef.current.length === 0 || joinDrainingRef.current) return;
+    joinDrainingRef.current = true;
+    void (async () => {
+      const [{ speakAsElf }, { pickQuip }] = await Promise.all([
+        import("@/lib/elf-voice"),
+        import("@/lib/join-banter"),
+      ]);
+      // small debounce so simultaneous joins batch
+      await new Promise((r) => setTimeout(r, 600));
+      while (joinQueueRef.current.length > 0) {
+        const batch = joinQueueRef.current.splice(0, Math.min(joinQueueRef.current.length, 8));
+        const named = batch.slice(0, 3);
+        const overflow = batch.length - named.length;
+        let line: string;
+        if (named.length === 1) {
+          line = `Welcome, ${named[0].name}! ${pickQuip(named[0].key)}`;
+        } else if (named.length === 2) {
+          line = `Welcome ${named[0].name} and ${named[1].name}!`;
+        } else {
+          line = `Welcome ${named[0].name}, ${named[1].name}, and ${named[2].name}${
+            overflow > 0 ? ` — and ${overflow} more!` : "!"
+          }`;
+        }
+        try {
+          await speakAsElf(line, { preset: "hype", interrupt: false });
+        } catch {
+          /* silent */
+        }
+      }
+      joinDrainingRef.current = false;
+    })();
+  }, [players, room?.id, roomPhase]);
+
+
+
 
 
 
