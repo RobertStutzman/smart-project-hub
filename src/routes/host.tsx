@@ -79,6 +79,8 @@ function HostPage() {
   const heartbeatFn = useServerFn(heartbeatHost);
   const listCategoriesFn = useServerFn(listCategories);
   const setEnabledCategoriesFn = useServerFn(setEnabledCategories);
+  const setDifficultyModeFn = useServerFn(setDifficultyMode);
+
   const setConfigFn = useServerFn(setRoomConfig);
   const toggleTeamModeFn = useServerFn(toggleTeamMode);
   const setPhaseFn = useServerFn(setPhase);
