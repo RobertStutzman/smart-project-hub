@@ -1207,11 +1207,24 @@ export const lockAnswer = createServerFn({ method: "POST" })
         throw new Error("Time's up");
       }
     }
+    // Capture the FIRST answer the player committed to this question.
+    // Streak credit (see scoreRound) only applies when this matches the
+    // correct index — players who change their pick after locking still
+    // get points for the new pick, but lose streak eligibility.
+    const { data: existing } = await supabaseAdmin
+      .from("players")
+      .select("id, current_first_answer")
+      .eq("room_id", room.id)
+      .eq("session_id", data.sessionId)
+      .maybeSingle();
+    const firstAnswer =
+      existing?.current_first_answer ?? data.answerIndex;
     const { error } = await supabaseAdmin
       .from("players")
       .update({
         current_answer: data.answerIndex,
         current_answer_locked_at: new Date().toISOString(),
+        current_first_answer: firstAnswer,
       })
       .eq("room_id", room.id)
       .eq("session_id", data.sessionId);
