@@ -284,6 +284,7 @@ let bootVoiceAudio: HTMLAudioElement | null = null;
 export function playBootMusic(volume = 0.32) {
   if (muted || typeof window === "undefined") return;
   stopBootMusic(0);
+  stopOtherMusic("boot", 400);
   try {
     bootMusicAudio = new Audio(bootSting.url);
     bootMusicAudio.loop = false;
