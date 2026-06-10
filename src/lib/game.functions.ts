@@ -470,7 +470,14 @@ export const endQuestion = createServerFn({ method: "POST" })
         const remaining = Math.max(0, durationMs - elapsedMs) / 1000;
         let base = Math.round((remaining / (durationMs / 1000)) * MAX_POINTS);
 
-        if (nextStreak >= 3) base = Math.round(base * STREAK_BONUS);
+        // Streak credit only if their FIRST locked answer was also correct.
+        // Players who changed their pick after a wrong initial lock get the
+        // points but their streak resets — the streak should reward
+        // confident first-try knowledge, not trial-and-error.
+        const firstWasCorrect =
+          (p as { current_first_answer?: number | null }).current_first_answer === correctIdx;
+
+        if (nextStreak >= 3 && firstWasCorrect) base = Math.round(base * STREAK_BONUS);
         if (rubberIds.has(p.id)) base = Math.round(base * 1.25); // rubber-banding (hidden)
         if (pending2x) {
           base *= 2;
@@ -480,8 +487,12 @@ export const endQuestion = createServerFn({ method: "POST" })
         if (isDoubleOrNothing) base *= 2;
         if (isUnderdog && underdogId === p.id) base *= 2;
         roundScore = base;
-        nextStreak += 1;
-        if (nextStreak > bestStreak) bestStreak = nextStreak;
+        if (firstWasCorrect) {
+          nextStreak += 1;
+          if (nextStreak > bestStreak) bestStreak = nextStreak;
+        } else {
+          nextStreak = 0;
+        }
         if (lockedMs && lockedMs < fastestLockedAt) {
           fastestLockedAt = lockedMs;
           fastestPlayerId = p.id;
