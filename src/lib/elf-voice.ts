@@ -85,14 +85,33 @@ function playBase64(b64: string, volume: number, onEnd?: () => void): HTMLAudioE
   audio.volume = volume;
   const cleanup = () => {
     if (currentAudio === audio) currentAudio = null;
+    endDuck();
     onEnd?.();
   };
   audio.addEventListener("ended", cleanup);
   audio.addEventListener("pause", cleanup);
   audio.addEventListener("error", cleanup);
   currentAudio = audio;
+  beginDuck();
   audio.play().catch(cleanup);
   return audio;
+}
+
+// Auto-duck music beds under every TTS / voice-URL playback so the voice
+// always sits on top. Uses a refcount so overlapping calls don't un-duck
+// each other prematurely.
+let duckCount = 0;
+function beginDuck() {
+  duckCount++;
+  if (duckCount === 1) {
+    void import("@/lib/sound-engine").then((m) => m.duckMusic?.(true)).catch(() => {});
+  }
+}
+function endDuck() {
+  duckCount = Math.max(0, duckCount - 1);
+  if (duckCount === 0) {
+    void import("@/lib/sound-engine").then((m) => m.duckMusic?.(false)).catch(() => {});
+  }
 }
 
 export interface SpeakOptions {
@@ -127,12 +146,14 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
         audio.volume = volume;
         const cleanup = () => {
           if (currentAudio === audio) currentAudio = null;
+          endDuck();
           resolve();
         };
         audio.addEventListener("ended", cleanup);
         audio.addEventListener("pause", cleanup);
         audio.addEventListener("error", cleanup);
         currentAudio = audio;
+        beginDuck();
         audio.play().catch(cleanup);
       });
       return;
@@ -147,12 +168,14 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
         audio.volume = volume;
         const cleanup = () => {
           if (currentAudio === audio) currentAudio = null;
+          endDuck();
           resolve();
         };
         audio.addEventListener("ended", cleanup);
         audio.addEventListener("pause", cleanup);
         audio.addEventListener("error", cleanup);
         currentAudio = audio;
+        beginDuck();
         audio.play().catch(cleanup);
       });
       return;
@@ -227,8 +250,13 @@ export function playVoiceUrl(
       const audio = new Audio(url);
       audio.volume = volume;
       let started = false;
+      let ducked = false;
       const cleanup = () => {
         if (currentAudio === audio) currentAudio = null;
+        if (ducked) {
+          ducked = false;
+          endDuck();
+        }
         if (started) {
           try { opts.onEnd?.(); } catch { /* ignore */ }
         }
@@ -240,6 +268,8 @@ export function playVoiceUrl(
       currentAudio = audio;
       audio.play().then(() => {
         started = true;
+        ducked = true;
+        beginDuck();
         try { opts.onStart?.(); } catch { /* ignore */ }
       }).catch(cleanup);
     });

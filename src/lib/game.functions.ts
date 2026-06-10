@@ -138,6 +138,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
       .update({
         current_answer: null,
         current_answer_locked_at: null,
+        current_first_answer: null,
         current_round_score: 0,
         current_round_fastest: false,
         last_answer_correct: null,
@@ -470,7 +471,14 @@ export const endQuestion = createServerFn({ method: "POST" })
         const remaining = Math.max(0, durationMs - elapsedMs) / 1000;
         let base = Math.round((remaining / (durationMs / 1000)) * MAX_POINTS);
 
-        if (nextStreak >= 3) base = Math.round(base * STREAK_BONUS);
+        // Streak credit only if their FIRST locked answer was also correct.
+        // Players who changed their pick after a wrong initial lock get the
+        // points but their streak resets — the streak should reward
+        // confident first-try knowledge, not trial-and-error.
+        const firstWasCorrect =
+          (p as { current_first_answer?: number | null }).current_first_answer === correctIdx;
+
+        if (nextStreak >= 3 && firstWasCorrect) base = Math.round(base * STREAK_BONUS);
         if (rubberIds.has(p.id)) base = Math.round(base * 1.25); // rubber-banding (hidden)
         if (pending2x) {
           base *= 2;
@@ -480,8 +488,12 @@ export const endQuestion = createServerFn({ method: "POST" })
         if (isDoubleOrNothing) base *= 2;
         if (isUnderdog && underdogId === p.id) base *= 2;
         roundScore = base;
-        nextStreak += 1;
-        if (nextStreak > bestStreak) bestStreak = nextStreak;
+        if (firstWasCorrect) {
+          nextStreak += 1;
+          if (nextStreak > bestStreak) bestStreak = nextStreak;
+        } else {
+          nextStreak = 0;
+        }
         if (lockedMs && lockedMs < fastestLockedAt) {
           fastestLockedAt = lockedMs;
           fastestPlayerId = p.id;
@@ -1016,6 +1028,7 @@ export const startSuddenDeath = createServerFn({ method: "POST" })
       .update({
         current_answer: null,
         current_answer_locked_at: null,
+        current_first_answer: null,
         last_answer_correct: null,
         current_round_score: 0,
       })
@@ -1207,11 +1220,24 @@ export const lockAnswer = createServerFn({ method: "POST" })
         throw new Error("Time's up");
       }
     }
+    // Capture the FIRST answer the player committed to this question.
+    // Streak credit (see scoreRound) only applies when this matches the
+    // correct index — players who change their pick after locking still
+    // get points for the new pick, but lose streak eligibility.
+    const { data: existing } = await supabaseAdmin
+      .from("players")
+      .select("id, current_first_answer")
+      .eq("room_id", room.id)
+      .eq("session_id", data.sessionId)
+      .maybeSingle();
+    const firstAnswer =
+      existing?.current_first_answer ?? data.answerIndex;
     const { error } = await supabaseAdmin
       .from("players")
       .update({
         current_answer: data.answerIndex,
         current_answer_locked_at: new Date().toISOString(),
+        current_first_answer: firstAnswer,
       })
       .eq("room_id", room.id)
       .eq("session_id", data.sessionId);
@@ -1372,6 +1398,7 @@ export const restartGame = createServerFn({ method: "POST" })
         last_answer_correct: null,
         current_answer: null,
         current_answer_locked_at: null,
+        current_first_answer: null,
         correct_count: 0,
         wrong_count: 0,
         fastest_count: 0,

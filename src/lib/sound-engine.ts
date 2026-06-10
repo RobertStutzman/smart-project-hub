@@ -284,6 +284,7 @@ let bootVoiceAudio: HTMLAudioElement | null = null;
 export function playBootMusic(volume = 0.32) {
   if (muted || typeof window === "undefined") return;
   stopBootMusic(0);
+  stopOtherMusic("boot", 400);
   try {
     bootMusicAudio = new Audio(bootSting.url);
     bootMusicAudio.loop = false;
@@ -352,9 +353,11 @@ export function playCreditsMusic(volume = 0.32) {
   if (creditsAudio && !creditsAudio.paused && creditsAudio.src.endsWith(creditsOutro.url.split("/").pop() || "")) {
     creditsBaseVol = base;
     creditsAudio.volume = duckActive ? base * 0.35 : base;
+    stopOtherMusic("credits", 450);
     return;
   }
   stopCreditsMusic(0);
+  stopOtherMusic("credits", 450);
   try {
     creditsAudio = new Audio(creditsOutro.url);
     creditsAudio.loop = true;
@@ -392,6 +395,7 @@ let wagerBaseVol: number | null = null;
 export function playWagerBed(volume = 0.35) {
   if (muted || typeof window === "undefined") return;
   stopWagerBed();
+  stopOtherMusic("wager", 450);
   try {
     wagerBedAudio = new Audio(finalWagerBed.url);
     wagerBedAudio.loop = true;
@@ -451,6 +455,7 @@ function stopLoopAudio() {
 /** Start lobby/tense background music. Uses uploaded clip for lobby_music if assigned. */
 export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
   stopLoopAudio();
+  stopOtherMusic("loop", 450);
   if (muted) return;
   currentLoopMode = mode;
 
@@ -694,32 +699,13 @@ function ensureIntensityNodes(a: AudioContext): IntensityNodes {
 }
 
 /**
- * Set adaptive music intensity 0..1 (0=calm, 1=timer almost out).
- *   <0.5  silent;  0.5-0.75 low rumble;  0.75-0.9 sub joins;  >0.9 noise swell.
+ * Adaptive music intensity is intentionally disabled — the rumble/sub/noise
+ * bed it produced was reported as an "annoying hum" that swelled under
+ * questions. We keep the function (and all call sites) as a no-op so the
+ * engine surface area is unchanged.
  */
-export function setMusicIntensity(intensity: number) {
-  if (typeof window === "undefined") return;
-  const i = muted ? 0 : Math.max(0, Math.min(1, intensity));
-  const a = ac();
-  if (!a) return;
-  const nodes = ensureIntensityNodes(a);
-  const t = a.currentTime;
-
-  const rumble = i < 0.5 ? 0 : Math.min(1, (i - 0.5) / 0.4) * 0.16;
-  const sub = i < 0.75 ? 0 : Math.min(1, (i - 0.75) / 0.25) * 0.22;
-  const noise = i < 0.9 ? 0 : Math.min(1, (i - 0.9) / 0.1) * 0.06;
-
-  nodes.rumbleGain.gain.cancelScheduledValues(t);
-  nodes.rumbleGain.gain.linearRampToValueAtTime(rumble, t + 0.25);
-  nodes.subGain.gain.cancelScheduledValues(t);
-  nodes.subGain.gain.linearRampToValueAtTime(sub, t + 0.25);
-  nodes.noiseGain.gain.cancelScheduledValues(t);
-  nodes.noiseGain.gain.linearRampToValueAtTime(noise, t + 0.2);
-
-  nodes.rumbleOsc.frequency.cancelScheduledValues(t);
-  nodes.rumbleOsc.frequency.linearRampToValueAtTime(48 + i * 8, t + 0.3);
-  nodes.noiseFilter.frequency.cancelScheduledValues(t);
-  nodes.noiseFilter.frequency.linearRampToValueAtTime(220 + i * 600, t + 0.3);
+export function setMusicIntensity(_intensity: number) {
+  return;
 }
 
 // ─── Per-player walk-on stinger (synth, ~0.4s, ducked under VO) ────
@@ -754,5 +740,37 @@ export function playWalkOnStinger(indexOrVariant: number | WalkOnVariant = 0) {
       break;
   }
 }
+
+
+// ─── End-game music pileup guard ─────────────────────────────────
+// At stage boundaries (final wager → reveal → credits) we'd sometimes get
+// 2–3 music beds layered on top of each other ("4 songs playing at once").
+// `stopOtherMusic(except)` cross-fades every other bed out so only one
+// concurrent music surface ever plays. Called by each music starter below.
+export type MusicBed = "loop" | "credits" | "wager" | "boot";
+export function stopOtherMusic(except: MusicBed, fadeMs = 450) {
+  if (except !== "loop") stopLoopAudio();
+  if (except !== "credits") stopCreditsMusic(fadeMs);
+  if (except !== "wager") stopWagerBed(fadeMs);
+  if (except !== "boot") stopBootMusic(fadeMs);
+}
+
+// Stop ALL audio when the host tab is hidden or the page is being unloaded.
+// Firestick browsers in particular keep audio playing after the user backs
+// out unless we silence on visibilitychange.
+if (typeof window !== "undefined") {
+  const hardStop = () => {
+    try {
+      silenceAllAudio();
+    } catch {
+      /* ignore */
+    }
+  };
+  window.addEventListener("pagehide", hardStop);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") hardStop();
+  });
+}
+
 
 
