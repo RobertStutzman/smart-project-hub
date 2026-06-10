@@ -24,6 +24,7 @@ export type Database = {
           created_at: string
           current_answer: number | null
           current_answer_locked_at: string | null
+          current_first_answer: number | null
           current_round_fastest: boolean
           current_round_score: number
           fastest_count: number
@@ -55,6 +56,7 @@ export type Database = {
           created_at?: string
           current_answer?: number | null
           current_answer_locked_at?: string | null
+          current_first_answer?: number | null
           current_round_fastest?: boolean
           current_round_score?: number
           fastest_count?: number
@@ -86,6 +88,7 @@ export type Database = {
           created_at?: string
           current_answer?: number | null
           current_answer_locked_at?: string | null
+          current_first_answer?: number | null
           current_round_fastest?: boolean
           current_round_score?: number
           fastest_count?: number
