@@ -694,32 +694,13 @@ function ensureIntensityNodes(a: AudioContext): IntensityNodes {
 }
 
 /**
- * Set adaptive music intensity 0..1 (0=calm, 1=timer almost out).
- *   <0.5  silent;  0.5-0.75 low rumble;  0.75-0.9 sub joins;  >0.9 noise swell.
+ * Adaptive music intensity is intentionally disabled — the rumble/sub/noise
+ * bed it produced was reported as an "annoying hum" that swelled under
+ * questions. We keep the function (and all call sites) as a no-op so the
+ * engine surface area is unchanged.
  */
-export function setMusicIntensity(intensity: number) {
-  if (typeof window === "undefined") return;
-  const i = muted ? 0 : Math.max(0, Math.min(1, intensity));
-  const a = ac();
-  if (!a) return;
-  const nodes = ensureIntensityNodes(a);
-  const t = a.currentTime;
-
-  const rumble = i < 0.5 ? 0 : Math.min(1, (i - 0.5) / 0.4) * 0.16;
-  const sub = i < 0.75 ? 0 : Math.min(1, (i - 0.75) / 0.25) * 0.22;
-  const noise = i < 0.9 ? 0 : Math.min(1, (i - 0.9) / 0.1) * 0.06;
-
-  nodes.rumbleGain.gain.cancelScheduledValues(t);
-  nodes.rumbleGain.gain.linearRampToValueAtTime(rumble, t + 0.25);
-  nodes.subGain.gain.cancelScheduledValues(t);
-  nodes.subGain.gain.linearRampToValueAtTime(sub, t + 0.25);
-  nodes.noiseGain.gain.cancelScheduledValues(t);
-  nodes.noiseGain.gain.linearRampToValueAtTime(noise, t + 0.2);
-
-  nodes.rumbleOsc.frequency.cancelScheduledValues(t);
-  nodes.rumbleOsc.frequency.linearRampToValueAtTime(48 + i * 8, t + 0.3);
-  nodes.noiseFilter.frequency.cancelScheduledValues(t);
-  nodes.noiseFilter.frequency.linearRampToValueAtTime(220 + i * 600, t + 0.3);
+export function setMusicIntensity(_intensity: number) {
+  return;
 }
 
 // ─── Per-player walk-on stinger (synth, ~0.4s, ducked under VO) ────
