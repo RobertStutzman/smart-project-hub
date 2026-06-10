@@ -130,9 +130,10 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
   const preset = opts.preset ?? "hype";
   const volume = opts.volume ?? 1.0;
 
+  if (opts.interrupt) cancelElfSpeech();
+
   const task = async () => {
-    if (opts.interrupt) cancelElfSpeech();
-    // Capture AFTER any opt-in interrupt so this task survives its own cancel.
+    // Capture after any opt-in interrupt so this task survives its own cancel.
     const myGen = generation;
     const isAlive = () => generation === myGen;
     if (!isAlive()) return;
@@ -238,8 +239,9 @@ export function playVoiceUrl(
   if (typeof window === "undefined") return Promise.resolve();
   const volume = opts.volume ?? 1.0;
 
+  if (opts.interrupt) cancelElfSpeech();
+
   const task = async () => {
-    if (opts.interrupt) cancelElfSpeech();
     const myGen = generation;
     if (generation !== myGen) return;
     await new Promise<void>((resolve) => {
