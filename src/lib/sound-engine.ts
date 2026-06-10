@@ -455,6 +455,7 @@ function stopLoopAudio() {
 /** Start lobby/tense background music. Uses uploaded clip for lobby_music if assigned. */
 export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
   stopLoopAudio();
+  stopOtherMusic("loop", 450);
   if (muted) return;
   currentLoopMode = mode;
 
