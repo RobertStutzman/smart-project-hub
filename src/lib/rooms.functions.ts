@@ -417,3 +417,23 @@ export const setEnabledCategories = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// Lock the whole game to a single difficulty bucket (or null for mixed).
+export const setDifficultyMode = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      hostSessionId: z.string().min(8).max(128),
+      mode: z.enum(["easy", "medium", "hard", "impossible"]).nullable(),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const { error } = await supabaseAdmin
+      .from("rooms")
+      .update({ difficulty_mode: data.mode })
+      .eq("room_code", data.roomCode)
+      .eq("host_session_id", data.hostSessionId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
