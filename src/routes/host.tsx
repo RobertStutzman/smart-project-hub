@@ -434,9 +434,9 @@ function HostPage() {
     let pendingQuips = 0;
     const tick = async () => {
       if (cancelled) return;
-      if (pendingQuips >= 1) return;
-      const [{ speakPersona }, { pickLobbyLine }] = await Promise.all([
-        import("@/lib/host-persona"),
+      if (pendingQuips >= 1) return; // a quip is still playing — skip this tick
+      const [{ speakAsElf }, { pickLobbyLine }] = await Promise.all([
+        import("@/lib/elf-voice"),
         import("@/lib/lobby-banter"),
       ]);
       if (cancelled) return;
@@ -445,7 +445,9 @@ function HostPage() {
       if (history.length > 6) history.shift();
       pendingQuips++;
       try {
-        await Promise.resolve(speakPersona(spoken, { preset: "hype" }));
+        // speakAsElf returns the real queued playback promise, so this await
+        // only resolves once the line actually finishes (or fails silently).
+        await speakAsElf(spoken, { preset: "hype", interrupt: false });
       } finally {
         pendingQuips = Math.max(0, pendingQuips - 1);
       }
