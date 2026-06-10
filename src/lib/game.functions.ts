@@ -194,19 +194,26 @@ export const nextQuestion = createServerFn({ method: "POST" })
     // Pick difficulty to keep an even spread across the game without a predictable order.
     // Strategy: count how many of each difficulty we've already asked this room, then
     // pick randomly among the difficulties that are tied for least-used so far.
+    // If the host locked a single-difficulty Mode, skip the spread and use that.
     const DIFFICULTIES = ["easy", "medium", "hard", "impossible"] as const;
-    const { data: askedRows } = await supabaseAdmin
-      .from("room_questions")
-      .select("question_id, questions:question_id(difficulty)")
-      .eq("room_id", room.id);
-    const counts: Record<string, number> = { easy: 0, medium: 0, hard: 0, impossible: 0 };
-    for (const r of askedRows ?? []) {
-      const d = (r as { questions?: { difficulty?: string } | null }).questions?.difficulty;
-      if (d && d in counts) counts[d] += 1;
+    const lockedMode = (room as { difficulty_mode?: string | null }).difficulty_mode ?? null;
+    let targetDifficulty: string;
+    if (lockedMode && (DIFFICULTIES as readonly string[]).includes(lockedMode)) {
+      targetDifficulty = lockedMode;
+    } else {
+      const { data: askedRows } = await supabaseAdmin
+        .from("room_questions")
+        .select("question_id, questions:question_id(difficulty)")
+        .eq("room_id", room.id);
+      const counts: Record<string, number> = { easy: 0, medium: 0, hard: 0, impossible: 0 };
+      for (const r of askedRows ?? []) {
+        const d = (r as { questions?: { difficulty?: string } | null }).questions?.difficulty;
+        if (d && d in counts) counts[d] += 1;
+      }
+      const minCount = Math.min(...DIFFICULTIES.map((d) => counts[d]));
+      const leastUsed = DIFFICULTIES.filter((d) => counts[d] === minCount);
+      targetDifficulty = leastUsed[Math.floor(Math.random() * leastUsed.length)];
     }
-    const minCount = Math.min(...DIFFICULTIES.map((d) => counts[d]));
-    const leastUsed = DIFFICULTIES.filter((d) => counts[d] === minCount);
-    const targetDifficulty = leastUsed[Math.floor(Math.random() * leastUsed.length)];
 
     async function fetchPool(difficulty: string | null, useEnabledCategories: boolean) {
       let qQuery = supabaseAdmin.from("questions").select("*");
@@ -225,11 +232,19 @@ export const nextQuestion = createServerFn({ method: "POST" })
 
 
     // Prefer staying inside the host's enabled set; fall back to all categories
-    // if that pool runs dry so the game keeps moving.
+    // if that pool runs dry so the game keeps moving. When a mode is locked we
+    // keep the difficulty constraint as long as possible before dropping it.
     let candidates = await fetchPool(targetDifficulty, true);
-    if (candidates.length === 0) candidates = await fetchPool(null, true);
     if (candidates.length === 0) candidates = await fetchPool(targetDifficulty, false);
-    if (candidates.length === 0) candidates = await fetchPool(null, false);
+    if (!lockedMode) {
+      if (candidates.length === 0) candidates = await fetchPool(null, true);
+      if (candidates.length === 0) candidates = await fetchPool(null, false);
+    } else {
+      // Last-resort safety net so a tiny pool never dead-ends the game.
+      if (candidates.length === 0) candidates = await fetchPool(null, true);
+      if (candidates.length === 0) candidates = await fetchPool(null, false);
+    }
+
 
 
     if (candidates.length === 0) {
