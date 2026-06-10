@@ -10,10 +10,12 @@ import {
   endRoom,
   heartbeatHost,
   listCategories,
+  setDifficultyMode,
   setEnabledCategories,
   setRoomConfig,
   toggleTeamMode,
 } from "@/lib/rooms.functions";
+
 import { restartGame, setPhase } from "@/lib/game.functions";
 import {
   loadHostSession,
@@ -77,6 +79,8 @@ function HostPage() {
   const heartbeatFn = useServerFn(heartbeatHost);
   const listCategoriesFn = useServerFn(listCategories);
   const setEnabledCategoriesFn = useServerFn(setEnabledCategories);
+  const setDifficultyModeFn = useServerFn(setDifficultyMode);
+
   const setConfigFn = useServerFn(setRoomConfig);
   const toggleTeamModeFn = useServerFn(toggleTeamMode);
   const setPhaseFn = useServerFn(setPhase);
@@ -89,6 +93,9 @@ function HostPage() {
   const [allCategories, setAllCategories] = useState<{ name: string; count: number }[]>([]);
   const [enabledCats, setEnabledCats] = useState<Set<string>>(new Set());
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  type DifficultyMode = "easy" | "medium" | "hard" | "impossible" | null;
+  const [difficultyMode, setDifficultyModeState] = useState<DifficultyMode>(null);
+
   
   const [allowLate, setAllowLate] = useState(true);
   const [teamMode, setTeamMode] = useState(false);
@@ -168,6 +175,7 @@ function HostPage() {
             current_category?: string | null;
             current_question_id?: string | null;
             current_explanation_tts_url?: string | null;
+            difficulty_mode?: string | null;
           } | undefined;
           if (next?.phase) setRoomPhase(next.phase);
           if (typeof next?.round_number === "number") setRoundNumber(next.round_number);
@@ -177,6 +185,13 @@ function HostPage() {
           if (next && "current_explanation_tts_url" in next) {
             setHasExplanationTts(Boolean(next.current_explanation_tts_url));
           }
+          if (next && "difficulty_mode" in next) {
+            const m = next.difficulty_mode;
+            setDifficultyModeState(
+              m === "easy" || m === "medium" || m === "hard" || m === "impossible" ? m : null,
+            );
+          }
+
         },
       )
       .subscribe();
@@ -952,6 +967,55 @@ function HostPage() {
               </div>
 
               <div className="mb-5">
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-amber-200/80">
+                  Mode
+                </h3>
+                <p className="mb-2 text-[11px] leading-snug text-white/50">
+                  Pick a vibe. Locks every question this game to one difficulty bucket.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { mode: null,         emoji: "🎲", label: "Surprise Me",  sub: "All difficulties" },
+                    { mode: "easy",       emoji: "🍦", label: "Chill Mode",   sub: "Easy only" },
+                    { mode: "medium",     emoji: "🚗", label: "Cruise Mode",  sub: "Medium only" },
+                    { mode: "hard",       emoji: "🔥", label: "Sweat Mode",   sub: "Hard only" },
+                    { mode: "impossible", emoji: "🧠", label: "Galaxy Brain", sub: "Impossible only" },
+                  ] as { mode: DifficultyMode; emoji: string; label: string; sub: string }[]).map((m) => {
+                    const selected = difficultyMode === m.mode;
+                    return (
+                      <button
+                        key={m.label}
+                        onClick={() => {
+                          setDifficultyModeState(m.mode);
+                          if (room) {
+                            setDifficultyModeFn({
+                              data: {
+                                roomCode: room.roomCode,
+                                hostSessionId: room.hostSessionId,
+                                mode: m.mode,
+                              },
+                            }).catch((e) => toast.error((e as Error).message));
+                          }
+                        }}
+                        className={`flex items-center gap-2 rounded-lg border p-2 text-left transition ${
+                          selected
+                            ? "border-amber-300/60 bg-amber-300/15 text-amber-100 shadow-[0_0_0_1px_oklch(0.78_0.16_85/0.3)_inset]"
+                            : "border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/10"
+                        }`}
+                      >
+                        <span className="text-lg leading-none">{m.emoji}</span>
+                        <span className="flex-1 leading-tight">
+                          <span className="block text-xs font-semibold">{m.label}</span>
+                          <span className="block text-[10px] text-white/50">{m.sub}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="mb-5">
+
                 <div className="mb-2 flex items-center justify-between">
                   <h3 className="text-xs font-bold uppercase tracking-widest text-amber-200/80">
                     Categories
