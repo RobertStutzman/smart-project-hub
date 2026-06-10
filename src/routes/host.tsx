@@ -405,7 +405,7 @@ function HostPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const [{ getPersonaCacheMap }, { initPersonaCache, setActiveRoomId, prewarmElfLines }] =
+        const [{ getPersonaCacheMap }, { initPersonaCache, setActiveRoomId }] =
           await Promise.all([
             import("@/lib/announcer.functions"),
             import("@/lib/elf-voice"),
@@ -414,16 +414,6 @@ function HostPage() {
         const res = await getPersonaCacheMap();
         if (cancelled) return;
         if (res?.map) initPersonaCache(res.map);
-        // Prewarm the actual lobby pool so the 10s cadence isn't stalled
-        // by first-time generation. Pick a representative sample variant for
-        // {count}/{code} tokens so the prewarm hits the same cache keys the
-        // tick will use.
-        try {
-          const { getPrewarmLobbyLines } = await import("@/lib/lobby-banter");
-          prewarmElfLines(getPrewarmLobbyLines(room.roomCode), "hype");
-        } catch {
-          /* prewarm is best-effort */
-        }
       } catch {
         /* silent — falls back to live TTS */
       }

@@ -110,20 +110,3 @@ export function pickLobbyLine(
 export function pickOpener(): string {
   return OPENER_LINES[Math.floor(Math.random() * OPENER_LINES.length)];
 }
-
-/**
- * Returns spoken-form versions of every lobby line so the Elf voice cache can
- * prewarm them. Uses representative `{count}` samples (0, 1, 4, 8) so the
- * prewarmed strings hit the same cache keys the runtime tick will use.
- */
-export function getPrewarmLobbyLines(code: string): string[] {
-  const samples = [0, 1, 4, 8];
-  const out = new Set<string>();
-  for (const line of OPENER_LINES) out.add(fill(line, 0, code));
-  const pools = [IDLE_EMPTY, IDLE_LOW, IDLE_MID, IDLE_HIGH, IDLE_GENERIC];
-  for (let i = 0; i < pools.length; i++) {
-    const count = samples[Math.min(i, samples.length - 1)];
-    for (const line of pools[i]) out.add(fill(line, count, code));
-  }
-  return Array.from(out);
-}
