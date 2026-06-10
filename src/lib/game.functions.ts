@@ -1428,11 +1428,9 @@ export const restartGame = createServerFn({ method: "POST" })
       })
       .eq("room_id", room.id);
 
-    // Clear used-question history so the new game can re-pick from the full pool.
-    await supabaseAdmin
-      .from("room_questions")
-      .delete()
-      .eq("room_id", room.id);
+    // Per-room asked-question history is intentionally preserved across Play
+    // Again so the same crew never sees a repeat. The global rotation +
+    // category-drop fallback in pickQuestion handles long-lived rooms.
 
     return { ok: true };
   });
