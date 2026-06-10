@@ -146,12 +146,14 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
         audio.volume = volume;
         const cleanup = () => {
           if (currentAudio === audio) currentAudio = null;
+          endDuck();
           resolve();
         };
         audio.addEventListener("ended", cleanup);
         audio.addEventListener("pause", cleanup);
         audio.addEventListener("error", cleanup);
         currentAudio = audio;
+        beginDuck();
         audio.play().catch(cleanup);
       });
       return;
@@ -166,12 +168,14 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
         audio.volume = volume;
         const cleanup = () => {
           if (currentAudio === audio) currentAudio = null;
+          endDuck();
           resolve();
         };
         audio.addEventListener("ended", cleanup);
         audio.addEventListener("pause", cleanup);
         audio.addEventListener("error", cleanup);
         currentAudio = audio;
+        beginDuck();
         audio.play().catch(cleanup);
       });
       return;
