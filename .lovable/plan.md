@@ -1,24 +1,40 @@
 ## Problem
 
-`restartGame` in `src/lib/game.functions.ts` (lines ~1431–1435) deletes every row in `room_questions` for the room when the host hits Play Again. That wipes the per-room "already asked" filter, so the next game can re-serve questions the same audience just saw. The global `questions.times_used` rotation is still in place (working — 1227/1415 questions remain unused), but it only soft-prefers fresh ones; with narrow category sets or after multiple replays, a recent question can resurface.
+In `src/routes/host.tsx` lobby-quip effect (lines ~431–452), the tick currently does:
+
+```ts
+pendingQuips++;
+try {
+  await Promise.resolve(speakPersona(spoken, { preset: "hype" }));
+} finally {
+  pendingQuips--;
+}
+```
+
+`speakPersona` returns `void` (it swallows the inner `speakAsElf` promise — see `src/lib/host-persona.ts` lines 806–817), so the `await` resolves on the next microtask. The `pendingQuips >= 1` guard never trips, and every 10s tick blindly pushes another line onto the elf-voice queue. After a few minutes the queue is a long backlog of stale quips, so what plays "now" is something requested 60–90s ago — feels like the announcer dropped current quips.
+
+Confirmed in prod: tts_call_log shows cache_hit every 10s on the QR-code screen with no skips, but the actual playback is far behind.
 
 ## Fix
 
-Remove the `room_questions` wipe in `restartGame`. Per-room "asked" history then accumulates across replay sessions, so `pickQuestion` / final-round / wildcard pickers all keep excluding previously-asked IDs via the existing `not("id", "in", ...)` filter. Behavior:
+Switch the lobby tick to call `speakAsElf` directly (it returns the real queued playback promise) so `pendingQuips` reflects true queue depth and the next tick skips when one is still playing.
 
-1. **`src/lib/game.functions.ts`** — delete the `await supabaseAdmin.from("room_questions").delete().eq("room_id", room.id);` block (and the comment above it) inside `restartGame`.
-2. No schema changes; no other functions change. The fallback chain in `pickQuestion` already handles "pool ran dry" by dropping the category constraint, so a long-lived room with hundreds of asked questions still gets fresh ones until the entire pool is exhausted, at which point the existing `exhausted: true` path ends the game cleanly.
+1. **`src/routes/host.tsx`** lobby-quip effect:
+   - Import `speakAsElf` from `@/lib/elf-voice` inside the tick instead of `speakPersona`.
+   - `await speakAsElf(spoken, { preset: "hype", interrupt: false })` so the `finally` only runs once the line actually finishes (or fails).
+   - Keep the `pendingQuips >= 1` skip — now it does what was intended (drop a tick if a quip is still in flight, but don't backlog).
+   - Keep cadence as-is: 10s fresh lobby, 25s replay.
+
+2. No other files change. The opener still uses `speakPersona` (one-shot at 2.4s, fine to fire-and-forget).
 
 ## Verification
 
-- Open `/host`, play a short game, hit Play Again, play another — confirm no question repeats across the two games on the host TV.
-- Run `SELECT COUNT(*) FROM room_questions WHERE room_id = '<room>'` before and after a restart — count should grow, not reset.
-- Narrow `enabled_categories` to one small category (~20 questions), play through and restart — game should keep serving fresh questions until the pool is exhausted, then end gracefully instead of looping.
-
-## Out of scope (call out, don't build)
-
-Cross-room repeats (same friends, new room code) still rely on the soft global `times_used` rotation, which is sufficient given 1227 never-used questions today. A stricter per-host or per-player ignore list would be a separate change.
+- Open `/host` on the published URL, sit in the lobby for ~60s.
+- Quips audibly cycle ~every 10–12s (allowing for the tail of each line).
+- After 3 minutes of idle, the line you hear matches the recent one — not a 90s-stale one.
+- Check `tts_call_log` for the room: cadence should stay ~10s, no infinite stack.
+- Trigger a few player joins; welcome line plays, then quips resume on cadence without pile-up.
 
 ## Files
 
-- `src/lib/game.functions.ts` — single 5-line deletion inside `restartGame`.
+- `src/routes/host.tsx` — 5-line change inside the existing lobby-quip useEffect.
