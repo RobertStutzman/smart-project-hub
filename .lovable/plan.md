@@ -1,13 +1,30 @@
-## Restore the "Pick your categories!" arrow permanently
+## Problem
 
-The nudge already exists in `src/routes/host.tsx` but auto-hides after the host opens Settings once (tracked in localStorage). Remove the dismiss logic so the bouncing arrow + label always shows next to the Mix/category button on the lobby screen, every session, for every host.
+In `src/routes/host.tsx` (lobby announcer effect, ~lines 431–455), every quip tick does:
 
-### Changes
+```ts
+if (isElfSpeaking()) return;   // hard skip
+```
 
-**`src/routes/host.tsx`**
-- Remove the `catNudgeSeen` state (line 104) and its `localStorage` hydration (line 119).
-- Remove the dismiss block inside `openSettings` (lines 124–127); keep the `setSettingsOpen(true)` call.
-- Remove the `CAT_NUDGE_KEY` constant if no other references remain.
-- Change the JSX guard `{!catNudgeSeen && (` (line 874) so the `<motion.div>` always renders.
+Recent changes raised custom-callout volume / length (welcome intros, opener, longer persona lines). The 10s tick now frequently lands while voice is still playing, so it bails entirely and waits another full 10s — quips end up firing only on the rare silent tick.
 
-No visual changes to the arrow itself — same SVG, same bounce animation, same amber styling. It just never disappears.
+## Fix (UI/host-route only, no engine changes)
+
+Edit `src/routes/host.tsx`, lobby-quip effect (lines ~431–455):
+
+1. Remove the `isElfSpeaking()` hard-skip in `tick`. `speakPersona` already routes through the single-line elf queue, so a new line will play immediately after the current one finishes — no overlap risk.
+2. Add a lightweight backlog guard instead: if more than ~1 quip is already pending in the queue, skip this tick (prevents pile-up if the cadence ever outpaces playback). Easiest signal: track a local `pendingQuips` counter that increments before `speakPersona` and decrements in a `.finally()` on a small wrapper.
+3. Keep the 10s fresh-lobby cadence and 25s replay-lobby cadence as-is.
+
+## Verification
+
+- Open `/host`, create a room, sit in the lobby.
+- Confirm a quip plays roughly every 10s (allowing for queue tail of the previous line), not "hardly ever".
+- Trigger a Play-Again replay lobby; confirm 12s first-quip delay and ~25s cadence still hold.
+- No overlap with welcome intro / opener / chyron speech.
+
+## Files
+
+- `src/routes/host.tsx` — single useEffect block, lines ~431–455.
+
+No schema, no server fn, no other components touched.
