@@ -353,9 +353,11 @@ export function playCreditsMusic(volume = 0.32) {
   if (creditsAudio && !creditsAudio.paused && creditsAudio.src.endsWith(creditsOutro.url.split("/").pop() || "")) {
     creditsBaseVol = base;
     creditsAudio.volume = duckActive ? base * 0.35 : base;
+    stopOtherMusic("credits", 450);
     return;
   }
   stopCreditsMusic(0);
+  stopOtherMusic("credits", 450);
   try {
     creditsAudio = new Audio(creditsOutro.url);
     creditsAudio.loop = true;
