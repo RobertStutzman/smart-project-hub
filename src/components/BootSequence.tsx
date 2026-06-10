@@ -40,9 +40,12 @@ function isStandaloneLaunch(): boolean {
 }
 
 function startBootIntroAudio() {
-  // One-shot music sting; voice ID layered ~1.2s in.
+  // One-shot music sting; elf voice layered ~1.2s in (replaces the
+  // old non-elf station ID announcer).
   playBootMusic(0.34);
-  window.setTimeout(() => playBootStationId(0.95), 1200);
+  window.setTimeout(() => {
+    void speakAsElf("Beat. The. Drop.", { preset: "hype", interrupt: true, volume: 1.0 });
+  }, 1200);
 }
 
 
