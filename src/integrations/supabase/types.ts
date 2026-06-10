@@ -278,6 +278,7 @@ export type Database = {
           current_question_id: string | null
           current_question_text: string | null
           current_question_tts_url: string | null
+          difficulty_mode: string | null
           dropped_indexes: number[]
           enabled_categories: string[] | null
           glitch_active_until: string | null
@@ -314,6 +315,7 @@ export type Database = {
           current_question_id?: string | null
           current_question_text?: string | null
           current_question_tts_url?: string | null
+          difficulty_mode?: string | null
           dropped_indexes?: number[]
           enabled_categories?: string[] | null
           glitch_active_until?: string | null
@@ -350,6 +352,7 @@ export type Database = {
           current_question_id?: string | null
           current_question_text?: string | null
           current_question_tts_url?: string | null
+          difficulty_mode?: string | null
           dropped_indexes?: number[]
           enabled_categories?: string[] | null
           glitch_active_until?: string | null
