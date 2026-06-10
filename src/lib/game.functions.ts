@@ -138,6 +138,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
       .update({
         current_answer: null,
         current_answer_locked_at: null,
+        current_first_answer: null,
         current_round_score: 0,
         current_round_fastest: false,
         last_answer_correct: null,
