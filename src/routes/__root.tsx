@@ -151,7 +151,7 @@ function RootComponent() {
     if (typeof window === "undefined") return;
     const tryUnlock = () => {
       unlockElfVoice();
-      const running = resumeAudioContext();
+      void resumeAudioContext();
       resumeAmbienceContext();
       // Always retry — these are no-ops when nothing is pending / already playing.
       retryBlockedMusic();
