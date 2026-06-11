@@ -26,9 +26,6 @@ const CACHE_MAX = 64;
 const cache = new Map<string, string>(); // key -> base64 mp3 OR "url::<https...>"
 const URL_PREFIX = "url::";
 
-let currentAudio: HTMLAudioElement | null = null;
-let queue: Promise<void> = Promise.resolve();
-
 function cacheGet(key: string): string | undefined {
   const v = cache.get(key);
   if (v !== undefined) {
@@ -80,21 +77,72 @@ async function fetchAudio(text: string, preset: Preset): Promise<FetchResult> {
   return null;
 }
 
-function playBase64(b64: string, volume: number, onEnd?: () => void): HTMLAudioElement {
-  const audio = new Audio(`data:audio/mpeg;base64,${b64}`);
-  audio.volume = volume;
-  const cleanup = () => {
-    if (currentAudio === audio) currentAudio = null;
-    endDuck();
-    onEnd?.();
-  };
-  audio.addEventListener("ended", cleanup);
-  audio.addEventListener("pause", cleanup);
-  audio.addEventListener("error", cleanup);
-  currentAudio = audio;
-  beginDuck();
-  audio.play().catch(cleanup);
-  return audio;
+// ---------------------------------------------------------------------------
+// Singleton playback element.
+//
+// ALL announcer audio routes through ONE <audio> element. Safari (and strict
+// Chrome autoplay modes) require a user gesture per element — creating a new
+// Audio() for every line means every play() rejects with NotAllowedError and
+// the line dies silently. With a single element, one gesture "blesses" it
+// forever; subsequent programmatic src swaps + play() are allowed.
+// Lines blocked before the first gesture are parked and retried on the next
+// gesture (see unlockElfVoice, wired into the global listener in __root.tsx).
+// ---------------------------------------------------------------------------
+let voiceEl: HTMLAudioElement | null = null;
+let voiceBusy = false;
+let playbackToken = 0;
+let blessed = false;
+let pendingRetry: { retry: () => void; cancel: () => void } | null = null;
+
+// ~10ms of 8-bit silence. Used only to bless the element inside a gesture.
+const SILENT_WAV =
+  "data:audio/wav;base64,UklGRnQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVAAAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==";
+
+function getVoiceEl(): HTMLAudioElement {
+  if (!voiceEl) {
+    voiceEl = new Audio();
+    voiceEl.preload = "auto";
+  }
+  return voiceEl;
+}
+
+/**
+ * Must be called synchronously from a user gesture handler (pointerdown /
+ * keydown / touchstart). Replays any line that was blocked by autoplay
+ * policy, or primes the shared element with a silent clip so future lines
+ * can play without a gesture.
+ */
+export function unlockElfVoice() {
+  if (typeof window === "undefined") return;
+  if (pendingRetry) {
+    const parked = pendingRetry;
+    pendingRetry = null;
+    parked.retry(); // play() runs inside the gesture frame
+    blessed = true;
+    return;
+  }
+  if (blessed || voiceBusy) return;
+  const el = getVoiceEl();
+  try {
+    el.muted = true;
+    el.src = SILENT_WAV;
+    const p = el.play();
+    void p
+      ?.then(() => {
+        blessed = true;
+        try {
+          el.pause();
+        } catch {
+          /* ignore */
+        }
+        el.muted = false;
+      })
+      .catch(() => {
+        el.muted = false;
+      });
+  } catch {
+    el.muted = false;
+  }
 }
 
 // Auto-duck music beds under every TTS / voice-URL playback so the voice
@@ -114,6 +162,91 @@ function endDuck() {
   }
 }
 
+/**
+ * Play a URL (https or data:) through the shared voice element. Resolves when
+ * playback finishes, errors, or is cancelled. If autoplay policy blocks the
+ * play() call, the line is parked and retried on the next user gesture
+ * instead of being dropped silently.
+ */
+function playUrl(
+  url: string,
+  volume: number,
+  hooks?: { onStart?: () => void; onEnd?: () => void },
+): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const el = getVoiceEl();
+    const myToken = ++playbackToken;
+    let started = false;
+    let ducked = false;
+    let settled = false;
+    const cleanup = () => {
+      if (settled) return;
+      settled = true;
+      el.removeEventListener("ended", cleanup);
+      el.removeEventListener("pause", cleanup);
+      el.removeEventListener("error", cleanup);
+      if (myToken === playbackToken) voiceBusy = false;
+      if (ducked) {
+        ducked = false;
+        endDuck();
+      }
+      if (started) {
+        try {
+          hooks?.onEnd?.();
+        } catch {
+          /* ignore */
+        }
+      }
+      resolve();
+    };
+    el.addEventListener("ended", cleanup);
+    el.addEventListener("pause", cleanup);
+    el.addEventListener("error", cleanup);
+    voiceBusy = true;
+    try {
+      el.muted = false;
+      el.volume = volume;
+      el.src = url;
+    } catch {
+      cleanup();
+      return;
+    }
+    const attempt = () =>
+      el.play().then(() => {
+        started = true;
+        blessed = true;
+        if (!ducked) {
+          ducked = true;
+          beginDuck();
+        }
+        try {
+          hooks?.onStart?.();
+        } catch {
+          /* ignore */
+        }
+      });
+    attempt().catch((err: unknown) => {
+      const name = (err as DOMException | null)?.name;
+      if (name === "NotAllowedError" && !settled) {
+        // Autoplay-blocked: park for the next user gesture.
+        blessed = false;
+        pendingRetry = {
+          retry: () => {
+            if (settled || myToken !== playbackToken) {
+              cleanup();
+              return;
+            }
+            attempt().catch(cleanup);
+          },
+          cancel: cleanup,
+        };
+      } else {
+        cleanup();
+      }
+    });
+  });
+}
+
 export interface SpeakOptions {
   preset?: Preset;
   volume?: number;
@@ -124,6 +257,8 @@ export interface SpeakOptions {
 /** Bumped on every cancelElfSpeech() so already-queued tasks can bail out. */
 let generation = 0;
 
+let queue: Promise<void> = Promise.resolve();
+
 /** Speak a line as The Elf. Returns when playback finishes (or fails silently). */
 export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();
@@ -131,32 +266,18 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
   const volume = opts.volume ?? 1.0;
 
   if (opts.interrupt) cancelElfSpeech();
+  // Capture at call time, AFTER any opt-in interrupt: this task survives its
+  // own cancel but dies if anyone else cancels before/while it runs.
+  const myGen = generation;
 
   const task = async () => {
-    // Capture after any opt-in interrupt so this task survives its own cancel.
-    const myGen = generation;
     const isAlive = () => generation === myGen;
     if (!isAlive()) return;
 
     // 1. Pre-baked URL (free, instant)
-    const url = urlCache.get(text);
-    if (url) {
-      if (!isAlive()) return;
-      await new Promise<void>((resolve) => {
-        const audio = new Audio(url);
-        audio.volume = volume;
-        const cleanup = () => {
-          if (currentAudio === audio) currentAudio = null;
-          endDuck();
-          resolve();
-        };
-        audio.addEventListener("ended", cleanup);
-        audio.addEventListener("pause", cleanup);
-        audio.addEventListener("error", cleanup);
-        currentAudio = audio;
-        beginDuck();
-        audio.play().catch(cleanup);
-      });
+    const baked = urlCache.get(text);
+    if (baked) {
+      await playUrl(baked, volume);
       return;
     }
     // 2. URL/base64 from cache or live ElevenLabs
@@ -164,26 +285,10 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
     if (!isAlive()) return;
     if (!res || res.kind === "skipped") return;
     if (res.kind === "url") {
-      await new Promise<void>((resolve) => {
-        const audio = new Audio(res.url);
-        audio.volume = volume;
-        const cleanup = () => {
-          if (currentAudio === audio) currentAudio = null;
-          endDuck();
-          resolve();
-        };
-        audio.addEventListener("ended", cleanup);
-        audio.addEventListener("pause", cleanup);
-        audio.addEventListener("error", cleanup);
-        currentAudio = audio;
-        beginDuck();
-        audio.play().catch(cleanup);
-      });
+      await playUrl(res.url, volume);
       return;
     }
-    await new Promise<void>((resolve) => {
-      playBase64(res.b64, volume, resolve);
-    });
+    await playUrl(`data:audio/mpeg;base64,${res.b64}`, volume);
   };
 
   // Safety: never let a hung TTS request stall the queue indefinitely.
@@ -199,20 +304,25 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
 /** Stop any currently playing Elf line and drop everything already queued. */
 export function cancelElfSpeech() {
   generation++;
-  if (currentAudio) {
+  if (pendingRetry) {
+    const parked = pendingRetry;
+    pendingRetry = null;
+    parked.cancel();
+  }
+  if (voiceEl) {
     try {
-      currentAudio.pause();
+      if (!voiceEl.paused) voiceEl.pause();
     } catch {
       /* ignore */
     }
-    currentAudio = null;
   }
+  voiceBusy = false;
   queue = Promise.resolve();
 }
 
-/** True if any Elf line is currently playing. */
+/** True if any Elf line is currently playing (or parked awaiting unlock). */
 export function isElfSpeaking(): boolean {
-  return currentAudio !== null;
+  return voiceBusy;
 }
 
 /** Pre-warm the cache for a set of lines (fire-and-forget). */
@@ -240,44 +350,13 @@ export function playVoiceUrl(
   const volume = opts.volume ?? 1.0;
 
   if (opts.interrupt) cancelElfSpeech();
+  const myGen = generation;
 
   const task = async () => {
-    const myGen = generation;
     if (generation !== myGen) return;
-    await new Promise<void>((resolve) => {
-      if (generation !== myGen) {
-        resolve();
-        return;
-      }
-      const audio = new Audio(url);
-      audio.volume = volume;
-      let started = false;
-      let ducked = false;
-      const cleanup = () => {
-        if (currentAudio === audio) currentAudio = null;
-        if (ducked) {
-          ducked = false;
-          endDuck();
-        }
-        if (started) {
-          try { opts.onEnd?.(); } catch { /* ignore */ }
-        }
-        resolve();
-      };
-      audio.addEventListener("ended", cleanup);
-      audio.addEventListener("pause", cleanup);
-      audio.addEventListener("error", cleanup);
-      currentAudio = audio;
-      audio.play().then(() => {
-        started = true;
-        ducked = true;
-        beginDuck();
-        try { opts.onStart?.(); } catch { /* ignore */ }
-      }).catch(cleanup);
-    });
+    await playUrl(url, volume, { onStart: opts.onStart, onEnd: opts.onEnd });
   };
 
   queue = queue.then(task, task);
   return queue;
 }
-

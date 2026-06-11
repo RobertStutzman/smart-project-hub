@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { resumeAudioContext, retryBlockedMusic } from "@/lib/sound-engine";
 import { resumeAmbienceContext, retryBlockedAmbience } from "@/lib/ambience-engine";
+import { unlockElfVoice } from "@/lib/elf-voice";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeParticles } from "@/components/ThemeParticles";
 import { Toaster } from "sonner";
@@ -142,24 +143,20 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   // Global first-gesture audio unlock. Browsers leave AudioContexts suspended
-  // until ctx.resume() is called synchronously from a user gesture. The
-  // announcer uses HTMLAudio (no unlock needed) but music + crowd ambience
-  // use Web Audio — without this, they stay silent until something else
-  // happens to call resume() from a gesture frame.
+  // until ctx.resume() is called synchronously from a user gesture. Music and
+  // crowd ambience use Web Audio; the announcer uses a shared HTMLAudio
+  // element which ALSO needs a gesture in Safari/strict-autoplay browsers —
+  // unlockElfVoice blesses it and replays any line that was blocked.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const tryUnlock = () => {
-      const running = resumeAudioContext();
+      unlockElfVoice();
+      void resumeAudioContext();
       resumeAmbienceContext();
       // Always retry — these are no-ops when nothing is pending / already playing.
       retryBlockedMusic();
       // Slight delay lets the AudioContext flip to 'running' before scheduling.
       setTimeout(() => retryBlockedAmbience(), 50);
-      if (running) {
-        window.removeEventListener("pointerdown", tryUnlock, true);
-        window.removeEventListener("keydown", tryUnlock, true);
-        window.removeEventListener("touchstart", tryUnlock, true);
-      }
     };
 
     window.addEventListener("pointerdown", tryUnlock, true);
