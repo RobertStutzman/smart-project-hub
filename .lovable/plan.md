@@ -1,56 +1,37 @@
-# All 10 wildcards + announcer pre-explainer
+# Boot tap-sound + landing announcer line
 
-## Cadence (unchanged)
-Wildcards fire on **Q5 / Q10 / Q15 / Q20**. Per game I shuffle a 10-deep deck and deal the first four cards into those slots — no repeats within a game, fresh order every game.
+## 1. Replace the "push to play" sound
 
-The deck: `lightning, double_or_nothing, first_blood, underdog, saboteur, glitch, roast, sudden_drop, mirror, heist, blackout` (11 total; I'll keep the original 7 + drop the weakest if you want — see "Open question").
+Today the gate button plays the synth `"whoosh"` (a single sawtooth sweep — that's the "cheap" sound). I'll add a new pre-built synth stinger called `"ignition"` and swap the boot gate to it. All Web Audio (no new assets to load).
 
-## Pre-question announcer explainer
+**`src/lib/sound-engine.ts`**
+- Add `"ignition"` to the `Sfx` type.
+- Implement it as a layered stinger fired in one call:
+  - Bright high riser (sine 600 → 3200 Hz, ~280ms)
+  - Crisp transient click (white-noise burst, ~60ms)
+  - Sub-bass impact (sine 90 → 38 Hz, ~450ms, generous gain)
+  - Shimmer tail (triangle 1800 → 900 Hz, ~220ms)
+- Net: ~700ms "vwooom-THUMP-shhh" — feels like an arena game show button hit, not a synth blip.
 
-For every wildcard round, before the question is read, the announcer says a punchy 1-2 sentence rules line. Routed through the existing Elf-voice FIFO queue so it's guaranteed to play first, then the question read follows automatically.
+**`src/components/BootSequence.tsx`**
+- Replace `play("whoosh")` inside `unlockAudioAndStart()` with `play("ignition")`.
+- Leave the rest of the boot intro (music sting + Elf "Beat. The. Drop.") untouched.
 
-### Files
-- **`src/lib/wildcard-explainers.ts` (new)** — map of `wildcard → explainer line(s)`. Multiple variants per type, picked randomly. Examples:
-  - `lightning`: "Lightning round! Eight seconds on the clock, double points for the brave."
-  - `sudden_drop`: "Sudden Drop. Only two answers tonight — fifty-fifty, no excuses."
-  - `heist`: "Heist round. Get this right and you steal fifty points straight off the leader."
-- **`src/components/host/HostGameStage.tsx`** — in the existing "play question TTS" effect, if `state.wildcard` is set, `await speakAsElf(explainer, { interrupt: false })` *before* `playVoiceUrl(questionUrl, { interrupt: false })`. Switch the question read from `interrupt: true` → `interrupt: false` so the explainer can't be trampled.
-- **`src/lib/game.functions.ts`** — for wildcard rounds, push `question_started_at` from `now + 6000` to `now + 13000` so the on-screen countdown doesn't start until the explainer + question read have had time to play.
+## 2. Landing-page announcer line
 
-## The 4 new wildcards
+My take: **yes, but very short and only the first time per session**, so returning visitors aren't nagged. After boot dismisses on the landing page, the Elf says one quick orienting line, then ambient lobby chatter takes over (already wired).
 
-### `sudden_drop`
-- Server picks one wrong index and writes it into `dropped_indexes` at question creation. Only 2 tiles visible from the start.
-- `question_duration_ms = 12000`. Scoring multiplier ×1.5 on a correct lock.
-- WildcardBanner entry added with ⚠️ icon and "Two answers · 1.5×".
+**`src/routes/index.tsx`**
+- After `BootSequence` completes, fire a one-shot Elf line guarded by `sessionStorage.getItem("btd-welcome-said")` so it plays at most once per browser session.
+- Delay ~600ms after `onComplete` so it doesn't collide with the boot "Beat. The. Drop." tail.
+- Line (one of, picked randomly):
+  - "Hosting tonight? Pick the big screen. Everyone else — grab your phone."
+  - "Two ways in: host it on the TV, or jump in from your phone with a four-letter code."
+  - "Big screen for the host. Phones for the players. Let's go."
 
-### `mirror`
-- Server tags the room with `wildcard: "mirror"`. Client visual transform only — `QuestionStage` reverses the answer tile order (D / C / B / A) when wildcard is mirror, and the letter labels rendered on each tile come from a shuffled `["A","B","C","D"]`.
-- Lock-in still binds to the answer text, not the position, so scoring is unchanged and fair.
-- Standard 25s timer, standard scoring.
-
-### `heist`
-- Same as a normal question for question selection/display. Scoring change in `endQuestion`:
-  - For each player who locks correct, compute their normal earned points, then *also* subtract 50 from the current leader's score (single subtraction per round, not per correct player — first correct picks the steal target). Apply at the end after all base scoring.
-  - Edge case: if you ARE the current leader and you get it right, you defend (no self-steal, no bonus).
-- WildcardBanner: 💰 "Steal 50 from the leader".
-
-### `blackout`
-- Server tags `wildcard: "blackout"`. Client (`QuestionStage`) hides `questionText` for 5 seconds after the read starts (audio plays normally), then fades the text in. Answers visible the whole time.
-- Standard timer + scoring.
-
-## Activating dormant 3
-
-Saboteur, Glitch, Roast are already coded. They join the shuffled deck. No mechanic changes; just additional `WildcardBanner` polish (already present) and explainer lines.
+If the user already saw the landing this session (e.g. navigated back from `/host`), no line plays — chatter continues uninterrupted.
 
 ## Verification
-- Play a full game; confirm all four wildcard slots fire distinct types each run.
-- For each wildcard, the explainer plays first, then the question, with no overlap and no clipped audio.
-- Sudden Drop shows 2 tiles. Mirror reverses tile order. Heist subtracts from leader on correct. Blackout hides text for 5s.
-
-## Open question
-The deck has 11 entries (7 original + 4 new) but only 4 slots per game. Want me to:
-- (a) keep all 11 and just shuffle, or
-- (b) drop one of the weaker existing ones (e.g. `glitch`, which is purely a visual gag with no scoring stakes)?
-
-I'll default to (a) unless you say otherwise.
+- Hard refresh → boot screen → tap → hear the new "ignition" sting instead of the thin whoosh, then boot music + "Beat. The. Drop." as before.
+- Landing page appears → ~600ms later, Elf says the welcome line once.
+- Refresh again in the same tab → boot replays but welcome line does NOT (session-cached).
