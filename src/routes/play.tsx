@@ -708,6 +708,30 @@ function PlayPage() {
                       bg: "bg-white/8",
                       text: "text-white/75",
                     },
+                    sudden_drop: {
+                      label: "⚠️ Sudden Drop · 1.5× · 12s",
+                      border: "border-cyan-400/60",
+                      bg: "bg-cyan-500/15",
+                      text: "text-cyan-200",
+                    },
+                    mirror: {
+                      label: "🪞 Mirror · letters scrambled",
+                      border: "border-indigo-400/60",
+                      bg: "bg-indigo-500/15",
+                      text: "text-indigo-200",
+                    },
+                    heist: {
+                      label: "💰 Heist · steal 50 from leader",
+                      border: "border-yellow-400/60",
+                      bg: "bg-yellow-500/15",
+                      text: "text-yellow-200",
+                    },
+                    blackout: {
+                      label: "🌑 Blackout · listen, then lock",
+                      border: "border-slate-400/60",
+                      bg: "bg-slate-700/30",
+                      text: "text-slate-200",
+                    },
                   };
                   const wc = room.wildcard ? WILDCARD_TOP[room.wildcard] : null;
                   const label =
