@@ -189,6 +189,19 @@ function playInner(sfx: Sfx) {
     case "whoosh":
       sweep(120, 1200, 0.28, "sawtooth", 0.07);
       break;
+    case "ignition": {
+      // Arena-style "press to start" stinger: bright riser + transient click
+      // + sub-bass impact + shimmer tail. ~700ms total.
+      sweep(600, 3200, 0.28, "sine", 0.18);
+      window.setTimeout(() => noise(0.06, 0.22), 240);
+      window.setTimeout(() => {
+        sweep(90, 38, 0.45, "sine", 0.55);
+        sweep(140, 60, 0.4, "triangle", 0.28);
+      }, 260);
+      window.setTimeout(() => sweep(1800, 900, 0.22, "triangle", 0.12), 320);
+      break;
+    }
+      break;
     case "correct":
       tone(660, 0.1, "triangle", 0.22);
       tone(880, 0.18, "triangle", 0.22, 0.08);
