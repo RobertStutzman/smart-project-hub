@@ -84,30 +84,16 @@ async function setSecretCorrectIndex(roomId: string, correctIndex: number | null
 }
 
 // Wildcards fire on the last question of each 5-question "round" — i.e.
-// questions 5, 10, 15, 20 — rotating through the 7 types. Q21 (final) is
-// always skipped; the final drop is its own beat.
-type Wildcard =
-  | "saboteur"
-  | "glitch"
-  | "roast"
-  | "lightning"
-  | "double_or_nothing"
-  | "first_blood"
-  | "underdog";
-const WILDCARD_ROTATION: Wildcard[] = [
-  "lightning",         // Q5  — flashy & familiar; easy intro
-  "double_or_nothing", // Q10 — first real risk moment
-  "first_blood",       // Q15 — speed pressure heading into the stretch
-  "underdog",          // Q20 — catch-up beat right before the final
-  "saboteur",          // bonus slot if game extended
-  "glitch",            // bonus slot if game extended
-  "roast",             // bonus slot if game extended
-];
-function wildcardForRound(round: number): Wildcard | null {
+// questions 5, 10, 15, 20. Per game we shuffle the full deck (deterministic
+// from room.id) and deal the first 4 into those slots, so every game gets a
+// fresh order with no repeats. Q21 (final) is always skipped.
+import { wildcardDeckForRoom, type Wildcard } from "./wildcards";
+function wildcardForRound(round: number, roomId: string): Wildcard | null {
   if (round <= 0 || round >= 21) return null; // skip final
   if (round % 5 !== 0) return null;
   const slot = (round / 5) - 1; // 5→0, 10→1, 15→2, 20→3
-  return WILDCARD_ROTATION[slot % WILDCARD_ROTATION.length];
+  const deck = wildcardDeckForRoom(roomId);
+  return deck[slot] ?? null;
 }
 
 const LIGHTNING_DURATION_MS = 8000;
