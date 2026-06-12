@@ -7,6 +7,7 @@ import { loadPlayerSession, clearPlayerSession } from "@/lib/player-session";
 import { supabase } from "@/integrations/supabase/client";
 import { useWakeLock } from "@/hooks/use-wake-lock";
 import { AnswerGrid } from "@/components/AnswerGrid";
+import { mirrorLetters } from "@/lib/wildcards";
 import { HeartbeatBackground } from "@/components/HeartbeatBackground";
 import { AudienceSoundboard } from "@/components/AudienceSoundboard";
 
