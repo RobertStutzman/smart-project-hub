@@ -14,9 +14,32 @@ export type Database = {
   }
   public: {
     Tables: {
+      asymmetry_prompts: {
+        Row: {
+          created_at: string
+          format: string
+          id: string
+          prompt: string
+        }
+        Insert: {
+          created_at?: string
+          format: string
+          id?: string
+          prompt: string
+        }
+        Update: {
+          created_at?: string
+          format?: string
+          id?: string
+          prompt?: string
+        }
+        Relationships: []
+      }
       players: {
         Row: {
           answered_count: number
+          asym_submission: string | null
+          asym_vote_target: string | null
           avatar_url: string | null
           best_streak: number
           comeback_bonus: boolean
@@ -49,6 +72,8 @@ export type Database = {
         }
         Insert: {
           answered_count?: number
+          asym_submission?: string | null
+          asym_vote_target?: string | null
           avatar_url?: string | null
           best_streak?: number
           comeback_bonus?: boolean
@@ -81,6 +106,8 @@ export type Database = {
         }
         Update: {
           answered_count?: number
+          asym_submission?: string | null
+          asym_vote_target?: string | null
           avatar_url?: string | null
           best_streak?: number
           comeback_bonus?: boolean
@@ -267,6 +294,12 @@ export type Database = {
       rooms: {
         Row: {
           allow_late_joiners: boolean
+          asym_format: string | null
+          asym_phase_started_at: string | null
+          asym_prompt: string | null
+          asym_slot_index: number | null
+          asym_source_session_id: string | null
+          asym_submissions: Json | null
           created_at: string
           current_answers: string[] | null
           current_category: string | null
@@ -304,6 +337,12 @@ export type Database = {
         }
         Insert: {
           allow_late_joiners?: boolean
+          asym_format?: string | null
+          asym_phase_started_at?: string | null
+          asym_prompt?: string | null
+          asym_slot_index?: number | null
+          asym_source_session_id?: string | null
+          asym_submissions?: Json | null
           created_at?: string
           current_answers?: string[] | null
           current_category?: string | null
@@ -341,6 +380,12 @@ export type Database = {
         }
         Update: {
           allow_late_joiners?: boolean
+          asym_format?: string | null
+          asym_phase_started_at?: string | null
+          asym_prompt?: string | null
+          asym_slot_index?: number | null
+          asym_source_session_id?: string | null
+          asym_submissions?: Json | null
           created_at?: string
           current_answers?: string[] | null
           current_category?: string | null
