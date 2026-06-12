@@ -59,7 +59,14 @@ export const QuestionStage = memo(function QuestionStage({
   questionNumber = 1,
   hideTimer = false,
   category = null,
+  wildcard = null,
 }: Props) {
+  const isMirror = wildcard === "mirror";
+  const isBlackout = wildcard === "blackout";
+  const letters = useMemo<readonly string[]>(
+    () => (isMirror ? mirrorLetters(questionText) : LETTERS),
+    [isMirror, questionText],
+  );
 
   // Anchor the intro on when THIS host first observed the new question.
   // The server schedules `question_started_at` ~6s in the future, but realtime
