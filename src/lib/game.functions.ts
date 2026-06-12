@@ -98,6 +98,11 @@ function wildcardForRound(round: number, roomId: string): Wildcard | null {
 
 const LIGHTNING_DURATION_MS = 8000;
 const LIGHTNING_MULTIPLIER = 2;
+const SUDDEN_DROP_DURATION_MS = 12000;
+const SUDDEN_DROP_MULTIPLIER = 1.5;
+const HEIST_STEAL = 50;
+/** Extra delay before question_started_at when a wildcard explainer must play first. */
+const WILDCARD_INTRO_PAD_MS = 7000;
 
 const ROAST_PROMPTS = [
   "Who would survive a zombie apocalypse?",
