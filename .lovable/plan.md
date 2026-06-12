@@ -1,16 +1,24 @@
-## Plan
+# Fix How-to-Play slides cutting off narration
 
-Remove the lobby prewarm I just added. It silences the announcer for the whole game because each prewarm call counts against the per-game ElevenLabs cap (default 50/game), and there are far more lobby line variants than that — the cap is exhausted before the game even starts, so every later persona line server-side returns `{ skipped: true }`.
+## Problem
+`src/components/HowToPlay.tsx` advances every 5500ms on a fixed timer. The announcer's TTS line ("Title. Body.") often runs longer than that, so the next slide fires `speakPersona(..., { interrupt: true })` which calls `cancelElfSpeech()` and kills the previous line mid-sentence.
 
-Changes:
+## Fix
+Drive slide advancement from the narration lifecycle, not a fixed timer.
 
-1. In `src/routes/host.tsx`, drop the `prewarmElfLines(getPrewarmLobbyLines(...))` block from the new lobby-voice init effect. Keep the rest of that effect (persona cache map + `setActiveRoomId`) — that part is what makes lobby quips actually use the pre-baked URL cache and properly room-scope live TTS.
+### `src/components/HowToPlay.tsx`
+- Replace the fixed `SLIDE_MS` timeout with a "speak then advance" effect:
+  1. On each slide, await `speakPersona(line, { preset: "hype" })` (no `interrupt: true` on the first slide; subsequent slides will naturally queue since the prior slide has finished).
+  2. After the speech promise resolves, hold for a short beat (~600ms) so the words don't slam into the next title card, then advance (or call `onComplete` on the last slide).
+  3. Apply a safety ceiling (e.g. 9s) so a hung TTS request can't freeze the intro — if it fires, cancel the line and advance.
+- Keep the cancel-on-unmount and skip-on-keypress behavior. Skip should `cancelElfSpeech()` and call `onComplete`.
+- Remove the now-unused `SLIDE_MS` constant.
 
-2. In `src/lib/lobby-banter.ts`, remove the now-unused `getPrewarmLobbyLines` helper to avoid future misuse.
+### Notes
+- `speakPersona` already returns a promise that resolves when the singleton audio element finishes (`playUrl` resolves on `ended`/`pause`/`error`).
+- No changes to `elf-voice.ts`, `host-persona.ts`, or any other component.
+- Pure presentation/timing change; no business logic touched.
 
-No other behavior changes. Lobby quips will still play (they use the same pre-baked URL cache HostGameStage loads), and the in-game announcer will be back because the per-game cap is no longer pre-burned.
-
-## Technical notes
-
-- Root cause: `prewarmElfLines` → `fetchAudio` → `speakPersonaLine({ roomId })`. The server-side handler increments `rooms.tts_calls_count` per call and returns `{ skipped: true, reason: "cap" }` once `count >= TTS_CAP_PER_GAME` (default 50). Prewarming ~60 spoken variants pushes the room past the cap immediately.
-- A "safe prewarm" path (call without `roomId` or with a `prewarm: true` flag the server treats as cache-only) would be a larger change. Since pre-baked persona URLs already cover most lines for free, simply removing the prewarm is the smaller correct fix.
+## Verification
+- Load preview, click to unlock audio, watch the 3 How-to-Play slides — each line should complete before the next slide animates in.
+- Press a key mid-slide → narration cuts and overlay closes immediately.

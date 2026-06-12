@@ -29,32 +29,53 @@ const SLIDES: Slide[] = [
   },
 ];
 
-const SLIDE_MS = 5500;
+// Safety ceiling per slide — if TTS hangs or is blocked, advance anyway.
+const SLIDE_MAX_MS = 9000;
+// Brief beat after narration finishes before advancing.
+const POST_SPEECH_PAUSE_MS = 600;
 
 export function HowToPlay({ onComplete }: { onComplete: () => void }) {
   const [idx, setIdx] = useState(0);
 
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (idx < SLIDES.length - 1) setIdx(idx + 1);
-      else onComplete();
-    }, SLIDE_MS);
-    return () => clearTimeout(t);
-  }, [idx, onComplete]);
-
-  // Narrate the current slide via the persona voice. Interrupts the previous
-  // slide's line on advance, and cancels on unmount/skip.
+  // Narrate the current slide, then advance once the line finishes (with a
+  // small beat). Capped by SLIDE_MAX_MS so a hung TTS request can't freeze us.
   useEffect(() => {
     let cancelled = false;
+    let advanceTimer: number | undefined;
     const slide = SLIDES[idx];
-    void import("@/lib/host-persona").then(({ speakPersona }) => {
+
+    const advance = () => {
       if (cancelled) return;
-      speakPersona(`${slide.title}. ${slide.body}`, { interrupt: true, preset: "hype" });
+      if (idx < SLIDES.length - 1) setIdx(idx + 1);
+      else onComplete();
+    };
+
+    const ceiling = window.setTimeout(() => {
+      if (cancelled) return;
+      void import("@/lib/elf-voice").then(({ cancelElfSpeech }) => cancelElfSpeech());
+      advance();
+    }, SLIDE_MAX_MS);
+
+    void import("@/lib/elf-voice").then(({ speakAsElf }) => {
+      if (cancelled) return;
+      // First slide doesn't interrupt (nothing to cut); subsequent slides
+      // only run after the previous finished, so interrupt is a no-op safety.
+      speakAsElf(`${slide.title}. ${slide.body}`, {
+        interrupt: idx === 0,
+        preset: "hype",
+      }).then(() => {
+        if (cancelled) return;
+        window.clearTimeout(ceiling);
+        advanceTimer = window.setTimeout(advance, POST_SPEECH_PAUSE_MS);
+      });
     });
+
     return () => {
       cancelled = true;
+      window.clearTimeout(ceiling);
+      if (advanceTimer !== undefined) window.clearTimeout(advanceTimer);
     };
-  }, [idx]);
+  }, [idx, onComplete]);
 
   useEffect(() => {
     function skip(e: KeyboardEvent | MouseEvent) {
