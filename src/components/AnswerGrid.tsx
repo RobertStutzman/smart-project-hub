@@ -14,6 +14,8 @@ type Props = {
   onPick: (index: 0 | 1 | 2 | 3) => void;
   /** Avatars to show on each tile (others' live picks). */
   avatarsByIndex?: TileAvatar[][];
+  /** Optional override for the A/B/C/D badges (used by Mirror wildcard). */
+  letterOverrides?: readonly string[];
 };
 
 export function AnswerGrid({
@@ -24,10 +26,12 @@ export function AnswerGrid({
   correctIndex = null,
   onPick,
   avatarsByIndex,
+  letterOverrides,
 }: Props) {
+  const letters = letterOverrides ?? LETTERS;
   return (
     <div className="grid h-full w-full grid-cols-2 grid-rows-2 gap-3">
-      {LETTERS.map((letter, i) => {
+      {letters.map((letter, i) => {
         const dropped = droppedIndexes.includes(i);
         const selected = selectedIndex === i;
         const inactive = dropped || disabled;
