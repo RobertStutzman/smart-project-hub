@@ -1,24 +1,36 @@
-# Fix How-to-Play slides cutting off narration
+# Lobby intro: stop the cut-off + add a dozen intro variants
 
-## Problem
-`src/components/HowToPlay.tsx` advances every 5500ms on a fixed timer. The announcer's TTS line ("Title. Body.") often runs longer than that, so the next slide fires `speakPersona(..., { interrupt: true })` which calls `cancelElfSpeech()` and kills the previous line mid-sentence.
+## What's happening today
+On the QR/lobby screen two things race:
+1. **Opener** (`pickOpener()` → "Scan the QR code…") is scheduled at 2.4s via `speakPersona`.
+2. **Welcome intro** clip from the DB (`vo_welcome_*.mp3`) is fetched async in a parallel effect and, when it lands, calls `playVoiceUrl(..., { interrupt: true })`.
+
+Because the welcome fetch usually finishes mid-opener, `interrupt: true` cancels the opener mid-sentence and then plays the welcome — exactly what the user described.
+
+For "variants": the DB has 11 `Welcome*` rows but they were all generated from the same script, so it feels like one. Adding more recorded files would require an upload pipeline; instead we'll generate the welcomes through the existing ElevenLabs "Elf" voice (same path as every other persona line, with caching via `tts_call_log`).
 
 ## Fix
-Drive slide advancement from the narration lifecycle, not a fixed timer.
 
-### `src/components/HowToPlay.tsx`
-- Replace the fixed `SLIDE_MS` timeout with a "speak then advance" effect:
-  1. On each slide, await `speakPersona(line, { preset: "hype" })` (no `interrupt: true` on the first slide; subsequent slides will naturally queue since the prior slide has finished).
-  2. After the speech promise resolves, hold for a short beat (~600ms) so the words don't slam into the next title card, then advance (or call `onComplete` on the last slide).
-  3. Apply a safety ceiling (e.g. 9s) so a hung TTS request can't freeze the intro — if it fires, cancel the line and advance.
-- Keep the cancel-on-unmount and skip-on-keypress behavior. Skip should `cancelElfSpeech()` and call `onComplete`.
-- Remove the now-unused `SLIDE_MS` constant.
+### 1. `src/routes/host.tsx` — sequence welcome before opener, no interrupt
+- Drop the DB-clip welcome path (`welcomes` from `getActiveSounds`) for the lobby.
+- On lobby mount: pick a random line from the new `WELCOME_INTROS` pool and `speakAsElf(line, { preset: "hype", interrupt: false })`. This is the first thing queued, so nothing to interrupt.
+- The opener (`pickOpener()`) is queued right after the welcome with `interrupt: false`. Because `speakAsElf` is a single-line FIFO queue, the opener will play only once the welcome finishes — no overlap, no cut-off.
+- Remove the 2.4s `setTimeout` for the opener (no longer needed; queue handles ordering).
+- Leave the rotating quip tick and `isElfSpeaking()` busy-skip alone; they already behave correctly once the queue is occupied.
 
-### Notes
-- `speakPersona` already returns a promise that resolves when the singleton audio element finishes (`playUrl` resolves on `ended`/`pause`/`error`).
-- No changes to `elf-voice.ts`, `host-persona.ts`, or any other component.
-- Pure presentation/timing change; no business logic touched.
+### 2. `src/lib/lobby-banter.ts` — add `WELCOME_INTROS` (12+ lines)
+New exported array of distinct "welcome to the show" lines in the host persona's voice, e.g.:
+- "Welcome to Beat the Drop, the trivia show where confidence goes to die."
+- "Lights up — it's Beat the Drop. The only trivia game with a body count."
+- "You're tuned in to Beat the Drop. Brains optional. Bravery required."
+- (…12+ total, each ~6–12 words so the queued line clears in under ~6 seconds)
+
+Export `pickWelcomeIntro()` mirroring `pickOpener()`.
+
+### 3. `src/lib/sounds.functions.ts` — leave alone
+We stop *consuming* the `welcomes` field on the host lobby, but keep the server fn shape intact so admin tooling and any other callers don't break. No DB or schema changes.
 
 ## Verification
-- Load preview, click to unlock audio, watch the 3 How-to-Play slides — each line should complete before the next slide animates in.
-- Press a key mid-slide → narration cuts and overlay closes immediately.
+- Open `/host`, watch the network: only one ElevenLabs (or cache-hit) request at a time; welcome plays to completion, then opener plays cleanly.
+- Refresh several times — confirm welcome line varies across the 12+ pool.
+- `tts_call_log` shows cache hits after the first run of each line.
