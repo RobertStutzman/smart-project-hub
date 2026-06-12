@@ -513,6 +513,7 @@ export const endQuestion = createServerFn({ method: "POST" })
         if (isLightning) base *= LIGHTNING_MULTIPLIER;
         if (isDoubleOrNothing) base *= 2;
         if (isUnderdog && underdogId === p.id) base *= 2;
+        if (isSuddenDrop) base = Math.round(base * SUDDEN_DROP_MULTIPLIER);
         roundScore = base;
         if (firstWasCorrect) {
           nextStreak += 1;
