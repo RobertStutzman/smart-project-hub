@@ -84,34 +84,25 @@ async function setSecretCorrectIndex(roomId: string, correctIndex: number | null
 }
 
 // Wildcards fire on the last question of each 5-question "round" — i.e.
-// questions 5, 10, 15, 20 — rotating through the 7 types. Q21 (final) is
-// always skipped; the final drop is its own beat.
-type Wildcard =
-  | "saboteur"
-  | "glitch"
-  | "roast"
-  | "lightning"
-  | "double_or_nothing"
-  | "first_blood"
-  | "underdog";
-const WILDCARD_ROTATION: Wildcard[] = [
-  "lightning",         // Q5  — flashy & familiar; easy intro
-  "double_or_nothing", // Q10 — first real risk moment
-  "first_blood",       // Q15 — speed pressure heading into the stretch
-  "underdog",          // Q20 — catch-up beat right before the final
-  "saboteur",          // bonus slot if game extended
-  "glitch",            // bonus slot if game extended
-  "roast",             // bonus slot if game extended
-];
-function wildcardForRound(round: number): Wildcard | null {
+// questions 5, 10, 15, 20. Per game we shuffle the full deck (deterministic
+// from room.id) and deal the first 4 into those slots, so every game gets a
+// fresh order with no repeats. Q21 (final) is always skipped.
+import { wildcardDeckForRoom, type Wildcard } from "./wildcards";
+function wildcardForRound(round: number, roomId: string): Wildcard | null {
   if (round <= 0 || round >= 21) return null; // skip final
   if (round % 5 !== 0) return null;
   const slot = (round / 5) - 1; // 5→0, 10→1, 15→2, 20→3
-  return WILDCARD_ROTATION[slot % WILDCARD_ROTATION.length];
+  const deck = wildcardDeckForRoom(roomId);
+  return deck[slot] ?? null;
 }
 
 const LIGHTNING_DURATION_MS = 8000;
 const LIGHTNING_MULTIPLIER = 2;
+const SUDDEN_DROP_DURATION_MS = 12000;
+const SUDDEN_DROP_MULTIPLIER = 1.5;
+const HEIST_STEAL = 50;
+/** Extra delay before question_started_at when a wildcard explainer must play first. */
+const WILDCARD_INTRO_PAD_MS = 7000;
 
 const ROAST_PROMPTS = [
   "Who would survive a zombie apocalypse?",
@@ -131,7 +122,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const room = await getRoomByHost(data.roomCode, data.hostSessionId);
     const nextRound = (room.round_number ?? 0) + 1;
-    const wildcard = wildcardForRound(nextRound);
+    const wildcard = wildcardForRound(nextRound, room.id);
 
     await supabaseAdmin
       .from("players")
@@ -170,7 +161,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
           current_media_type: null,
           current_question_tts_url: null,
           current_explanation_tts_url: null,
-          question_started_at: new Date().toISOString(),
+          question_started_at: new Date(Date.now() + WILDCARD_INTRO_PAD_MS).toISOString(),
           question_duration_ms: 25000,
           dropped_indexes: [],
           round_number: nextRound,
@@ -297,6 +288,24 @@ export const nextQuestion = createServerFn({ method: "POST" })
       (q as { explanation_tts_path?: string | null }).explanation_tts_path,
     );
 
+    // Sudden Drop: pre-eliminate one wrong tile so only 2 answers are shown.
+    let preDropped: number[] = [];
+    if (wildcard === "sudden_drop") {
+      const wrongs = [0, 1, 2, 3].filter((i) => i !== correctIndex);
+      preDropped = [wrongs[Math.floor(Math.random() * wrongs.length)]];
+    }
+
+    const durationMs =
+      wildcard === "lightning"
+        ? LIGHTNING_DURATION_MS
+        : wildcard === "sudden_drop"
+          ? SUDDEN_DROP_DURATION_MS
+          : 25000;
+
+    // Wildcard rounds need extra lead-time so the announcer explainer plays
+    // before the question read; non-wildcard rounds keep the original 6s.
+    const startDelayMs = wildcard ? 6000 + WILDCARD_INTRO_PAD_MS : 6000;
+
     const { error } = await supabaseAdmin
       .from("rooms")
       .update({
@@ -312,9 +321,9 @@ export const nextQuestion = createServerFn({ method: "POST" })
         current_media_type: media.type,
         current_question_tts_url: ttsUrl,
         current_explanation_tts_url: explanationTtsUrl,
-        question_started_at: new Date(Date.now() + 6000).toISOString(),
-        question_duration_ms: wildcard === "lightning" ? LIGHTNING_DURATION_MS : 25000,
-        dropped_indexes: [],
+        question_started_at: new Date(Date.now() + startDelayMs).toISOString(),
+        question_duration_ms: durationMs,
+        dropped_indexes: preDropped,
         round_number: nextRound,
         wildcard: wildcard,
         saboteur_session_id: saboteurSessionId,
@@ -374,6 +383,8 @@ export const endQuestion = createServerFn({ method: "POST" })
     const isDoubleOrNothing = room.wildcard === "double_or_nothing";
     const isFirstBlood = room.wildcard === "first_blood";
     const isUnderdog = room.wildcard === "underdog";
+    const isSuddenDrop = room.wildcard === "sudden_drop";
+    const isHeist = room.wildcard === "heist";
     const saboteurSessionId = room.saboteur_session_id ?? null;
     const roastCandidates =
       (room.roast_candidates as { session_id: string; nickname: string }[] | null) ?? null;
@@ -502,6 +513,7 @@ export const endQuestion = createServerFn({ method: "POST" })
         if (isLightning) base *= LIGHTNING_MULTIPLIER;
         if (isDoubleOrNothing) base *= 2;
         if (isUnderdog && underdogId === p.id) base *= 2;
+        if (isSuddenDrop) base = Math.round(base * SUDDEN_DROP_MULTIPLIER);
         roundScore = base;
         if (firstWasCorrect) {
           nextStreak += 1;
@@ -559,6 +571,28 @@ export const endQuestion = createServerFn({ method: "POST" })
           const prevTotal = orig?.score ?? 0;
           u.current_round_score = 0;
           u.score = Math.max(0, prevTotal);
+        }
+      }
+    }
+
+    // Heist: if any non-leader got it right, the current leader is robbed of
+    // HEIST_STEAL points (single deduction per round). The leader is safe if
+    // they themselves answered correctly.
+    if (isHeist) {
+      // Pre-round leader = highest score before this round's updates applied.
+      const sortedByPrev = [...(players ?? [])].sort(
+        (a, b) => (b.score ?? 0) - (a.score ?? 0),
+      );
+      const leader = sortedByPrev[0];
+      if (leader) {
+        const leaderUpdate = updates.find((x) => x.id === leader.id);
+        const leaderGotItRight = leaderUpdate?.last_answer_correct === true;
+        const anyNonLeaderCorrect = updates.some(
+          (u) => u.last_answer_correct === true && u.id !== leader.id,
+        );
+        if (!leaderGotItRight && anyNonLeaderCorrect && leaderUpdate) {
+          leaderUpdate.score = Math.max(0, leaderUpdate.score - HEIST_STEAL);
+          leaderUpdate.current_round_score -= HEIST_STEAL;
         }
       }
     }

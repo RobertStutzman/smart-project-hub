@@ -4,6 +4,7 @@ import { play, setMusicIntensity } from "@/lib/sound-engine";
 import { ShatteredFaces } from "./ShatteredFaces";
 import { ShutterTransition } from "./ShutterTransition";
 import { CategoryReveal } from "./CategoryReveal";
+import { mirrorLetters } from "@/lib/wildcards";
 
 
 type Player = {
@@ -31,6 +32,8 @@ type Props = {
   hideTimer?: boolean;
   /** Optional category name e.g. "Movies" — drives the category-reveal card during the intro. */
   category?: string | null;
+  /** Active wildcard for this round; drives mirror/blackout visual treatments. */
+  wildcard?: string | null;
 };
 
 
@@ -56,7 +59,14 @@ export const QuestionStage = memo(function QuestionStage({
   questionNumber = 1,
   hideTimer = false,
   category = null,
+  wildcard = null,
 }: Props) {
+  const isMirror = wildcard === "mirror";
+  const isBlackout = wildcard === "blackout";
+  const letters = useMemo<readonly string[]>(
+    () => (isMirror ? mirrorLetters(questionText) : LETTERS),
+    [isMirror, questionText],
+  );
 
   // Anchor the intro on when THIS host first observed the new question.
   // The server schedules `question_started_at` ~6s in the future, but realtime
@@ -103,7 +113,12 @@ export const QuestionStage = memo(function QuestionStage({
         ? 2
         : 3;
   const showBadge = introPhase === 1;
-  const showQuestion = introPhase >= 2;
+  // Blackout: keep the question text hidden for the first 5 seconds of the
+  // question phase (after the intro completes); audio still plays so players
+  // must listen. Answers stay visible throughout.
+  const blackoutHideQuestion =
+    isBlackout && phase === "question" && secondsLeft > Math.max(0, totalS - 5);
+  const showQuestion = introPhase >= 2 && !blackoutHideQuestion;
   const showAnswers = introPhase >= 3;
 
   // Soft tick SFX as each answer lands during the stagger (~2s phase).
@@ -272,6 +287,11 @@ export const QuestionStage = memo(function QuestionStage({
         >
           {questionText}
         </motion.h2>
+        {blackoutHideQuestion && (
+          <div className="mx-auto mt-2 flex items-center justify-center gap-3 font-display text-xl font-black uppercase tracking-[0.35em] text-slate-300/80 animate-pulse">
+            <span>🌑</span> Blackout — listen <span>🌑</span>
+          </div>
+        )}
         <div className="mx-auto mt-2 h-[2px] w-24 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
       </div>
 
@@ -342,7 +362,7 @@ export const QuestionStage = memo(function QuestionStage({
               >
                 <div className="flex items-start justify-between">
                   <div className="grid h-9 w-9 place-items-center rounded-full bg-white/5 font-display text-base font-black text-white/30 ring-1 ring-white/10 line-through decoration-rose-400/70 decoration-2 sm:h-10 sm:w-10 sm:text-lg">
-                    {LETTERS[i]}
+                    {letters[i]}
                   </div>
                 </div>
                 <div className="my-2 text-lg font-bold leading-tight text-white/25 line-through decoration-rose-400/60 sm:text-xl lg:text-2xl xl:text-3xl">
@@ -412,7 +432,7 @@ export const QuestionStage = memo(function QuestionStage({
                         : "bg-white/10 text-white/90 ring-1 ring-white/20"
                     }`}
                   >
-                    {LETTERS[i]}
+                    {letters[i]}
                   </div>
                 </div>
 

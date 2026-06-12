@@ -1,57 +1,56 @@
-# 1) Stop the category card from covering "Question N"
-# 2) Expand the wildcard / special-question pool
+# All 10 wildcards + announcer pre-explainer
 
-## 1. Category card overlap
+## Cadence (unchanged)
+Wildcards fire on **Q5 / Q10 / Q15 / Q20**. Per game I shuffle a 10-deep deck and deal the first four cards into those slots — no repeats within a game, fresh order every game.
 
-### What happens today
-`QuestionStage` shows two things at the same time on `showBadge`:
-- `ShutterTransition` — wipes in and holds the centered "Question N" title for ~900ms.
-- `CategoryReveal` — pops a centered category card on top (z 35 > shutter z 30), so the number is obscured for the whole hold.
+The deck: `lightning, double_or_nothing, first_blood, underdog, saboteur, glitch, roast, sudden_drop, mirror, heist, blackout` (11 total; I'll keep the original 7 + drop the weakest if you want — see "Open question").
 
-### Fix
-Stage them sequentially so the audience reads **Question N → Category**, both center-stage, no overlap.
+## Pre-question announcer explainer
 
-- Add an `appearDelayMs` prop to `src/components/host/CategoryReveal.tsx`. While `visible` is true, the card stays hidden internally until `appearDelayMs` elapses (clears the timer if `visible` flips off).
-- `src/components/host/QuestionStage.tsx`: pass `appearDelayMs={1250}` so the category card only mounts after the shutter has held the question number long enough to read it, and pops in as the shutter opens.
-- Keep the existing exit animation untouched (so it still clears before the question text fades in).
+For every wildcard round, before the question is read, the announcer says a punchy 1-2 sentence rules line. Routed through the existing Elf-voice FIFO queue so it's guaranteed to play first, then the question read follows automatically.
 
-No timing changes to the shutter or question read flow — purely a deferred mount on the category card.
+### Files
+- **`src/lib/wildcard-explainers.ts` (new)** — map of `wildcard → explainer line(s)`. Multiple variants per type, picked randomly. Examples:
+  - `lightning`: "Lightning round! Eight seconds on the clock, double points for the brave."
+  - `sudden_drop`: "Sudden Drop. Only two answers tonight — fifty-fifty, no excuses."
+  - `heist`: "Heist round. Get this right and you steal fifty points straight off the leader."
+- **`src/components/host/HostGameStage.tsx`** — in the existing "play question TTS" effect, if `state.wildcard` is set, `await speakAsElf(explainer, { interrupt: false })` *before* `playVoiceUrl(questionUrl, { interrupt: false })`. Switch the question read from `interrupt: true` → `interrupt: false` so the explainer can't be trampled.
+- **`src/lib/game.functions.ts`** — for wildcard rounds, push `question_started_at` from `now + 6000` to `now + 13000` so the on-screen countdown doesn't start until the explainer + question read have had time to play.
 
-## 2. Current special questions (wildcards)
+## The 4 new wildcards
 
-Wildcards fire on Q5 / Q10 / Q15 / Q20. Today the rotation is:
+### `sudden_drop`
+- Server picks one wrong index and writes it into `dropped_indexes` at question creation. Only 2 tiles visible from the start.
+- `question_duration_ms = 12000`. Scoring multiplier ×1.5 on a correct lock.
+- WildcardBanner entry added with ⚠️ icon and "Two answers · 1.5×".
 
-| Q  | Wildcard           | What it does |
-|----|--------------------|--------------|
-| 5  | **Lightning**      | 8-second timer, 2× points. |
-| 10 | **Double or Nothing** | Lock in to double your score on a correct answer, lose it all on wrong. |
-| 15 | **First Blood**    | Speed bonus — first correct lock gets a big multiplier. |
-| 20 | **Underdog**       | The lowest-scoring live player earns 2× on a correct. |
-| —  | Saboteur / Glitch / Roast | Defined but only fire as bonus slots (Q25+), so today they essentially never appear. |
+### `mirror`
+- Server tags the room with `wildcard: "mirror"`. Client visual transform only — `QuestionStage` reverses the answer tile order (D / C / B / A) when wildcard is mirror, and the letter labels rendered on each tile come from a shuffled `["A","B","C","D"]`.
+- Lock-in still binds to the answer text, not the position, so scoring is unchanged and fair.
+- Standard 25s timer, standard scoring.
 
-So in a normal 20-question game you only ever see 4 wildcards.
+### `heist`
+- Same as a normal question for question selection/display. Scoring change in `endQuestion`:
+  - For each player who locks correct, compute their normal earned points, then *also* subtract 50 from the current leader's score (single subtraction per round, not per correct player — first correct picks the steal target). Apply at the end after all base scoring.
+  - Edge case: if you ARE the current leader and you get it right, you defend (no self-steal, no bonus).
+- WildcardBanner: 💰 "Steal 50 from the leader".
 
-## Proposal: add 4 new wildcards + activate the dormant trio
+### `blackout`
+- Server tags `wildcard: "blackout"`. Client (`QuestionStage`) hides `questionText` for 5 seconds after the read starts (audio plays normally), then fades the text in. Answers visible the whole time.
+- Standard timer + scoring.
 
-Bring the active pool from 4 → ~10 by promoting Saboteur / Glitch / Roast and adding four new mechanics. The rotation becomes a randomized 10-deep deck that reshuffles each game, so two sessions in a row never repeat the same order.
+## Activating dormant 3
 
-### New wildcards to add to `src/lib/game.functions.ts`
-1. **Sudden Drop** — only two answers shown from the start (correct + one wrong). 1.5× points, 12s timer. Big "coin flip" energy.
-2. **Mirror** — answers are revealed in reverse order with the letters scrambled (visual gag); same scoring. Pure chaos beat.
-3. **Heist** — every correct answer *steals* 50 points from the current leader instead of awarding them. Massive table-flip moment.
-4. **Blackout** — question text is read by VO only; the on-screen text is hidden until 5 seconds in. Rewards listening.
+Saboteur, Glitch, Roast are already coded. They join the shuffled deck. No mechanic changes; just additional `WildcardBanner` polish (already present) and explainer lines.
 
-### Activate dormant wildcards
-- **Saboteur** (already coded): one random player secretly sees a swapped "correct" answer; if they pick it they earn nothing and everyone else who picked it loses points.
-- **Glitch** (already coded): UI "glitches" for 3s — answers briefly swap positions.
-- **Roast** (already coded): no trivia question; players vote which top-4 player fits a silly prompt ("Who would survive a zombie apocalypse?").
+## Verification
+- Play a full game; confirm all four wildcard slots fire distinct types each run.
+- For each wildcard, the explainer plays first, then the question, with no overlap and no clipped audio.
+- Sudden Drop shows 2 tiles. Mirror reverses tile order. Heist subtracts from leader on correct. Blackout hides text for 5s.
 
-### Rotation change
-Replace the fixed `WILDCARD_ROTATION[slot]` index with a per-game shuffled deck of the 10 wildcards, drawing the first 4 for Q5/10/15/20. Stored on the room so it survives reloads. (Implementation note for technical review only.)
+## Open question
+The deck has 11 entries (7 original + 4 new) but only 4 slots per game. Want me to:
+- (a) keep all 11 and just shuffle, or
+- (b) drop one of the weaker existing ones (e.g. `glitch`, which is purely a visual gag with no scoring stakes)?
 
-## Questions for you before I build #2
-- Do you want all 10 in the pool, or pick a subset?
-- Any of the four new ideas you want to drop or tweak?
-- Keep the cadence at Q5/10/15/20, or sprinkle wildcards more often (e.g. every 3rd question)?
-
-I'll build #1 immediately on approval. For #2 I'll wait for your picks so we don't ship mechanics you don't want.
+I'll default to (a) unless you say otherwise.

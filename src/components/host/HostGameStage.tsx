@@ -22,7 +22,8 @@ import { AIRoast } from "./AIRoast";
 import { IntroStage } from "./IntroStage";
 import { CreditsStage } from "./CreditsStage";
 import { pickLine, speakPersona } from "@/lib/host-persona";
-import { playVoiceUrl } from "@/lib/elf-voice";
+import { playVoiceUrl, speakAsElf } from "@/lib/elf-voice";
+import { pickExplainer, type Wildcard } from "@/lib/wildcards";
 import { speakAboutPlayer, setLiveRoomId, resetLiveCap } from "@/lib/persona-live";
 import { play, playEvent, playRandomDrop, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
 import { playFunnySoundById, preloadFunnyBank } from "@/lib/funny-sounds";
@@ -302,6 +303,7 @@ export function HostGameStage({ room }: Props) {
     const qid = state?.current_question_id ?? null;
     const url = state?.current_question_tts_url ?? null;
     const phase = state?.phase;
+    const wildcard = state?.wildcard ?? null;
     // Only play during actual question phases, and only once per question
     if (!qid || !url || (phase !== "question" && phase !== "final_question")) {
       return;
@@ -337,8 +339,19 @@ export function HostGameStage({ room }: Props) {
         /* ignore */
       }
       if (cancelled) return;
+      // Wildcard rounds: announce the rules first, THEN read the question.
+      // Both go through the elf-voice FIFO queue so playback sequences cleanly.
+      if (wildcard) {
+        const explainer = pickExplainer(wildcard as Wildcard);
+        if (explainer) {
+          void speakAsElf(explainer, {
+            preset: "hype",
+            interrupt: false,
+          });
+        }
+      }
       void playVoiceUrl(url, {
-        interrupt: true,
+        interrupt: false,
         onStart: () => duckMusic(true),
         onEnd: () => duckMusic(false),
       });
@@ -349,7 +362,7 @@ export function HostGameStage({ room }: Props) {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [state?.current_question_id, state?.current_question_tts_url, state?.phase]);
+  }, [state?.current_question_id, state?.current_question_tts_url, state?.phase, state?.wildcard]);
 
 
 
@@ -1340,6 +1353,7 @@ export function HostGameStage({ room }: Props) {
           mediaType={(state as { current_media_type?: string | null }).current_media_type ?? null}
           questionNumber={state.round_number ?? 1}
           category={state.current_category}
+          wildcard={state.wildcard}
         />
 
         <RoundSplash round={Math.min(4, Math.ceil((state.round_number ?? 1) / 5))} />

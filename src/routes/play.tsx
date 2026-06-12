@@ -7,6 +7,7 @@ import { loadPlayerSession, clearPlayerSession } from "@/lib/player-session";
 import { supabase } from "@/integrations/supabase/client";
 import { useWakeLock } from "@/hooks/use-wake-lock";
 import { AnswerGrid } from "@/components/AnswerGrid";
+import { mirrorLetters } from "@/lib/wildcards";
 import { HeartbeatBackground } from "@/components/HeartbeatBackground";
 import { AudienceSoundboard } from "@/components/AudienceSoundboard";
 
@@ -622,6 +623,7 @@ function PlayPage() {
                         droppedIndexes={[]}
                         selectedIndex={me?.current_answer ?? null}
                         onPick={(i) => void pick(i)}
+                        letterOverrides={room.wildcard === "mirror" ? mirrorLetters(room.current_question_text) : undefined}
                       />
                     </div>
                   </>
@@ -706,6 +708,30 @@ function PlayPage() {
                       bg: "bg-white/8",
                       text: "text-white/75",
                     },
+                    sudden_drop: {
+                      label: "⚠️ Sudden Drop · 1.5× · 12s",
+                      border: "border-cyan-400/60",
+                      bg: "bg-cyan-500/15",
+                      text: "text-cyan-200",
+                    },
+                    mirror: {
+                      label: "🪞 Mirror · letters scrambled",
+                      border: "border-indigo-400/60",
+                      bg: "bg-indigo-500/15",
+                      text: "text-indigo-200",
+                    },
+                    heist: {
+                      label: "💰 Heist · steal 50 from leader",
+                      border: "border-yellow-400/60",
+                      bg: "bg-yellow-500/15",
+                      text: "text-yellow-200",
+                    },
+                    blackout: {
+                      label: "🌑 Blackout · listen, then lock",
+                      border: "border-slate-400/60",
+                      bg: "bg-slate-700/30",
+                      text: "text-slate-200",
+                    },
                   };
                   const wc = room.wildcard ? WILDCARD_TOP[room.wildcard] : null;
                   const label =
@@ -752,9 +778,15 @@ function PlayPage() {
                     so it never steals height from the answer tiles below. */}
                 {room.current_question_text && room.wildcard !== "roast" && (
                   <div className="max-h-[18vh] shrink-0 overflow-y-auto rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-center backdrop-blur">
-                    <div className="text-sm font-bold leading-snug text-foreground sm:text-base">
-                      {room.current_question_text}
-                    </div>
+                    {room.wildcard === "blackout" && remainingS !== null && remainingS > Math.max(0, (room.question_duration_ms ?? 25000) / 1000 - 5) ? (
+                      <div className="text-sm font-black uppercase tracking-[0.3em] text-slate-200 animate-pulse">
+                        🌑 Blackout · Listen
+                      </div>
+                    ) : (
+                      <div className="text-sm font-bold leading-snug text-foreground sm:text-base">
+                        {room.current_question_text}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -797,6 +829,7 @@ function PlayPage() {
                     droppedIndexes={room.dropped_indexes ?? []}
                     selectedIndex={me?.current_answer ?? null}
                     onPick={(i) => void pick(i)}
+                    letterOverrides={room.wildcard === "mirror" ? mirrorLetters(room.current_question_text) : undefined}
                   />
                 </div>
 
