@@ -575,6 +575,28 @@ export const endQuestion = createServerFn({ method: "POST" })
       }
     }
 
+    // Heist: if any non-leader got it right, the current leader is robbed of
+    // HEIST_STEAL points (single deduction per round). The leader is safe if
+    // they themselves answered correctly.
+    if (isHeist) {
+      // Pre-round leader = highest score before this round's updates applied.
+      const sortedByPrev = [...(players ?? [])].sort(
+        (a, b) => (b.score ?? 0) - (a.score ?? 0),
+      );
+      const leader = sortedByPrev[0];
+      if (leader) {
+        const leaderUpdate = updates.find((x) => x.id === leader.id);
+        const leaderGotItRight = leaderUpdate?.last_answer_correct === true;
+        const anyNonLeaderCorrect = updates.some(
+          (u) => u.last_answer_correct === true && u.id !== leader.id,
+        );
+        if (!leaderGotItRight && anyNonLeaderCorrect && leaderUpdate) {
+          leaderUpdate.score = Math.max(0, leaderUpdate.score - HEIST_STEAL);
+          leaderUpdate.current_round_score -= HEIST_STEAL;
+        }
+      }
+    }
+
     let qAnswered = 0;
     let qCorrect = 0;
     let qResponseMs = 0;
