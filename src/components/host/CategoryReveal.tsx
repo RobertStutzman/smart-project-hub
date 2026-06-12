@@ -58,12 +58,12 @@ export function CategoryReveal({ category, visible, subline, zIndex = 35, appear
       <motion.div
         initial={{ scale: 0.86, opacity: 0, y: 14 }}
         animate={
-          visible
+          active
             ? { scale: 1, opacity: 1, y: 0 }
             : { scale: 0.96, opacity: 0, y: -10 }
         }
         transition={{
-          duration: visible ? 0.7 : 0.5,
+          duration: active ? 0.7 : 0.5,
           ease: [0.22, 1, 0.36, 1],
         }}
         style={{
