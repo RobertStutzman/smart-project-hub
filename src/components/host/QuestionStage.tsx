@@ -4,6 +4,7 @@ import { play, setMusicIntensity } from "@/lib/sound-engine";
 import { ShatteredFaces } from "./ShatteredFaces";
 import { ShutterTransition } from "./ShutterTransition";
 import { CategoryReveal } from "./CategoryReveal";
+import { mirrorLetters } from "@/lib/wildcards";
 
 
 type Player = {
