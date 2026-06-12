@@ -7,7 +7,11 @@ type WildcardType =
   | "underdog"
   | "saboteur"
   | "glitch"
-  | "roast";
+  | "roast"
+  | "sudden_drop"
+  | "mirror"
+  | "heist"
+  | "blackout";
 
 interface Config {
   icon: string;
