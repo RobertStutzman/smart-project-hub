@@ -303,6 +303,7 @@ export function HostGameStage({ room }: Props) {
     const qid = state?.current_question_id ?? null;
     const url = state?.current_question_tts_url ?? null;
     const phase = state?.phase;
+    const wildcard = state?.wildcard ?? null;
     // Only play during actual question phases, and only once per question
     if (!qid || !url || (phase !== "question" && phase !== "final_question")) {
       return;
@@ -338,8 +339,19 @@ export function HostGameStage({ room }: Props) {
         /* ignore */
       }
       if (cancelled) return;
+      // Wildcard rounds: announce the rules first, THEN read the question.
+      // Both go through the elf-voice FIFO queue so playback sequences cleanly.
+      if (wildcard) {
+        const explainer = pickExplainer(wildcard as Wildcard);
+        if (explainer) {
+          void speakAsElf(explainer, {
+            preset: "hype",
+            interrupt: false,
+          });
+        }
+      }
       void playVoiceUrl(url, {
-        interrupt: true,
+        interrupt: false,
         onStart: () => duckMusic(true),
         onEnd: () => duckMusic(false),
       });
@@ -350,7 +362,7 @@ export function HostGameStage({ room }: Props) {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [state?.current_question_id, state?.current_question_tts_url, state?.phase]);
+  }, [state?.current_question_id, state?.current_question_tts_url, state?.phase, state?.wildcard]);
 
 
 
