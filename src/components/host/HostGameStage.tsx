@@ -1353,6 +1353,7 @@ export function HostGameStage({ room }: Props) {
           mediaType={(state as { current_media_type?: string | null }).current_media_type ?? null}
           questionNumber={state.round_number ?? 1}
           category={state.current_category}
+          wildcard={state.wildcard}
         />
 
         <RoundSplash round={Math.min(4, Math.ceil((state.round_number ?? 1) / 5))} />
