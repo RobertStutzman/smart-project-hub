@@ -754,9 +754,15 @@ function PlayPage() {
                     so it never steals height from the answer tiles below. */}
                 {room.current_question_text && room.wildcard !== "roast" && (
                   <div className="max-h-[18vh] shrink-0 overflow-y-auto rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-center backdrop-blur">
-                    <div className="text-sm font-bold leading-snug text-foreground sm:text-base">
-                      {room.current_question_text}
-                    </div>
+                    {room.wildcard === "blackout" && remainingS !== null && remainingS > Math.max(0, (room.question_duration_ms ?? 25000) / 1000 - 5) ? (
+                      <div className="text-sm font-black uppercase tracking-[0.3em] text-slate-200 animate-pulse">
+                        🌑 Blackout · Listen
+                      </div>
+                    ) : (
+                      <div className="text-sm font-bold leading-snug text-foreground sm:text-base">
+                        {room.current_question_text}
+                      </div>
+                    )}
                   </div>
                 )}
 
