@@ -110,3 +110,27 @@ export function pickLobbyLine(
 export function pickOpener(): string {
   return OPENER_LINES[Math.floor(Math.random() * OPENER_LINES.length)];
 }
+
+// Full "welcome to the show" intros spoken by The Elf at the top of the
+// lobby. Kept short (~6–12 words) so the queued line clears quickly and
+// the join-instructions opener can follow without an awkward dead beat.
+export const WELCOME_INTROS: string[] = [
+  "Welcome to Beat the Drop — the trivia show where confidence goes to die.",
+  "Lights up. It's Beat the Drop. The only trivia game with a body count.",
+  "You're tuned in to Beat the Drop. Brains optional. Bravery required.",
+  "Beat the Drop, baby. Where your friends find out what you don't know.",
+  "Welcome, welcome, welcome to Beat the Drop. Bring snacks. Bring shame.",
+  "It's Beat the Drop. Trivia's loudest, meanest, most beautiful disaster.",
+  "Beat the Drop is live. Brains in, egos out, nobody leaves clean.",
+  "Roll the lights. It's Beat the Drop — the show that turns friends into rivals.",
+  "Welcome to Beat the Drop. Twenty questions. One survivor. Zero mercy.",
+  "Beat the Drop, coming at you hot. Don't blink. Don't think too hard.",
+  "Tonight, on Beat the Drop — somebody peaks, somebody panics. Let's find out which.",
+  "Welcome in to Beat the Drop, where the questions hit harder than the punchlines.",
+  "It's showtime on Beat the Drop. The only thing dropping faster is your dignity.",
+  "Beat the Drop. The trivia game your group chat will argue about for days.",
+];
+
+export function pickWelcomeIntro(): string {
+  return WELCOME_INTROS[Math.floor(Math.random() * WELCOME_INTROS.length)];
+}

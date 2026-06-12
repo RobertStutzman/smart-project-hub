@@ -363,17 +363,9 @@ function HostPage() {
         if (cancelled) return;
         const { loadCustomEvents } = await import("@/lib/sound-engine");
         loadCustomEvents(res.events as never);
-        // Play a random welcome intro once — route through the elf-voice
-        // queue so the persona opener can't talk over it.
-        const welcomes = res.welcomes ?? [];
-        if (welcomes.length > 0) {
-          const pick = welcomes[Math.floor(Math.random() * welcomes.length)];
-          const { playVoiceUrl } = await import("@/lib/elf-voice");
-          void playVoiceUrl(pick.url, {
-            volume: Math.min(pick.volume, 0.9),
-            interrupt: true,
-          });
-        }
+        // Welcome intro is now spoken by The Elf via the persona TTS queue
+        // (see the lobby announcer effect below), so the opener can no
+        // longer be interrupted mid-sentence by a late-arriving clip.
       } catch {
         /* ignore — fall back to synth */
       } finally {
@@ -454,21 +446,25 @@ function HostPage() {
       void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
     }
 
-    const speakOpener = async () => {
-      const [{ speakPersona }, { pickOpener }] = await Promise.all([
-        import("@/lib/host-persona"),
+    // Welcome intro + join-instructions opener. Both go through the single
+    // Elf-voice queue (FIFO), so the opener is guaranteed to play *after*
+    // the welcome finishes — no interrupt, no cut-off. Skipped on replay.
+    const speakWelcomeAndOpener = async () => {
+      const [{ speakAsElf }, { pickOpener, pickWelcomeIntro }] = await Promise.all([
+        import("@/lib/elf-voice"),
         import("@/lib/lobby-banter"),
       ]);
       if (cancelled) return;
-      dlog("opener");
-      speakPersona(pickOpener(), { preset: "hype" });
+      dlog("welcome");
+      void speakAsElf(pickWelcomeIntro(), { preset: "hype", interrupt: false });
+      dlog("opener queued");
+      void speakAsElf(pickOpener(), { preset: "hype", interrupt: false });
     };
-    // Skip the opener entirely on a replay lobby.
     const openerTimer = isReplayLobby
       ? null
       : window.setTimeout(() => {
-          void speakOpener();
-        }, 2400);
+          void speakWelcomeAndOpener();
+        }, 600);
 
     // Pending-quip counter prevents pile-up if cadence ever outpaces playback.
     // Also skip if the shared voice queue is busy with a welcome intro, join
