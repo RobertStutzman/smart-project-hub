@@ -89,6 +89,42 @@ const CONFIGS: Record<WildcardType, Config> = {
     text: "text-orange-50",
     glow: "oklch(0.7 0.2 50)",
   },
+  sudden_drop: {
+    icon: "⚠️",
+    label: "Sudden Drop",
+    rule: "Two answers · 12s · 1.5×",
+    bg: "bg-cyan-500/95",
+    border: "border-cyan-200",
+    text: "text-cyan-950",
+    glow: "oklch(0.75 0.18 220)",
+  },
+  mirror: {
+    icon: "🪞",
+    label: "Mirror Round",
+    rule: "Letters scrambled · Read the answers",
+    bg: "bg-indigo-500/95",
+    border: "border-indigo-200",
+    text: "text-indigo-50",
+    glow: "oklch(0.65 0.2 270)",
+  },
+  heist: {
+    icon: "💰",
+    label: "Heist",
+    rule: "Correct = steal 50 from leader",
+    bg: "bg-yellow-500/95",
+    border: "border-yellow-200",
+    text: "text-yellow-950",
+    glow: "oklch(0.85 0.18 95)",
+  },
+  blackout: {
+    icon: "🌑",
+    label: "Blackout",
+    rule: "Question hidden · Listen up",
+    bg: "bg-slate-800/95",
+    border: "border-slate-400",
+    text: "text-slate-50",
+    glow: "oklch(0.35 0.05 270)",
+  },
 };
 
 export function WildcardBanner({
