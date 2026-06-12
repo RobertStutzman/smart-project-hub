@@ -201,7 +201,6 @@ function playInner(sfx: Sfx) {
       window.setTimeout(() => sweep(1800, 900, 0.22, "triangle", 0.12), 320);
       break;
     }
-      break;
     case "correct":
       tone(660, 0.1, "triangle", 0.22);
       tone(880, 0.18, "triangle", 0.22, 0.08);
