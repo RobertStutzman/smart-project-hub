@@ -288,6 +288,24 @@ export const nextQuestion = createServerFn({ method: "POST" })
       (q as { explanation_tts_path?: string | null }).explanation_tts_path,
     );
 
+    // Sudden Drop: pre-eliminate one wrong tile so only 2 answers are shown.
+    let preDropped: number[] = [];
+    if (wildcard === "sudden_drop") {
+      const wrongs = [0, 1, 2, 3].filter((i) => i !== correctIndex);
+      preDropped = [wrongs[Math.floor(Math.random() * wrongs.length)]];
+    }
+
+    const durationMs =
+      wildcard === "lightning"
+        ? LIGHTNING_DURATION_MS
+        : wildcard === "sudden_drop"
+          ? SUDDEN_DROP_DURATION_MS
+          : 25000;
+
+    // Wildcard rounds need extra lead-time so the announcer explainer plays
+    // before the question read; non-wildcard rounds keep the original 6s.
+    const startDelayMs = wildcard ? 6000 + WILDCARD_INTRO_PAD_MS : 6000;
+
     const { error } = await supabaseAdmin
       .from("rooms")
       .update({
@@ -303,9 +321,9 @@ export const nextQuestion = createServerFn({ method: "POST" })
         current_media_type: media.type,
         current_question_tts_url: ttsUrl,
         current_explanation_tts_url: explanationTtsUrl,
-        question_started_at: new Date(Date.now() + 6000).toISOString(),
-        question_duration_ms: wildcard === "lightning" ? LIGHTNING_DURATION_MS : 25000,
-        dropped_indexes: [],
+        question_started_at: new Date(Date.now() + startDelayMs).toISOString(),
+        question_duration_ms: durationMs,
+        dropped_indexes: preDropped,
         round_number: nextRound,
         wildcard: wildcard,
         saboteur_session_id: saboteurSessionId,
