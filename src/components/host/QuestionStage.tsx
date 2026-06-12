@@ -357,7 +357,7 @@ export const QuestionStage = memo(function QuestionStage({
               >
                 <div className="flex items-start justify-between">
                   <div className="grid h-9 w-9 place-items-center rounded-full bg-white/5 font-display text-base font-black text-white/30 ring-1 ring-white/10 line-through decoration-rose-400/70 decoration-2 sm:h-10 sm:w-10 sm:text-lg">
-                    {LETTERS[i]}
+                    {letters[i]}
                   </div>
                 </div>
                 <div className="my-2 text-lg font-bold leading-tight text-white/25 line-through decoration-rose-400/60 sm:text-xl lg:text-2xl xl:text-3xl">
@@ -427,7 +427,7 @@ export const QuestionStage = memo(function QuestionStage({
                         : "bg-white/10 text-white/90 ring-1 ring-white/20"
                     }`}
                   >
-                    {LETTERS[i]}
+                    {letters[i]}
                   </div>
                 </div>
 
