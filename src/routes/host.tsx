@@ -363,17 +363,9 @@ function HostPage() {
         if (cancelled) return;
         const { loadCustomEvents } = await import("@/lib/sound-engine");
         loadCustomEvents(res.events as never);
-        // Play a random welcome intro once — route through the elf-voice
-        // queue so the persona opener can't talk over it.
-        const welcomes = res.welcomes ?? [];
-        if (welcomes.length > 0) {
-          const pick = welcomes[Math.floor(Math.random() * welcomes.length)];
-          const { playVoiceUrl } = await import("@/lib/elf-voice");
-          void playVoiceUrl(pick.url, {
-            volume: Math.min(pick.volume, 0.9),
-            interrupt: true,
-          });
-        }
+        // Welcome intro is now spoken by The Elf via the persona TTS queue
+        // (see the lobby announcer effect below), so the opener can no
+        // longer be interrupted mid-sentence by a late-arriving clip.
       } catch {
         /* ignore — fall back to synth */
       } finally {
