@@ -799,6 +799,7 @@ function PlayPage() {
                     droppedIndexes={room.dropped_indexes ?? []}
                     selectedIndex={me?.current_answer ?? null}
                     onPick={(i) => void pick(i)}
+                    letterOverrides={room.wildcard === "mirror" ? mirrorLetters(room.current_question_text) : undefined}
                   />
                 </div>
 
