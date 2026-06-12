@@ -23,6 +23,12 @@ export const Route = createFileRoute("/")({
   component: LandingPage,
 });
 
+const WELCOME_LINES = [
+  "Hosting tonight? Pick the big screen. Everyone else — grab your phone.",
+  "Two ways in: host it on the TV, or jump in from your phone with a four-letter code.",
+  "Big screen for the host. Phones for the players. Let's go.",
+];
+
 function LandingPage() {
   // Boot sequence — first visit per session. SSR-safe (defaults to false).
   const [showBoot, setShowBoot] = useState(false);
@@ -33,6 +39,26 @@ function LandingPage() {
   // Autoplay chatter once the boot intro has finished — otherwise the
   // lobby chatter bed fights the boot music sting.
   useLobbyChatter({ enabled: !showBoot });
+
+  // One-shot orienting line from the Elf, once per browser session.
+  useEffect(() => {
+    if (showBoot) return;
+    if (typeof window === "undefined") return;
+    try {
+      if (sessionStorage.getItem("btd-welcome-said") === "1") return;
+      sessionStorage.setItem("btd-welcome-said", "1");
+    } catch {
+      /* ignore */
+    }
+    const line = WELCOME_LINES[Math.floor(Math.random() * WELCOME_LINES.length)];
+    const t = window.setTimeout(() => {
+      void import("@/lib/elf-voice").then((m) =>
+        m.speakAsElf(line, { interrupt: false }),
+      );
+    }, 600);
+    return () => window.clearTimeout(t);
+  }, [showBoot]);
+
 
   return (
     <>
