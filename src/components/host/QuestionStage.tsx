@@ -287,6 +287,11 @@ export const QuestionStage = memo(function QuestionStage({
         >
           {questionText}
         </motion.h2>
+        {blackoutHideQuestion && (
+          <div className="mx-auto mt-2 flex items-center justify-center gap-3 font-display text-xl font-black uppercase tracking-[0.35em] text-slate-300/80 animate-pulse">
+            <span>🌑</span> Blackout — listen <span>🌑</span>
+          </div>
+        )}
         <div className="mx-auto mt-2 h-[2px] w-24 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
       </div>
 
