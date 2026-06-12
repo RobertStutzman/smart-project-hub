@@ -113,7 +113,12 @@ export const QuestionStage = memo(function QuestionStage({
         ? 2
         : 3;
   const showBadge = introPhase === 1;
-  const showQuestion = introPhase >= 2;
+  // Blackout: keep the question text hidden for the first 5 seconds of the
+  // question phase (after the intro completes); audio still plays so players
+  // must listen. Answers stay visible throughout.
+  const blackoutHideQuestion =
+    isBlackout && phase === "question" && secondsLeft > Math.max(0, totalS - 5);
+  const showQuestion = introPhase >= 2 && !blackoutHideQuestion;
   const showAnswers = introPhase >= 3;
 
   // Soft tick SFX as each answer lands during the stagger (~2s phase).
