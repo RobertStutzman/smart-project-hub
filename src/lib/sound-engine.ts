@@ -3,6 +3,7 @@
 export type Sfx =
   | "tap"
   | "whoosh"
+  | "ignition"
   | "correct"
   | "wrong"
   | "drop"
