@@ -32,6 +32,8 @@ type Props = {
   hideTimer?: boolean;
   /** Optional category name e.g. "Movies" — drives the category-reveal card during the intro. */
   category?: string | null;
+  /** Active wildcard for this round; drives mirror/blackout visual treatments. */
+  wildcard?: string | null;
 };
 
 
