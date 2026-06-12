@@ -95,7 +95,7 @@ export function BootSequence({ onComplete }: Props) {
   // From `credits`, skipping completes immediately.
   useEffect(() => {
     function unlockAudioAndStart() {
-      play("whoosh");
+      play("ignition");
       startBootIntroAudio();
       setGatePressed(true);
       window.setTimeout(() => setStage("splash"), 140);
