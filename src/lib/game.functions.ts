@@ -117,7 +117,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const room = await getRoomByHost(data.roomCode, data.hostSessionId);
     const nextRound = (room.round_number ?? 0) + 1;
-    const wildcard = wildcardForRound(nextRound);
+    const wildcard = wildcardForRound(nextRound, room.id);
 
     await supabaseAdmin
       .from("players")
