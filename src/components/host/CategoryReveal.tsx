@@ -12,26 +12,38 @@ type Props = {
   subline?: string | null;
   /** Stacking layer — sits above shutter (z 30) but under fullscreen reveal (z 50). */
   zIndex?: number;
+  /** Delay before the card actually appears after `visible` flips true (ms). */
+  appearDelayMs?: number;
 };
 
 /**
  * Broadcast-style category reveal card. Flips in from behind the shutter, holds
  * for ~900ms, then animates out. Plays a soft whoosh on entry.
  */
-export function CategoryReveal({ category, visible, subline, zIndex = 35 }: Props) {
-  const [shown, setShown] = useState(visible);
+export function CategoryReveal({ category, visible, subline, zIndex = 35, appearDelayMs = 0 }: Props) {
+  const [shown, setShown] = useState(visible && appearDelayMs === 0);
+  const [active, setActive] = useState(visible && appearDelayMs === 0);
 
   useEffect(() => {
     if (visible) {
-      setShown(true);
-      // Soft whoosh on entry — sits under the read VO without competing
-      play("whoosh", 0.45);
-      return;
+      if (appearDelayMs <= 0) {
+        setShown(true);
+        setActive(true);
+        play("whoosh", 0.45);
+        return;
+      }
+      const t = window.setTimeout(() => {
+        setShown(true);
+        setActive(true);
+        play("whoosh", 0.45);
+      }, appearDelayMs);
+      return () => window.clearTimeout(t);
     }
+    setActive(false);
     // Let the exit animation play (longer to match the gentler easing below)
     const t = window.setTimeout(() => setShown(false), 600);
     return () => window.clearTimeout(t);
-  }, [visible]);
+  }, [visible, appearDelayMs]);
 
   if (!category || !shown) return null;
   const emoji = emojiForCategory(category);
@@ -46,12 +58,12 @@ export function CategoryReveal({ category, visible, subline, zIndex = 35 }: Prop
       <motion.div
         initial={{ scale: 0.86, opacity: 0, y: 14 }}
         animate={
-          visible
+          active
             ? { scale: 1, opacity: 1, y: 0 }
             : { scale: 0.96, opacity: 0, y: -10 }
         }
         transition={{
-          duration: visible ? 0.7 : 0.5,
+          duration: active ? 0.7 : 0.5,
           ease: [0.22, 1, 0.36, 1],
         }}
         style={{

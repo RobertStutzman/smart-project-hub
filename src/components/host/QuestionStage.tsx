@@ -311,6 +311,7 @@ export const QuestionStage = memo(function QuestionStage({
         visible={showBadge}
         subline={`Question ${questionNumber}`}
         zIndex={35}
+        appearDelayMs={1250}
       />
 
 
