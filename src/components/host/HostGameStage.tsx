@@ -1454,6 +1454,19 @@ export function HostGameStage({ room }: Props) {
 
         <RoundSplash round={Math.min(4, Math.ceil((state.round_number ?? 1) / 5))} />
 
+        {/* Glitch wildcard: big-screen RGB-split + scanlines + chyron */}
+        {state.phase === "question" && state.wildcard === "glitch" && (
+          <GlitchOverlay
+            activeUntil={state.glitch_active_until}
+            leaderName={
+              [...players]
+                .filter((p) => !p.is_audience)
+                .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0]?.nickname ?? null
+            }
+          />
+        )}
+
+
       </>
     );
   }
