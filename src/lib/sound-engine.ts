@@ -282,6 +282,34 @@ import finalWagerBed from "@/assets/audio/final/final_wager_bed.mp3.asset.json";
 import creditsOutro from "@/assets/audio/music/credits_outro.mp3.asset.json";
 import bootSting from "@/assets/audio/music/boot_sting.mp3.asset.json";
 import bootStationId from "@/assets/audio/voice/boot_station_id.mp3.asset.json";
+import tickClip from "@/assets/audio/tick.mp3.asset.json";
+import tickHeavyClip from "@/assets/audio/tick-heavy.mp3.asset.json";
+
+// Pooled tick playback — fires once per second under the timer, so reuse a
+// single HTMLAudioElement per variant to avoid GC churn and decode lag.
+const TICK_CLIP_URLS: Record<"tick" | "tickHeavy", string> = {
+  tick: tickClip.url,
+  tickHeavy: tickHeavyClip.url,
+};
+const tickPool: Partial<Record<"tick" | "tickHeavy", HTMLAudioElement>> = {};
+function playTickClip(kind: "tick" | "tickHeavy", baseVolume: number): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    let a = tickPool[kind];
+    if (!a) {
+      a = new Audio(TICK_CLIP_URLS[kind]);
+      a.preload = "auto";
+      tickPool[kind] = a;
+    }
+    a.volume = Math.max(0, Math.min(1, baseVolume * synthVolumeScale));
+    try { a.currentTime = 0; } catch { /* ignore */ }
+    const p = a.play();
+    if (p && typeof p.catch === "function") p.catch(() => {});
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const DEFAULT_EVENT_CLIPS: Partial<Record<GameEvent, CustomClip>> = {
   lobby_music: { url: lobbyTrivia.url, volume: 0.22, loop: true },
