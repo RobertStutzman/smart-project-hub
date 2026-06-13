@@ -70,37 +70,22 @@ function playCrowdCheer() {
 }
 
 function startBootIntroAudio() {
-  // Louder music bed + 3-beat movie-trailer VO + crowd cheer under the punch.
+  // Louder music bed + single-line movie-trailer VO + crowd cheer on the drop.
+  // One speakAsElf call (not three) so the lines can't queue/cut each other off.
   playBootMusic(0.78);
   bootAudioStartedAt = Date.now();
-  // Beat 1
   window.setTimeout(() => {
-    void speakAsElf("In a world… of bad answers…", {
-      preset: "calm",
-      interrupt: true,
-      volume: 1.0,
-    });
+    void speakAsElf(
+      "In a world… of bad answers… and faster fingers… Beat. The. Drop.",
+      { preset: "calm", interrupt: true, volume: 1.0 },
+    );
   }, 1000);
-  // Beat 2
-  window.setTimeout(() => {
-    void speakAsElf("…and faster fingers…", {
-      preset: "calm",
-      interrupt: false,
-      volume: 1.0,
-    });
-  }, 3400);
-  // Beat 3 — the drop. Crowd cheer fires just before.
+  // Crowd cheer just before the "Drop." word lands.
   window.setTimeout(() => {
     playCrowdCheer();
   }, DROP_BEAT_MS - 200);
-  window.setTimeout(() => {
-    void speakAsElf("Beat. The. Drop.", {
-      preset: "hype",
-      interrupt: false,
-      volume: 1.0,
-    });
-  }, DROP_BEAT_MS);
 }
+
 
 
 
