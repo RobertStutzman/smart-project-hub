@@ -119,10 +119,14 @@ export function BootSequence({ onComplete }: Props) {
     startBootIntroAudio();
   }, []);
 
-  // Fade out boot music when the overlay is dismissed.
+  // Fade out boot music + kill any pending VO when the overlay is dismissed.
   useEffect(() => {
-    if (dismissing) stopBootMusic(600);
+    if (dismissing) {
+      stopBootMusic(600);
+      cancelElfSpeech();
+    }
   }, [dismissing]);
+
 
 
   // Advance through stages on a timer.
