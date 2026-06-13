@@ -1612,31 +1612,28 @@ export function HostGameStage({ room }: Props) {
 
   // ─── FINAL ROUND PHASES ──────────────────────────────────────────────
   if (state.phase === "final_intro") {
+    const top3 = [...players]
+      .filter((p) => !p.is_audience)
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+      .slice(0, 3)
+      .map((p) => ({ id: p.id, nickname: p.nickname, avatar_url: p.avatar_url }));
     return (
-      <div className="relative grid h-full place-items-center overflow-hidden bg-black text-white">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(0.35_0.18_85/0.35),oklch(0.05_0.02_270)_70%)]" />
-        <div className="absolute inset-0 animate-pulse bg-[radial-gradient(circle_at_50%_50%,oklch(0.85_0.18_85/0.15),transparent_60%)]" />
-        <div className="relative text-center">
-          <div className="animate-fade-in text-xs font-bold uppercase tracking-[0.6em] text-amber-300/90">
-            One question. All on the line.
-          </div>
-          <h1
-            className="mt-4 font-display text-[12vw] font-black uppercase leading-none tracking-tight text-transparent [animation:scale-in_0.6s_ease-out]"
-            style={{
-              backgroundImage:
-                "linear-gradient(180deg, oklch(0.97 0.12 90) 0%, oklch(0.75 0.20 60) 100%)",
-              WebkitBackgroundClip: "text",
-              backgroundClip: "text",
-              filter: "drop-shadow(0 8px 40px oklch(0.85 0.20 70 / 0.55))",
-            }}
-          >
-            Final Round
-          </h1>
-          <div className="mx-auto mt-6 h-[3px] w-48 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
-        </div>
-      </div>
+      <FinalIntroStage
+        top3={top3}
+        onDone={() => {
+          // Timer-driven effect also fires; this is a safety nudge.
+          setPhaseFn({
+            data: {
+              roomCode: room.roomCode,
+              hostSessionId: room.hostSessionId,
+              phase: "final_wager",
+            },
+          }).catch(() => {});
+        }}
+      />
     );
   }
+
 
   if (state.phase === "final_wager") {
     return <FinalWagerStage players={players} />;
