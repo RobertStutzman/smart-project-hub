@@ -1545,3 +1545,251 @@ export const finishAsymIntro = createServerFn({ method: "POST" })
       .eq("id", room.id);
     return { ok: true };
   });
+
+// ============================================================
+// ASYMMETRY ROUND — submit / vote / reveal full loop
+// ============================================================
+
+import { computeAsymDeltas, type AsymSubmissionPayload } from "./asymmetry";
+
+const ASYM_SUBMIT_MS: Record<string, number> = {
+  crowd_pleaser: 45000,
+  finish_sentence: 45000,
+  two_truths: 60000,
+  hot_take: 15000,
+};
+const ASYM_VOTE_MS = 20000;
+const ASYM_REVEAL_MS = 9000;
+
+function pickAsymSource(roomId: string, round: number, liveSessionIds: string[]): string | null {
+  if (liveSessionIds.length === 0) return null;
+  const seed = `asym-src:${roomId}:${round}`;
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return liveSessionIds[h % liveSessionIds.length];
+}
+
+/**
+ * Transition asym_intro → asym_submit. Bumps round_number, picks the source
+ * for two_truths, clears prior submissions/votes, sets the submit deadline.
+ */
+export const startAsymRound = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      hostSessionId: z.string().min(8).max(128),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const room = await getRoomByHost(data.roomCode, data.hostSessionId);
+    const fmt = (room as { asym_format?: string | null }).asym_format ?? null;
+    if (!fmt) throw new Error("No asym format set");
+    if (room.phase !== "asym_intro") throw new Error("Not in asym_intro");
+
+    const { data: live } = await supabaseAdmin
+      .from("players")
+      .select("session_id")
+      .eq("room_id", room.id)
+      .eq("is_audience", false);
+    const sessionIds = (live ?? []).map((p) => p.session_id);
+    const source = fmt === "two_truths" ? pickAsymSource(room.id, room.round_number ?? 0, sessionIds) : null;
+
+    const dur = ASYM_SUBMIT_MS[fmt] ?? 45000;
+    const endsAt = new Date(Date.now() + dur).toISOString();
+    await supabaseAdmin
+      .from("rooms")
+      .update({
+        phase: "asym_submit",
+        round_number: (room.round_number ?? 0) + 1,
+        asym_source_session_id: source,
+        asym_submissions: {},
+        asym_votes: {},
+        asym_phase_ends_at: endsAt,
+        asym_phase_started_at: new Date().toISOString(),
+      })
+      .eq("id", room.id);
+    return { ok: true };
+  });
+
+const submitPayloadSchema = z.object({
+  text: z.string().max(160).optional(),
+  choice: z.enum(["agree", "disagree"]).optional(),
+  statements: z.array(z.string().max(120)).length(3).optional(),
+  lieIndex: z.number().int().min(0).max(2).optional(),
+});
+
+export const submitAsymEntry = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      sessionId: z.string().min(8).max(128),
+      payload: submitPayloadSchema,
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const { data: room } = await supabaseAdmin
+      .from("rooms")
+      .select("id, phase, asym_format, asym_submissions, asym_source_session_id")
+      .eq("room_code", data.roomCode)
+      .maybeSingle();
+    if (!room) throw new Error("Room not found");
+    if (room.phase !== "asym_submit") throw new Error("Not accepting submissions");
+    const fmt = room.asym_format as string | null;
+    const payload = data.payload;
+    if (fmt === "two_truths") {
+      if (room.asym_source_session_id !== data.sessionId) {
+        throw new Error("Only the source may submit statements");
+      }
+      if (!payload.statements || typeof payload.lieIndex !== "number") {
+        throw new Error("Invalid two-truths payload");
+      }
+    } else if (fmt === "hot_take") {
+      if (!payload.choice) throw new Error("Pick agree or disagree");
+    } else {
+      if (!payload.text || !payload.text.trim()) throw new Error("Empty submission");
+    }
+    const subs = (room.asym_submissions as Record<string, AsymSubmissionPayload> | null) ?? {};
+    subs[data.sessionId] = payload as AsymSubmissionPayload;
+    await supabaseAdmin
+      .from("rooms")
+      .update({ asym_submissions: subs })
+      .eq("id", room.id);
+    return { ok: true };
+  });
+
+export const submitAsymVote = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      sessionId: z.string().min(8).max(128),
+      vote: z.union([z.string().max(128), z.number().int().min(0).max(2)]),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const { data: room } = await supabaseAdmin
+      .from("rooms")
+      .select("id, phase, asym_votes, asym_source_session_id, asym_format")
+      .eq("room_code", data.roomCode)
+      .maybeSingle();
+    if (!room) throw new Error("Room not found");
+    if (room.phase !== "asym_vote") throw new Error("Not in vote phase");
+    if (typeof data.vote === "string" && data.vote === data.sessionId) {
+      throw new Error("Cannot vote for yourself");
+    }
+    const votes = (room.asym_votes as Record<string, string | number> | null) ?? {};
+    votes[data.sessionId] = data.vote;
+    await supabaseAdmin
+      .from("rooms")
+      .update({ asym_votes: votes })
+      .eq("id", room.id);
+    return { ok: true };
+  });
+
+/**
+ * Auto-advance the asym state machine one step:
+ *   asym_submit → asym_vote (or asym_reveal for hot_take)
+ *   asym_vote   → asym_reveal (computes + persists scores)
+ *   asym_reveal → leaderboard (clears asym_*)
+ */
+export const advanceAsymPhase = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      hostSessionId: z.string().min(8).max(128),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const room = await getRoomByHost(data.roomCode, data.hostSessionId);
+    const fmt = (room as { asym_format?: string | null }).asym_format as
+      | "crowd_pleaser"
+      | "two_truths"
+      | "hot_take"
+      | "finish_sentence"
+      | null;
+
+    if (room.phase === "asym_submit") {
+      if (!fmt) throw new Error("No format");
+      if (fmt === "hot_take") {
+        return await finalizeAsymReveal(room.id, fmt, room);
+      }
+      const endsAt = new Date(Date.now() + ASYM_VOTE_MS).toISOString();
+      await supabaseAdmin
+        .from("rooms")
+        .update({ phase: "asym_vote", asym_phase_ends_at: endsAt })
+        .eq("id", room.id);
+      return { ok: true, phase: "asym_vote" };
+    }
+
+    if (room.phase === "asym_vote") {
+      if (!fmt) throw new Error("No format");
+      return await finalizeAsymReveal(room.id, fmt, room);
+    }
+
+    if (room.phase === "asym_reveal") {
+      await supabaseAdmin
+        .from("rooms")
+        .update({
+          phase: "leaderboard",
+          asym_format: null,
+          asym_prompt: null,
+          asym_submissions: null,
+          asym_votes: null,
+          asym_source_session_id: null,
+          asym_phase_ends_at: null,
+          asym_phase_started_at: null,
+        })
+        .eq("id", room.id);
+      return { ok: true, phase: "leaderboard" };
+    }
+
+    return { ok: false };
+  });
+
+async function finalizeAsymReveal(
+  roomId: string,
+  fmt: "crowd_pleaser" | "two_truths" | "hot_take" | "finish_sentence",
+  roomRow: Record<string, unknown>,
+) {
+  const { data: live } = await supabaseAdmin
+    .from("players")
+    .select("id, session_id, score, current_round_score")
+    .eq("room_id", roomId)
+    .eq("is_audience", false);
+  const sessionIds = (live ?? []).map((p) => p.session_id);
+  const subs =
+    ((roomRow as { asym_submissions?: Record<string, AsymSubmissionPayload> | null }).asym_submissions) ??
+    {};
+  const votes =
+    ((roomRow as { asym_votes?: Record<string, string | number> | null }).asym_votes) ??
+    {};
+  const source =
+    ((roomRow as { asym_source_session_id?: string | null }).asym_source_session_id) ??
+    null;
+  const deltas = computeAsymDeltas(fmt, sessionIds, source, subs, votes);
+
+  // Persist scores
+  for (const p of live ?? []) {
+    const delta = deltas[p.session_id] ?? 0;
+    await supabaseAdmin
+      .from("players")
+      .update({
+        score: (p.score ?? 0) + delta,
+        current_round_score: delta,
+        last_answer_correct: delta > 0,
+      })
+      .eq("id", p.id);
+  }
+
+  const endsAt = new Date(Date.now() + ASYM_REVEAL_MS).toISOString();
+  await supabaseAdmin
+    .from("rooms")
+    .update({
+      phase: "asym_reveal",
+      asym_phase_ends_at: endsAt,
+    })
+    .eq("id", roomId);
+  return { ok: true, phase: "asym_reveal", deltas };
+}
