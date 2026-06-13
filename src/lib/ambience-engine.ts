@@ -138,22 +138,6 @@ function makeLoopLayer(
   };
 }
 
-const chatter: LoopLayer = makeLoopLayer(crowdSeamlessAsset.url, CHATTER_TARGET, {
-  // Home/join ambience uses the same seamless bed at a quieter level so no
-  // short MP3 loop remains active before the host screen.
-  continuous: true,
-  loopStart: 0.75,
-  loopEndTrim: 2.75,
-  crossfadeSec: 4.5,
-});
-const crowd: LoopLayer = makeLoopLayer(crowdSeamlessAsset.url, CROWD_TARGET, {
-  // Trim both edges and overlap repeats so the audible bed never reaches the
-  // file boundary where a hard restart or quiet tail can create a gap.
-  continuous: true,
-  loopStart: 0.75,
-  loopEndTrim: 2.75,
-  crossfadeSec: 4.5,
-});
 const drumroll: LoopLayer = makeLoopLayer(drumAsset.url, DRUM_TARGET, {
   // The drumroll source contains several seconds of trailing silence. Treat it
   // as a trimmed, crossfaded Web Audio loop instead of an HTML audio loop.
@@ -161,6 +145,80 @@ const drumroll: LoopLayer = makeLoopLayer(drumAsset.url, DRUM_TARGET, {
   loopEnd: 6.7,
   crossfadeSec: 0.55,
 });
+
+// ─── HTML Audio layer backend (for seamless beds) ───────────────────────
+// The seamless crowd WAV loops cleanly on its own. HTMLAudioElement.loop is
+// far more resilient than the Web Audio scheduler (survives tab suspension
+// and OS audio policy quirks), so we use it for chatter + crowd.
+
+type HtmlLayer = {
+  url: string;
+  target: number;
+  audio: HTMLAudioElement | null;
+  wantPlaying: boolean;
+};
+
+const chatterHtml: HtmlLayer = { url: crowdSeamlessAsset.url, target: CHATTER_TARGET, audio: null, wantPlaying: false };
+const crowdHtml: HtmlLayer = { url: crowdSeamlessAsset.url, target: CROWD_TARGET, audio: null, wantPlaying: false };
+
+function ensureHtmlAudio(layer: HtmlLayer): HTMLAudioElement | null {
+  if (!isClient()) return null;
+  if (!layer.audio) {
+    const a = new Audio(layer.url);
+    a.loop = true;
+    a.preload = "auto";
+    a.crossOrigin = "anonymous";
+    a.volume = 0;
+    layer.audio = a;
+  }
+  return layer.audio;
+}
+
+async function startHtmlLayer(layer: HtmlLayer): Promise<boolean> {
+  if (!isClient() || muted || handedOff) return false;
+  layer.wantPlaying = true;
+  const a = ensureHtmlAudio(layer);
+  if (!a) return false;
+  a.volume = Math.max(0, Math.min(1, layer.target * duckMultiplier));
+  try {
+    await a.play();
+    setBlocked(false);
+    return true;
+  } catch {
+    setBlocked(true);
+    return false;
+  }
+}
+
+function stopHtmlLayer(layer: HtmlLayer, fadeMs = 0) {
+  layer.wantPlaying = false;
+  const a = layer.audio;
+  if (!a) return;
+  if (fadeMs <= 0) {
+    try { a.pause(); } catch { /* ignore */ }
+    a.volume = 0;
+    try { a.currentTime = 0; } catch { /* ignore */ }
+    return;
+  }
+  const startVol = a.volume;
+  const steps = 12;
+  const stepMs = fadeMs / steps;
+  let i = 0;
+  const id = window.setInterval(() => {
+    i += 1;
+    const v = startVol * (1 - i / steps);
+    a.volume = Math.max(0, v);
+    if (i >= steps) {
+      window.clearInterval(id);
+      try { a.pause(); } catch { /* ignore */ }
+    }
+  }, stepMs);
+}
+
+function applyDuckToHtml(layer: HtmlLayer) {
+  if (!layer.audio || !layer.wantPlaying) return;
+  layer.audio.volume = Math.max(0, Math.min(1, layer.target * duckMultiplier));
+}
 
 function rampGain(g: GainNode, to: number, ms: number, ctx: AudioContext) {
   const now = ctx.currentTime;
