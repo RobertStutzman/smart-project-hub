@@ -1418,7 +1418,52 @@ export function HostGameStage({ room }: Props) {
     );
   }
 
+  if (state.phase === "asym_intro" && state.asym_format) {
+    const fmt = state.asym_format as AsymFormat;
+    return (
+      <div className="relative grid h-full place-items-center overflow-hidden bg-black text-white">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(0.35_0.22_310/0.45),oklch(0.05_0.02_270)_70%)]" />
+        <div className="absolute inset-0 animate-pulse bg-[radial-gradient(circle_at_50%_50%,oklch(0.85_0.20_320/0.18),transparent_60%)]" />
+        <div className="relative max-w-4xl text-center">
+          <div className="animate-fade-in text-xs font-bold uppercase tracking-[0.6em] text-fuchsia-300/90">
+            Special Round
+          </div>
+          <h1
+            className="mt-4 font-display text-[8vw] font-black uppercase leading-none tracking-tight text-transparent [animation:scale-in_0.6s_ease-out]"
+            style={{
+              backgroundImage:
+                "linear-gradient(180deg, oklch(0.97 0.12 320) 0%, oklch(0.70 0.24 310) 100%)",
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              filter: "drop-shadow(0 8px 40px oklch(0.70 0.24 310 / 0.55))",
+            }}
+          >
+            {ASYM_LABELS[fmt]}
+          </h1>
+          <div className="mx-auto mt-4 h-[3px] w-48 rounded-full bg-gradient-to-r from-transparent via-fuchsia-300 to-transparent" />
+          <p className="mt-6 font-display text-xl font-bold text-fuchsia-100/90">
+            {ASYM_TAGLINES[fmt]}
+          </p>
+          {state.asym_prompt && (
+            <div className="mx-auto mt-10 max-w-3xl rounded-2xl border border-fuchsia-300/20 bg-white/[0.04] px-8 py-6 backdrop-blur">
+              <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-fuchsia-300/80">
+                The Prompt
+              </div>
+              <div className="mt-3 font-display text-3xl font-black text-white">
+                {state.asym_prompt}
+              </div>
+            </div>
+          )}
+          <div className="mt-8 text-[10px] font-semibold uppercase tracking-[0.4em] text-white/40">
+            Coming soon — submit on your phone
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (state.phase === "intro") {
+
     return (
       <IntroStage
         players={players.filter((p) => !p.is_audience).map((p) => ({
