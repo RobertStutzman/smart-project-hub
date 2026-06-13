@@ -700,14 +700,7 @@ export function HostGameStage({ room }: Props) {
     if (state.phase === "leaderboard") playEvent("leaderboard");
     else if (state.phase === "final_intro") {
       playEvent("final");
-      // Let the cinematic sting breathe (~3s) before the persona line,
-      // so the announcer doesn't talk over itself.
-      const t = window.setTimeout(() => {
-        duckMusic(true);
-        Promise.resolve(speakPersona(pickLine("final_hype", state.round_number)))
-          .finally(() => duckMusic(false));
-      }, 3000);
-      return () => window.clearTimeout(t);
+      // FinalIntroStage owns the per-place announcer beats; just play the sting.
     }
     else if (state.phase === "ended") {
       playEvent("victory");
