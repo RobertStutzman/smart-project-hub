@@ -1313,7 +1313,48 @@ export function HostGameStage({ room }: Props) {
 
 
 
+  // ── Asymmetry intro (phase 1 stub): speak explainer once, then after a
+  // beat clear the format and pull a regular question for this slot.
+  const asymAdvancedRef = useRef<string>("");
+  useEffect(() => {
+    if (state?.phase !== "asym_intro" || !state.asym_format) return;
+    const key = `${state.id}-${state.asym_format}-${state.asym_prompt ?? ""}`;
+    if (asymAdvancedRef.current === key) return;
+    asymAdvancedRef.current = key;
+    const line = pickAsymExplainer(state.asym_format as AsymFormat);
+    if (line) {
+      duckMusic(true);
+      speakAsElf(line, { preset: "hype", interrupt: false }).finally(() =>
+        duckMusic(false),
+      );
+    }
+    const t = window.setTimeout(async () => {
+      try {
+        await finishAsymIntroFn({
+          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+        });
+        await nextQuestionFn({
+          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+        });
+      } catch {
+        /* silent */
+      }
+    }, 11000);
+    return () => window.clearTimeout(t);
+  }, [
+    state?.phase,
+    state?.id,
+    state?.asym_format,
+    state?.asym_prompt,
+    finishAsymIntroFn,
+    nextQuestionFn,
+    room.roomCode,
+    room.hostSessionId,
+  ]);
+
   if (!state) return null;
+
+
 
   const startMs = state.question_started_at
     ? new Date(state.question_started_at).getTime()
