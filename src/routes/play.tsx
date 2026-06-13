@@ -276,6 +276,18 @@ function PlayPage() {
     }
   }, [room?.phase, me?.last_answer_correct]);
 
+  // Reset local wrong-pick memory whenever the question changes or we leave question phase.
+  useEffect(() => {
+    const qid = room?.current_question_text ?? null;
+    if (wrongPicksQuestionRef.current !== qid) {
+      wrongPicksQuestionRef.current = qid;
+      setWrongPicks([]);
+    }
+  }, [room?.current_question_text]);
+  useEffect(() => {
+    if (room?.phase !== "question" && wrongPicks.length > 0) setWrongPicks([]);
+  }, [room?.phase, wrongPicks.length]);
+
   useEffect(() => {
     if (room?.phase === "final_wager" && !me?.final_locked_at) {
       setWagerDraft((w) => Math.min(w, me?.score ?? 0));
