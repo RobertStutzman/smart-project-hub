@@ -150,7 +150,7 @@ function PlayPage() {
       const { data: r } = await supabase
         .from("rooms")
         .select(
-          "id, status, phase, current_category, current_question_text, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, is_paused, host_last_seen_at, wildcard, saboteur_session_id, glitch_active_until, glitch_used, round_number, sudden_death_session_ids",
+          "id, status, phase, current_category, current_question_text, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, is_paused, host_last_seen_at, wildcard, saboteur_session_id, glitch_active_until, glitch_used, round_number, sudden_death_session_ids, asym_format, asym_prompt, asym_source_session_id, asym_submissions, asym_votes, asym_phase_ends_at",
         )
         .eq("room_code", session.roomCode)
         .maybeSingle();
