@@ -483,15 +483,16 @@ function HostPage() {
         dlog("skip: pending");
         return;
       }
-      const [{ speakAsElf, isElfSpeaking }, { pickLobbyLine }] = await Promise.all([
+      const [{ speakAsElf }, { pickLobbyLine }] = await Promise.all([
         import("@/lib/elf-voice"),
         import("@/lib/lobby-banter"),
       ]);
       if (cancelled) return;
-      if (isElfSpeaking()) {
-        dlog("skip: busy");
-        return;
-      }
+      // Note: we intentionally do NOT gate on isElfSpeaking() here. The elf
+      // voice queue is FIFO, so queueing a quip behind a still-draining
+      // welcome/opener is fine — it'll play right after. Gating on busy
+      // ate every quip on a fresh lobby because welcome+opener takes
+      // ~12-15s and ticks at +10/+20s both saw busy.
       const { spoken, raw } = pickLobbyLine(history, playersRef.current.length, code);
       history.push(raw);
       if (history.length > 6) history.shift();
@@ -506,16 +507,17 @@ function HostPage() {
         pendingQuips = Math.max(0, pendingQuips - 1);
       }
     };
-    // Replay lobby: wait 12s before first quip, then every 25s. Fresh lobby
-    // keeps the original 10s cadence.
-    const firstQuipDelay = isReplayLobby ? 12_000 : 10_000;
-    const quipCadence = isReplayLobby ? 25_000 : 10_000;
+    // Replay lobby: wait 12s before first quip, then every 25s. Fresh lobby:
+    // 18s first delay (so welcome+opener TTS clears first), then 12s cadence.
+    const firstQuipDelay = isReplayLobby ? 12_000 : 18_000;
+    const quipCadence = isReplayLobby ? 25_000 : 12_000;
     let interval: number | null = null;
     const firstQuipTimer = window.setTimeout(() => {
       if (cancelled) return;
       void tick();
       interval = window.setInterval(() => void tick(), quipCadence);
     }, firstQuipDelay);
+
 
     return () => {
       cancelled = true;
