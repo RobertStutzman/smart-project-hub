@@ -80,6 +80,11 @@ type RoomState = {
   asym_format: string | null;
   asym_prompt: string | null;
   asym_slot_index: number | null;
+  asym_source_session_id: string | null;
+  asym_submissions: Record<string, { text?: string; choice?: "agree" | "disagree"; statements?: string[]; lieIndex?: number }> | null;
+  asym_votes: Record<string, string | number> | null;
+  asym_phase_ends_at: string | null;
+  glitch_active_until: string | null;
 };
 
 
