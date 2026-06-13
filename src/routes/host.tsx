@@ -457,8 +457,14 @@ function HostPage() {
       if (cancelled) return;
       dlog("welcome");
       void speakAsElf(pickWelcomeIntro(), { preset: "hype", interrupt: false });
-      dlog("opener queued");
-      void speakAsElf(pickOpener(), { preset: "hype", interrupt: false });
+      // Only pitch the scan/join instructions when nobody has joined yet —
+      // once a phone is in the room, they've clearly already scanned.
+      if (playersRef.current.length === 0) {
+        dlog("opener queued");
+        void speakAsElf(pickOpener(), { preset: "hype", interrupt: false });
+      } else {
+        dlog("opener skipped: players present");
+      }
     };
     const openerTimer = isReplayLobby
       ? null
