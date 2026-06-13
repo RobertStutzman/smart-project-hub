@@ -1,18 +1,15 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { play, playBootMusic, stopBootMusic } from "@/lib/sound-engine";
-import { speakAsElf } from "@/lib/elf-voice";
+import { speakAsElf, cancelElfSpeech } from "@/lib/elf-voice";
+import crowdClap from "@/assets/audio/audience/crowd_clap.mp3.asset.json";
 
 
 /**
  * Jackbox-style boot sequence — plays once when the app first loads.
  *
  * Stages: gate → splash → credits → (complete → landing).
- * The "tips / how to play" stage was removed — the rules are shown once
- * on the host start screen instead, so we don't surface them twice.
  */
-
-// Boot splash always plays per visit; only ?nosplash=1 dev override skips it.
 
 type Stage = "gate" | "splash" | "credits";
 
@@ -21,11 +18,15 @@ type Props = {
 };
 
 const STAGE_DURATIONS: Record<Exclude<Stage, "gate">, number> = {
-  splash: 3400,
+  splash: 6200,
   credits: 5200,
 };
 
 const SOFT_EASE = [0.22, 1, 0.36, 1] as const;
+
+// Time (ms after audio start) when "Beat. The. Drop." line fires.
+// SplashStage listens to this so the logo punches in sync with the VO.
+const DROP_BEAT_MS = 5400;
 
 function isStandaloneLaunch(): boolean {
   if (typeof window === "undefined") return false;
@@ -39,14 +40,68 @@ function isStandaloneLaunch(): boolean {
   return navStandalone === true;
 }
 
-function startBootIntroAudio() {
-  // One-shot music sting; elf voice layered ~1.2s in (replaces the
-  // old non-elf station ID announcer).
-  playBootMusic(0.34);
-  window.setTimeout(() => {
-    void speakAsElf("Beat. The. Drop.", { preset: "hype", interrupt: true, volume: 1.0 });
-  }, 1200);
+// Track audio-start time so SplashStage can sync its punch animation.
+let bootAudioStartedAt = 0;
+
+function playCrowdCheer() {
+  if (typeof window === "undefined") return;
+  try {
+    const a = new Audio(crowdClap.url);
+    a.volume = 0.55;
+    a.play().catch(() => {});
+    // Fade out over ~2s starting at 1.4s.
+    window.setTimeout(() => {
+      const steps = 16;
+      let i = 0;
+      const startVol = a.volume;
+      const id = window.setInterval(() => {
+        i++;
+        a.volume = Math.max(0, startVol * (1 - i / steps));
+        if (i >= steps) {
+          window.clearInterval(id);
+          try { a.pause(); } catch { /* noop */ }
+        }
+      }, 40);
+    }, 1400);
+  } catch {
+    /* noop */
+  }
 }
+
+function startBootIntroAudio() {
+  // Louder music bed + 3-beat movie-trailer VO + crowd cheer under the punch.
+  playBootMusic(0.78);
+  bootAudioStartedAt = Date.now();
+  // Beat 1
+  window.setTimeout(() => {
+    void speakAsElf("In a world… of bad answers…", {
+      preset: "calm",
+      interrupt: true,
+      volume: 1.0,
+    });
+  }, 1000);
+  // Beat 2
+  window.setTimeout(() => {
+    void speakAsElf("…and faster fingers…", {
+      preset: "calm",
+      interrupt: false,
+      volume: 1.0,
+    });
+  }, 3400);
+  // Beat 3 — the drop. Crowd cheer fires just before.
+  window.setTimeout(() => {
+    playCrowdCheer();
+  }, DROP_BEAT_MS - 200);
+  window.setTimeout(() => {
+    void speakAsElf("Beat. The. Drop.", {
+      preset: "hype",
+      interrupt: false,
+      volume: 1.0,
+    });
+  }, DROP_BEAT_MS);
+}
+
+
 
 
 export function BootSequence({ onComplete }: Props) {
