@@ -232,7 +232,7 @@ export function HostGameStage({ room }: Props) {
       const { data: r } = await supabase
         .from("rooms")
         .select(
-          "id, room_code, phase, current_question_id, current_question_text, current_question_tts_url, current_explanation_tts_url, current_answers, current_correct_index, current_explanation, current_category, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number, sudden_death_session_ids",
+          "id, room_code, phase, current_question_id, current_question_text, current_question_tts_url, current_explanation_tts_url, current_answers, current_correct_index, current_explanation, current_category, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number, sudden_death_session_ids, asym_format, asym_prompt, asym_slot_index",
         )
         .eq("id", room.id)
         .maybeSingle();
