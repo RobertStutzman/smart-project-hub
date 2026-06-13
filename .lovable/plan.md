@@ -1,59 +1,29 @@
-# Fix: End-game silence
+## Goal
+Replace the synth-generated timer tick (`tick` + `tickHeavy` in `sound-engine.ts`) with real audio clips generated via ElevenLabs Sound Effects, served as CDN assets.
 
-## What broke
-In `src/components/host/HostGameStage.tsx` (lines 599-608), the master music switch only starts a bed on `question / final_question / intro / credits / lobby / final_intro / final_wager`. **Every other phase falls through to `stopMusic()`** — including `reveal`, `leaderboard`, `final_reveal`, and `ended` (WinnerSpotlight).
+## Scope
+Only the timer tick. Wrong / correct / leaderboard sounds stay as-is.
 
-Result: the moment the final answer is revealed, music stops. `playEvent("victory")` fires once on `ended` (line 688), then the WinnerSpotlight sits in silence until `credits` mounts and starts its own bed.
+`tick` fires once per second under the question timer; `tickHeavy` is the heavier heartbeat for the final question's last seconds.
 
-## Fix (scoped, no behavior changes elsewhere)
+## Steps
 
-**File: `src/components/host/HostGameStage.tsx`** — only the music switch effect (lines 599-608) and the phase-sting effect (lines 670-689).
+1. **Connector check.** Verify the ElevenLabs standard connector is linked. If not, prompt and link it.
 
-1. Keep the "tense" bed running through `reveal` and `final_reveal` instead of dropping to silence — no audible gap between question and reveal.
-2. On `ended`, start `playCreditsMusic(0.42)` (louder than the credits' 0.22 duck) so WinnerSpotlight has a continuous celebratory bed. `credits` already calls `playCreditsMusic(0.22)`, so the handoff is seamless — same track, just ducks for the voiceover.
-3. On `leaderboard`, keep the "lobby" bed at low volume instead of going silent.
-4. Layer hype on `ended`: in addition to the existing `playEvent("victory")` sting, fire a `play("whoosh")` + a second `playEvent("victory")` at ~3.5s so the spotlight has two beats of excitement, not one.
+2. **Generate two SFX once via ElevenLabs Sound Effects API:**
+   - `tick.mp3` — ~0.3s. Prompt: *"Short warm wooden tock, single hit, dry, no reverb, percussive, 300ms, clean tail"*.
+   - `tick-heavy.mp3` — ~0.5s. Prompt: *"Deep cinematic heartbeat thump, sub-bass with low wooden body, single hit, 500ms, dramatic, tense"*.
+   - Use a short throwaway server script (one-off) to call the API and write the MP3s to `/tmp`, then upload via `lovable-assets create` → `src/assets/audio/tick.mp3.asset.json` and `tick-heavy.mp3.asset.json`. No persistent endpoint, no runtime cost per play.
 
-No new sound assets, no changes to `sound-engine.ts`, `CreditsStage.tsx`, `WinnerSpotlight.tsx`, server functions, scoring, or any other phase.
+3. **Wire into `src/lib/sound-engine.ts`:**
+   - Import both `.asset.json` pointers alongside the other audio assets (~line 276–281).
+   - Add a tiny pooled-playback helper for tick clips (reuse a single `HTMLAudioElement` per slot so firing every second doesn't churn GC or stagger on mobile).
+   - In `playInner(sfx)`, for `case "tick"` and `case "tickHeavy"`, play the asset via the pool. On failure (autoplay block, decode error), fall back to the existing synth `sweep()` calls so nothing goes silent.
+   - Respect `synthVolumeScale` so audience overlays still duck the tick the same way.
 
-## New switch (replaces lines 599-608)
+4. **Verify.** Build, then in preview confirm the question timer ticks with the new sound and the final-question last-5 heartbeat uses the heavy variant. No console errors. No regressions on other sounds.
 
-```ts
-if (state.phase === "question" || state.phase === "final_question" || state.phase === "reveal")
-  startMusic("tense", 380);
-else if (state.phase === "final_reveal")
-  startMusic("tense", 380);
-else if (state.phase === "intro")
-  startMusic("lobby", 600);
-else if (state.phase === "lobby" || state.phase === "leaderboard")
-  startMusic("lobby", 600);
-else if (state.phase === "final_intro" || state.phase === "final_wager")
-  startMusic("tense", 520);
-else if (state.phase === "ended") {
-  // Celebratory bed under WinnerSpotlight; credits phase will duck it to 0.22.
-  void import("@/lib/sound-engine").then((m) => m.playCreditsMusic(0.42));
-} else if (state.phase === "credits") {
-  // CreditsStage starts its own playCreditsMusic(0.22); don't fight it.
-} else {
-  stopMusic();
-}
-```
-
-## Hype layer on `ended` (extends lines 688)
-
-Replace the single-line `else if (state.phase === "ended") playEvent("victory");` with:
-
-```ts
-else if (state.phase === "ended") {
-  playEvent("victory");
-  const t1 = window.setTimeout(() => play("whoosh"), 1800);
-  const t2 = window.setTimeout(() => playEvent("victory"), 3500);
-  return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
-}
-```
-
-## Verification
-- Enter `ended` phase → music bed audible immediately, victory sting on entry, whoosh ~1.8s, second victory sting ~3.5s, bed continues.
-- Transition `ended → credits` → no audio gap, no restart blip (`playCreditsMusic` already handles same-track reuse at lines 380-384 of `sound-engine.ts`); voiceover ducks the bed via existing `duckMusic`.
-- Question → reveal → leaderboard: continuous music instead of silence between phases.
-- No regressions on `lobby / intro / question / final_*`.
+## Technical notes
+- ElevenLabs SFX API: `POST https://api.elevenlabs.io/v1/sound-generation` with `{ text, duration_seconds, prompt_influence: 0.4 }`, `xi-api-key` header. Returns raw MP3 bytes.
+- Generation script is run-once from the sandbox; it does **not** ship in the app bundle. The committed artifacts are just the two `.asset.json` pointers.
+- Pool pattern: `const pool = new Audio(url); pool.preload = "auto";` then on each play `pool.currentTime = 0; pool.play()`. One element per tick variant is enough at 1 Hz.

@@ -212,16 +212,19 @@ function playInner(sfx: Sfx) {
       sweep(800, 80, 0.6, "sawtooth", 0.25);
       break;
     case "tick": {
-      // Warm wooden tock — pitched body + transient click. Lower and rounder
-      // than a digital beep so the loop under the timer is unobtrusive.
-      sweep(520, 360, 0.06, "triangle", 0.12);
-      sweep(1800, 900, 0.018, "sine", 0.05);
+      if (!playTickClip("tick", 0.7)) {
+        // Fallback: warm wooden tock synth.
+        sweep(520, 360, 0.06, "triangle", 0.12);
+        sweep(1800, 900, 0.018, "sine", 0.05);
+      }
       break;
     }
     case "tickHeavy": {
-      // Heavier tock with a sub-bass thump for the final-question heartbeat.
-      sweep(420, 280, 0.08, "triangle", 0.16);
-      sweep(110, 55, 0.18, "sine", 0.32);
+      if (!playTickClip("tickHeavy", 0.95)) {
+        // Fallback: heavy thump synth.
+        sweep(420, 280, 0.08, "triangle", 0.16);
+        sweep(110, 55, 0.18, "sine", 0.32);
+      }
       break;
     }
     case "airhorn":
@@ -279,6 +282,34 @@ import finalWagerBed from "@/assets/audio/final/final_wager_bed.mp3.asset.json";
 import creditsOutro from "@/assets/audio/music/credits_outro.mp3.asset.json";
 import bootSting from "@/assets/audio/music/boot_sting.mp3.asset.json";
 import bootStationId from "@/assets/audio/voice/boot_station_id.mp3.asset.json";
+import tickClip from "@/assets/audio/tick.mp3.asset.json";
+import tickHeavyClip from "@/assets/audio/tick-heavy.mp3.asset.json";
+
+// Pooled tick playback — fires once per second under the timer, so reuse a
+// single HTMLAudioElement per variant to avoid GC churn and decode lag.
+const TICK_CLIP_URLS: Record<"tick" | "tickHeavy", string> = {
+  tick: tickClip.url,
+  tickHeavy: tickHeavyClip.url,
+};
+const tickPool: Partial<Record<"tick" | "tickHeavy", HTMLAudioElement>> = {};
+function playTickClip(kind: "tick" | "tickHeavy", baseVolume: number): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    let a = tickPool[kind];
+    if (!a) {
+      a = new Audio(TICK_CLIP_URLS[kind]);
+      a.preload = "auto";
+      tickPool[kind] = a;
+    }
+    a.volume = Math.max(0, Math.min(1, baseVolume * synthVolumeScale));
+    try { a.currentTime = 0; } catch { /* ignore */ }
+    const p = a.play();
+    if (p && typeof p.catch === "function") p.catch(() => {});
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const DEFAULT_EVENT_CLIPS: Partial<Record<GameEvent, CustomClip>> = {
   lobby_music: { url: lobbyTrivia.url, volume: 0.22, loop: true },
