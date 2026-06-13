@@ -391,23 +391,43 @@ function stopLoop(layer: LoopLayer, fadeMs: number) {
   layer.sources.clear();
 }
 
+// ─── Visibility / unlock watchdog ───────────────────────────────────────
+
+let watchdogInstalled = false;
+
+function installWatchdog() {
+  if (watchdogInstalled || !isClient()) return;
+  watchdogInstalled = true;
+  const onVisible = () => {
+    if (document.visibilityState !== "visible") return;
+    resumeAmbienceContext();
+    retryBlockedAmbience();
+  };
+  document.addEventListener("visibilitychange", onVisible);
+  // Also nudge on focus — some browsers fire focus without visibilitychange.
+  window.addEventListener("focus", onVisible);
+}
+
 // ─── Public API ─────────────────────────────────────────────────────────
 
 export function startLobbyChatter(): Promise<boolean> {
   if (!isClient() || muted || handedOff) return Promise.resolve(false);
   wanted.add("chatter");
-  return startLoop(chatter);
+  installWatchdog();
+  return startHtmlLayer(chatterHtml);
 }
 
 export function startCrowd(): Promise<boolean> {
   if (!isClient() || muted || handedOff) return Promise.resolve(false);
   wanted.add("crowd");
-  return startLoop(crowd);
+  installWatchdog();
+  return startHtmlLayer(crowdHtml);
 }
 
 export function startDrumroll(): Promise<boolean> {
   if (!isClient() || muted || handedOff) return Promise.resolve(false);
   wanted.add("drumroll");
+  installWatchdog();
   return startLoop(drumroll);
 }
 
@@ -423,13 +443,20 @@ export function resumeAmbienceContext(): void {
 }
 
 /**
- * Retry any layers that were requested while the AudioContext was blocked.
+ * Retry any layers that were requested while the AudioContext was blocked,
+ * or whose HTMLAudio element got paused (tab suspended, OS interrupt, etc.).
  * Safe to call multiple times; layers already playing are no-ops.
  */
 export function retryBlockedAmbience(): void {
   if (!isClient() || muted || handedOff) return;
-  if (wanted.has("chatter")) void startLoop(chatter);
-  if (wanted.has("crowd")) void startLoop(crowd);
+  if (wanted.has("chatter")) {
+    const a = chatterHtml.audio;
+    if (!a || a.paused) void startHtmlLayer(chatterHtml);
+  }
+  if (wanted.has("crowd")) {
+    const a = crowdHtml.audio;
+    if (!a || a.paused) void startHtmlLayer(crowdHtml);
+  }
   if (wanted.has("drumroll")) void startLoop(drumroll);
 }
 
@@ -444,15 +471,15 @@ export function climaxAndHandoff() {
     swell.play().catch(() => {});
   }
   wanted.clear();
-  stopLoop(chatter, 700);
-  stopLoop(crowd, 700);
+  stopHtmlLayer(chatterHtml, 700);
+  stopHtmlLayer(crowdHtml, 700);
   stopLoop(drumroll, 500);
 }
 
 export function stopAllAmbience() {
   wanted.clear();
-  stopLoop(chatter, 0);
-  stopLoop(crowd, 0);
+  stopHtmlLayer(chatterHtml, 0);
+  stopHtmlLayer(crowdHtml, 0);
   stopLoop(drumroll, 0);
 }
 
@@ -460,14 +487,27 @@ export function stopAllAmbience() {
 export function stopLobbyBuildup() {
   wanted.delete("crowd");
   wanted.delete("drumroll");
-  stopLoop(crowd, 600);
+  stopHtmlLayer(crowdHtml, 600);
   stopLoop(drumroll, 500);
 }
 
 
 export function setAmbienceMuted(v: boolean) {
+  const wasMuted = muted;
   muted = v;
-  if (v) stopAllAmbience();
+  if (v) {
+    stopHtmlLayer(chatterHtml, 0);
+    stopHtmlLayer(crowdHtml, 0);
+    stopLoop(drumroll, 0);
+    // Preserve `wanted` so we can resume on unmute.
+    return;
+  }
+  // Unmuting — restart anything that was wanted.
+  if (wasMuted && !handedOff) {
+    if (wanted.has("chatter")) void startHtmlLayer(chatterHtml);
+    if (wanted.has("crowd")) void startHtmlLayer(crowdHtml);
+    if (wanted.has("drumroll")) void startLoop(drumroll);
+  }
 }
 
 // ─── Ducking (lower ambience under VO) ──────────────────────────────────
@@ -482,15 +522,17 @@ function applyDuckToLayer(layer: LoopLayer, ms: number) {
 
 export function duckAmbience(multiplier = 0.35, ms = 400) {
   duckMultiplier = Math.max(0, Math.min(1, multiplier));
-  applyDuckToLayer(chatter, ms);
-  applyDuckToLayer(crowd, ms);
+  void ms;
+  applyDuckToHtml(chatterHtml);
+  applyDuckToHtml(crowdHtml);
   applyDuckToLayer(drumroll, ms);
 }
 
 export function unduckAmbience(ms = 500) {
   duckMultiplier = 1;
-  applyDuckToLayer(chatter, ms);
-  applyDuckToLayer(crowd, ms);
+  void ms;
+  applyDuckToHtml(chatterHtml);
+  applyDuckToHtml(crowdHtml);
   applyDuckToLayer(drumroll, ms);
 }
 
@@ -498,3 +540,4 @@ export function unduckAmbience(ms = 500) {
 export function resetAmbience() {
   handedOff = false;
 }
+
