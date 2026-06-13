@@ -207,6 +207,8 @@ export function HostGameStage({ room }: Props) {
 
   const nextQuestionFn = useServerFn(nextQuestion);
   const finishAsymIntroFn = useServerFn(finishAsymIntro);
+  const startAsymRoundFn = useServerFn(startAsymRound);
+  const advanceAsymPhaseFn = useServerFn(advanceAsymPhase);
 
   const dropWrongFn = useServerFn(dropWrongAnswer);
   const endQuestionFn = useServerFn(endQuestion);
