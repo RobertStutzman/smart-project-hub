@@ -62,20 +62,26 @@ const IDLE_HIGH: string[] = [
 
 const IDLE_GENERIC: string[] = [
   "Tick tock. I'm not getting any younger and neither is this trivia.",
-  "Come on, the code is right there — {code}. Four letters. You got this.",
   "Any day now, friends. Any day now.",
   "I've waited longer for pizza. Get in here.",
   "If we wait any longer I'm gonna start asking questions to myself.",
   "Whoever's still typing their nickname — there's no prize for creativity.",
   "Last call for the bathroom break. Truly.",
   "I'm running out of small talk. And patience.",
-  "The code is {code}. Yes, still. It hasn't changed in the last ten seconds.",
   "If you're stalling because you're nervous — fair. Also, get in.",
   "Stretch a hamstring. Crack a knuckle. Anything. We're so close.",
   "I'd start a podcast in the time it's taking some of you to type a nickname.",
   "Whoever's debating between two nicknames — they're both bad. Pick one.",
   "I can hear you scrolling. Pick the dumb one. Commit.",
   "Final boarding call. Doors closing soonish. Eventually. Hopefully.",
+];
+
+// Lines that explicitly nudge people to scan / type the code. Only mixed in
+// when the lobby is still empty — once anyone has joined, they obviously
+// already found the code and don't need to hear it again.
+const IDLE_JOIN_NUDGE: string[] = [
+  "Come on, the code is right there — {code}. Four letters. You got this.",
+  "The code is {code}. Yes, still. It hasn't changed in the last ten seconds.",
 ];
 
 
@@ -95,10 +101,11 @@ export function pickLobbyLine(
   code: string,
 ): { spoken: string; raw: string } {
   let pool: string[];
-  if (count === 0) pool = [...IDLE_EMPTY, ...IDLE_GENERIC];
+  if (count === 0) pool = [...IDLE_EMPTY, ...IDLE_JOIN_NUDGE, ...IDLE_GENERIC];
   else if (count <= 2) pool = [...IDLE_LOW, ...IDLE_GENERIC];
   else if (count <= 5) pool = [...IDLE_MID, ...IDLE_GENERIC];
   else pool = [...IDLE_HIGH, ...IDLE_GENERIC];
+
 
   const recent = new Set(history.slice(-3));
   const fresh = pool.filter((l) => !recent.has(l));
