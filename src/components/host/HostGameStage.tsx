@@ -1342,8 +1342,7 @@ export function HostGameStage({ room }: Props) {
 
 
 
-  // ── Asymmetry intro (phase 1 stub): speak explainer once, then after a
-  // beat clear the format and pull a regular question for this slot.
+  // ── Asymmetry intro: speak explainer once, then start the submit phase ──
   const asymAdvancedRef = useRef<string>("");
   useEffect(() => {
     if (state?.phase !== "asym_intro" || !state.asym_format) return;
@@ -1359,27 +1358,65 @@ export function HostGameStage({ room }: Props) {
     }
     const t = window.setTimeout(async () => {
       try {
-        await finishAsymIntroFn({
-          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
-        });
-        await nextQuestionFn({
+        await startAsymRoundFn({
           data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
         });
       } catch {
-        /* silent */
+        // Fallback: if asym infra isn't ready, skip to a normal question.
+        try {
+          await finishAsymIntroFn({
+            data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+          });
+          await nextQuestionFn({
+            data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+          });
+        } catch { /* silent */ }
       }
-    }, 11000);
+    }, 8500);
     return () => window.clearTimeout(t);
   }, [
     state?.phase,
     state?.id,
     state?.asym_format,
     state?.asym_prompt,
+    startAsymRoundFn,
     finishAsymIntroFn,
     nextQuestionFn,
     room.roomCode,
     room.hostSessionId,
   ]);
+
+  // ── Asymmetry timer: auto-advance asym_submit → vote → reveal → leaderboard ──
+  const asymPhaseAdvancedRef = useRef<string>("");
+  useEffect(() => {
+    if (!state) return;
+    const isAsymTimed =
+      state.phase === "asym_submit" ||
+      state.phase === "asym_vote" ||
+      state.phase === "asym_reveal";
+    if (!isAsymTimed || !state.asym_phase_ends_at) return;
+    const endsMs = new Date(state.asym_phase_ends_at).getTime();
+    if (!Number.isFinite(endsMs)) return;
+    const key = `${state.id}-${state.phase}-${state.asym_phase_ends_at}`;
+    if (asymPhaseAdvancedRef.current === key) return;
+    const fire = () => {
+      asymPhaseAdvancedRef.current = key;
+      advanceAsymPhaseFn({
+        data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+      }).catch(() => {});
+    };
+    const remaining = Math.max(0, endsMs - Date.now());
+    const id = window.setTimeout(fire, remaining + 50);
+    return () => window.clearTimeout(id);
+  }, [
+    state?.id,
+    state?.phase,
+    state?.asym_phase_ends_at,
+    advanceAsymPhaseFn,
+    room.roomCode,
+    room.hostSessionId,
+  ]);
+
 
   if (!state) return null;
 
