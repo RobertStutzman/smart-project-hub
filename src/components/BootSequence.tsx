@@ -18,15 +18,16 @@ type Props = {
 };
 
 const STAGE_DURATIONS: Record<Exclude<Stage, "gate">, number> = {
-  splash: 6200,
+  splash: 8800,
   credits: 5200,
 };
 
 const SOFT_EASE = [0.22, 1, 0.36, 1] as const;
 
-// Time (ms after audio start) when "Beat. The. Drop." line fires.
-// SplashStage listens to this so the logo punches in sync with the VO.
-const DROP_BEAT_MS = 5400;
+// Time (ms after audio start) when "Beat. The. Drop." word lands in the
+// single-line trailer VO. SplashStage syncs the logo punch to this.
+const DROP_BEAT_MS = 6800;
+
 
 function isStandaloneLaunch(): boolean {
   if (typeof window === "undefined") return false;
