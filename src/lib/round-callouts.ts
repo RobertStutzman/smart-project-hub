@@ -35,39 +35,41 @@ const ROUND1_OPENERS = [
   "Round one. First question. Don't choke.",
 ];
 
-function roundNOpeners(n: number): string[] {
+function roundNOpeners(n: number, q: number): string[] {
   return [
-    `Round ${n}. Question 1.`,
-    `Round ${n} kicks off. Question 1.`,
-    `New round. Question 1. Stay sharp.`,
+    `Round ${n} begins. Question ${q}.`,
+    `Round ${n} kicks off. Question ${q}.`,
+    `New round. Question ${q}. Stay sharp.`,
   ];
 }
 
-// --- Mid-round pools (Q2–Q4) ---
+// --- Mid-round pools (Q2–Q4 within a round, absolute number spoken) ---
 
-function midRoundLines(n: number): string[] {
+function midRoundLines(q: number): string[] {
   return [
-    `Question ${n}.`,
-    `Question ${n} coming in.`,
-    `Onto question ${n}.`,
-    `Next up — question ${n}.`,
-    `Question ${n}. Lock in.`,
-    `Here's question ${n}.`,
-    `Question ${n}. Eyes up.`,
+    `Question ${q}.`,
+    `Question ${q} coming in.`,
+    `Onto question ${q}.`,
+    `Next up — question ${q}.`,
+    `Question ${q}. Lock in.`,
+    `Here's question ${q}.`,
+    `Question ${q}. Eyes up.`,
   ];
 }
 
-// --- Wildcard slot (Q5 of rounds 1–4) ---
+// --- Wildcard slot (Q5 of rounds 1–4, absolute number spoken) ---
 
-const WILDCARD_PREFIXES = [
-  "Question 5 — and it's a wildcard.",
-  "Final question of the round, and it's a wildcard.",
-  "Wildcard time. Question 5.",
-];
+function wildcardPrefixes(q: number): string[] {
+  return [
+    `Question ${q} — and it's a wildcard.`,
+    `Final question of the round, and it's a wildcard.`,
+    `Wildcard time. Question ${q}.`,
+  ];
+}
 
-function wildcardLines(kind: WildcardKind): string[] {
+function wildcardLines(kind: WildcardKind, q: number): string[] {
   const tail = WILDCARD_TAIL[kind];
-  return WILDCARD_PREFIXES.map((p) => `${p} ${tail}`);
+  return wildcardPrefixes(q).map((p) => `${p} ${tail}`);
 }
 
 // --- Deterministic picker ---
@@ -100,17 +102,17 @@ export function getRoundCallout({
 
   // Wildcard slot — Q5 of any non-final round
   if (qInRound === 5 && wildcard) {
-    return pick(wildcardLines(wildcard), q);
+    return pick(wildcardLines(wildcard, q), q);
   }
 
   // Round opener — Q1 of any round
   if (qInRound === 1) {
-    const pool = roundIdx === 1 ? ROUND1_OPENERS : roundNOpeners(roundIdx);
+    const pool = roundIdx === 1 ? ROUND1_OPENERS : roundNOpeners(roundIdx, q);
     return pick(pool, q);
   }
 
-  // Mid-round Q2–Q4
-  return pick(midRoundLines(qInRound), q);
+  // Mid-round Q2–Q4 (absolute number spoken)
+  return pick(midRoundLines(q), q);
 }
 
 /**
@@ -119,12 +121,21 @@ export function getRoundCallout({
  */
 export const ALL_ROUND_CALLOUTS: string[] = (() => {
   const out: string[] = [];
-  // Openers
+  // Round 1 opener (q=1)
   out.push(...ROUND1_OPENERS);
-  for (let r = 2; r <= 4; r++) out.push(...roundNOpeners(r));
-  // Mid-round Q2–Q4
-  for (let n = 2; n <= 4; n++) out.push(...midRoundLines(n));
-  // Wildcards
+  // Round 2/3/4 openers (q = 6, 11, 16)
+  for (let r = 2; r <= 4; r++) {
+    const q = (r - 1) * 5 + 1;
+    out.push(...roundNOpeners(r, q));
+  }
+  // Mid-round Q2–Q4 within each round → absolute q values
+  for (let r = 1; r <= 4; r++) {
+    for (let i = 2; i <= 4; i++) {
+      const q = (r - 1) * 5 + i;
+      out.push(...midRoundLines(q));
+    }
+  }
+  // Wildcards — Q5 of each round (q = 5, 10, 15, 20) × kinds
   const kinds: WildcardKind[] = [
     "lightning",
     "double_or_nothing",
@@ -134,6 +145,9 @@ export const ALL_ROUND_CALLOUTS: string[] = (() => {
     "glitch",
     "roast",
   ];
-  for (const k of kinds) out.push(...wildcardLines(k));
+  for (let r = 1; r <= 4; r++) {
+    const q = r * 5;
+    for (const k of kinds) out.push(...wildcardLines(k, q));
+  }
   return out;
 })();
