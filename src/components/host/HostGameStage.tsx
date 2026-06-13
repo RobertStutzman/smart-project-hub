@@ -596,7 +596,7 @@ export function HostGameStage({ room }: Props) {
       void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
       // Reset per-game callout latches so a fresh game still welcomes players.
       welcomeFiredRef.current = false;
-      finalShowdownFiredRef.current = false;
+      // finalShowdownFiredRef removed — FinalIntroStage owns the reveal now.
       lastRoundStingKeyRef.current = "";
       // Silent beat, then ambience back.
       stopMusic();
