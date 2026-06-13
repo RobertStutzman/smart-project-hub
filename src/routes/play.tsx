@@ -2,7 +2,9 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { heartbeatPlayer, setAudienceMode } from "@/lib/rooms.functions";
-import { lockAnswer, activate2x, triggerGlitch, submitWager, lockFinalAnswer } from "@/lib/game.functions";
+import { lockAnswer, activate2x, triggerGlitch, submitWager, lockFinalAnswer, submitAsymEntry, submitAsymVote } from "@/lib/game.functions";
+import type { AsymFormat } from "@/lib/asymmetry";
+import { ASYM_LABELS } from "@/lib/asymmetry";
 import { loadPlayerSession, clearPlayerSession } from "@/lib/player-session";
 import { supabase } from "@/integrations/supabase/client";
 import { useWakeLock } from "@/hooks/use-wake-lock";
@@ -49,6 +51,12 @@ type RoomState = {
   glitch_used: boolean;
   round_number: number;
   sudden_death_session_ids: string[] | null;
+  asym_format: string | null;
+  asym_prompt: string | null;
+  asym_source_session_id: string | null;
+  asym_submissions: Record<string, { text?: string; choice?: "agree" | "disagree"; statements?: string[]; lieIndex?: number }> | null;
+  asym_votes: Record<string, string | number> | null;
+  asym_phase_ends_at: string | null;
 };
 
 type Me = {
@@ -97,6 +105,8 @@ function PlayPage() {
   const triggerGlitchFn = useServerFn(triggerGlitch);
   const submitWagerFn = useServerFn(submitWager);
   const lockFinalFn = useServerFn(lockFinalAnswer);
+  const submitAsymEntryFn = useServerFn(submitAsymEntry);
+  const submitAsymVoteFn = useServerFn(submitAsymVote);
   const [allPlayers, setAllPlayers] = useState<LobbyPlayer[]>([]);
   useWakeLock(true);
 
@@ -142,7 +152,7 @@ function PlayPage() {
       const { data: r } = await supabase
         .from("rooms")
         .select(
-          "id, status, phase, current_category, current_question_text, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, is_paused, host_last_seen_at, wildcard, saboteur_session_id, glitch_active_until, glitch_used, round_number, sudden_death_session_ids",
+          "id, status, phase, current_category, current_question_text, current_answers, current_correct_index, current_explanation, question_started_at, question_duration_ms, dropped_indexes, is_paused, host_last_seen_at, wildcard, saboteur_session_id, glitch_active_until, glitch_used, round_number, sudden_death_session_ids, asym_format, asym_prompt, asym_source_session_id, asym_submissions, asym_votes, asym_phase_ends_at",
         )
         .eq("room_code", session.roomCode)
         .maybeSingle();
@@ -923,6 +933,47 @@ function PlayPage() {
                   )}
 
               </>
+            ) : room.phase === "asym_intro" ? (
+              <div className="grid flex-1 place-items-center rounded-3xl border-2 border-fuchsia-400/60 bg-gradient-to-br from-fuchsia-600/20 via-black to-black p-6 text-center">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.4em] text-fuchsia-300">Special Round</div>
+                  <div className="mt-3 font-display text-3xl font-black text-white">
+                    {room.asym_format ? ASYM_LABELS[room.asym_format as AsymFormat] : "Special"}
+                  </div>
+                  <div className="mt-4 text-sm text-fuchsia-100/80">Get ready…</div>
+                </div>
+              </div>
+            ) : room.phase === "asym_submit" && room.asym_format ? (
+              <AsymSubmitForm
+                fmt={room.asym_format as AsymFormat}
+                prompt={room.asym_prompt ?? ""}
+                sessionId={session.sessionId}
+                sourceSessionId={room.asym_source_session_id}
+                roomCode={session.roomCode}
+                submissions={room.asym_submissions ?? {}}
+                endsAt={room.asym_phase_ends_at}
+                submitFn={submitAsymEntryFn}
+              />
+            ) : room.phase === "asym_vote" && room.asym_format ? (
+              <AsymVoteForm
+                fmt={room.asym_format as AsymFormat}
+                prompt={room.asym_prompt ?? ""}
+                sessionId={session.sessionId}
+                sourceSessionId={room.asym_source_session_id}
+                submissions={room.asym_submissions ?? {}}
+                votes={room.asym_votes ?? {}}
+                endsAt={room.asym_phase_ends_at}
+                allPlayers={allPlayers}
+                roomCode={session.roomCode}
+                voteFn={submitAsymVoteFn}
+              />
+            ) : room.phase === "asym_reveal" ? (
+              <div className="grid flex-1 place-items-center rounded-3xl border border-fuchsia-400/40 bg-gradient-to-br from-fuchsia-600/15 via-black to-black p-6 text-center animate-scale-in">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.4em] text-fuchsia-300">Results</div>
+                  <div className="mt-3 text-base text-fuchsia-100/85">Look at the big screen 👀</div>
+                </div>
+              </div>
             ) : room.phase === "leaderboard" ? (
               <div className="grid flex-1 place-items-center rounded-3xl border border-white/20 bg-white/10 p-6 text-center backdrop-blur animate-scale-in">
                 <div>
@@ -1066,4 +1117,248 @@ function LobbyWaitingCard({ nickname, avatarUrl, playerCount }: { nickname: stri
     </div>
   );
 }
+
+// ── Asymmetry input forms ──────────────────────────────────────────────
+
+function useAsymCountdown(endsAt: string | null): number {
+  const [n, setN] = useState(() => calcAsym(endsAt));
+  useEffect(() => {
+    setN(calcAsym(endsAt));
+    if (!endsAt) return;
+    const id = window.setInterval(() => setN(calcAsym(endsAt)), 250);
+    return () => window.clearInterval(id);
+  }, [endsAt]);
+  return n;
+}
+function calcAsym(endsAt: string | null): number {
+  if (!endsAt) return 0;
+  return Math.max(0, Math.ceil((new Date(endsAt).getTime() - Date.now()) / 1000));
+}
+
+type AsymSub = { text?: string; choice?: "agree" | "disagree"; statements?: string[]; lieIndex?: number };
+
+function AsymSubmitForm({
+  fmt, prompt, sessionId, sourceSessionId, roomCode, submissions, endsAt, submitFn,
+}: {
+  fmt: AsymFormat;
+  prompt: string;
+  sessionId: string;
+  sourceSessionId: string | null;
+  roomCode: string;
+  submissions: Record<string, AsymSub>;
+  endsAt: string | null;
+  submitFn: (args: { data: { roomCode: string; sessionId: string; payload: AsymSub } }) => Promise<unknown>;
+}) {
+  const secs = useAsymCountdown(endsAt);
+  const already = !!submissions[sessionId];
+  const [text, setText] = useState("");
+  const [choice, setChoice] = useState<"agree" | "disagree" | null>(null);
+  const [statements, setStatements] = useState<string[]>(["", "", ""]);
+  const [lieIndex, setLieIndex] = useState<number>(0);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const isSource = fmt === "two_truths" && sourceSessionId === sessionId;
+  const spectator = fmt === "two_truths" && !isSource;
+
+  const send = async (payload: AsymSub) => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await submitFn({ data: { roomCode, sessionId, payload } });
+      Haptics.lock();
+    } catch (e) {
+      setErr((e as Error)?.message ?? "Failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-1 flex-col gap-4 rounded-3xl border-2 border-fuchsia-400/50 bg-gradient-to-br from-fuchsia-600/15 via-black to-black p-5">
+      <div className="flex items-center justify-between">
+        <div className="text-[10px] font-black uppercase tracking-[0.35em] text-fuchsia-300">
+          {ASYM_LABELS[fmt]}
+        </div>
+        <div className="font-mono text-2xl font-black text-fuchsia-100">{secs}s</div>
+      </div>
+      <div className="rounded-2xl border border-fuchsia-300/30 bg-white/[0.04] p-4 text-base font-bold leading-snug text-white">
+        {prompt}
+      </div>
+
+      {already ? (
+        <div className="grid flex-1 place-items-center text-center">
+          <div className="text-sm font-bold uppercase tracking-[0.3em] text-emerald-300">✓ Locked in</div>
+        </div>
+      ) : spectator ? (
+        <div className="grid flex-1 place-items-center text-center text-sm text-fuchsia-100/80">
+          Wait while the chosen player writes their statements…
+        </div>
+      ) : fmt === "hot_take" ? (
+        <div className="flex flex-1 flex-col gap-3">
+          {(["agree", "disagree"] as const).map((c) => (
+            <button
+              key={c}
+              disabled={busy}
+              onClick={() => { setChoice(c); void send({ choice: c }); }}
+              className={`rounded-2xl border-2 px-4 py-5 font-display text-2xl font-black uppercase tracking-widest transition active:scale-[0.98] ${
+                choice === c
+                  ? "border-fuchsia-300 bg-fuchsia-500/30 text-white"
+                  : "border-fuchsia-400/40 bg-fuchsia-500/10 text-fuchsia-100"
+              }`}
+            >
+              {c === "agree" ? "👍 Agree" : "👎 Disagree"}
+            </button>
+          ))}
+        </div>
+      ) : fmt === "two_truths" ? (
+        <div className="flex flex-1 flex-col gap-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                value={statements[i]}
+                onChange={(e) => {
+                  const next = [...statements];
+                  next[i] = e.target.value;
+                  setStatements(next);
+                }}
+                maxLength={120}
+                placeholder={`Statement ${i + 1}`}
+                className="flex-1 rounded-xl border border-fuchsia-300/30 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-fuchsia-300"
+              />
+              <button
+                onClick={() => setLieIndex(i)}
+                className={`shrink-0 rounded-lg border px-2 py-1 text-[10px] font-black uppercase tracking-wider ${
+                  lieIndex === i ? "border-rose-300 bg-rose-500/30 text-white" : "border-white/20 text-white/60"
+                }`}
+              >
+                Lie
+              </button>
+            </div>
+          ))}
+          <button
+            disabled={busy || statements.some((s) => !s.trim())}
+            onClick={() => void send({ statements, lieIndex })}
+            className="mt-2 rounded-2xl bg-fuchsia-500 px-4 py-3 font-display font-black uppercase tracking-widest text-white disabled:opacity-50"
+          >
+            Lock submissions
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-1 flex-col gap-3">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            maxLength={160}
+            placeholder="Type your answer…"
+            className="min-h-[120px] flex-1 rounded-2xl border border-fuchsia-300/30 bg-black/40 px-3 py-3 text-base text-white outline-none focus:border-fuchsia-300"
+          />
+          <button
+            disabled={busy || !text.trim()}
+            onClick={() => void send({ text: text.trim() })}
+            className="rounded-2xl bg-fuchsia-500 px-4 py-3 font-display font-black uppercase tracking-widest text-white disabled:opacity-50"
+          >
+            Submit
+          </button>
+        </div>
+      )}
+      {err && <div className="text-center text-xs text-rose-300">{err}</div>}
+    </div>
+  );
+}
+
+function AsymVoteForm({
+  fmt, prompt, sessionId, sourceSessionId, submissions, votes, endsAt, allPlayers, roomCode, voteFn,
+}: {
+  fmt: AsymFormat;
+  prompt: string;
+  sessionId: string;
+  sourceSessionId: string | null;
+  submissions: Record<string, AsymSub>;
+  votes: Record<string, string | number>;
+  endsAt: string | null;
+  allPlayers: LobbyPlayer[];
+  roomCode: string;
+  voteFn: (args: { data: { roomCode: string; sessionId: string; vote: string | number } }) => Promise<unknown>;
+}) {
+  const secs = useAsymCountdown(endsAt);
+  const myVote = votes[sessionId];
+  const [busy, setBusy] = useState(false);
+
+  const isSource = fmt === "two_truths" && sourceSessionId === sessionId;
+  const items =
+    fmt === "two_truths"
+      ? sourceSessionId && submissions[sourceSessionId]?.statements
+        ? submissions[sourceSessionId].statements!.map((text, idx) => ({
+            key: idx as number | string,
+            label: `${idx + 1}`,
+            text,
+          }))
+        : []
+      : Object.entries(submissions)
+          .filter(([sid, s]) => !!s.text && sid !== sessionId)
+          .map(([sid, s], i) => {
+            const author = allPlayers.find((p) => p.session_id === sid);
+            return {
+              key: sid as number | string,
+              label: author?.nickname ?? String.fromCharCode(65 + i),
+              text: s.text!,
+            };
+          });
+
+  const cast = async (v: string | number) => {
+    setBusy(true);
+    try {
+      await voteFn({ data: { roomCode, sessionId, vote: v } });
+      Haptics.lock();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-1 flex-col gap-3 rounded-3xl border-2 border-fuchsia-400/50 bg-gradient-to-br from-fuchsia-600/15 via-black to-black p-5">
+      <div className="flex items-center justify-between">
+        <div className="text-[10px] font-black uppercase tracking-[0.35em] text-fuchsia-300">Vote</div>
+        <div className="font-mono text-2xl font-black text-fuchsia-100">{secs}s</div>
+      </div>
+      <div className="rounded-2xl border border-fuchsia-300/30 bg-white/[0.04] p-3 text-sm font-bold text-white">
+        {prompt}
+      </div>
+      {isSource ? (
+        <div className="grid flex-1 place-items-center text-center text-sm text-fuchsia-100/80">
+          You wrote the statements — sit back and watch the votes roll in.
+        </div>
+      ) : items.length === 0 ? (
+        <div className="grid flex-1 place-items-center text-center text-sm text-fuchsia-100/80">
+          Waiting for submissions…
+        </div>
+      ) : (
+        <div className="flex flex-1 flex-col gap-2 overflow-y-auto">
+          {items.map((it) => {
+            const selected = String(myVote) === String(it.key);
+            return (
+              <button
+                key={String(it.key)}
+                disabled={busy}
+                onClick={() => void cast(it.key)}
+                className={`rounded-2xl border-2 px-4 py-3 text-left transition active:scale-[0.99] ${
+                  selected
+                    ? "border-fuchsia-300 bg-fuchsia-500/30"
+                    : "border-fuchsia-400/30 bg-fuchsia-500/10"
+                }`}
+              >
+                <div className="text-[10px] font-black uppercase tracking-[0.3em] text-fuchsia-200">
+                  {fmt === "two_truths" ? `Statement ${it.label}` : it.label}
+                </div>
+                <div className="mt-1 text-base font-bold text-white">{it.text}</div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 

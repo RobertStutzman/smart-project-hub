@@ -14,7 +14,13 @@ import {
   resolveSuddenDeath,
   restartGame,
   finishAsymIntro,
+  startAsymRound,
+  advanceAsymPhase,
 } from "@/lib/game.functions";
+import { FinalIntroStage } from "./FinalIntroStage";
+import { GlitchOverlay } from "./GlitchOverlay";
+import { AsymSubmitStage, AsymVoteStage, AsymRevealStage } from "./AsymStages";
+import { computeAsymDeltas } from "@/lib/asymmetry";
 
 import { QuestionStage, DROP_FALL_MS } from "./QuestionStage";
 import { getRoundCallout, type WildcardKind } from "@/lib/round-callouts";
@@ -74,6 +80,11 @@ type RoomState = {
   asym_format: string | null;
   asym_prompt: string | null;
   asym_slot_index: number | null;
+  asym_source_session_id: string | null;
+  asym_submissions: Record<string, { text?: string; choice?: "agree" | "disagree"; statements?: string[]; lieIndex?: number }> | null;
+  asym_votes: Record<string, string | number> | null;
+  asym_phase_ends_at: string | null;
+  glitch_active_until: string | null;
 };
 
 
@@ -196,6 +207,8 @@ export function HostGameStage({ room }: Props) {
 
   const nextQuestionFn = useServerFn(nextQuestion);
   const finishAsymIntroFn = useServerFn(finishAsymIntro);
+  const startAsymRoundFn = useServerFn(startAsymRound);
+  const advanceAsymPhaseFn = useServerFn(advanceAsymPhase);
 
   const dropWrongFn = useServerFn(dropWrongAnswer);
   const endQuestionFn = useServerFn(endQuestion);
@@ -243,7 +256,7 @@ export function HostGameStage({ room }: Props) {
       const { data: r } = await supabase
         .from("rooms")
         .select(
-          "id, room_code, phase, current_question_id, current_question_text, current_question_tts_url, current_explanation_tts_url, current_answers, current_correct_index, current_explanation, current_category, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number, sudden_death_session_ids, asym_format, asym_prompt, asym_slot_index",
+          "id, room_code, phase, current_question_id, current_question_text, current_question_tts_url, current_explanation_tts_url, current_answers, current_correct_index, current_explanation, current_category, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number, sudden_death_session_ids, asym_format, asym_prompt, asym_slot_index, asym_source_session_id, asym_submissions, asym_votes, asym_phase_ends_at, glitch_active_until",
         )
         .eq("id", room.id)
         .maybeSingle();
@@ -583,7 +596,7 @@ export function HostGameStage({ room }: Props) {
       void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
       // Reset per-game callout latches so a fresh game still welcomes players.
       welcomeFiredRef.current = false;
-      finalShowdownFiredRef.current = false;
+      // finalShowdownFiredRef removed — FinalIntroStage owns the reveal now.
       lastRoundStingKeyRef.current = "";
       // Silent beat, then ambience back.
       stopMusic();
@@ -687,14 +700,7 @@ export function HostGameStage({ room }: Props) {
     if (state.phase === "leaderboard") playEvent("leaderboard");
     else if (state.phase === "final_intro") {
       playEvent("final");
-      // Let the cinematic sting breathe (~3s) before the persona line,
-      // so the announcer doesn't talk over itself.
-      const t = window.setTimeout(() => {
-        duckMusic(true);
-        Promise.resolve(speakPersona(pickLine("final_hype", state.round_number)))
-          .finally(() => duckMusic(false));
-      }, 3000);
-      return () => window.clearTimeout(t);
+      // FinalIntroStage owns the per-place announcer beats; just play the sting.
     }
     else if (state.phase === "ended") {
       playEvent("victory");
@@ -1058,28 +1064,9 @@ export function HostGameStage({ room }: Props) {
     return () => window.clearTimeout(id);
   }, [state?.phase, state?.round_number, players]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Final showdown: name the top 3 entering final_intro ──
-  const finalShowdownFiredRef = useRef(false);
-  useEffect(() => {
-    if (!state || finalShowdownFiredRef.current) return;
-    if (state.phase !== "final_intro") return;
-    const top3 = [...players]
-      .filter((p) => !p.is_audience)
-      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-      .slice(0, 3);
-    if (top3.length === 0) return;
-    finalShowdownFiredRef.current = true;
-    const [first, ...rest] = top3.map((p) => p.nickname);
-    // Delay so it lands after the existing final hype sting.
-    const id = window.setTimeout(() => {
-      void speakAboutPlayer({
-        nickname: first,
-        extraNames: rest,
-        moment: "final_showdown",
-      });
-    }, 2000);
-    return () => window.clearTimeout(id);
-  }, [state?.phase, players]); // eslint-disable-line react-hooks/exhaustive-deps
+  // FinalIntroStage now owns the top-3 reveal beats; the previous
+  // speakAboutPlayer("final_showdown") block was removed to avoid overlap.
+
 
   // ── Winner crowning: fires once on phase → ended ──
   const winnerFiredRef = useRef(false);
@@ -1139,7 +1126,7 @@ export function HostGameStage({ room }: Props) {
         setPhaseFn({
           data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "final_wager" },
         }).catch(() => {});
-      }, 4500);
+      }, 10000);
       return () => window.clearTimeout(id);
     }
 
@@ -1329,8 +1316,7 @@ export function HostGameStage({ room }: Props) {
 
 
 
-  // ── Asymmetry intro (phase 1 stub): speak explainer once, then after a
-  // beat clear the format and pull a regular question for this slot.
+  // ── Asymmetry intro: speak explainer once, then start the submit phase ──
   const asymAdvancedRef = useRef<string>("");
   useEffect(() => {
     if (state?.phase !== "asym_intro" || !state.asym_format) return;
@@ -1346,27 +1332,65 @@ export function HostGameStage({ room }: Props) {
     }
     const t = window.setTimeout(async () => {
       try {
-        await finishAsymIntroFn({
-          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
-        });
-        await nextQuestionFn({
+        await startAsymRoundFn({
           data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
         });
       } catch {
-        /* silent */
+        // Fallback: if asym infra isn't ready, skip to a normal question.
+        try {
+          await finishAsymIntroFn({
+            data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+          });
+          await nextQuestionFn({
+            data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+          });
+        } catch { /* silent */ }
       }
-    }, 11000);
+    }, 8500);
     return () => window.clearTimeout(t);
   }, [
     state?.phase,
     state?.id,
     state?.asym_format,
     state?.asym_prompt,
+    startAsymRoundFn,
     finishAsymIntroFn,
     nextQuestionFn,
     room.roomCode,
     room.hostSessionId,
   ]);
+
+  // ── Asymmetry timer: auto-advance asym_submit → vote → reveal → leaderboard ──
+  const asymPhaseAdvancedRef = useRef<string>("");
+  useEffect(() => {
+    if (!state) return;
+    const isAsymTimed =
+      state.phase === "asym_submit" ||
+      state.phase === "asym_vote" ||
+      state.phase === "asym_reveal";
+    if (!isAsymTimed || !state.asym_phase_ends_at) return;
+    const endsMs = new Date(state.asym_phase_ends_at).getTime();
+    if (!Number.isFinite(endsMs)) return;
+    const key = `${state.id}-${state.phase}-${state.asym_phase_ends_at}`;
+    if (asymPhaseAdvancedRef.current === key) return;
+    const fire = () => {
+      asymPhaseAdvancedRef.current = key;
+      advanceAsymPhaseFn({
+        data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+      }).catch(() => {});
+    };
+    const remaining = Math.max(0, endsMs - Date.now());
+    const id = window.setTimeout(fire, remaining + 50);
+    return () => window.clearTimeout(id);
+  }, [
+    state?.id,
+    state?.phase,
+    state?.asym_phase_ends_at,
+    advanceAsymPhaseFn,
+    room.roomCode,
+    room.hostSessionId,
+  ]);
+
 
   if (!state) return null;
 
@@ -1430,6 +1454,19 @@ export function HostGameStage({ room }: Props) {
 
         <RoundSplash round={Math.min(4, Math.ceil((state.round_number ?? 1) / 5))} />
 
+        {/* Glitch wildcard: big-screen RGB-split + scanlines + chyron */}
+        {state.phase === "question" && state.wildcard === "glitch" && (
+          <GlitchOverlay
+            activeUntil={state.glitch_active_until}
+            leaderName={
+              [...players]
+                .filter((p) => !p.is_audience)
+                .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0]?.nickname ?? null
+            }
+          />
+        )}
+
+
       </>
     );
   }
@@ -1471,12 +1508,46 @@ export function HostGameStage({ room }: Props) {
             </div>
           )}
           <div className="mt-8 text-[10px] font-semibold uppercase tracking-[0.4em] text-white/40">
-            Coming soon — submit on your phone
+            Submit on your phone…
           </div>
         </div>
       </div>
     );
   }
+
+  if (
+    (state.phase === "asym_submit" ||
+      state.phase === "asym_vote" ||
+      state.phase === "asym_reveal") &&
+    state.asym_format &&
+    state.asym_prompt
+  ) {
+    const fmt = state.asym_format as AsymFormat;
+    const live = players.filter((p) => !p.is_audience);
+    const subs = state.asym_submissions ?? {};
+    const votes = state.asym_votes ?? {};
+    const sourceSid = state.asym_source_session_id;
+    const liveSids = live.map((p) => p.session_id);
+    const deltas =
+      state.phase === "asym_reveal"
+        ? computeAsymDeltas(fmt, liveSids, sourceSid, subs, votes)
+        : {};
+
+    const common = {
+      format: fmt,
+      prompt: state.asym_prompt,
+      players: live,
+      sourceSessionId: sourceSid,
+      submissions: subs,
+      votes,
+      endsAt: state.asym_phase_ends_at,
+    };
+
+    if (state.phase === "asym_submit") return <AsymSubmitStage {...common} />;
+    if (state.phase === "asym_vote") return <AsymVoteStage {...common} />;
+    return <AsymRevealStage {...common} scoringDeltas={deltas} />;
+  }
+
 
   if (state.phase === "intro") {
 
@@ -1554,31 +1625,28 @@ export function HostGameStage({ room }: Props) {
 
   // ─── FINAL ROUND PHASES ──────────────────────────────────────────────
   if (state.phase === "final_intro") {
+    const top3 = [...players]
+      .filter((p) => !p.is_audience)
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+      .slice(0, 3)
+      .map((p) => ({ id: p.id, nickname: p.nickname, avatar_url: p.avatar_url }));
     return (
-      <div className="relative grid h-full place-items-center overflow-hidden bg-black text-white">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(0.35_0.18_85/0.35),oklch(0.05_0.02_270)_70%)]" />
-        <div className="absolute inset-0 animate-pulse bg-[radial-gradient(circle_at_50%_50%,oklch(0.85_0.18_85/0.15),transparent_60%)]" />
-        <div className="relative text-center">
-          <div className="animate-fade-in text-xs font-bold uppercase tracking-[0.6em] text-amber-300/90">
-            One question. All on the line.
-          </div>
-          <h1
-            className="mt-4 font-display text-[12vw] font-black uppercase leading-none tracking-tight text-transparent [animation:scale-in_0.6s_ease-out]"
-            style={{
-              backgroundImage:
-                "linear-gradient(180deg, oklch(0.97 0.12 90) 0%, oklch(0.75 0.20 60) 100%)",
-              WebkitBackgroundClip: "text",
-              backgroundClip: "text",
-              filter: "drop-shadow(0 8px 40px oklch(0.85 0.20 70 / 0.55))",
-            }}
-          >
-            Final Round
-          </h1>
-          <div className="mx-auto mt-6 h-[3px] w-48 rounded-full bg-gradient-to-r from-transparent via-amber-300 to-transparent" />
-        </div>
-      </div>
+      <FinalIntroStage
+        top3={top3}
+        onDone={() => {
+          // Timer-driven effect also fires; this is a safety nudge.
+          setPhaseFn({
+            data: {
+              roomCode: room.roomCode,
+              hostSessionId: room.hostSessionId,
+              phase: "final_wager",
+            },
+          }).catch(() => {});
+        }}
+      />
     );
   }
+
 
   if (state.phase === "final_wager") {
     return <FinalWagerStage players={players} />;
