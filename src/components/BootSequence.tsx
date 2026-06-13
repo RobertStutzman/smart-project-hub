@@ -1,18 +1,15 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { play, playBootMusic, stopBootMusic } from "@/lib/sound-engine";
-import { speakAsElf } from "@/lib/elf-voice";
+import { speakAsElf, cancelElfSpeech } from "@/lib/elf-voice";
+import crowdClap from "@/assets/audio/audience/crowd_clap.mp3.asset.json";
 
 
 /**
  * Jackbox-style boot sequence — plays once when the app first loads.
  *
  * Stages: gate → splash → credits → (complete → landing).
- * The "tips / how to play" stage was removed — the rules are shown once
- * on the host start screen instead, so we don't surface them twice.
  */
-
-// Boot splash always plays per visit; only ?nosplash=1 dev override skips it.
 
 type Stage = "gate" | "splash" | "credits";
 
@@ -21,11 +18,15 @@ type Props = {
 };
 
 const STAGE_DURATIONS: Record<Exclude<Stage, "gate">, number> = {
-  splash: 3400,
+  splash: 6200,
   credits: 5200,
 };
 
 const SOFT_EASE = [0.22, 1, 0.36, 1] as const;
+
+// Time (ms after audio start) when "Beat. The. Drop." line fires.
+// SplashStage listens to this so the logo punches in sync with the VO.
+const DROP_BEAT_MS = 5400;
 
 function isStandaloneLaunch(): boolean {
   if (typeof window === "undefined") return false;
@@ -39,14 +40,68 @@ function isStandaloneLaunch(): boolean {
   return navStandalone === true;
 }
 
-function startBootIntroAudio() {
-  // One-shot music sting; elf voice layered ~1.2s in (replaces the
-  // old non-elf station ID announcer).
-  playBootMusic(0.34);
-  window.setTimeout(() => {
-    void speakAsElf("Beat. The. Drop.", { preset: "hype", interrupt: true, volume: 1.0 });
-  }, 1200);
+// Track audio-start time so SplashStage can sync its punch animation.
+let bootAudioStartedAt = 0;
+
+function playCrowdCheer() {
+  if (typeof window === "undefined") return;
+  try {
+    const a = new Audio(crowdClap.url);
+    a.volume = 0.55;
+    a.play().catch(() => {});
+    // Fade out over ~2s starting at 1.4s.
+    window.setTimeout(() => {
+      const steps = 16;
+      let i = 0;
+      const startVol = a.volume;
+      const id = window.setInterval(() => {
+        i++;
+        a.volume = Math.max(0, startVol * (1 - i / steps));
+        if (i >= steps) {
+          window.clearInterval(id);
+          try { a.pause(); } catch { /* noop */ }
+        }
+      }, 40);
+    }, 1400);
+  } catch {
+    /* noop */
+  }
 }
+
+function startBootIntroAudio() {
+  // Louder music bed + 3-beat movie-trailer VO + crowd cheer under the punch.
+  playBootMusic(0.78);
+  bootAudioStartedAt = Date.now();
+  // Beat 1
+  window.setTimeout(() => {
+    void speakAsElf("In a world… of bad answers…", {
+      preset: "calm",
+      interrupt: true,
+      volume: 1.0,
+    });
+  }, 1000);
+  // Beat 2
+  window.setTimeout(() => {
+    void speakAsElf("…and faster fingers…", {
+      preset: "calm",
+      interrupt: false,
+      volume: 1.0,
+    });
+  }, 3400);
+  // Beat 3 — the drop. Crowd cheer fires just before.
+  window.setTimeout(() => {
+    playCrowdCheer();
+  }, DROP_BEAT_MS - 200);
+  window.setTimeout(() => {
+    void speakAsElf("Beat. The. Drop.", {
+      preset: "hype",
+      interrupt: false,
+      volume: 1.0,
+    });
+  }, DROP_BEAT_MS);
+}
+
+
 
 
 export function BootSequence({ onComplete }: Props) {
@@ -64,10 +119,14 @@ export function BootSequence({ onComplete }: Props) {
     startBootIntroAudio();
   }, []);
 
-  // Fade out boot music when the overlay is dismissed.
+  // Fade out boot music + kill any pending VO when the overlay is dismissed.
   useEffect(() => {
-    if (dismissing) stopBootMusic(600);
+    if (dismissing) {
+      stopBootMusic(600);
+      cancelElfSpeech();
+    }
   }, [dismissing]);
+
 
 
   // Advance through stages on a timer.
@@ -247,6 +306,22 @@ function GateStage({ pressed = false }: { pressed?: boolean }) {
 }
 
 function SplashStage() {
+  // Fire the logo punch + white flash in sync with the "Beat. The. Drop."
+  // VO beat. Schedules off the same audio start clock the intro uses.
+  const [punched, setPunched] = useState(false);
+  const [flash, setFlash] = useState(false);
+  useEffect(() => {
+    const elapsed = bootAudioStartedAt > 0 ? Date.now() - bootAudioStartedAt : 0;
+    const delay = Math.max(0, DROP_BEAT_MS - elapsed);
+    const punchT = window.setTimeout(() => {
+      setPunched(true);
+      setFlash(true);
+      window.setTimeout(() => setFlash(false), 280);
+      window.setTimeout(() => setPunched(false), 240);
+    }, delay);
+    return () => window.clearTimeout(punchT);
+  }, []);
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.94 }}
@@ -255,19 +330,39 @@ function SplashStage() {
       transition={{ duration: 0.7, ease: SOFT_EASE }}
       className="absolute inset-0 flex flex-col items-center justify-center"
     >
+      {/* hotter rim glow under the logo */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse 40% 30% at 50% 50%, oklch(0.85 0.18 85 / 0.25), transparent 70%)",
+            "radial-gradient(ellipse 50% 38% at 50% 50%, oklch(0.85 0.20 80 / 0.42), transparent 70%)",
         }}
+      />
+
+      {/* white flash on the drop beat */}
+      <div
+        className="pointer-events-none absolute inset-0 bg-white transition-opacity duration-300"
+        style={{ opacity: flash ? 0.35 : 0 }}
       />
 
       <motion.div
         initial={{ letterSpacing: "0.4em", opacity: 0 }}
-        animate={{ letterSpacing: "0.05em", opacity: 1 }}
-        transition={{ duration: 1.2, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        animate={{
+          letterSpacing: "0.05em",
+          opacity: 1,
+          scale: punched ? 1.08 : 1,
+        }}
+        transition={{
+          duration: punched ? 0.22 : 1.2,
+          delay: punched ? 0 : 0.2,
+          ease: punched ? [0.34, 1.56, 0.64, 1] : [0.16, 1, 0.3, 1],
+        }}
         className="relative font-display text-[clamp(3rem,11svh,8rem)] font-black leading-[0.95] tracking-tight"
+        style={{
+          filter: punched
+            ? "drop-shadow(0 0 60px oklch(0.92 0.20 80 / 0.9))"
+            : undefined,
+        }}
       >
         <span className="text-white drop-shadow-[0_4px_40px_rgba(0,0,0,0.7)]">Beat the </span>
         <span className="bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text text-transparent">
@@ -293,6 +388,8 @@ function SplashStage() {
     </motion.div>
   );
 }
+
+
 
 function CreditsStage() {
   return (

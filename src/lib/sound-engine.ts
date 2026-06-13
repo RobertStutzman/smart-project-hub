@@ -290,11 +290,11 @@ export const CREDITS_OUTRO_URL: string = creditsOutro.url;
 
 // ─── Boot intro: one-shot music sting + voiced station ID ──────────
 let bootMusicAudio: HTMLAudioElement | null = null;
-let bootMusicBaseVol = 0.32;
+let bootMusicBaseVol = 0.78;
 let bootVoiceAudio: HTMLAudioElement | null = null;
 
-/** Start the boot intro music sting (one-shot, ~9s). */
-export function playBootMusic(volume = 0.32) {
+/** Start the boot intro music sting (one-shot, ~9s) with a short fade-in. */
+export function playBootMusic(volume = 0.78) {
   if (muted || typeof window === "undefined") return;
   stopBootMusic(0);
   stopOtherMusic("boot", 400);
@@ -303,12 +303,26 @@ export function playBootMusic(volume = 0.32) {
     bootMusicAudio.loop = false;
     const base = Math.max(0, Math.min(1, volume));
     bootMusicBaseVol = base;
-    bootMusicAudio.volume = base;
+    bootMusicAudio.volume = 0;
     bootMusicAudio.play().catch(() => {});
+    // 300ms linear fade-in so the sting doesn't clip in.
+    const a = bootMusicAudio;
+    const steps = 12;
+    let i = 0;
+    const id = window.setInterval(() => {
+      i++;
+      if (!a || a !== bootMusicAudio) {
+        window.clearInterval(id);
+        return;
+      }
+      a.volume = Math.min(base, base * (i / steps));
+      if (i >= steps) window.clearInterval(id);
+    }, 25);
   } catch {
     /* noop */
   }
 }
+
 /** Fade out + stop the boot intro music. */
 export function stopBootMusic(fadeMs = 600) {
   const a = bootMusicAudio;
