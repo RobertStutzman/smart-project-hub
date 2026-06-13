@@ -504,6 +504,7 @@ function stopLoopAudio() {
   }
   if (synthLoopTimer !== null) {
     window.clearInterval(synthLoopTimer);
+    window.clearTimeout(synthLoopTimer);
     synthLoopTimer = null;
   }
   currentLoopMode = null;
@@ -541,15 +542,44 @@ export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
     }
   }
 
+  if (mode === "tense") {
+    // Accelerating heartbeat: lub-dub double-thump that gets faster.
+    // tempoMs is reinterpreted as the ramp window — interval scales from
+    // ~900ms down to ~300ms across that window. Default 12s.
+    const rampMs = Math.max(2000, tempoMs > 100 ? tempoMs * 25 : 12000);
+    const fromMs = 900;
+    const toMs = 300;
+    const start = performance.now();
+    const beat = () => {
+      if (muted || currentLoopMode !== "tense") return;
+      const a = ac();
+      if (a) {
+        const g = 0.55 * (duckActive ? 0.35 : 1);
+        // "lub" — deeper, slightly louder
+        sweep(95, 38, 0.22, "sine", g);
+        // "dub" — softer second thump 140ms later
+        window.setTimeout(() => {
+          if (muted || currentLoopMode !== "tense") return;
+          sweep(80, 34, 0.18, "sine", g * 0.65);
+        }, 140);
+      }
+      const elapsed = performance.now() - start;
+      const p = Math.min(1, elapsed / rampMs);
+      // ease-in so the acceleration feels dramatic near the end
+      const eased = p * p;
+      const next = fromMs + (toMs - fromMs) * eased;
+      synthLoopTimer = window.setTimeout(beat, next);
+    };
+    beat();
+    return;
+  }
+
   const lobby = [261.63, 329.63, 392, 523.25];
-  const tense = [196, 233.08, 261.63, 311.13];
-  const notes = mode === "lobby" ? lobby : tense;
   let i = 0;
   const tick = () => {
     if (muted || currentLoopMode !== mode) return;
-    // much quieter synth bed so voice sits on top
-    const g = (mode === "lobby" ? 0.04 : 0.05) * (duckActive ? 0.3 : 1);
-    tone(notes[i % notes.length], 0.18, mode === "lobby" ? "triangle" : "square", g);
+    const g = 0.04 * (duckActive ? 0.3 : 1);
+    tone(lobby[i % lobby.length], 0.18, "triangle", g);
     i++;
   };
   tick();

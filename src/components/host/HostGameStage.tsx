@@ -612,11 +612,11 @@ export function HostGameStage({ room }: Props) {
     }
     if (
       state.phase === "question" ||
-      state.phase === "final_question" ||
-      state.phase === "reveal" ||
-      state.phase === "final_reveal"
+      state.phase === "final_question"
     )
       startMusic("tense", 380);
+    else if (state.phase === "reveal" || state.phase === "final_reveal")
+      stopMusic();
     else if (state.phase === "intro")
       startMusic("lobby", 600);
     else if (state.phase === "lobby" || state.phase === "leaderboard") {
