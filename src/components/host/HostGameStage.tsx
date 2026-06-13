@@ -1152,7 +1152,7 @@ export function HostGameStage({ room }: Props) {
         setPhaseFn({
           data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "final_wager" },
         }).catch(() => {});
-      }, 4500);
+      }, 10000);
       return () => window.clearTimeout(id);
     }
 
