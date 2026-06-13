@@ -62,7 +62,11 @@ type RoomState = {
   wildcard: string | null;
   round_number: number;
   sudden_death_session_ids: string[] | null;
+  asym_format: string | null;
+  asym_prompt: string | null;
+  asym_slot_index: number | null;
 };
+
 
 
 export type WrongPick = {
