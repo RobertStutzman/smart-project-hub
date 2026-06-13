@@ -1,29 +1,35 @@
-# Fix the boot intro cutting off mid-line
+# Immediate wrong-answer feedback on the player's phone
 
-## Problem
-The trailer VO is three independent `setTimeout` calls into `speakAsElf` (FIFO queue). Lines 2 and 3 stack behind line 1's actual playback, so the real timing slides past the scripted 1.0s / 3.4s / 5.4s schedule. Meanwhile the splash stage hard-advances at 6.2s, then credits runs, then `complete()` fires `cancelElfSpeech()` — which kills whatever line is still draining. Net result: user hears beat 1, beat 2 gets swallowed by the queue, and beat 3 ("Beat. The. Drop.") starts late and gets cut off when the overlay dismisses.
+## Goal
+When a player taps an answer on their phone, they see right away whether it's wrong or right — they don't have to wait for the round to end. Wrong picks visibly "burn" on their tile and they can keep tapping until they land on the correct one. The TV/host screen and scoring are unchanged.
 
-## Fix
-Collapse the 3-beat trailer into ONE `speakAsElf` call. The ElevenLabs voice handles the dramatic pauses via `…` natively, and a single line eliminates the queue race entirely.
+## Where it broke
+`src/routes/play.tsx` already fetches `room.current_correct_index` (line 143), but the per-player `<AnswerGrid>` during the question phase (line 819) never receives a `correctIndex`, so the tile only turns green/red at `room.phase === "reveal"`. The component already supports immediate styling — we just stopped feeding it.
 
-### `src/components/BootSequence.tsx`
+## Changes (frontend only, `src/routes/play.tsx`)
 
-1. **`startBootIntroAudio()`**: replace the three `speakAsElf` blocks with one call at 1000ms:
-   ```ts
-   void speakAsElf(
-     "In a world… of bad answers… and faster fingers… Beat. The. Drop.",
-     { preset: "calm", interrupt: true, volume: 1.0 },
-   );
-   ```
-   Keep `playBootMusic(0.78)` and `bootAudioStartedAt = Date.now()` as-is. Keep the `playCrowdCheer()` scheduled at `DROP_BEAT_MS - 200`.
+1. **Per-player wrong-tile memory.** Add local state `wrongPicks: Set<number>` keyed off `room.current_question_text`. Reset whenever the question text changes (and on phase leaving `"question"`).
 
-2. **`DROP_BEAT_MS`**: bump from `5400` → `6800` so the logo punch + crowd cheer land on the actual "Drop." word in the combined line (the lead-in is ~5.5s before "Beat").
+2. **In `pick(i)`** (line 353):
+   - After `await lockFn(...)` resolves, compare `i` to `room.current_correct_index`.
+   - If wrong: add `i` to `wrongPicks`, fire `Haptics.wrong()` + `play("buzzer")` (or existing wrong sfx), do NOT advance phase, leave the tile tappable for another guess.
+   - If correct: fire `Haptics.correct()` + small confirm sfx, keep current locked styling.
 
-3. **`STAGE_DURATIONS.splash`**: bump from `6200` → `8800` so the full line (~7.5s of speech + 300ms buffer) finishes before the stage transitions. Credits stage stays at 5200ms.
+3. **Pass live feedback to `<AnswerGrid>`** (line 819 block):
+   - `droppedIndexes={[...(room.dropped_indexes ?? []), ...wrongPicks]}` — wrong picks get the same greyed/✕ treatment that dropped tiles already have, locally only.
+   - `correctIndex={ me?.current_answer === room.current_correct_index ? room.current_correct_index : null }` — green halo only once they actually land on the right one.
+   - Keep `disabled={room.phase !== "question" || reading}` so they can keep tapping until they get it right or time runs out.
 
-4. Leave the dismiss-side `cancelElfSpeech()` alone — it still correctly kills any straggling audio when the user skips early.
+4. **Tiny "Try again" hint** under the grid while `wrongPicks.size > 0 && me?.current_answer !== room.current_correct_index` — single line, rose color, no layout shift. Hides as soon as they pick correctly.
+
+## What is NOT changing
+- `lockAnswer` server fn, scoring, streaks, `current_first_answer` (first pick already drives streak credit — wrong-then-right still loses streak, same as today).
+- Host/TV reveal flow, leaderboard, explanation card.
+- The `reveal`-phase correct/wrong banner at line 841.
+- Final round (`pickFinal`) — untouched.
 
 ## Verification
-- Fresh load (or `?nosplash=0`), tap gate. Hear the full trailer line uninterrupted, crowd cheer swells on "Drop", logo punches in sync, then credits roll.
-- Skip with a tap mid-line: audio cuts cleanly (existing `cancelElfSpeech` on dismiss).
-- Standalone PWA: same flow, no gate.
+- Pick wrong → tile greys with ✕ + buzzer immediately, other tiles stay live, "Try again" hint appears.
+- Pick correct (first try or after a wrong) → tile glows green, hint disappears, no extra server calls.
+- New question → `wrongPicks` clears, all four tiles live again.
+- Host TV behavior and scoring identical to before.
