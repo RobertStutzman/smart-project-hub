@@ -933,6 +933,47 @@ function PlayPage() {
                   )}
 
               </>
+            ) : room.phase === "asym_intro" ? (
+              <div className="grid flex-1 place-items-center rounded-3xl border-2 border-fuchsia-400/60 bg-gradient-to-br from-fuchsia-600/20 via-black to-black p-6 text-center">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.4em] text-fuchsia-300">Special Round</div>
+                  <div className="mt-3 font-display text-3xl font-black text-white">
+                    {room.asym_format ? ASYM_LABELS[room.asym_format as AsymFormat] : "Special"}
+                  </div>
+                  <div className="mt-4 text-sm text-fuchsia-100/80">Get ready…</div>
+                </div>
+              </div>
+            ) : room.phase === "asym_submit" && room.asym_format ? (
+              <AsymSubmitForm
+                fmt={room.asym_format as AsymFormat}
+                prompt={room.asym_prompt ?? ""}
+                sessionId={session.sessionId}
+                sourceSessionId={room.asym_source_session_id}
+                roomCode={session.roomCode}
+                submissions={room.asym_submissions ?? {}}
+                endsAt={room.asym_phase_ends_at}
+                submitFn={submitAsymEntryFn}
+              />
+            ) : room.phase === "asym_vote" && room.asym_format ? (
+              <AsymVoteForm
+                fmt={room.asym_format as AsymFormat}
+                prompt={room.asym_prompt ?? ""}
+                sessionId={session.sessionId}
+                sourceSessionId={room.asym_source_session_id}
+                submissions={room.asym_submissions ?? {}}
+                votes={room.asym_votes ?? {}}
+                endsAt={room.asym_phase_ends_at}
+                allPlayers={allPlayers}
+                roomCode={session.roomCode}
+                voteFn={submitAsymVoteFn}
+              />
+            ) : room.phase === "asym_reveal" ? (
+              <div className="grid flex-1 place-items-center rounded-3xl border border-fuchsia-400/40 bg-gradient-to-br from-fuchsia-600/15 via-black to-black p-6 text-center animate-scale-in">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.4em] text-fuchsia-300">Results</div>
+                  <div className="mt-3 text-base text-fuchsia-100/85">Look at the big screen 👀</div>
+                </div>
+              </div>
             ) : room.phase === "leaderboard" ? (
               <div className="grid flex-1 place-items-center rounded-3xl border border-white/20 bg-white/10 p-6 text-center backdrop-blur animate-scale-in">
                 <div>
