@@ -14,7 +14,13 @@ import {
   resolveSuddenDeath,
   restartGame,
   finishAsymIntro,
+  startAsymRound,
+  advanceAsymPhase,
 } from "@/lib/game.functions";
+import { FinalIntroStage } from "./FinalIntroStage";
+import { GlitchOverlay } from "./GlitchOverlay";
+import { AsymSubmitStage, AsymVoteStage, AsymRevealStage } from "./AsymStages";
+import { computeAsymDeltas } from "@/lib/asymmetry";
 
 import { QuestionStage, DROP_FALL_MS } from "./QuestionStage";
 import { getRoundCallout, type WildcardKind } from "@/lib/round-callouts";
