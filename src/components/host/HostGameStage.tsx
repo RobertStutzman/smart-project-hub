@@ -26,6 +26,13 @@ import { CreditsStage } from "./CreditsStage";
 import { pickLine, speakPersona } from "@/lib/host-persona";
 import { playVoiceUrl, speakAsElf } from "@/lib/elf-voice";
 import { pickExplainer, type Wildcard } from "@/lib/wildcards";
+import {
+  pickAsymExplainer,
+  ASYM_LABELS,
+  ASYM_TAGLINES,
+  type AsymFormat,
+} from "@/lib/asymmetry";
+
 import { speakAboutPlayer, setLiveRoomId, resetLiveCap } from "@/lib/persona-live";
 import { play, playEvent, playRandomDrop, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
 import { playFunnySoundById, preloadFunnyBank } from "@/lib/funny-sounds";
