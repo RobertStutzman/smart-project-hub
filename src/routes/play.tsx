@@ -1166,7 +1166,7 @@ function AsymSubmitForm({
     setErr(null);
     try {
       await submitFn({ data: { roomCode, sessionId, payload } });
-      Haptics.success();
+      Haptics.lock();
     } catch (e) {
       setErr((e as Error)?.message ?? "Failed");
     } finally {
@@ -1310,7 +1310,7 @@ function AsymVoteForm({
     setBusy(true);
     try {
       await voteFn({ data: { roomCode, sessionId, vote: v } });
-      Haptics.success();
+      Haptics.lock();
     } finally {
       setBusy(false);
     }
