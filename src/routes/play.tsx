@@ -108,6 +108,8 @@ function PlayPage() {
   const [eliminatedFlash, setEliminatedFlash] = useState(false);
   const [wagerDraft, setWagerDraft] = useState<number>(0);
   const lastDroppedSig = useRef("");
+  const [wrongPicks, setWrongPicks] = useState<number[]>([]);
+  const wrongPicksQuestionRef = useRef<string | null>(null);
 
   // Compute and apply a server-clock offset from a freshly-received row's
   // host_last_seen_at (server-written ISO). Guards against device clock skew
@@ -274,6 +276,18 @@ function PlayPage() {
     }
   }, [room?.phase, me?.last_answer_correct]);
 
+  // Reset local wrong-pick memory whenever the question changes or we leave question phase.
+  useEffect(() => {
+    const qid = room?.current_question_text ?? null;
+    if (wrongPicksQuestionRef.current !== qid) {
+      wrongPicksQuestionRef.current = qid;
+      setWrongPicks([]);
+    }
+  }, [room?.current_question_text]);
+  useEffect(() => {
+    if (room?.phase !== "question" && wrongPicks.length > 0) setWrongPicks([]);
+  }, [room?.phase, wrongPicks.length]);
+
   useEffect(() => {
     if (room?.phase === "final_wager" && !me?.final_locked_at) {
       setWagerDraft((w) => Math.min(w, me?.score ?? 0));
@@ -353,11 +367,19 @@ function PlayPage() {
   const pick = async (i: 0 | 1 | 2 | 3) => {
     if (!session) return;
     Haptics.tap();
+    const correctIdx = room?.current_correct_index;
+    const isWrong =
+      typeof correctIdx === "number" && correctIdx >= 0 && i !== correctIdx;
+    if (isWrong) {
+      setWrongPicks((prev) => (prev.includes(i) ? prev : [...prev, i]));
+      Haptics.wrong();
+      play("wrong");
+    }
     try {
       await lockFn({
         data: { roomCode: session.roomCode, sessionId: session.sessionId, answerIndex: i },
       });
-      Haptics.lock();
+      if (!isWrong) Haptics.lock();
     } catch {
       /* ignore */
     }
@@ -826,12 +848,26 @@ function PlayPage() {
                         string,
                       ]
                     }
-                    droppedIndexes={room.dropped_indexes ?? []}
+                    droppedIndexes={Array.from(new Set([...(room.dropped_indexes ?? []), ...wrongPicks]))}
                     selectedIndex={me?.current_answer ?? null}
+                    correctIndex={
+                      typeof room.current_correct_index === "number" &&
+                      me?.current_answer === room.current_correct_index
+                        ? room.current_correct_index
+                        : null
+                    }
                     onPick={(i) => void pick(i)}
                     letterOverrides={room.wildcard === "mirror" ? mirrorLetters(room.current_question_text) : undefined}
                   />
                 </div>
+
+                {room.phase === "question" &&
+                  wrongPicks.length > 0 &&
+                  me?.current_answer !== room.current_correct_index && (
+                    <div className="text-center text-xs font-black uppercase tracking-[0.3em] text-rose-300 animate-pulse">
+                      Nope — try again
+                    </div>
+                  )}
 
                 {buttonsScrambled && (
                   <div className="absolute inset-x-0 top-1/2 z-30 -translate-y-1/2 text-center font-display text-3xl font-black tracking-widest text-fuchsia-300 drop-shadow">
