@@ -108,6 +108,8 @@ function PlayPage() {
   const [eliminatedFlash, setEliminatedFlash] = useState(false);
   const [wagerDraft, setWagerDraft] = useState<number>(0);
   const lastDroppedSig = useRef("");
+  const [wrongPicks, setWrongPicks] = useState<number[]>([]);
+  const wrongPicksQuestionRef = useRef<string | null>(null);
 
   // Compute and apply a server-clock offset from a freshly-received row's
   // host_last_seen_at (server-written ISO). Guards against device clock skew
