@@ -504,6 +504,7 @@ function stopLoopAudio() {
   }
   if (synthLoopTimer !== null) {
     window.clearInterval(synthLoopTimer);
+    window.clearTimeout(synthLoopTimer);
     synthLoopTimer = null;
   }
   currentLoopMode = null;
