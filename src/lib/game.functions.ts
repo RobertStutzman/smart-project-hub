@@ -88,6 +88,11 @@ async function setSecretCorrectIndex(roomId: string, correctIndex: number | null
 // from room.id) and deal the first 4 into those slots, so every game gets a
 // fresh order with no repeats. Q21 (final) is always skipped.
 import { wildcardDeckForRoom, type Wildcard } from "./wildcards";
+import {
+  pickAsymSlotForRoom,
+  pickAsymFormatForRoom,
+  type AsymFormat,
+} from "./asymmetry";
 function wildcardForRound(round: number, roomId: string): Wildcard | null {
   if (round <= 0 || round >= 21) return null; // skip final
   if (round % 5 !== 0) return null;
@@ -95,6 +100,7 @@ function wildcardForRound(round: number, roomId: string): Wildcard | null {
   const deck = wildcardDeckForRoom(roomId);
   return deck[slot] ?? null;
 }
+
 
 const LIGHTNING_DURATION_MS = 8000;
 const LIGHTNING_MULTIPLIER = 2;
