@@ -105,6 +105,8 @@ function PlayPage() {
   const triggerGlitchFn = useServerFn(triggerGlitch);
   const submitWagerFn = useServerFn(submitWager);
   const lockFinalFn = useServerFn(lockFinalAnswer);
+  const submitAsymEntryFn = useServerFn(submitAsymEntry);
+  const submitAsymVoteFn = useServerFn(submitAsymVote);
   const [allPlayers, setAllPlayers] = useState<LobbyPlayer[]>([]);
   useWakeLock(true);
 
