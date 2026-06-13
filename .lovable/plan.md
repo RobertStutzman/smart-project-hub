@@ -1,29 +1,20 @@
-## Goal
-Replace the synth-generated timer tick (`tick` + `tickHeavy` in `sound-engine.ts`) with real audio clips generated via ElevenLabs Sound Effects, served as CDN assets.
+## Problem
+The full-screen "Did you know?" card flips in at **2200ms** after the reveal phase starts (`QuestionStage.tsx:189`), but the announcer's TTS read isn't triggered until **3800ms** (`HostGameStage.tsx:425-438`). That's ~1.6s of dead air where the card sits on screen with no voice. The TTS call also queues behind any in-flight persona reaction, which can add more lag.
 
-## Scope
-Only the timer tick. Wrong / correct / leaderboard sounds stay as-is.
+## Fix
+Align the announcer with the card flip — cut the explanation TTS delay from 3800ms to **2400ms** (200ms breath after the card lands so the voice doesn't step on the flip animation).
 
-`tick` fires once per second under the question timer; `tickHeavy` is the heavier heartbeat for the final question's last seconds.
+### Change
+`src/components/host/HostGameStage.tsx` line 425:
+```ts
+const timer = window.setTimeout(() => { ... }, 3800);
+```
+→ change to `2400` and update the inline comment to match.
 
-## Steps
+### Knock-on
+`HostGameStage.tsx:1835-1837` has a `SPEECH_START_DEADLINE_MS = 7000` for the reveal auto-advance "did the explanation actually start speaking" gate. That deadline is the **max** time we'll wait before giving up — pulling the start earlier only widens the safety margin, so no change needed. Leaving it.
 
-1. **Connector check.** Verify the ElevenLabs standard connector is linked. If not, prompt and link it.
+No backend / server-fn changes. The TTS URL is already pre-baked (`current_explanation_tts_url`) so there's no network latency to chase.
 
-2. **Generate two SFX once via ElevenLabs Sound Effects API:**
-   - `tick.mp3` — ~0.3s. Prompt: *"Short warm wooden tock, single hit, dry, no reverb, percussive, 300ms, clean tail"*.
-   - `tick-heavy.mp3` — ~0.5s. Prompt: *"Deep cinematic heartbeat thump, sub-bass with low wooden body, single hit, 500ms, dramatic, tense"*.
-   - Use a short throwaway server script (one-off) to call the API and write the MP3s to `/tmp`, then upload via `lovable-assets create` → `src/assets/audio/tick.mp3.asset.json` and `tick-heavy.mp3.asset.json`. No persistent endpoint, no runtime cost per play.
-
-3. **Wire into `src/lib/sound-engine.ts`:**
-   - Import both `.asset.json` pointers alongside the other audio assets (~line 276–281).
-   - Add a tiny pooled-playback helper for tick clips (reuse a single `HTMLAudioElement` per slot so firing every second doesn't churn GC or stagger on mobile).
-   - In `playInner(sfx)`, for `case "tick"` and `case "tickHeavy"`, play the asset via the pool. On failure (autoplay block, decode error), fall back to the existing synth `sweep()` calls so nothing goes silent.
-   - Respect `synthVolumeScale` so audience overlays still duck the tick the same way.
-
-4. **Verify.** Build, then in preview confirm the question timer ticks with the new sound and the final-question last-5 heartbeat uses the heavy variant. No console errors. No regressions on other sounds.
-
-## Technical notes
-- ElevenLabs SFX API: `POST https://api.elevenlabs.io/v1/sound-generation` with `{ text, duration_seconds, prompt_influence: 0.4 }`, `xi-api-key` header. Returns raw MP3 bytes.
-- Generation script is run-once from the sandbox; it does **not** ship in the app bundle. The committed artifacts are just the two `.asset.json` pointers.
-- Pool pattern: `const pool = new Audio(url); pool.preload = "auto";` then on each play `pool.currentTime = 0; pool.play()`. One element per tick variant is enough at 1 Hz.
+## Verify
+In preview, play through a question, watch the reveal: the "Did you know?" card flips in and the announcer voice should start within ~200ms of it landing, not 1.5s later.
