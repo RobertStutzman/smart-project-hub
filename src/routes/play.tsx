@@ -367,11 +367,19 @@ function PlayPage() {
   const pick = async (i: 0 | 1 | 2 | 3) => {
     if (!session) return;
     Haptics.tap();
+    const correctIdx = room?.current_correct_index;
+    const isWrong =
+      typeof correctIdx === "number" && correctIdx >= 0 && i !== correctIdx;
+    if (isWrong) {
+      setWrongPicks((prev) => (prev.includes(i) ? prev : [...prev, i]));
+      Haptics.wrong();
+      play("wrong");
+    }
     try {
       await lockFn({
         data: { roomCode: session.roomCode, sessionId: session.sessionId, answerIndex: i },
       });
-      Haptics.lock();
+      if (!isWrong) Haptics.lock();
     } catch {
       /* ignore */
     }
