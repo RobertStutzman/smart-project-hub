@@ -1,35 +1,59 @@
-# Immediate wrong-answer feedback on the player's phone
+# Fix: End-game silence
 
-## Goal
-When a player taps an answer on their phone, they see right away whether it's wrong or right — they don't have to wait for the round to end. Wrong picks visibly "burn" on their tile and they can keep tapping until they land on the correct one. The TV/host screen and scoring are unchanged.
+## What broke
+In `src/components/host/HostGameStage.tsx` (lines 599-608), the master music switch only starts a bed on `question / final_question / intro / credits / lobby / final_intro / final_wager`. **Every other phase falls through to `stopMusic()`** — including `reveal`, `leaderboard`, `final_reveal`, and `ended` (WinnerSpotlight).
 
-## Where it broke
-`src/routes/play.tsx` already fetches `room.current_correct_index` (line 143), but the per-player `<AnswerGrid>` during the question phase (line 819) never receives a `correctIndex`, so the tile only turns green/red at `room.phase === "reveal"`. The component already supports immediate styling — we just stopped feeding it.
+Result: the moment the final answer is revealed, music stops. `playEvent("victory")` fires once on `ended` (line 688), then the WinnerSpotlight sits in silence until `credits` mounts and starts its own bed.
 
-## Changes (frontend only, `src/routes/play.tsx`)
+## Fix (scoped, no behavior changes elsewhere)
 
-1. **Per-player wrong-tile memory.** Add local state `wrongPicks: Set<number>` keyed off `room.current_question_text`. Reset whenever the question text changes (and on phase leaving `"question"`).
+**File: `src/components/host/HostGameStage.tsx`** — only the music switch effect (lines 599-608) and the phase-sting effect (lines 670-689).
 
-2. **In `pick(i)`** (line 353):
-   - After `await lockFn(...)` resolves, compare `i` to `room.current_correct_index`.
-   - If wrong: add `i` to `wrongPicks`, fire `Haptics.wrong()` + `play("buzzer")` (or existing wrong sfx), do NOT advance phase, leave the tile tappable for another guess.
-   - If correct: fire `Haptics.correct()` + small confirm sfx, keep current locked styling.
+1. Keep the "tense" bed running through `reveal` and `final_reveal` instead of dropping to silence — no audible gap between question and reveal.
+2. On `ended`, start `playCreditsMusic(0.42)` (louder than the credits' 0.22 duck) so WinnerSpotlight has a continuous celebratory bed. `credits` already calls `playCreditsMusic(0.22)`, so the handoff is seamless — same track, just ducks for the voiceover.
+3. On `leaderboard`, keep the "lobby" bed at low volume instead of going silent.
+4. Layer hype on `ended`: in addition to the existing `playEvent("victory")` sting, fire a `play("whoosh")` + a second `playEvent("victory")` at ~3.5s so the spotlight has two beats of excitement, not one.
 
-3. **Pass live feedback to `<AnswerGrid>`** (line 819 block):
-   - `droppedIndexes={[...(room.dropped_indexes ?? []), ...wrongPicks]}` — wrong picks get the same greyed/✕ treatment that dropped tiles already have, locally only.
-   - `correctIndex={ me?.current_answer === room.current_correct_index ? room.current_correct_index : null }` — green halo only once they actually land on the right one.
-   - Keep `disabled={room.phase !== "question" || reading}` so they can keep tapping until they get it right or time runs out.
+No new sound assets, no changes to `sound-engine.ts`, `CreditsStage.tsx`, `WinnerSpotlight.tsx`, server functions, scoring, or any other phase.
 
-4. **Tiny "Try again" hint** under the grid while `wrongPicks.size > 0 && me?.current_answer !== room.current_correct_index` — single line, rose color, no layout shift. Hides as soon as they pick correctly.
+## New switch (replaces lines 599-608)
 
-## What is NOT changing
-- `lockAnswer` server fn, scoring, streaks, `current_first_answer` (first pick already drives streak credit — wrong-then-right still loses streak, same as today).
-- Host/TV reveal flow, leaderboard, explanation card.
-- The `reveal`-phase correct/wrong banner at line 841.
-- Final round (`pickFinal`) — untouched.
+```ts
+if (state.phase === "question" || state.phase === "final_question" || state.phase === "reveal")
+  startMusic("tense", 380);
+else if (state.phase === "final_reveal")
+  startMusic("tense", 380);
+else if (state.phase === "intro")
+  startMusic("lobby", 600);
+else if (state.phase === "lobby" || state.phase === "leaderboard")
+  startMusic("lobby", 600);
+else if (state.phase === "final_intro" || state.phase === "final_wager")
+  startMusic("tense", 520);
+else if (state.phase === "ended") {
+  // Celebratory bed under WinnerSpotlight; credits phase will duck it to 0.22.
+  void import("@/lib/sound-engine").then((m) => m.playCreditsMusic(0.42));
+} else if (state.phase === "credits") {
+  // CreditsStage starts its own playCreditsMusic(0.22); don't fight it.
+} else {
+  stopMusic();
+}
+```
+
+## Hype layer on `ended` (extends lines 688)
+
+Replace the single-line `else if (state.phase === "ended") playEvent("victory");` with:
+
+```ts
+else if (state.phase === "ended") {
+  playEvent("victory");
+  const t1 = window.setTimeout(() => play("whoosh"), 1800);
+  const t2 = window.setTimeout(() => playEvent("victory"), 3500);
+  return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
+}
+```
 
 ## Verification
-- Pick wrong → tile greys with ✕ + buzzer immediately, other tiles stay live, "Try again" hint appears.
-- Pick correct (first try or after a wrong) → tile glows green, hint disappears, no extra server calls.
-- New question → `wrongPicks` clears, all four tiles live again.
-- Host TV behavior and scoring identical to before.
+- Enter `ended` phase → music bed audible immediately, victory sting on entry, whoosh ~1.8s, second victory sting ~3.5s, bed continues.
+- Transition `ended → credits` → no audio gap, no restart blip (`playCreditsMusic` already handles same-track reuse at lines 380-384 of `sound-engine.ts`); voiceover ducks the bed via existing `duckMusic`.
+- Question → reveal → leaderboard: continuous music instead of silence between phases.
+- No regressions on `lobby / intro / question / final_*`.

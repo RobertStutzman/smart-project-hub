@@ -596,16 +596,26 @@ export function HostGameStage({ room }: Props) {
       // Skip the immediate startMusic below — the timeout handles it.
       return;
     }
-    if (state.phase === "question" || state.phase === "final_question")
+    if (
+      state.phase === "question" ||
+      state.phase === "final_question" ||
+      state.phase === "reveal" ||
+      state.phase === "final_reveal"
+    )
       startMusic("tense", 380);
-    else if (state.phase === "intro" || state.phase === "credits")
+    else if (state.phase === "intro")
       startMusic("lobby", 600);
-    else if (state.phase === "lobby") {
+    else if (state.phase === "lobby" || state.phase === "leaderboard") {
       // Lobby plays the trivia bed under the crowd ambience.
       startMusic("lobby", 600);
     } else if (state.phase === "final_intro" || state.phase === "final_wager")
       startMusic("tense", 520);
-    else stopMusic();
+    else if (state.phase === "ended") {
+      // Celebratory bed under WinnerSpotlight; credits phase will duck it to 0.22.
+      void import("@/lib/sound-engine").then((m) => m.playCreditsMusic(0.42));
+    } else if (state.phase === "credits") {
+      // CreditsStage starts its own playCreditsMusic(0.22); don't fight it.
+    } else stopMusic();
 
 
     // Pause ember particles during active question phases — the screen is
@@ -685,7 +695,12 @@ export function HostGameStage({ room }: Props) {
       }, 3000);
       return () => window.clearTimeout(t);
     }
-    else if (state.phase === "ended") playEvent("victory");
+    else if (state.phase === "ended") {
+      playEvent("victory");
+      const t1 = window.setTimeout(() => play("whoosh"), 1800);
+      const t2 = window.setTimeout(() => playEvent("victory"), 3500);
+      return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
+    }
   }, [state?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Leaderboard is a TV-only interstitial: show it briefly, then continue.
