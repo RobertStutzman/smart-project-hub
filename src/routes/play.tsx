@@ -861,6 +861,14 @@ function PlayPage() {
                   />
                 </div>
 
+                {room.phase === "question" &&
+                  wrongPicks.length > 0 &&
+                  me?.current_answer !== room.current_correct_index && (
+                    <div className="text-center text-xs font-black uppercase tracking-[0.3em] text-rose-300 animate-pulse">
+                      Nope — try again
+                    </div>
+                  )}
+
                 {buttonsScrambled && (
                   <div className="absolute inset-x-0 top-1/2 z-30 -translate-y-1/2 text-center font-display text-3xl font-black tracking-widest text-fuchsia-300 drop-shadow">
                     G̷L̷I̷T̷C̷H̷E̷D̷
