@@ -127,7 +127,52 @@ export const nextQuestion = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const room = await getRoomByHost(data.roomCode, data.hostSessionId);
+
+    // ── Asymmetry round (one per game, slots 8–17) ───────────────────────
+    // Pick & persist slot+format on first invocation. Then, when the next
+    // round would land on that slot AND we haven't consumed the format yet,
+    // enter the intro phase (announcer explainer + banner) WITHOUT bumping
+    // the round counter. `finishAsymIntro` clears the format and the host
+    // calls nextQuestion again to play the regular question on that slot.
+    type AsymRoom = {
+      asym_slot_index: number | null;
+      asym_format: string | null;
+      asym_prompt: string | null;
+    };
+    const asymRoom = room as unknown as AsymRoom;
+    let asymSlot = asymRoom.asym_slot_index;
+    let asymFormat = asymRoom.asym_format as AsymFormat | null;
+    if (asymSlot === null) {
+      asymSlot = pickAsymSlotForRoom(room.id);
+      asymFormat = pickAsymFormatForRoom(room.id);
+      await supabaseAdmin
+        .from("rooms")
+        .update({ asym_slot_index: asymSlot, asym_format: asymFormat })
+        .eq("id", room.id);
+    }
     const nextRound = (room.round_number ?? 0) + 1;
+    if (asymFormat && asymSlot !== null && nextRound === asymSlot) {
+      const { data: prompts } = await supabaseAdmin
+        .from("asymmetry_prompts")
+        .select("prompt")
+        .eq("format", asymFormat);
+      const pool = prompts ?? [];
+      const prompt =
+        pool.length > 0
+          ? pool[Math.floor(Math.random() * pool.length)].prompt
+          : "(no prompt available)";
+      await supabaseAdmin
+        .from("rooms")
+        .update({
+          phase: "asym_intro",
+          asym_prompt: prompt,
+          asym_phase_started_at: new Date().toISOString(),
+        })
+        .eq("id", room.id);
+      return { ok: true, asymIntro: true, format: asymFormat, prompt };
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     const wildcard = wildcardForRound(nextRound, room.id);
 
     await supabaseAdmin
@@ -141,6 +186,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
         last_answer_correct: null,
       })
       .eq("room_id", room.id);
+
 
     // ROAST: top 4 players become "answers"; tally votes, no DB question
     if (wildcard === "roast") {
