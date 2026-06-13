@@ -1520,3 +1520,28 @@ export const restartGame = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+
+/**
+ * Asymmetry intro complete — clear the format so the next `nextQuestion`
+ * call falls through to a regular question pick on the same slot.
+ * Phase 1 stub: future phases will transition into `asym_submit` instead.
+ */
+export const finishAsymIntro = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      hostSessionId: z.string().min(8).max(128),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const room = await getRoomByHost(data.roomCode, data.hostSessionId);
+    await supabaseAdmin
+      .from("rooms")
+      .update({
+        asym_format: null,
+        asym_prompt: null,
+        asym_phase_started_at: null,
+      })
+      .eq("id", room.id);
+    return { ok: true };
+  });
