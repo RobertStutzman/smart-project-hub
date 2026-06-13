@@ -51,6 +51,12 @@ type RoomState = {
   glitch_used: boolean;
   round_number: number;
   sudden_death_session_ids: string[] | null;
+  asym_format: string | null;
+  asym_prompt: string | null;
+  asym_source_session_id: string | null;
+  asym_submissions: Record<string, { text?: string; choice?: "agree" | "disagree"; statements?: string[]; lieIndex?: number }> | null;
+  asym_votes: Record<string, string | number> | null;
+  asym_phase_ends_at: string | null;
 };
 
 type Me = {
