@@ -1064,28 +1064,9 @@ export function HostGameStage({ room }: Props) {
     return () => window.clearTimeout(id);
   }, [state?.phase, state?.round_number, players]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Final showdown: name the top 3 entering final_intro ──
-  const finalShowdownFiredRef = useRef(false);
-  useEffect(() => {
-    if (!state || finalShowdownFiredRef.current) return;
-    if (state.phase !== "final_intro") return;
-    const top3 = [...players]
-      .filter((p) => !p.is_audience)
-      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-      .slice(0, 3);
-    if (top3.length === 0) return;
-    finalShowdownFiredRef.current = true;
-    const [first, ...rest] = top3.map((p) => p.nickname);
-    // Delay so it lands after the existing final hype sting.
-    const id = window.setTimeout(() => {
-      void speakAboutPlayer({
-        nickname: first,
-        extraNames: rest,
-        moment: "final_showdown",
-      });
-    }, 2000);
-    return () => window.clearTimeout(id);
-  }, [state?.phase, players]); // eslint-disable-line react-hooks/exhaustive-deps
+  // FinalIntroStage now owns the top-3 reveal beats; the previous
+  // speakAboutPlayer("final_showdown") block was removed to avoid overlap.
+
 
   // ── Winner crowning: fires once on phase → ended ──
   const winnerFiredRef = useRef(false);
