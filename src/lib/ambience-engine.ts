@@ -138,22 +138,6 @@ function makeLoopLayer(
   };
 }
 
-const chatter: LoopLayer = makeLoopLayer(crowdSeamlessAsset.url, CHATTER_TARGET, {
-  // Home/join ambience uses the same seamless bed at a quieter level so no
-  // short MP3 loop remains active before the host screen.
-  continuous: true,
-  loopStart: 0.75,
-  loopEndTrim: 2.75,
-  crossfadeSec: 4.5,
-});
-const crowd: LoopLayer = makeLoopLayer(crowdSeamlessAsset.url, CROWD_TARGET, {
-  // Trim both edges and overlap repeats so the audible bed never reaches the
-  // file boundary where a hard restart or quiet tail can create a gap.
-  continuous: true,
-  loopStart: 0.75,
-  loopEndTrim: 2.75,
-  crossfadeSec: 4.5,
-});
 const drumroll: LoopLayer = makeLoopLayer(drumAsset.url, DRUM_TARGET, {
   // The drumroll source contains several seconds of trailing silence. Treat it
   // as a trimmed, crossfaded Web Audio loop instead of an HTML audio loop.
@@ -161,6 +145,80 @@ const drumroll: LoopLayer = makeLoopLayer(drumAsset.url, DRUM_TARGET, {
   loopEnd: 6.7,
   crossfadeSec: 0.55,
 });
+
+// ─── HTML Audio layer backend (for seamless beds) ───────────────────────
+// The seamless crowd WAV loops cleanly on its own. HTMLAudioElement.loop is
+// far more resilient than the Web Audio scheduler (survives tab suspension
+// and OS audio policy quirks), so we use it for chatter + crowd.
+
+type HtmlLayer = {
+  url: string;
+  target: number;
+  audio: HTMLAudioElement | null;
+  wantPlaying: boolean;
+};
+
+const chatterHtml: HtmlLayer = { url: crowdSeamlessAsset.url, target: CHATTER_TARGET, audio: null, wantPlaying: false };
+const crowdHtml: HtmlLayer = { url: crowdSeamlessAsset.url, target: CROWD_TARGET, audio: null, wantPlaying: false };
+
+function ensureHtmlAudio(layer: HtmlLayer): HTMLAudioElement | null {
+  if (!isClient()) return null;
+  if (!layer.audio) {
+    const a = new Audio(layer.url);
+    a.loop = true;
+    a.preload = "auto";
+    a.crossOrigin = "anonymous";
+    a.volume = 0;
+    layer.audio = a;
+  }
+  return layer.audio;
+}
+
+async function startHtmlLayer(layer: HtmlLayer): Promise<boolean> {
+  if (!isClient() || muted || handedOff) return false;
+  layer.wantPlaying = true;
+  const a = ensureHtmlAudio(layer);
+  if (!a) return false;
+  a.volume = Math.max(0, Math.min(1, layer.target * duckMultiplier));
+  try {
+    await a.play();
+    setBlocked(false);
+    return true;
+  } catch {
+    setBlocked(true);
+    return false;
+  }
+}
+
+function stopHtmlLayer(layer: HtmlLayer, fadeMs = 0) {
+  layer.wantPlaying = false;
+  const a = layer.audio;
+  if (!a) return;
+  if (fadeMs <= 0) {
+    try { a.pause(); } catch { /* ignore */ }
+    a.volume = 0;
+    try { a.currentTime = 0; } catch { /* ignore */ }
+    return;
+  }
+  const startVol = a.volume;
+  const steps = 12;
+  const stepMs = fadeMs / steps;
+  let i = 0;
+  const id = window.setInterval(() => {
+    i += 1;
+    const v = startVol * (1 - i / steps);
+    a.volume = Math.max(0, v);
+    if (i >= steps) {
+      window.clearInterval(id);
+      try { a.pause(); } catch { /* ignore */ }
+    }
+  }, stepMs);
+}
+
+function applyDuckToHtml(layer: HtmlLayer) {
+  if (!layer.audio || !layer.wantPlaying) return;
+  layer.audio.volume = Math.max(0, Math.min(1, layer.target * duckMultiplier));
+}
 
 function rampGain(g: GainNode, to: number, ms: number, ctx: AudioContext) {
   const now = ctx.currentTime;
@@ -333,23 +391,43 @@ function stopLoop(layer: LoopLayer, fadeMs: number) {
   layer.sources.clear();
 }
 
+// ─── Visibility / unlock watchdog ───────────────────────────────────────
+
+let watchdogInstalled = false;
+
+function installWatchdog() {
+  if (watchdogInstalled || !isClient()) return;
+  watchdogInstalled = true;
+  const onVisible = () => {
+    if (document.visibilityState !== "visible") return;
+    resumeAmbienceContext();
+    retryBlockedAmbience();
+  };
+  document.addEventListener("visibilitychange", onVisible);
+  // Also nudge on focus — some browsers fire focus without visibilitychange.
+  window.addEventListener("focus", onVisible);
+}
+
 // ─── Public API ─────────────────────────────────────────────────────────
 
 export function startLobbyChatter(): Promise<boolean> {
   if (!isClient() || muted || handedOff) return Promise.resolve(false);
   wanted.add("chatter");
-  return startLoop(chatter);
+  installWatchdog();
+  return startHtmlLayer(chatterHtml);
 }
 
 export function startCrowd(): Promise<boolean> {
   if (!isClient() || muted || handedOff) return Promise.resolve(false);
   wanted.add("crowd");
-  return startLoop(crowd);
+  installWatchdog();
+  return startHtmlLayer(crowdHtml);
 }
 
 export function startDrumroll(): Promise<boolean> {
   if (!isClient() || muted || handedOff) return Promise.resolve(false);
   wanted.add("drumroll");
+  installWatchdog();
   return startLoop(drumroll);
 }
 
@@ -365,13 +443,20 @@ export function resumeAmbienceContext(): void {
 }
 
 /**
- * Retry any layers that were requested while the AudioContext was blocked.
+ * Retry any layers that were requested while the AudioContext was blocked,
+ * or whose HTMLAudio element got paused (tab suspended, OS interrupt, etc.).
  * Safe to call multiple times; layers already playing are no-ops.
  */
 export function retryBlockedAmbience(): void {
   if (!isClient() || muted || handedOff) return;
-  if (wanted.has("chatter")) void startLoop(chatter);
-  if (wanted.has("crowd")) void startLoop(crowd);
+  if (wanted.has("chatter")) {
+    const a = chatterHtml.audio;
+    if (!a || a.paused) void startHtmlLayer(chatterHtml);
+  }
+  if (wanted.has("crowd")) {
+    const a = crowdHtml.audio;
+    if (!a || a.paused) void startHtmlLayer(crowdHtml);
+  }
   if (wanted.has("drumroll")) void startLoop(drumroll);
 }
 
@@ -386,15 +471,15 @@ export function climaxAndHandoff() {
     swell.play().catch(() => {});
   }
   wanted.clear();
-  stopLoop(chatter, 700);
-  stopLoop(crowd, 700);
+  stopHtmlLayer(chatterHtml, 700);
+  stopHtmlLayer(crowdHtml, 700);
   stopLoop(drumroll, 500);
 }
 
 export function stopAllAmbience() {
   wanted.clear();
-  stopLoop(chatter, 0);
-  stopLoop(crowd, 0);
+  stopHtmlLayer(chatterHtml, 0);
+  stopHtmlLayer(crowdHtml, 0);
   stopLoop(drumroll, 0);
 }
 
@@ -402,14 +487,27 @@ export function stopAllAmbience() {
 export function stopLobbyBuildup() {
   wanted.delete("crowd");
   wanted.delete("drumroll");
-  stopLoop(crowd, 600);
+  stopHtmlLayer(crowdHtml, 600);
   stopLoop(drumroll, 500);
 }
 
 
 export function setAmbienceMuted(v: boolean) {
+  const wasMuted = muted;
   muted = v;
-  if (v) stopAllAmbience();
+  if (v) {
+    stopHtmlLayer(chatterHtml, 0);
+    stopHtmlLayer(crowdHtml, 0);
+    stopLoop(drumroll, 0);
+    // Preserve `wanted` so we can resume on unmute.
+    return;
+  }
+  // Unmuting — restart anything that was wanted.
+  if (wasMuted && !handedOff) {
+    if (wanted.has("chatter")) void startHtmlLayer(chatterHtml);
+    if (wanted.has("crowd")) void startHtmlLayer(crowdHtml);
+    if (wanted.has("drumroll")) void startLoop(drumroll);
+  }
 }
 
 // ─── Ducking (lower ambience under VO) ──────────────────────────────────
@@ -424,15 +522,17 @@ function applyDuckToLayer(layer: LoopLayer, ms: number) {
 
 export function duckAmbience(multiplier = 0.35, ms = 400) {
   duckMultiplier = Math.max(0, Math.min(1, multiplier));
-  applyDuckToLayer(chatter, ms);
-  applyDuckToLayer(crowd, ms);
+  void ms;
+  applyDuckToHtml(chatterHtml);
+  applyDuckToHtml(crowdHtml);
   applyDuckToLayer(drumroll, ms);
 }
 
 export function unduckAmbience(ms = 500) {
   duckMultiplier = 1;
-  applyDuckToLayer(chatter, ms);
-  applyDuckToLayer(crowd, ms);
+  void ms;
+  applyDuckToHtml(chatterHtml);
+  applyDuckToHtml(crowdHtml);
   applyDuckToLayer(drumroll, ms);
 }
 
@@ -440,3 +540,4 @@ export function unduckAmbience(ms = 500) {
 export function resetAmbience() {
   handedOff = false;
 }
+
