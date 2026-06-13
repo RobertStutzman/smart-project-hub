@@ -306,6 +306,22 @@ function GateStage({ pressed = false }: { pressed?: boolean }) {
 }
 
 function SplashStage() {
+  // Fire the logo punch + white flash in sync with the "Beat. The. Drop."
+  // VO beat. Schedules off the same audio start clock the intro uses.
+  const [punched, setPunched] = useState(false);
+  const [flash, setFlash] = useState(false);
+  useEffect(() => {
+    const elapsed = bootAudioStartedAt > 0 ? Date.now() - bootAudioStartedAt : 0;
+    const delay = Math.max(0, DROP_BEAT_MS - elapsed);
+    const punchT = window.setTimeout(() => {
+      setPunched(true);
+      setFlash(true);
+      window.setTimeout(() => setFlash(false), 280);
+      window.setTimeout(() => setPunched(false), 240);
+    }, delay);
+    return () => window.clearTimeout(punchT);
+  }, []);
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.94 }}
@@ -314,19 +330,39 @@ function SplashStage() {
       transition={{ duration: 0.7, ease: SOFT_EASE }}
       className="absolute inset-0 flex flex-col items-center justify-center"
     >
+      {/* hotter rim glow under the logo */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse 40% 30% at 50% 50%, oklch(0.85 0.18 85 / 0.25), transparent 70%)",
+            "radial-gradient(ellipse 50% 38% at 50% 50%, oklch(0.85 0.20 80 / 0.42), transparent 70%)",
         }}
+      />
+
+      {/* white flash on the drop beat */}
+      <div
+        className="pointer-events-none absolute inset-0 bg-white transition-opacity duration-300"
+        style={{ opacity: flash ? 0.35 : 0 }}
       />
 
       <motion.div
         initial={{ letterSpacing: "0.4em", opacity: 0 }}
-        animate={{ letterSpacing: "0.05em", opacity: 1 }}
-        transition={{ duration: 1.2, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        animate={{
+          letterSpacing: "0.05em",
+          opacity: 1,
+          scale: punched ? 1.08 : 1,
+        }}
+        transition={{
+          duration: punched ? 0.22 : 1.2,
+          delay: punched ? 0 : 0.2,
+          ease: punched ? [0.34, 1.56, 0.64, 1] : [0.16, 1, 0.3, 1],
+        }}
         className="relative font-display text-[clamp(3rem,11svh,8rem)] font-black leading-[0.95] tracking-tight"
+        style={{
+          filter: punched
+            ? "drop-shadow(0 0 60px oklch(0.92 0.20 80 / 0.9))"
+            : undefined,
+        }}
       >
         <span className="text-white drop-shadow-[0_4px_40px_rgba(0,0,0,0.7)]">Beat the </span>
         <span className="bg-gradient-to-b from-amber-200 via-amber-300 to-amber-500 bg-clip-text text-transparent">
@@ -352,6 +388,8 @@ function SplashStage() {
     </motion.div>
   );
 }
+
+
 
 function CreditsStage() {
   return (
