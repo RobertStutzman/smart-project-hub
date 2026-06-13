@@ -421,7 +421,8 @@ export function HostGameStage({ room }: Props) {
       explanationTtsAudioRef.current = null;
     }
 
-    // Match QuestionStage's tiles→fullscreen flip (~2200ms).
+    // Fire ~200ms after QuestionStage flips to the fullscreen card (2200ms)
+    // so the announcer voice lands right as the "Did you know?" card settles.
     const timer = window.setTimeout(() => {
       // Queue behind any in-flight persona reaction so they don't overlap.
       void playVoiceUrl(url, {
@@ -435,7 +436,7 @@ export function HostGameStage({ room }: Props) {
         },
       });
       explanationTtsAudioRef.current = null;
-    }, 3800);
+    }, 2400);
 
     return () => window.clearTimeout(timer);
   }, [state?.current_question_id, state?.current_explanation_tts_url, state?.phase]);
