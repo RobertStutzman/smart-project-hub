@@ -1495,12 +1495,46 @@ export function HostGameStage({ room }: Props) {
             </div>
           )}
           <div className="mt-8 text-[10px] font-semibold uppercase tracking-[0.4em] text-white/40">
-            Coming soon — submit on your phone
+            Submit on your phone…
           </div>
         </div>
       </div>
     );
   }
+
+  if (
+    (state.phase === "asym_submit" ||
+      state.phase === "asym_vote" ||
+      state.phase === "asym_reveal") &&
+    state.asym_format &&
+    state.asym_prompt
+  ) {
+    const fmt = state.asym_format as AsymFormat;
+    const live = players.filter((p) => !p.is_audience);
+    const subs = state.asym_submissions ?? {};
+    const votes = state.asym_votes ?? {};
+    const sourceSid = state.asym_source_session_id;
+    const liveSids = live.map((p) => p.session_id);
+    const deltas =
+      state.phase === "asym_reveal"
+        ? computeAsymDeltas(fmt, liveSids, sourceSid, subs, votes)
+        : {};
+
+    const common = {
+      format: fmt,
+      prompt: state.asym_prompt,
+      players: live,
+      sourceSessionId: sourceSid,
+      submissions: subs,
+      votes,
+      endsAt: state.asym_phase_ends_at,
+    };
+
+    if (state.phase === "asym_submit") return <AsymSubmitStage {...common} />;
+    if (state.phase === "asym_vote") return <AsymVoteStage {...common} />;
+    return <AsymRevealStage {...common} scoringDeltas={deltas} />;
+  }
+
 
   if (state.phase === "intro") {
 
