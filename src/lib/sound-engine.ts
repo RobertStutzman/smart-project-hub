@@ -212,16 +212,19 @@ function playInner(sfx: Sfx) {
       sweep(800, 80, 0.6, "sawtooth", 0.25);
       break;
     case "tick": {
-      // Warm wooden tock — pitched body + transient click. Lower and rounder
-      // than a digital beep so the loop under the timer is unobtrusive.
-      sweep(520, 360, 0.06, "triangle", 0.12);
-      sweep(1800, 900, 0.018, "sine", 0.05);
+      if (!playTickClip("tick", 0.7)) {
+        // Fallback: warm wooden tock synth.
+        sweep(520, 360, 0.06, "triangle", 0.12);
+        sweep(1800, 900, 0.018, "sine", 0.05);
+      }
       break;
     }
     case "tickHeavy": {
-      // Heavier tock with a sub-bass thump for the final-question heartbeat.
-      sweep(420, 280, 0.08, "triangle", 0.16);
-      sweep(110, 55, 0.18, "sine", 0.32);
+      if (!playTickClip("tickHeavy", 0.95)) {
+        // Fallback: heavy thump synth.
+        sweep(420, 280, 0.08, "triangle", 0.16);
+        sweep(110, 55, 0.18, "sine", 0.32);
+      }
       break;
     }
     case "airhorn":
