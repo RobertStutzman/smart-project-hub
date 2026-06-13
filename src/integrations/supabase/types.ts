@@ -295,11 +295,13 @@ export type Database = {
         Row: {
           allow_late_joiners: boolean
           asym_format: string | null
+          asym_phase_ends_at: string | null
           asym_phase_started_at: string | null
           asym_prompt: string | null
           asym_slot_index: number | null
           asym_source_session_id: string | null
           asym_submissions: Json | null
+          asym_votes: Json | null
           created_at: string
           current_answers: string[] | null
           current_category: string | null
@@ -338,11 +340,13 @@ export type Database = {
         Insert: {
           allow_late_joiners?: boolean
           asym_format?: string | null
+          asym_phase_ends_at?: string | null
           asym_phase_started_at?: string | null
           asym_prompt?: string | null
           asym_slot_index?: number | null
           asym_source_session_id?: string | null
           asym_submissions?: Json | null
+          asym_votes?: Json | null
           created_at?: string
           current_answers?: string[] | null
           current_category?: string | null
@@ -381,11 +385,13 @@ export type Database = {
         Update: {
           allow_late_joiners?: boolean
           asym_format?: string | null
+          asym_phase_ends_at?: string | null
           asym_phase_started_at?: string | null
           asym_prompt?: string | null
           asym_slot_index?: number | null
           asym_source_session_id?: string | null
           asym_submissions?: Json | null
+          asym_votes?: Json | null
           created_at?: string
           current_answers?: string[] | null
           current_category?: string | null
