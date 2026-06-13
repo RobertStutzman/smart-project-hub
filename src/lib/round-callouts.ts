@@ -35,39 +35,41 @@ const ROUND1_OPENERS = [
   "Round one. First question. Don't choke.",
 ];
 
-function roundNOpeners(n: number): string[] {
+function roundNOpeners(n: number, q: number): string[] {
   return [
-    `Round ${n}. Question 1.`,
-    `Round ${n} kicks off. Question 1.`,
-    `New round. Question 1. Stay sharp.`,
+    `Round ${n} begins. Question ${q}.`,
+    `Round ${n} kicks off. Question ${q}.`,
+    `New round. Question ${q}. Stay sharp.`,
   ];
 }
 
-// --- Mid-round pools (Q2–Q4) ---
+// --- Mid-round pools (Q2–Q4 within a round, absolute number spoken) ---
 
-function midRoundLines(n: number): string[] {
+function midRoundLines(q: number): string[] {
   return [
-    `Question ${n}.`,
-    `Question ${n} coming in.`,
-    `Onto question ${n}.`,
-    `Next up — question ${n}.`,
-    `Question ${n}. Lock in.`,
-    `Here's question ${n}.`,
-    `Question ${n}. Eyes up.`,
+    `Question ${q}.`,
+    `Question ${q} coming in.`,
+    `Onto question ${q}.`,
+    `Next up — question ${q}.`,
+    `Question ${q}. Lock in.`,
+    `Here's question ${q}.`,
+    `Question ${q}. Eyes up.`,
   ];
 }
 
-// --- Wildcard slot (Q5 of rounds 1–4) ---
+// --- Wildcard slot (Q5 of rounds 1–4, absolute number spoken) ---
 
-const WILDCARD_PREFIXES = [
-  "Question 5 — and it's a wildcard.",
-  "Final question of the round, and it's a wildcard.",
-  "Wildcard time. Question 5.",
-];
+function wildcardPrefixes(q: number): string[] {
+  return [
+    `Question ${q} — and it's a wildcard.`,
+    `Final question of the round, and it's a wildcard.`,
+    `Wildcard time. Question ${q}.`,
+  ];
+}
 
-function wildcardLines(kind: WildcardKind): string[] {
+function wildcardLines(kind: WildcardKind, q: number): string[] {
   const tail = WILDCARD_TAIL[kind];
-  return WILDCARD_PREFIXES.map((p) => `${p} ${tail}`);
+  return wildcardPrefixes(q).map((p) => `${p} ${tail}`);
 }
 
 // --- Deterministic picker ---
