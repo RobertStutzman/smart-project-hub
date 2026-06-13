@@ -88,6 +88,11 @@ async function setSecretCorrectIndex(roomId: string, correctIndex: number | null
 // from room.id) and deal the first 4 into those slots, so every game gets a
 // fresh order with no repeats. Q21 (final) is always skipped.
 import { wildcardDeckForRoom, type Wildcard } from "./wildcards";
+import {
+  pickAsymSlotForRoom,
+  pickAsymFormatForRoom,
+  type AsymFormat,
+} from "./asymmetry";
 function wildcardForRound(round: number, roomId: string): Wildcard | null {
   if (round <= 0 || round >= 21) return null; // skip final
   if (round % 5 !== 0) return null;
@@ -95,6 +100,7 @@ function wildcardForRound(round: number, roomId: string): Wildcard | null {
   const deck = wildcardDeckForRoom(roomId);
   return deck[slot] ?? null;
 }
+
 
 const LIGHTNING_DURATION_MS = 8000;
 const LIGHTNING_MULTIPLIER = 2;
@@ -121,7 +127,52 @@ export const nextQuestion = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const room = await getRoomByHost(data.roomCode, data.hostSessionId);
+
+    // ── Asymmetry round (one per game, slots 8–17) ───────────────────────
+    // Pick & persist slot+format on first invocation. Then, when the next
+    // round would land on that slot AND we haven't consumed the format yet,
+    // enter the intro phase (announcer explainer + banner) WITHOUT bumping
+    // the round counter. `finishAsymIntro` clears the format and the host
+    // calls nextQuestion again to play the regular question on that slot.
+    type AsymRoom = {
+      asym_slot_index: number | null;
+      asym_format: string | null;
+      asym_prompt: string | null;
+    };
+    const asymRoom = room as unknown as AsymRoom;
+    let asymSlot = asymRoom.asym_slot_index;
+    let asymFormat = asymRoom.asym_format as AsymFormat | null;
+    if (asymSlot === null) {
+      asymSlot = pickAsymSlotForRoom(room.id);
+      asymFormat = pickAsymFormatForRoom(room.id);
+      await supabaseAdmin
+        .from("rooms")
+        .update({ asym_slot_index: asymSlot, asym_format: asymFormat })
+        .eq("id", room.id);
+    }
     const nextRound = (room.round_number ?? 0) + 1;
+    if (asymFormat && asymSlot !== null && nextRound === asymSlot) {
+      const { data: prompts } = await supabaseAdmin
+        .from("asymmetry_prompts")
+        .select("prompt")
+        .eq("format", asymFormat);
+      const pool = prompts ?? [];
+      const prompt =
+        pool.length > 0
+          ? pool[Math.floor(Math.random() * pool.length)].prompt
+          : "(no prompt available)";
+      await supabaseAdmin
+        .from("rooms")
+        .update({
+          phase: "asym_intro",
+          asym_prompt: prompt,
+          asym_phase_started_at: new Date().toISOString(),
+        })
+        .eq("id", room.id);
+      return { ok: true, asymIntro: true, format: asymFormat, prompt };
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     const wildcard = wildcardForRound(nextRound, room.id);
 
     await supabaseAdmin
@@ -135,6 +186,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
         last_answer_correct: null,
       })
       .eq("room_id", room.id);
+
 
     // ROAST: top 4 players become "answers"; tally votes, no DB question
     if (wildcard === "roast") {
@@ -1466,5 +1518,30 @@ export const restartGame = createServerFn({ method: "POST" })
     // Again so the same crew never sees a repeat. The global rotation +
     // category-drop fallback in pickQuestion handles long-lived rooms.
 
+    return { ok: true };
+  });
+
+/**
+ * Asymmetry intro complete — clear the format so the next `nextQuestion`
+ * call falls through to a regular question pick on the same slot.
+ * Phase 1 stub: future phases will transition into `asym_submit` instead.
+ */
+export const finishAsymIntro = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      hostSessionId: z.string().min(8).max(128),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const room = await getRoomByHost(data.roomCode, data.hostSessionId);
+    await supabaseAdmin
+      .from("rooms")
+      .update({
+        asym_format: null,
+        asym_prompt: null,
+        asym_phase_started_at: null,
+      })
+      .eq("id", room.id);
     return { ok: true };
   });

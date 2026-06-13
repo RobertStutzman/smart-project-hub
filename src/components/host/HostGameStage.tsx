@@ -13,7 +13,9 @@ import {
   startSuddenDeath,
   resolveSuddenDeath,
   restartGame,
+  finishAsymIntro,
 } from "@/lib/game.functions";
+
 import { QuestionStage, DROP_FALL_MS } from "./QuestionStage";
 import { getRoundCallout, type WildcardKind } from "@/lib/round-callouts";
 import { Leaderboard } from "./Leaderboard";
@@ -24,6 +26,13 @@ import { CreditsStage } from "./CreditsStage";
 import { pickLine, speakPersona } from "@/lib/host-persona";
 import { playVoiceUrl, speakAsElf } from "@/lib/elf-voice";
 import { pickExplainer, type Wildcard } from "@/lib/wildcards";
+import {
+  pickAsymExplainer,
+  ASYM_LABELS,
+  ASYM_TAGLINES,
+  type AsymFormat,
+} from "@/lib/asymmetry";
+
 import { speakAboutPlayer, setLiveRoomId, resetLiveCap } from "@/lib/persona-live";
 import { play, playEvent, playRandomDrop, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
 import { playFunnySoundById, preloadFunnyBank } from "@/lib/funny-sounds";
@@ -62,7 +71,11 @@ type RoomState = {
   wildcard: string | null;
   round_number: number;
   sudden_death_session_ids: string[] | null;
+  asym_format: string | null;
+  asym_prompt: string | null;
+  asym_slot_index: number | null;
 };
+
 
 
 export type WrongPick = {
@@ -182,6 +195,8 @@ export function HostGameStage({ room }: Props) {
 
 
   const nextQuestionFn = useServerFn(nextQuestion);
+  const finishAsymIntroFn = useServerFn(finishAsymIntro);
+
   const dropWrongFn = useServerFn(dropWrongAnswer);
   const endQuestionFn = useServerFn(endQuestion);
   const setPhaseFn = useServerFn(setPhase);
@@ -228,7 +243,7 @@ export function HostGameStage({ room }: Props) {
       const { data: r } = await supabase
         .from("rooms")
         .select(
-          "id, room_code, phase, current_question_id, current_question_text, current_question_tts_url, current_explanation_tts_url, current_answers, current_correct_index, current_explanation, current_category, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number, sudden_death_session_ids",
+          "id, room_code, phase, current_question_id, current_question_text, current_question_tts_url, current_explanation_tts_url, current_answers, current_correct_index, current_explanation, current_category, question_started_at, question_duration_ms, dropped_indexes, wildcard, round_number, sudden_death_session_ids, asym_format, asym_prompt, asym_slot_index",
         )
         .eq("id", room.id)
         .maybeSingle();
@@ -1298,7 +1313,48 @@ export function HostGameStage({ room }: Props) {
 
 
 
+  // ── Asymmetry intro (phase 1 stub): speak explainer once, then after a
+  // beat clear the format and pull a regular question for this slot.
+  const asymAdvancedRef = useRef<string>("");
+  useEffect(() => {
+    if (state?.phase !== "asym_intro" || !state.asym_format) return;
+    const key = `${state.id}-${state.asym_format}-${state.asym_prompt ?? ""}`;
+    if (asymAdvancedRef.current === key) return;
+    asymAdvancedRef.current = key;
+    const line = pickAsymExplainer(state.asym_format as AsymFormat);
+    if (line) {
+      duckMusic(true);
+      speakAsElf(line, { preset: "hype", interrupt: false }).finally(() =>
+        duckMusic(false),
+      );
+    }
+    const t = window.setTimeout(async () => {
+      try {
+        await finishAsymIntroFn({
+          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+        });
+        await nextQuestionFn({
+          data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+        });
+      } catch {
+        /* silent */
+      }
+    }, 11000);
+    return () => window.clearTimeout(t);
+  }, [
+    state?.phase,
+    state?.id,
+    state?.asym_format,
+    state?.asym_prompt,
+    finishAsymIntroFn,
+    nextQuestionFn,
+    room.roomCode,
+    room.hostSessionId,
+  ]);
+
   if (!state) return null;
+
+
 
   const startMs = state.question_started_at
     ? new Date(state.question_started_at).getTime()
@@ -1362,7 +1418,52 @@ export function HostGameStage({ room }: Props) {
     );
   }
 
+  if (state.phase === "asym_intro" && state.asym_format) {
+    const fmt = state.asym_format as AsymFormat;
+    return (
+      <div className="relative grid h-full place-items-center overflow-hidden bg-black text-white">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,oklch(0.35_0.22_310/0.45),oklch(0.05_0.02_270)_70%)]" />
+        <div className="absolute inset-0 animate-pulse bg-[radial-gradient(circle_at_50%_50%,oklch(0.85_0.20_320/0.18),transparent_60%)]" />
+        <div className="relative max-w-4xl text-center">
+          <div className="animate-fade-in text-xs font-bold uppercase tracking-[0.6em] text-fuchsia-300/90">
+            Special Round
+          </div>
+          <h1
+            className="mt-4 font-display text-[8vw] font-black uppercase leading-none tracking-tight text-transparent [animation:scale-in_0.6s_ease-out]"
+            style={{
+              backgroundImage:
+                "linear-gradient(180deg, oklch(0.97 0.12 320) 0%, oklch(0.70 0.24 310) 100%)",
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              filter: "drop-shadow(0 8px 40px oklch(0.70 0.24 310 / 0.55))",
+            }}
+          >
+            {ASYM_LABELS[fmt]}
+          </h1>
+          <div className="mx-auto mt-4 h-[3px] w-48 rounded-full bg-gradient-to-r from-transparent via-fuchsia-300 to-transparent" />
+          <p className="mt-6 font-display text-xl font-bold text-fuchsia-100/90">
+            {ASYM_TAGLINES[fmt]}
+          </p>
+          {state.asym_prompt && (
+            <div className="mx-auto mt-10 max-w-3xl rounded-2xl border border-fuchsia-300/20 bg-white/[0.04] px-8 py-6 backdrop-blur">
+              <div className="text-[10px] font-bold uppercase tracking-[0.4em] text-fuchsia-300/80">
+                The Prompt
+              </div>
+              <div className="mt-3 font-display text-3xl font-black text-white">
+                {state.asym_prompt}
+              </div>
+            </div>
+          )}
+          <div className="mt-8 text-[10px] font-semibold uppercase tracking-[0.4em] text-white/40">
+            Coming soon — submit on your phone
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (state.phase === "intro") {
+
     return (
       <IntroStage
         players={players.filter((p) => !p.is_audience).map((p) => ({
