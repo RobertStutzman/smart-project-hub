@@ -848,8 +848,14 @@ function PlayPage() {
                         string,
                       ]
                     }
-                    droppedIndexes={room.dropped_indexes ?? []}
+                    droppedIndexes={Array.from(new Set([...(room.dropped_indexes ?? []), ...wrongPicks]))}
                     selectedIndex={me?.current_answer ?? null}
+                    correctIndex={
+                      typeof room.current_correct_index === "number" &&
+                      me?.current_answer === room.current_correct_index
+                        ? room.current_correct_index
+                        : null
+                    }
                     onPick={(i) => void pick(i)}
                     letterOverrides={room.wildcard === "mirror" ? mirrorLetters(room.current_question_text) : undefined}
                   />
