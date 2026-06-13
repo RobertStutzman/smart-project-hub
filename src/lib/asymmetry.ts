@@ -81,3 +81,94 @@ export function pickAsymExplainer(fmt: AsymFormat): string {
   if (lines.length === 0) return "";
   return lines[Math.floor(Math.random() * lines.length)];
 }
+
+export type AsymSubmissionPayload = {
+  text?: string;
+  choice?: "agree" | "disagree";
+  statements?: string[];
+  lieIndex?: number;
+};
+
+/**
+ * Compute per-player score deltas for an asym round. Used both server-side
+ * (to persist `players.score` + `players.current_round_score`) and
+ * client-side (to render the reveal animation). Stays in sync because both
+ * paths import this same function.
+ */
+export function computeAsymDeltas(
+  fmt: AsymFormat,
+  liveSessionIds: string[],
+  sourceSessionId: string | null,
+  submissions: Record<string, AsymSubmissionPayload>,
+  votes: Record<string, string | number>,
+): Record<string, number> {
+  const deltas: Record<string, number> = {};
+  for (const sid of liveSessionIds) deltas[sid] = 0;
+
+  if (fmt === "crowd_pleaser" || fmt === "finish_sentence") {
+    const tally = new Map<string, number>();
+    for (const v of Object.values(votes)) {
+      const sid = String(v);
+      tally.set(sid, (tally.get(sid) ?? 0) + 1);
+    }
+    let max = 0;
+    tally.forEach((v) => {
+      if (v > max) max = v;
+    });
+    if (max > 0) {
+      const winners: string[] = [];
+      tally.forEach((v, sid) => {
+        if (v === max) winners.push(sid);
+      });
+      const winShare = Math.round(300 / winners.length);
+      winners.forEach((sid) => {
+        if (sid in deltas) deltas[sid] += winShare;
+      });
+      tally.forEach((v, sid) => {
+        if (v > 0 && v < max && sid in deltas) deltas[sid] += 100;
+      });
+    }
+    return deltas;
+  }
+
+  if (fmt === "two_truths") {
+    if (!sourceSessionId) return deltas;
+    const sub = submissions[sourceSessionId];
+    if (!sub || typeof sub.lieIndex !== "number") return deltas;
+    const lie = sub.lieIndex;
+    let fooled = 0;
+    Object.entries(votes).forEach(([voter, guess]) => {
+      if (voter === sourceSessionId) return;
+      const g = typeof guess === "number" ? guess : Number(guess);
+      if (g === lie) {
+        if (voter in deltas) deltas[voter] += 200;
+      } else {
+        fooled++;
+      }
+    });
+    deltas[sourceSessionId] = Math.min(600, fooled * 100);
+    return deltas;
+  }
+
+  if (fmt === "hot_take") {
+    const counts = { agree: 0, disagree: 0 };
+    Object.entries(submissions).forEach(([, s]) => {
+      if (s.choice === "agree") counts.agree++;
+      else if (s.choice === "disagree") counts.disagree++;
+    });
+    const tie = counts.agree === counts.disagree;
+    const minority: "agree" | "disagree" | null = tie
+      ? null
+      : counts.agree < counts.disagree
+        ? "agree"
+        : "disagree";
+    Object.entries(submissions).forEach(([sid, s]) => {
+      if (!(sid in deltas)) return;
+      if (tie) deltas[sid] += 150;
+      else if (s.choice === minority) deltas[sid] += 400;
+    });
+    return deltas;
+  }
+
+  return deltas;
+}
