@@ -638,7 +638,7 @@ export function stopMusic(immediate = false) {
  * bleed into the new lobby.
  */
 export function silenceAllAudio() {
-  stopLoopAudio();
+  stopLoopAudio(true);
   stopCreditsMusic(0);
   stopWagerBed(0);
   // Pooled one-shot stings (audience soundboard) — pause any still playing.
