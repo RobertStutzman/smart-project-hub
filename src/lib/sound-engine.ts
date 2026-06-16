@@ -627,8 +627,8 @@ export function duckMusic(on: boolean) {
   }
 }
 
-export function stopMusic() {
-  stopLoopAudio();
+export function stopMusic(immediate = false) {
+  stopLoopAudio(immediate);
 }
 
 /**
