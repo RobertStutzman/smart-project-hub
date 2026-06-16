@@ -1724,7 +1724,7 @@ function GeminiImporter({
   const bakeExplanationFn = useServerFn(bakeAllExplanationTTS);
   const checkDupesFn = useServerFn(checkDuplicates);
   const [category, setCategory] = useState(CATEGORIES[0].name);
-  const [count, setCount] = useState(5);
+  const [count, setCount] = useState(50);
   const [difficulty, setDifficulty] = useState<Diff | "mixed">("mixed");
   const [pasted, setPasted] = useState("");
   const [staged, setStaged] = useState<ParsedRow[]>([]);
