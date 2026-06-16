@@ -51,7 +51,7 @@ function ac(): AudioContext | null {
 export function setMuted(v: boolean) {
   muted = v;
   if (v) {
-    stopMusic();
+    stopMusic(true);
     stopCreditsMusic(0);
     stopWagerBed(0);
     stopBootMusic(0);
