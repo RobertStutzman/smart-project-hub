@@ -568,8 +568,11 @@ export function HostGameStage({ room }: Props) {
   // Tense music during question, lobby during lobby
   const ambienceHandedRef = useRef(false);
   const playedOnceRef = useRef(false);
+  const currentPhaseRef = useRef<string | null>(null);
+  const introBedTimerRef = useRef<number | null>(null);
   useEffect(() => {
     if (!state) return;
+    currentPhaseRef.current = state.phase;
     // Mark "this room has played a game" the first time we leave lobby.
     if (state.phase !== "lobby") {
       playedOnceRef.current = true;
@@ -579,6 +582,25 @@ export function HostGameStage({ room }: Props) {
     if (state.phase !== "lobby" && !ambienceHandedRef.current) {
       ambienceHandedRef.current = true;
       void import("@/lib/ambience-engine").then((m) => m.climaxAndHandoff());
+      // The cymbal swell from climaxAndHandoff masks any music started in
+      // the same tick. If we're entering an intro phase, delay the band bed
+      // until the swell has cleared so round 1 actually hears it.
+      if (state.phase === "intro" || state.phase === "final_intro") {
+        if (introBedTimerRef.current !== null) {
+          window.clearTimeout(introBedTimerRef.current);
+        }
+        introBedTimerRef.current = window.setTimeout(() => {
+          introBedTimerRef.current = null;
+          const p = currentPhaseRef.current;
+          // Only start if we're still in a music-friendly phase (haven't
+          // jumped to question/reveal during the delay).
+          if (p === "intro" || p === "final_intro" || p === "lobby" || p === "leaderboard") {
+            if (p === "final_intro") startMusic("tense", 520);
+            else startMusic("lobby", 600);
+          }
+        }, 850);
+        return;
+      }
     } else if (state.phase === "lobby" && ambienceHandedRef.current) {
       // Returning to lobby (play again) — silent beat, then re-arm.
       ambienceHandedRef.current = false;
@@ -610,6 +632,18 @@ export function HostGameStage({ room }: Props) {
       // Skip the immediate startMusic below — the timeout handles it.
       return;
     }
+    // If a scheduled intro-bed start is pending and we've moved past intro,
+    // cancel it so we don't bring the bed back during question/reveal.
+    if (
+      introBedTimerRef.current !== null &&
+      state.phase !== "intro" &&
+      state.phase !== "final_intro" &&
+      state.phase !== "lobby" &&
+      state.phase !== "leaderboard"
+    ) {
+      window.clearTimeout(introBedTimerRef.current);
+      introBedTimerRef.current = null;
+    }
     if (
       state.phase === "question" ||
       state.phase === "final_question"
@@ -630,6 +664,7 @@ export function HostGameStage({ room }: Props) {
     } else if (state.phase === "credits") {
       // CreditsStage starts its own playCreditsMusic(0.22); don't fight it.
     } else stopMusic();
+
 
 
     // Pause ember particles during active question phases — the screen is

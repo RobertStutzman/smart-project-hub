@@ -51,7 +51,7 @@ function ac(): AudioContext | null {
 export function setMuted(v: boolean) {
   muted = v;
   if (v) {
-    stopMusic();
+    stopMusic(true);
     stopCreditsMusic(0);
     stopWagerBed(0);
     stopBootMusic(0);
@@ -496,11 +496,35 @@ export function loadCustomEvents(
   Object.assign(eventClips, DEFAULT_EVENT_CLIPS, events);
 }
 
-function stopLoopAudio() {
+let loopFadeTimer: number | null = null;
+function stopLoopAudio(immediate = false) {
+  // Cancel any in-flight fade so we don't double-schedule.
+  if (loopFadeTimer !== null) {
+    window.clearInterval(loopFadeTimer);
+    loopFadeTimer = null;
+  }
   if (loopAudio) {
-    loopAudio.pause();
-    loopAudio.currentTime = 0;
+    const a = loopAudio;
     loopAudio = null;
+    if (immediate || a.volume <= 0.001) {
+      try { a.pause(); a.currentTime = 0; } catch { /* ignore */ }
+    } else {
+      const startVol = a.volume;
+      const steps = 8;
+      const stepMs = 180 / steps;
+      let i = 0;
+      loopFadeTimer = window.setInterval(() => {
+        i += 1;
+        a.volume = Math.max(0, startVol * (1 - i / steps));
+        if (i >= steps) {
+          if (loopFadeTimer !== null) {
+            window.clearInterval(loopFadeTimer);
+            loopFadeTimer = null;
+          }
+          try { a.pause(); a.currentTime = 0; } catch { /* ignore */ }
+        }
+      }, stepMs);
+    }
   }
   if (synthLoopTimer !== null) {
     window.clearInterval(synthLoopTimer);
@@ -603,8 +627,8 @@ export function duckMusic(on: boolean) {
   }
 }
 
-export function stopMusic() {
-  stopLoopAudio();
+export function stopMusic(immediate = false) {
+  stopLoopAudio(immediate);
 }
 
 /**
@@ -614,7 +638,7 @@ export function stopMusic() {
  * bleed into the new lobby.
  */
 export function silenceAllAudio() {
-  stopLoopAudio();
+  stopLoopAudio(true);
   stopCreditsMusic(0);
   stopWagerBed(0);
   // Pooled one-shot stings (audience soundboard) — pause any still playing.
