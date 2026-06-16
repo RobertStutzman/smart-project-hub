@@ -1937,16 +1937,16 @@ function GeminiImporter({
           <input
             type="number"
             min={1}
-            max={difficulty === "mixed" ? 6 : 25}
+            max={difficulty === "mixed" ? 50 : 200}
             value={count}
             onChange={(e) => {
-              const cap = difficulty === "mixed" ? 6 : 25;
+              const cap = difficulty === "mixed" ? 50 : 200;
               setCount(Math.max(1, Math.min(cap, Number(e.target.value) || 1)));
             }}
             className="w-full rounded-lg border border-border bg-background/60 px-3 py-2"
           />
           <div className="mt-1 text-xs text-muted-foreground">
-            Gemini truncates above ~25 per reply. Generate in batches and add each one.
+            Gemini 3 handles large batches — default 200 total (50 per difficulty in mixed).
           </div>
         </label>
         <label className="text-sm">
