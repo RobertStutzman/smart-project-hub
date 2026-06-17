@@ -2,6 +2,7 @@
 // Catchphrases used by HostGameStage to react to game moments.
 // Lines are intentionally short so the browser speechSynthesis voice
 // (or a pre-baked TTS file) reads them in under ~3 seconds.
+import { LINES_ADULT } from "@/lib/host-persona.adult";
 
 export const HOST_NAME = "Vox";
 
