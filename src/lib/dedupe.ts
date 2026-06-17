@@ -8,3 +8,10 @@ export function dedupeKey(s: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+// Normalize an answer string for bucketing semantic-duplicate candidates.
+// Same shape as dedupeKey but kept as a separate name so the intent at the
+// call-site is obvious.
+export function normalizeAnswer(s: string): string {
+  return dedupeKey(s);
+}
