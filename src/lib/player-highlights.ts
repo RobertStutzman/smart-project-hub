@@ -143,6 +143,11 @@ function pick<T>(arr: T[], seedStr: string): T {
   return arr[seed % arr.length];
 }
 
+function isAdult(): boolean {
+  if (typeof window === "undefined") return false;
+  try { return window.localStorage.getItem("btd-adult-mode") === "1"; } catch { return false; }
+}
+
 export function derivePlayerHighlights(p: HighlightPlayer): PlayerHighlights {
   const streak = p.best_streak ?? 0;
   const fast = p.fastest_count ?? 0;
@@ -166,10 +171,11 @@ export function derivePlayerHighlights(p: HighlightPlayer): PlayerHighlights {
   else if (streak < 2) { worstKind = "no_streak"; worstValue = 0; }
   else { worstKind = "low"; worstValue = score; }
 
-  const best = pick(BEST_TEMPLATES[bestKind], p.nickname + "b" + bestKind)
-    .replace("{n}", String(bestValue));
-  const worst = pick(WORST_TEMPLATES[worstKind], p.nickname + "w" + worstKind)
-    .replace("{n}", String(worstValue));
+  const adult = isAdult();
+  const bestPool = adult ? BEST_TEMPLATES_ADULT[bestKind] : BEST_TEMPLATES[bestKind];
+  const worstPool = adult ? WORST_TEMPLATES_ADULT[worstKind] : WORST_TEMPLATES[worstKind];
+  const best = pick(bestPool, p.nickname + "b" + bestKind).replace("{n}", String(bestValue));
+  const worst = pick(worstPool, p.nickname + "w" + worstKind).replace("{n}", String(worstValue));
 
   return { best, bestKind, bestValue, worst, worstKind, worstValue };
 }
@@ -181,12 +187,15 @@ export function pickHighlightVox(
   nickname: string,
   side: "best" | "worst",
 ): string {
+  const adult = isAdult();
   if (side === "best") {
-    return pick(BEST_VOX[h.bestKind], nickname + "vb" + h.bestKind)
+    const pool = adult ? BEST_VOX_ADULT[h.bestKind] : BEST_VOX[h.bestKind];
+    return pick(pool, nickname + "vb" + h.bestKind)
       .replace("{name}", nickname)
       .replace("{n}", String(h.bestValue));
   }
-  return pick(WORST_VOX[h.worstKind], nickname + "vw" + h.worstKind)
+  const pool = adult ? WORST_VOX_ADULT[h.worstKind] : WORST_VOX[h.worstKind];
+  return pick(pool, nickname + "vw" + h.worstKind)
     .replace("{name}", nickname)
     .replace("{n}", String(h.worstValue));
 }
