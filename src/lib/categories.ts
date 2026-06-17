@@ -30,7 +30,7 @@ export const DEFAULT_CATEGORY_EMOJI = "❓";
 // Categories that are OFF by default for new hosts. Hosts can opt in from the
 // lobby settings sheet. Keeps niche / opinionated packs out of Surprise Mix
 // unless explicitly enabled.
-export const DEFAULT_OFF_CATEGORIES: string[] = [];
+export const DEFAULT_OFF_CATEGORIES: string[] = ["Kids"];
 
 export function emojiForCategory(name: string): string {
   return CATEGORIES.find((c) => c.name === name)?.emoji ?? DEFAULT_CATEGORY_EMOJI;
