@@ -20,6 +20,7 @@ export const CATEGORIES: Category[] = [
   { name: "Geography", emoji: "🌍", isPremium: false },
   { name: "History", emoji: "📜", isPremium: false },
   { name: "Chapter & Verse", emoji: "📖", isPremium: false },
+  { name: "Kids", emoji: "🧒", isPremium: false },
   { name: MIX_CATEGORY, emoji: "🎲", isPremium: false },
 ];
 
