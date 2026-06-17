@@ -10,6 +10,7 @@
 import { pickLine, speakPersona } from "@/lib/host-persona";
 import { speakAsElf, playVoiceUrl } from "@/lib/elf-voice";
 import { speakPersonaLine } from "@/lib/announcer.functions";
+import { pickTemplateAdult } from "@/lib/persona-live.adult";
 
 export type LiveMoment =
   | "first_blood"
@@ -258,6 +259,13 @@ const FALLBACK_MOMENT: Record<LiveMoment, Parameters<typeof pickLine>[0]> = {
 };
 
 function pickTemplate(ctx: PersonaContext): string {
+  if (typeof window !== "undefined") {
+    try {
+      if (window.localStorage.getItem("btd-adult-mode") === "1") {
+        return pickTemplateAdult(ctx);
+      }
+    } catch { /* fall back */ }
+  }
   const pool = TEMPLATES[ctx.moment];
   const seed = (ctx.nickname.length * 31 + (ctx.roundNumber ?? 0) * 7 + (ctx.streak ?? 0)) >>> 0;
   return pool[seed % pool.length](ctx);

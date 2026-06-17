@@ -2,6 +2,7 @@
 // Catchphrases used by HostGameStage to react to game moments.
 // Lines are intentionally short so the browser speechSynthesis voice
 // (or a pre-baked TTS file) reads them in under ~3 seconds.
+import { LINES_ADULT } from "@/lib/host-persona.adult";
 
 export const HOST_NAME = "Vox";
 
@@ -772,10 +773,18 @@ export const LINES: Record<Moment, string[]> = {
 
 /** Pick a deterministic-feeling line for a moment, with seed for variety. */
 export function pickLine(moment: Moment, seed: string | number = Date.now()): string {
-  const pool = LINES[moment];
-  // Mix in a daily-ish bucket so two back-to-back games on the same evening
-  // don't land on the same line for the same seed input (e.g. same qid).
-  const dailyBucket = Math.floor(Date.now() / (1000 * 60 * 30)); // 30-min bucket
+  // Adult mode swaps the pool; everything else is identical.
+  let pool: string[] = LINES[moment];
+  if (typeof window !== "undefined") {
+    try {
+      if (window.localStorage.getItem("btd-adult-mode") === "1") {
+        pool = LINES_ADULT[moment] ?? pool;
+      }
+    } catch {
+      /* fall back */
+    }
+  }
+  const dailyBucket = Math.floor(Date.now() / (1000 * 60 * 30));
   const base =
     typeof seed === "string"
       ? seed.length * 131 + seed.charCodeAt(0) * 17 + (seed.charCodeAt(seed.length - 1) ?? 0)

@@ -20,6 +20,7 @@ import { Route as AudienceRouteImport } from './routes/audience'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsStreamerRouteImport } from './routes/settings.streamer'
+import { Route as SettingsAdultRouteImport } from './routes/settings.adult'
 import { Route as ResultsRoomIdRouteImport } from './routes/results.$roomId'
 import { Route as LegalTermsRouteImport } from './routes/legal.terms'
 import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
@@ -82,6 +83,11 @@ const IndexRoute = IndexRouteImport.update({
 const SettingsStreamerRoute = SettingsStreamerRouteImport.update({
   id: '/settings/streamer',
   path: '/settings/streamer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsAdultRoute = SettingsAdultRouteImport.update({
+  id: '/settings/adult',
+  path: '/settings/adult',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResultsRoomIdRoute = ResultsRoomIdRouteImport.update({
@@ -151,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
   '/results/$roomId': typeof ResultsRoomIdRoute
+  '/settings/adult': typeof SettingsAdultRoute
   '/settings/streamer': typeof SettingsStreamerRoute
   '/api/public/hooks/cleanup-avatars': typeof ApiPublicHooksCleanupAvatarsRoute
   '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
@@ -172,6 +179,7 @@ export interface FileRoutesByTo {
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
   '/results/$roomId': typeof ResultsRoomIdRoute
+  '/settings/adult': typeof SettingsAdultRoute
   '/settings/streamer': typeof SettingsStreamerRoute
   '/api/public/hooks/cleanup-avatars': typeof ApiPublicHooksCleanupAvatarsRoute
   '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
@@ -195,6 +203,7 @@ export interface FileRoutesById {
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
   '/results/$roomId': typeof ResultsRoomIdRoute
+  '/settings/adult': typeof SettingsAdultRoute
   '/settings/streamer': typeof SettingsStreamerRoute
   '/api/public/hooks/cleanup-avatars': typeof ApiPublicHooksCleanupAvatarsRoute
   '/api/public/hooks/question-quality-alert': typeof ApiPublicHooksQuestionQualityAlertRoute
@@ -218,6 +227,7 @@ export interface FileRouteTypes {
     | '/legal/privacy'
     | '/legal/terms'
     | '/results/$roomId'
+    | '/settings/adult'
     | '/settings/streamer'
     | '/api/public/hooks/cleanup-avatars'
     | '/api/public/hooks/question-quality-alert'
@@ -239,6 +249,7 @@ export interface FileRouteTypes {
     | '/legal/privacy'
     | '/legal/terms'
     | '/results/$roomId'
+    | '/settings/adult'
     | '/settings/streamer'
     | '/api/public/hooks/cleanup-avatars'
     | '/api/public/hooks/question-quality-alert'
@@ -261,6 +272,7 @@ export interface FileRouteTypes {
     | '/legal/privacy'
     | '/legal/terms'
     | '/results/$roomId'
+    | '/settings/adult'
     | '/settings/streamer'
     | '/api/public/hooks/cleanup-avatars'
     | '/api/public/hooks/question-quality-alert'
@@ -281,6 +293,7 @@ export interface RootRouteChildren {
   LegalPrivacyRoute: typeof LegalPrivacyRoute
   LegalTermsRoute: typeof LegalTermsRoute
   ResultsRoomIdRoute: typeof ResultsRoomIdRoute
+  SettingsAdultRoute: typeof SettingsAdultRoute
   SettingsStreamerRoute: typeof SettingsStreamerRoute
   ApiPublicHooksCleanupAvatarsRoute: typeof ApiPublicHooksCleanupAvatarsRoute
   ApiPublicHooksQuestionQualityAlertRoute: typeof ApiPublicHooksQuestionQualityAlertRoute
@@ -363,6 +376,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/streamer'
       fullPath: '/settings/streamer'
       preLoaderRoute: typeof SettingsStreamerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/adult': {
+      id: '/settings/adult'
+      path: '/settings/adult'
+      fullPath: '/settings/adult'
+      preLoaderRoute: typeof SettingsAdultRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/results/$roomId': {
@@ -462,6 +482,7 @@ const rootRouteChildren: RootRouteChildren = {
   LegalPrivacyRoute: LegalPrivacyRoute,
   LegalTermsRoute: LegalTermsRoute,
   ResultsRoomIdRoute: ResultsRoomIdRoute,
+  SettingsAdultRoute: SettingsAdultRoute,
   SettingsStreamerRoute: SettingsStreamerRoute,
   ApiPublicHooksCleanupAvatarsRoute: ApiPublicHooksCleanupAvatarsRoute,
   ApiPublicHooksQuestionQualityAlertRoute:

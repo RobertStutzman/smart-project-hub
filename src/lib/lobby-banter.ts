@@ -1,5 +1,11 @@
 // Lobby announcer banter — opener + rotating idle quips while waiting for players.
 // Lines may contain `{count}` (current player count) and `{code}` (room code) tokens.
+import { isAdultMode } from "@/lib/adult-mode";
+import {
+  pickLobbyLineAdult,
+  pickOpenerAdult,
+  pickWelcomeIntroAdult,
+} from "@/lib/lobby-banter.adult";
 
 export const OPENER_LINES: string[] = [
   "Scan the QR code on screen, or type the four-letter code to join.",
@@ -100,6 +106,7 @@ export function pickLobbyLine(
   count: number,
   code: string,
 ): { spoken: string; raw: string } {
+  if (isAdultMode()) return pickLobbyLineAdult(history, count, code);
   let pool: string[];
   if (count === 0) pool = [...IDLE_EMPTY, ...IDLE_JOIN_NUDGE, ...IDLE_GENERIC];
   else if (count <= 2) pool = [...IDLE_LOW, ...IDLE_GENERIC];
@@ -115,6 +122,7 @@ export function pickLobbyLine(
 }
 
 export function pickOpener(): string {
+  if (isAdultMode()) return pickOpenerAdult();
   return OPENER_LINES[Math.floor(Math.random() * OPENER_LINES.length)];
 }
 
@@ -139,5 +147,6 @@ export const WELCOME_INTROS: string[] = [
 ];
 
 export function pickWelcomeIntro(): string {
+  if (isAdultMode()) return pickWelcomeIntroAdult();
   return WELCOME_INTROS[Math.floor(Math.random() * WELCOME_INTROS.length)];
 }

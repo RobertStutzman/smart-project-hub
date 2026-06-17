@@ -1,0 +1,179 @@
+// Adult-mode Tier 1 personalized templates. Mirrors TEMPLATES in persona-live.ts.
+// Same content rules: f-bombs and crude humor yes; no slurs, no minors, no real people.
+
+import type { PersonaContext, LiveMoment } from "@/lib/persona-live";
+
+type Template = (ctx: PersonaContext) => string;
+
+function listNames(c: PersonaContext): string {
+  const all = [c.nickname, ...(c.extraNames ?? [])].filter(Boolean);
+  if (all.length === 0) return "you absolute legends";
+  if (all.length === 1) return all[0];
+  if (all.length === 2) return `${all[0]} and ${all[1]}`;
+  return `${all.slice(0, -1).join(", ")}, and ${all[all.length - 1]}`;
+}
+
+export const TEMPLATES_ADULT: Record<LiveMoment, Template[]> = {
+  first_blood: [
+    (c) => `${c.nickname} — first in, dead on. Cocky bastard.`,
+    (c) => `That's ${c.nickname}, locked and loaded and insufferable.`,
+    (c) => `${c.nickname} snipes it. Reflexes of a horny goblin.`,
+    (c) => `Fastest finger goes to ${c.nickname}. Annoying as shit.`,
+    (c) => `${c.nickname} didn't even read the answers. Disgusting display.`,
+    (c) => `Out of the fuckin gate first — ${c.nickname}.`,
+    (c) => `${c.nickname} called it. The rest of you assholes, catch up.`,
+    (c) => `${c.nickname} beat the buzzer and your egos.`,
+    (c) => `First blood: ${c.nickname}. Try to keep up, dipshits.`,
+    (c) => `${c.nickname} locked it before you finished blinking.`,
+  ],
+  leader_changed: [
+    (c) => `${c.nickname} takes the lead. The throne wobbles. The pants tighten.`,
+    (c) => `New number one — ${c.nickname}. Watch your back.`,
+    (c) => `Coup successful. ${c.nickname} runs the board now.`,
+    (c) => `${c.nickname} just stole first place. Drama. Drama. Drama.`,
+    (c) => `${c.nickname} climbs to the top. For about ten seconds.`,
+    (c) => `Big move from ${c.nickname}. They're in first. Insufferable.`,
+    (c) => `${c.nickname} just dethroned the whole damn room.`,
+    (c) => `Top spot belongs to ${c.nickname}. Briefly. Probably.`,
+    (c) => `${c.nickname} grabbed the crown. No bloodshed. Yet.`,
+    (c) => `Fresh face on top: ${c.nickname}. Welcome. Brace.`,
+  ],
+  streak: [
+    (c) => `${c.nickname} is on a ${c.streak ?? 3}-streak. Somebody fuckin stop them.`,
+    (c) => `${c.streak ?? 3} in a row for ${c.nickname}. Heater alert.`,
+    (c) => `${c.nickname} won't miss. ${c.streak ?? 3} straight. Disgusting.`,
+    (c) => `Hot hand: ${c.nickname}. ${c.streak ?? 3} consecutive. Wash it.`,
+    (c) => `${c.nickname} is showing off now. ${c.streak ?? 3} in a row.`,
+    (c) => `Streak of ${c.streak ?? 3} for ${c.nickname}. Bring the ice bath.`,
+    (c) => `${c.nickname} is fuckin cooking. ${c.streak ?? 3} clean.`,
+    (c) => `${c.streak ?? 3}-streak for ${c.nickname}. Call a doctor. Or a priest.`,
+    (c) => `${c.nickname} won't quit. ${c.streak ?? 3} and counting.`,
+    (c) => `${c.streak ?? 3} on the trot for ${c.nickname}. Rude.`,
+  ],
+  elimination: [
+    (c) => `${c.nickname}. Out. Cold. Done.`,
+    (c) => `Goodbye, ${c.nickname}. We barely tolerated you.`,
+    (c) => `${c.nickname} just took the L. Painful.`,
+    (c) => `That's a wrong from ${c.nickname}. Yikes.`,
+    (c) => `${c.nickname} — wrong button, wrong day, wrong life.`,
+    (c) => `Press F for ${c.nickname}.`,
+    (c) => `${c.nickname} swung. ${c.nickname} fuckin missed.`,
+    (c) => `Misfire from ${c.nickname}. Logged. Framed.`,
+    (c) => `${c.nickname} just got escorted out by security.`,
+    (c) => `Down goes ${c.nickname}. Catalog the body.`,
+  ],
+  comeback: [
+    (c) => `${c.nickname} just clawed back. Threat level: horny.`,
+    (c) => `Wait — ${c.nickname} climbed ${c.ranksClimbed ?? 3} spots. Sneaky bastard.`,
+    (c) => `${c.nickname} is back from the dead. Don't fuckin blink.`,
+    (c) => `Comeback alert: ${c.nickname}. The rest of you, sweat.`,
+    (c) => `${c.nickname} just made a move. Big one. Sweaty one.`,
+    (c) => `${c.nickname} climbed ${c.ranksClimbed ?? 3} ranks. Quietly. Rudely.`,
+    (c) => `Don't look now — ${c.nickname} is back in it.`,
+    (c) => `${c.nickname} just resurrected on the leaderboard.`,
+    (c) => `Sneak attack from ${c.nickname}. Mark them dangerous.`,
+    (c) => `${c.nickname} climbing fast. Reassess your bets.`,
+  ],
+  round_recap: [
+    (c) => `Round ${c.roundNumber ?? "this"} belonged to ${c.nickname}. The rest of you — adjust.`,
+    (c) => `${c.nickname} ran round ${c.roundNumber ?? "that"}. Take fuckin notes.`,
+    (c) => `MVP of the round: ${c.nickname}. No contest.`,
+    (c) => `${c.nickname} dominated that round. Smug allowed.`,
+    (c) => `${c.nickname} crushed round ${c.roundNumber ?? "that"}. Onto the next.`,
+    (c) => `Round ${c.roundNumber ?? "that"} goes to ${c.nickname}. Loudly.`,
+    (c) => `${c.nickname} owned the round. Pay rent.`,
+    (c) => `Top of round ${c.roundNumber ?? "that"}: ${c.nickname}. Watch them.`,
+    (c) => `${c.nickname} ran away with it. Catch up, dickheads.`,
+    (c) => `Round ${c.roundNumber ?? "that"} MVP — ${c.nickname}. Annoying.`,
+  ],
+  wooden_spoon: [
+    (c) => `Wooden spoon goes to ${c.nickname}. Try harder, sweetie.`,
+    (c) => `${c.nickname}, the floor called. It misses your ass.`,
+    (c) => `Last place: ${c.nickname}. Somebody had to.`,
+    (c) => `${c.nickname} found a way. The wrong fuckin way.`,
+    (c) => `${c.nickname} — that round was a hate crime against trivia.`,
+    (c) => `Anchor of the round: ${c.nickname}. We salute you.`,
+    (c) => `${c.nickname} polished the floor that round. Slippery work.`,
+    (c) => `Dead last, big confidence — that's ${c.nickname}.`,
+    (c) => `${c.nickname}, the basement called. You moved in. You unpacked.`,
+    (c) => `${c.nickname} took the L with style. Barely.`,
+  ],
+  goose_egg: [
+    (c) => `Big fuckin zero for ${c.nickname}. Reflect on that.`,
+    (c) => `${c.nickname} brought a knife to a knowledge fight. A butter knife.`,
+    (c) => `Goose egg, ${c.nickname}. Lay another one.`,
+    (c) => `${c.nickname} scored nothing. Made memories. Bad ones.`,
+    (c) => `${c.nickname} — zero points, full commitment.`,
+    (c) => `${c.nickname} hung a donut. Cold as shit.`,
+    (c) => `Stat line for ${c.nickname}: a perfect circle.`,
+    (c) => `${c.nickname} did nothing. Looked great doing it.`,
+    (c) => `Empty round from ${c.nickname}. Vibes intact.`,
+    (c) => `${c.nickname} contributed pure atmosphere.`,
+  ],
+  welcome: [
+    (c) => `Tonight we've got ${listNames(c)}. May the best fuckin brain win.`,
+    (c) => `In the house: ${listNames(c)}. And friends. Let's fuckin go.`,
+    (c) => `${listNames(c)} — welcome to the arena. Try to survive, dipshits.`,
+    (c) => `Looking at ${listNames(c)} tonight. This will be fun and probably traumatic.`,
+    (c) => `Roll call: ${listNames(c)}. Buzzers up.`,
+    (c) => `Spotted: ${listNames(c)}. Game on.`,
+    (c) => `${listNames(c)} — welcome in. Shoes off. Egos checked.`,
+    (c) => `Tonight's victims: ${listNames(c)}. Et al.`,
+    (c) => `${listNames(c)} are in the building. Lock the goddamn doors.`,
+    (c) => `${listNames(c)} — try to embarrass yourselves quietly.`,
+  ],
+  final_showdown: [
+    (c) => `${listNames(c)} — one question between you and the crown. Don't fuckin blow it.`,
+    (c) => `It comes down to ${listNames(c)}. Final question. Make it count.`,
+    (c) => `Last call for ${listNames(c)}. Bet brave or bet broke.`,
+    (c) => `${listNames(c)} — this is the one they'll remember. Send it.`,
+    (c) => `${listNames(c)}. Final answer territory. Breathe. Or don't.`,
+    (c) => `It's ${listNames(c)} for the crown. Aim true.`,
+    (c) => `${listNames(c)} — end boss energy. Activate.`,
+    (c) => `Last frame for ${listNames(c)}. Don't blink. Don't piss.`,
+    (c) => `${listNames(c)} — final swing. Make it pretty.`,
+    (c) => `${listNames(c)}. One question. Infinite fuckin regret.`,
+  ],
+  winner: [
+    (c) => `Your winner: ${c.nickname}. Tonight, the brain reigned supreme.`,
+    (c) => `${c.nickname} takes the crown. The rest of you, see you in hell.`,
+    (c) => `Champion: ${c.nickname}. Soak it the fuck in.`,
+    (c) => `${c.nickname} wins. Frame it. Print it. Tattoo it.`,
+    (c) => `It's ${c.nickname}. Champion of the chaos.`,
+    (c) => `${c.nickname} on top. Mark the damn day.`,
+    (c) => `Winner, winner — ${c.nickname}.`,
+    (c) => `${c.nickname} just rewrote the night.`,
+    (c) => `The crown belongs to ${c.nickname}. Earned. Hard.`,
+    (c) => `${c.nickname} — undefeated for the evening. Insufferable for life.`,
+  ],
+  last_to_lock: [
+    (c) => `${c.nickname} squeaked it in at the buzzer. By a pube.`,
+    (c) => `Cutting it close, ${c.nickname}.`,
+    (c) => `${c.nickname} — last in. Living dangerously.`,
+    (c) => `${c.nickname} locked with milliseconds to spare.`,
+    (c) => `Buzzer-beater from ${c.nickname}. Heart attack scheduled.`,
+    (c) => `${c.nickname} waited until the last fuckin second. Theatrical.`,
+    (c) => `Final answer, final second — ${c.nickname}.`,
+    (c) => `${c.nickname} made us wait. Rude.`,
+    (c) => `${c.nickname} just barely made the cut.`,
+    (c) => `${c.nickname} — locked in like they meant to wait that long.`,
+  ],
+  random_jab: [
+    (c) => `${c.nickname} — we see you back there, ya silent menace.`,
+    (c) => `Don't forget ${c.nickname} exists. We almost did.`,
+    (c) => `${c.nickname} is plotting something. Probably horny.`,
+    (c) => `Quiet from ${c.nickname}. Suspicious as shit.`,
+    (c) => `${c.nickname}, vibes are immaculate. Score, less so.`,
+    (c) => `Spotted: ${c.nickname}. Still in this. Technically. Barely.`,
+    (c) => `${c.nickname} is here. That counts for something. Barely.`,
+    (c) => `Big silent fuckin energy from ${c.nickname}.`,
+    (c) => `${c.nickname}, showing up is half the battle. The other half is points. You have neither.`,
+    (c) => `${c.nickname} lurking. Calculating. Mid.`,
+  ],
+};
+
+export function pickTemplateAdult(ctx: PersonaContext): string {
+  const pool = TEMPLATES_ADULT[ctx.moment];
+  const seed = (ctx.nickname.length * 31 + (ctx.roundNumber ?? 0) * 7 + (ctx.streak ?? 0)) >>> 0;
+  return pool[seed % pool.length](ctx);
+}
