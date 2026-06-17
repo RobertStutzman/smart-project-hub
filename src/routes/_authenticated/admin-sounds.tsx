@@ -236,7 +236,7 @@ function EventsPanel({
     <section className="rounded-3xl border border-border bg-card/30 p-6">
       <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-amber-300/80">
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-amber-700">
             Event assignments
           </div>
           <h2 className="text-2xl font-bold">What plays when</h2>
@@ -269,7 +269,7 @@ function EventsPanel({
         ElevenLabs to create a hype game-show host voice + lobby music in one
         click.
       </p>
-      <p className="mt-2 text-xs text-amber-300/80">
+      <p className="mt-2 text-xs text-amber-700">
         🎭 Catchphrases = host hype lines ("Lock in!", "Fingers on buzzers!", round transitions). To narrate the actual trivia questions, use the <strong>Question voiceovers</strong> panel below.
       </p>
 
@@ -385,7 +385,7 @@ function FoldersAndLibrary({
 
   return (
     <section className="rounded-3xl border border-border bg-card/30 p-6">
-      <div className="mb-1 text-xs font-bold uppercase tracking-[0.3em] text-amber-300/80">
+      <div className="mb-1 text-xs font-bold uppercase tracking-[0.3em] text-amber-700">
         Library
       </div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -701,7 +701,7 @@ function WelcomePreview() {
         className="flex w-full items-center justify-between text-left"
       >
         <div>
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-amber-300/80">
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-amber-700">
             Audition
           </div>
           <div className="text-sm font-bold">
@@ -836,7 +836,7 @@ function QuestionVoiceoversPanel() {
     <div className="mt-6 rounded-2xl border border-border bg-card/30 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-amber-300/80">
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-amber-700">
             Question voiceovers
           </div>
           <h3 className="text-lg font-bold">The Elf reads every question</h3>
@@ -1003,7 +1003,7 @@ function TTSCacheStatsPanel() {
     <div className="mt-6 rounded-2xl border border-border bg-card/30 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-amber-300/80">
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-amber-700">
             Dynamic line cache
           </div>
           <h3 className="text-lg font-bold">ElevenLabs cost insurance</h3>
@@ -1096,7 +1096,7 @@ function HostMomentsPanel() {
         className="flex w-full items-center justify-between text-left"
       >
         <div>
-          <div className="text-xs font-bold uppercase tracking-[0.3em] text-amber-300/80">
+          <div className="text-xs font-bold uppercase tracking-[0.3em] text-amber-700">
             Host moments
           </div>
           <div className="text-sm font-bold">
@@ -1110,7 +1110,7 @@ function HostMomentsPanel() {
       {open && (
         <div className="mt-4 space-y-2">
           <p className="text-xs text-muted-foreground">
-            <span className="font-bold text-amber-300/80">Baked</span> = static
+            <span className="font-bold text-amber-700">Baked</span> = static
             catchphrases (free, cached forever).{" "}
             <span className="font-bold text-pink-300/80">Live</span> = generated
             per game with the player's nickname (Tier 1 budget). Preview plays
