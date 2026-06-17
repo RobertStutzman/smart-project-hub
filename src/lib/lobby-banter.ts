@@ -147,5 +147,6 @@ export const WELCOME_INTROS: string[] = [
 ];
 
 export function pickWelcomeIntro(): string {
+  if (isAdultMode()) return pickWelcomeIntroAdult();
   return WELCOME_INTROS[Math.floor(Math.random() * WELCOME_INTROS.length)];
 }
