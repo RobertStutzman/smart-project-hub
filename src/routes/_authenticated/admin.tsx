@@ -11,6 +11,8 @@ import {
   countDuplicateAnswers,
   countMissingExplanations,
   deleteQuestion,
+  deleteQuestionsByIds,
+  findSemanticDuplicates,
   generateQuestionImage,
   generateQuestionVoice,
   generateQuestions,
@@ -301,6 +303,7 @@ function AdminPage() {
           <div className="flex flex-col gap-6">
             <ExplanationBackfill onUpdated={reload} />
             <DuplicateAnswersRepair onUpdated={reload} />
+            <SemanticDupeScanner onUpdated={reload} categories={mergedCategories} />
             <p className="text-xs text-muted-foreground">
               Narrating questions or "Did you know?" lives on the{" "}
               <a href="/admin-sounds" className="font-bold underline">Sounds</a> page.
@@ -718,6 +721,7 @@ function AIGenerator({
       } else {
         // Batched mode: generate + auto-insert in chunks of BATCH
         let totalInserted = 0;
+        let totalSemanticSkipped = 0;
         const total = count;
         setProgress({ done: 0, total });
         let remaining = total;
@@ -726,6 +730,7 @@ function AIGenerator({
           const res = await generate({
             data: { prompt, category, count: batchSize, isPremium, difficulty },
           });
+          totalSemanticSkipped += res.skippedSemanticDupes ?? 0;
           const rows = res.questions.map((q) => ({
             category: q.category,
             subcategory: null,
@@ -745,7 +750,9 @@ function AIGenerator({
           remaining -= batchSize;
           setProgress({ done: total - remaining, total });
         }
-        toast.success(`Inserted ${totalInserted} AI questions`);
+        toast.success(
+          `Inserted ${totalInserted} AI questions${totalSemanticSkipped ? ` · ${totalSemanticSkipped} semantic dupes skipped` : ""}`,
+        );
         await onInserted();
       }
     } catch (e) {
@@ -1066,6 +1073,209 @@ function DuplicateAnswersRepair({ onUpdated }: { onUpdated: () => Promise<void> 
           {running ? "Repairing…" : "Repair duplicates"}
         </button>
       </div>
+    </section>
+  );
+}
+
+type DupeItem = { id: string; question_text: string };
+type DupeGroup = { category: string; correct_answer: string; items: DupeItem[] };
+
+function SemanticDupeScanner({
+  onUpdated,
+  categories,
+}: {
+  onUpdated: () => Promise<void> | void;
+  categories: CategoryOption[];
+}) {
+  const scanFn = useServerFn(findSemanticDuplicates);
+  const deleteFn = useServerFn(deleteQuestionsByIds);
+  const [scanning, setScanning] = useState(false);
+  const [category, setCategory] = useState<string>("__all__");
+  const [groups, setGroups] = useState<DupeGroup[] | null>(null);
+  // Map of group-index -> id-to-keep
+  const [keep, setKeep] = useState<Record<number, string>>({});
+
+  async function scan() {
+    setScanning(true);
+    setGroups(null);
+    setKeep({});
+    const toastId = toast.loading(
+      category === "__all__"
+        ? "Scanning all categories for semantic duplicates…"
+        : `Scanning "${category}" for semantic duplicates…`,
+    );
+    try {
+      const res = await scanFn({
+        data: category === "__all__" ? {} : { category },
+      });
+      setGroups(res.groups);
+      // Default: keep the longest question text in each group
+      const next: Record<number, string> = {};
+      res.groups.forEach((g, i) => {
+        const longest = g.items.reduce((a, b) =>
+          b.question_text.length > a.question_text.length ? b : a,
+        );
+        next[i] = longest.id;
+      });
+      setKeep(next);
+      toast.success(
+        `Scanned ${res.scanned} questions · ${res.bucketsChecked} answer buckets · ${res.groups.length} dupe group${res.groups.length === 1 ? "" : "s"} found`,
+        { id: toastId },
+      );
+    } catch (e) {
+      toast.error((e as Error).message, { id: toastId });
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  async function deleteGroup(idx: number) {
+    if (!groups) return;
+    const g = groups[idx];
+    const keepId = keep[idx];
+    const toDelete = g.items.filter((it) => it.id !== keepId).map((it) => it.id);
+    if (toDelete.length === 0) return;
+    const toastId = toast.loading(`Deleting ${toDelete.length}…`);
+    try {
+      await deleteFn({ data: { ids: toDelete } });
+      toast.success(`Deleted ${toDelete.length} duplicate${toDelete.length === 1 ? "" : "s"}`, { id: toastId });
+      setGroups((cur) => (cur ? cur.filter((_, i) => i !== idx) : cur));
+      await onUpdated();
+    } catch (e) {
+      toast.error((e as Error).message, { id: toastId });
+    }
+  }
+
+  async function deleteAll() {
+    if (!groups) return;
+    const ids = groups.flatMap((g, i) =>
+      g.items.filter((it) => it.id !== keep[i]).map((it) => it.id),
+    );
+    if (ids.length === 0) return;
+    if (!window.confirm(`Delete ${ids.length} duplicate question${ids.length === 1 ? "" : "s"}? This cannot be undone.`)) {
+      return;
+    }
+    const toastId = toast.loading(`Deleting ${ids.length}…`);
+    try {
+      // Chunk to respect the 500-id server cap
+      let deleted = 0;
+      for (let i = 0; i < ids.length; i += 400) {
+        const chunk = ids.slice(i, i + 400);
+        await deleteFn({ data: { ids: chunk } });
+        deleted += chunk.length;
+      }
+      toast.success(`Deleted ${deleted} duplicates`, { id: toastId });
+      setGroups([]);
+      await onUpdated();
+    } catch (e) {
+      toast.error((e as Error).message, { id: toastId });
+    }
+  }
+
+  const totalDeletable = groups
+    ? groups.reduce((sum, g, i) => sum + g.items.filter((it) => it.id !== keep[i]).length, 0)
+    : 0;
+
+  return (
+    <section className="rounded-3xl border border-amber-500/30 bg-amber-500/5 p-6 backdrop-blur">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold">🔍 Find semantic duplicates</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Catches questions that ask the same thing but are worded differently
+            (e.g. "Who painted the Mona Lisa?" vs "Which artist created the Mona Lisa?").
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            disabled={scanning}
+            className="rounded-full border border-border bg-background/60 px-3 py-2 text-sm"
+          >
+            <option value="__all__">All categories</option>
+            {categories.map((c) => (
+              <option key={c.name} value={c.name}>
+                {c.name}{c.count > 0 ? ` (${c.count})` : ""}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={scan}
+            disabled={scanning}
+            className="rounded-full bg-amber-500 px-5 py-2 text-sm font-semibold text-amber-950 disabled:opacity-50"
+          >
+            {scanning ? "Scanning…" : "Scan"}
+          </button>
+        </div>
+      </div>
+
+      {groups !== null && groups.length === 0 && (
+        <p className="mt-4 text-sm text-emerald-300">No semantic duplicates found 🎉</p>
+      )}
+
+      {groups && groups.length > 0 && (
+        <div className="mt-4 flex flex-col gap-3">
+          {groups.map((g, idx) => (
+            <div
+              key={`${g.category}-${g.correct_answer}-${idx}`}
+              className="rounded-2xl border border-amber-500/30 bg-background/40 p-4"
+            >
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <div className="text-sm">
+                  <span className="font-semibold">{g.category}</span>
+                  <span className="text-muted-foreground"> · answer:</span>{" "}
+                  <span className="font-mono">"{g.correct_answer}"</span>
+                  <span className="text-muted-foreground"> · {g.items.length} questions</span>
+                </div>
+                <button
+                  onClick={() => deleteGroup(idx)}
+                  className="rounded-full bg-rose-500 px-3 py-1 text-xs font-semibold text-rose-950"
+                >
+                  Delete {g.items.length - 1}
+                </button>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {g.items.map((it) => {
+                  const isKept = keep[idx] === it.id;
+                  return (
+                    <label
+                      key={it.id}
+                      className={`flex items-start gap-2 rounded-lg px-2 py-1.5 text-sm ${isKept ? "bg-emerald-500/10" : "bg-rose-500/5"}`}
+                    >
+                      <input
+                        type="radio"
+                        name={`keep-${idx}`}
+                        checked={isKept}
+                        onChange={() => setKeep((k) => ({ ...k, [idx]: it.id }))}
+                        className="mt-1"
+                      />
+                      <span className="flex-1">
+                        <span className={`mr-2 text-xs font-semibold ${isKept ? "text-emerald-400" : "text-rose-400"}`}>
+                          {isKept ? "KEEP" : "DELETE"}
+                        </span>
+                        {it.question_text}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          <div className="sticky bottom-2 mt-2 flex items-center justify-between rounded-full border border-amber-500/30 bg-background/80 px-4 py-2 backdrop-blur">
+            <span className="text-sm text-muted-foreground">
+              {totalDeletable} marked for deletion across {groups.length} group{groups.length === 1 ? "" : "s"}
+            </span>
+            <button
+              onClick={deleteAll}
+              disabled={totalDeletable === 0}
+              className="rounded-full bg-rose-500 px-4 py-1.5 text-sm font-semibold text-rose-950 disabled:opacity-50"
+            >
+              Delete all marked
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

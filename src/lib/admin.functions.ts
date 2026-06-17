@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { dedupeKey } from "@/lib/dedupe";
+import { dedupeKey, normalizeAnswer } from "@/lib/dedupe";
 
 async function assertAdmin(userId: string) {
   const { data, error } = await supabaseAdmin
@@ -313,10 +313,70 @@ export const generateQuestions = createServerFn({ method: "POST" })
       category: data.category,
       is_premium: data.isPremium,
     }));
-    const questions = all.filter(answersAreDistinct);
+    const distinct = all.filter(answersAreDistinct);
+    const skipped = all.length - distinct.length;
 
-    const skipped = all.length - questions.length;
-    return { questions, skipped };
+    // Semantic-duplicate filtering (within batch + against existing DB rows).
+    const tagged = distinct.map((q, i) => ({ ...q, __tmpId: `new-${i}` }));
+    const buckets = new Map<string, typeof tagged>();
+    for (const q of tagged) {
+      const key = normalizeAnswer(q.correct_answer);
+      if (!key) continue;
+      const arr = buckets.get(key) ?? [];
+      arr.push(q);
+      buckets.set(key, arr);
+    }
+
+    // Fetch existing questions in this category once and index by answer key.
+    const { data: existingRows } = await supabaseAdmin
+      .from("questions")
+      .select("id, question_text, correct_answer")
+      .eq("category", data.category);
+    const existingByAns = new Map<string, Array<{ id: string; question_text: string }>>();
+    for (const r of existingRows ?? []) {
+      const k = normalizeAnswer(r.correct_answer);
+      if (!k) continue;
+      const arr = existingByAns.get(k) ?? [];
+      arr.push({ id: r.id, question_text: r.question_text });
+      existingByAns.set(k, arr);
+    }
+
+    const skipIds = new Set<string>();
+    let skippedSemanticDupes = 0;
+    for (const [ansKey, newRows] of buckets) {
+      const sameAnsExisting = existingByAns.get(ansKey) ?? [];
+      const pool = [
+        ...newRows.map((r) => ({ id: r.__tmpId, question_text: r.question_text })),
+        ...sameAnsExisting.map((r) => ({ id: `db-${r.id}`, question_text: r.question_text })),
+      ];
+      if (pool.length < 2) continue;
+      try {
+        const groups = await semanticGroupsForBucket(apiKey, pool);
+        for (const group of groups) {
+          // Keep the first DB row if any (preserve existing); else keep first new.
+          const hasDb = group.some((id: string) => id.startsWith("db-"));
+          let keptOne = hasDb;
+          for (const id of group) {
+            if (id.startsWith("db-")) continue;
+            if (!keptOne) {
+              keptOne = true;
+              continue;
+            }
+            skipIds.add(id);
+            skippedSemanticDupes++;
+          }
+        }
+      } catch {
+        // If the AI semantic check fails, do not block insert — fall through.
+      }
+    }
+
+
+    const questions = tagged
+      .filter((q) => !skipIds.has(q.__tmpId))
+      .map(({ __tmpId: _t, ...rest }) => rest);
+
+    return { questions, skipped, skippedSemanticDupes };
   });
 
 /**
@@ -725,4 +785,171 @@ export const generateQuestionVoice = createServerFn({ method: "POST" })
     if (signErr) throw new Error(signErr.message);
 
     return { path, signedUrl: signed.signedUrl };
+  });
+
+/**
+ * Ask Lovable AI which question IDs in a same-answer bucket are semantic
+ * duplicates of one another. Returns array of groups; each inner array is
+ * a set of IDs that all ask the same thing (singletons omitted).
+ */
+async function semanticGroupsForBucket(
+  apiKey: string,
+  items: Array<{ id: string; question_text: string }>,
+): Promise<string[][]> {
+  if (items.length < 2) return [];
+  const chunks: Array<Array<{ id: string; question_text: string }>> = [];
+  for (let i = 0; i < items.length; i += 12) chunks.push(items.slice(i, i + 12));
+  const out: string[][] = [];
+  for (const chunk of chunks) {
+    if (chunk.length < 2) continue;
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You identify trivia questions that ask the SAME thing, just worded differently. Two questions are duplicates ONLY if a player who knows the answer to one would answer the other identically by reasoning about the same fact. Different angles on the same answer (e.g. 'capital of France?' vs 'where is the Eiffel Tower?') are NOT duplicates. Group together IDs of duplicate questions. Omit singletons.",
+          },
+          {
+            role: "user",
+            content: `All of these share the same correct answer. Group the IDs that ask the SAME thing:\n\n${chunk
+              .map((it) => `- id=${it.id}: ${it.question_text}`)
+              .join("\n")}`,
+          },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "emit_groups",
+              description: "Return groups of duplicate question IDs.",
+              parameters: {
+                type: "object",
+                properties: {
+                  groups: {
+                    type: "array",
+                    items: { type: "array", items: { type: "string" } },
+                  },
+                },
+                required: ["groups"],
+                additionalProperties: false,
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "emit_groups" } },
+      }),
+    });
+    if (!res.ok) continue;
+    const json = await res.json();
+    const args =
+      json?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    if (!args) continue;
+    try {
+      const parsed = JSON.parse(args) as { groups?: string[][] };
+      const valid = new Set(chunk.map((c) => c.id));
+      for (const g of parsed.groups ?? []) {
+        const filtered = (g ?? []).filter((id) => valid.has(id));
+        if (filtered.length >= 2) out.push(filtered);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return out;
+}
+
+/**
+ * Scan questions for semantic duplicates (same answer, different wording).
+ * Buckets by (category, normalized correct_answer), then asks AI which
+ * questions in each multi-row bucket actually ask the same thing.
+ */
+export const findSemanticDuplicates = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      category: z.string().min(1).max(60).optional(),
+    }).parse,
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("LOVABLE_API_KEY is not configured");
+
+    let q = supabaseAdmin
+      .from("questions")
+      .select("id, category, question_text, correct_answer");
+    if (data.category) q = q.eq("category", data.category);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+
+    const buckets = new Map<
+      string,
+      { category: string; correct_answer: string; items: Array<{ id: string; question_text: string }> }
+    >();
+    for (const r of rows ?? []) {
+      const ansKey = normalizeAnswer(r.correct_answer);
+      if (!ansKey) continue;
+      const key = `${r.category}::${ansKey}`;
+      const b =
+        buckets.get(key) ??
+        { category: r.category, correct_answer: r.correct_answer, items: [] };
+      b.items.push({ id: r.id, question_text: r.question_text });
+      buckets.set(key, b);
+    }
+
+    const candidates = Array.from(buckets.values()).filter((b) => b.items.length >= 2);
+    const groups: Array<{
+      category: string;
+      correct_answer: string;
+      items: Array<{ id: string; question_text: string }>;
+    }> = [];
+
+    for (const bucket of candidates) {
+      const equivGroups = await semanticGroupsForBucket(apiKey, bucket.items);
+      const byId = new Map(bucket.items.map((it) => [it.id, it]));
+      for (const grp of equivGroups) {
+        const items = grp.map((id) => byId.get(id)).filter(Boolean) as Array<{
+          id: string;
+          question_text: string;
+        }>;
+        if (items.length >= 2) {
+          groups.push({
+            category: bucket.category,
+            correct_answer: bucket.correct_answer,
+            items,
+          });
+        }
+      }
+    }
+
+    return {
+      scanned: (rows ?? []).length,
+      bucketsChecked: candidates.length,
+      groups,
+    };
+  });
+
+/**
+ * Bulk-delete questions by id (admin only).
+ */
+export const deleteQuestionsByIds = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({ ids: z.array(z.string().uuid()).min(1).max(500) }).parse,
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { error } = await supabaseAdmin
+      .from("questions")
+      .delete()
+      .in("id", data.ids);
+    if (error) throw new Error(error.message);
+    return { deleted: data.ids.length };
   });
