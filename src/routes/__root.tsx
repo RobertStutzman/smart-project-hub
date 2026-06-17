@@ -16,6 +16,8 @@ import { resumeAmbienceContext, retryBlockedAmbience } from "@/lib/ambience-engi
 import { unlockElfVoice } from "@/lib/elf-voice";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeParticles } from "@/components/ThemeParticles";
+import { setCategoryMetaCache } from "@/lib/categories";
+import { listCategoryMeta } from "@/lib/categories.functions";
 import { Toaster } from "sonner";
 
 
