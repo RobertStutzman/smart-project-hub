@@ -171,6 +171,25 @@ function RootComponent() {
     };
   }, []);
 
+  // Load DB-backed category metadata (emoji + off-by-default flags) once on
+  // mount. Lets new categories added via the Gemini importer show their real
+  // emoji everywhere without a code change.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await listCategoryMeta();
+        if (cancelled) return;
+        setCategoryMetaCache(res.meta);
+      } catch {
+        // non-fatal — falls back to hardcoded CATEGORIES list
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
