@@ -1,61 +1,87 @@
-# Round 1 audio fix: band bed plays cleanly through intro
+# Semantic duplicate detection for questions
 
-## Root cause recap
+## Problem
 
-On the first transition out of `lobby` (i.e. start of round 1), `HostGameStage`'s music effect:
-1. Calls `climaxAndHandoff()` — fires a ~700–900 ms **cymbal swell** and fades crowd ambience.
-2. Immediately falls through to `startMusic("lobby", 600)`.
+The existing "Repair duplicate answers" tool only fixes rows whose answer **options** duplicate each other (e.g. wrong_1 = correct_answer). The import-time `checkDuplicates` only matches near-verbatim question text (`dedupeKey`: lowercased, punctuation stripped). Neither catches the real problem: two questions that mean the same thing but are worded differently, e.g.
 
-The band bed starts under the cymbal, so it's masked. By the time the cymbal clears, the `intro` splash is often already advancing toward `question`, and `startMusic("tense")` calls `stopLoopAudio()` / `stopOtherMusic("loop")` which kills the bed before you hear it.
+- "Who painted the Mona Lisa?"
+- "Which Italian Renaissance artist created the Mona Lisa?"
 
-Rounds 2/3 don't have this problem because they're preceded by `leaderboard` (no cymbal, several seconds of clean bed).
+Both share the same correct answer (`Leonardo da Vinci`) and ask the same thing — the second should be flagged as a dupe.
 
-## Changes
+Currently there are 1,415 questions. Many candidate groups already exist (e.g. 5 questions in "80's Music" with correct answer "Journey").
 
-### 1. Delay the round-1 band bed until after the cymbal swell — `src/components/host/HostGameStage.tsx` (music effect, ~lines 571–632)
+## Approach
 
-Add a one-shot ref `firstIntroBedScheduledRef = useRef(false)` next to `ambienceHandedRef`.
+Two-part feature: an admin **scanner** with manual review, and an **insert-time blocker** that prevents new semantic dupes from entering the DB.
 
-In the "first transition out of lobby" branch (where `climaxAndHandoff()` is called):
-- After invoking `climaxAndHandoff()`, if `state.phase === "intro"` (or `final_intro`), schedule `startMusic("lobby", 600)` via `window.setTimeout(..., 850)` instead of letting the fall-through fire it immediately. Mark `firstIntroBedScheduledRef.current = true`.
-- Inside the timeout, before calling `startMusic`, re-check that `currentPhaseRef.current` (a small ref that mirrors the latest `state.phase`) is still `intro` / `final_intro` / `lobby` / `leaderboard` — if the phase has already moved to `question`, skip the late start so we don't bring music back during a question.
-- After scheduling, `return` from the effect so the if/else chain doesn't ALSO fire `startMusic("lobby")` synchronously and double-trigger.
+### Part A — Scanner (server + UI)
 
-Add `currentPhaseRef = useRef<string | null>(null)` and update it at the top of the effect: `currentPhaseRef.current = state.phase`.
+**1. New server function `findSemanticDuplicates` in `src/lib/admin.functions.ts`**
 
-Clear/cancel the timeout in the effect's cleanup so a rapid phase change doesn't leave a stale `startMusic` call queued.
+- Admin-gated (`assertAdmin`).
+- Input: `{ category?: string; offset?: number; limit?: number }` — process in chunks so we can show progress.
+- Algorithm:
+  1. Load `id, category, question_text, correct_answer` for the target category (or all categories).
+  2. Bucket rows by `(category, normalize(correct_answer))` where `normalize` lowercases, trims, collapses whitespace, strips punctuation. Reuse a `normalizeAnswer` helper exported alongside `dedupeKey`.
+  3. Drop buckets with <2 rows (nothing to dedupe).
+  4. For each remaining bucket, call Lovable AI Gateway via the shared provider helper:
+     - Model: `google/gemini-3-flash-preview`.
+     - `generateText` with `Output.object({ schema: z.object({ groups: z.array(z.array(z.string())) }) })` — each inner array is a set of question IDs that ask the same thing. Singletons are omitted by the model.
+     - Prompt: "Here are questions that all share the same correct answer. Group together the ones that ask the SAME thing (just worded differently). Two questions are the same if a player who knows the answer to one would answer the other identically. Different angles on the same fact (e.g. 'capital of X?' vs 'where is the Eiffel Tower?') are NOT the same." Pass `[{id, question_text}]` JSON in.
+     - Skip buckets with >12 entries by splitting into chunks (rare; cap chunk at 12 to keep schemas small).
+  5. Return `{ groups: Array<{ category, correct_answer, items: Array<{ id, question_text }> }>, scanned, totalBuckets }`.
 
-### 2. Don't let `startMusic("tense")` yank the bed without a short fade — `src/lib/sound-engine.ts` (`stopLoopAudio`, ~line 499)
+**2. New server function `deleteQuestionsByIds`**
 
-Currently `stopLoopAudio()` does `loopAudio.pause(); loopAudio.currentTime = 0;` — instantaneous, hard cut.
+- Admin-gated, input `z.object({ ids: z.array(z.uuid()).min(1).max(500) })`.
+- `supabaseAdmin.from("questions").delete().in("id", ids)`.
+- Returns `{ deleted }`.
 
-Add a small fade-out when there's a live `loopAudio`:
-- Ramp `loopAudio.volume` from current → 0 over ~180 ms via a `setInterval` (8 steps), then `pause()` + null the reference.
-- Keep the synchronous teardown for `synthLoopTimer` (no audio artifact there).
-- Expose an optional `immediate` flag (`stopLoopAudio(immediate = false)`) so `setMuted(true)` and `silenceAllAudio` still cut instantly.
+**3. Admin UI panel in `src/routes/_authenticated/admin.tsx`**
 
-This means if `intro → question` does happen mid-bed, the bed fades out under the first heartbeat instead of clicking off.
+Add a new section "🔍 Find semantic duplicates" near the existing "Repair duplicate answers" panel:
+- Category selector (re-use the existing `CategoryOption` list) + "All categories" option.
+- "Scan" button → calls `findSemanticDuplicates` with progress toast (chunks of 200 questions or 25 buckets per call).
+- Results render as collapsible groups:
+  - Header: `Category · "correct answer" · N matches`
+  - For each item: question text + a radio button to mark "keep" (default: longest text). Other items default-checked for deletion. User can override.
+  - Per-group "Delete N" button → calls `deleteQuestionsByIds` with the unchecked IDs, removes the group from state, toasts confirmation.
+  - "Delete all selected across groups" sticky footer button for bulk action.
+- No auto-delete. Manual only.
 
-### 3. Wire the optional bed extension into `intro` only (no behavior change for `question`/`reveal`)
+### Part B — Insert-time blocking
 
-No new flag for the user — `intro` already calls `startMusic("lobby")`. The change above makes that call happen *after* the cymbal swell, so the bed has clean air to play.
+**4. Within-batch dedupe in `generateQuestions` (already in `admin.functions.ts`)**
+
+After the model returns a batch but before insert:
+- Bucket the generated rows by `(category, normalizeAnswer(correct_answer))`.
+- For buckets with >1 generated row, run the same AI semantic-check call as above. Drop all but the first row from each detected dupe group. Log the count.
+
+**5. Cross-batch dedupe (against existing DB)**
+
+For each generated row, after the within-batch pass:
+- Query `SELECT id, question_text FROM questions WHERE category = $1 AND lower(correct_answer) = $2 LIMIT 12`.
+- If matches exist, ask the AI: "Does the new question ask the SAME thing as any of these existing questions?" Return `{ duplicate_of: string | null }`. If non-null, skip insert.
+- To keep latency reasonable, batch this across all incoming rows in one AI call when feasible (group by `(category, answer)`).
+
+Return value of `generateQuestions` gains `{ inserted, skippedSemanticDupes }` so the UI toast can show "Inserted 47 · 3 skipped as dupes."
 
 ## Out of scope
 
-- The heartbeat synth itself (sub-bass audibility) — that's the separate "do we like the heartbeat" question and not part of this fix.
-- The leaderboard/lobby music wiring for rounds 2/3 — already works.
-- Final-round intro (`final_intro`) — covered automatically by the same `intro`-style scheduling check.
-- Ambience `crowd`/`chatter` layers — untouched.
+- Embeddings + pgvector (heavier infra, schema migration, re-embed on edit). Can revisit if AI calls become too slow/expensive.
+- Auto-deletion of detected dupes. Manual review only this round.
+- Backfill of `dedupeKey` into a DB column (not needed — bucketing happens in memory).
+- Touching the existing "Repair duplicate answers" tool — it solves a different problem (same-row answer collisions).
 
 ## Verification
 
-- Fresh game, click Start on the QR lobby:
-  - Cymbal swell plays cleanly.
-  - ~850 ms later, the band bed comes in audibly under the "Get Ready / Question 1" splash. **Not masked.**
-  - When phase flips to `question`, the bed fades out over ~180 ms instead of clicking off, and the heartbeat starts.
-- Round 2 and round 3:
-  - Leaderboard → band bed (unchanged, still clean).
-  - Intro → bed continues (already playing, no double-trigger).
-  - Question → fade-out + heartbeat.
-- Mute toggle still cuts instantly (uses `immediate` flag path).
-- Final round intro behaves like a normal intro.
+- Scan "80's Music" → should surface the existing "Journey" / "Madonna" / "Police" buckets and group genuine reworded duplicates while leaving distinct-but-same-answer questions alone.
+- Mark some for deletion, hit Delete → rows removed from DB, group disappears, leaderboard category counts update.
+- Generate a fresh batch where two prompts produce reworded versions of "Who painted the Mona Lisa?" → toast reports `skippedSemanticDupes > 0`, only one row lands in the DB.
+- Generate a batch whose questions semantically match an existing DB row → that row is skipped, existing row preserved.
+- Non-admin user calling either server function → 403/error.
+
+## Cost / latency note
+
+Each scan and each insert costs Lovable AI credits proportional to the number of answer-buckets with multi-row collisions, not total question count. For 1,415 questions today and typical batch sizes the per-scan cost is small (tens of short Gemini Flash calls). UI shows a progress toast and the user can cancel between chunks.
