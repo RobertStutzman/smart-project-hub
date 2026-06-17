@@ -1,5 +1,11 @@
 // Lobby announcer banter — opener + rotating idle quips while waiting for players.
 // Lines may contain `{count}` (current player count) and `{code}` (room code) tokens.
+import { isAdultMode } from "@/lib/adult-mode";
+import {
+  pickLobbyLineAdult,
+  pickOpenerAdult,
+  pickWelcomeIntroAdult,
+} from "@/lib/lobby-banter.adult";
 
 export const OPENER_LINES: string[] = [
   "Scan the QR code on screen, or type the four-letter code to join.",
