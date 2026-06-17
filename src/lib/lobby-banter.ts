@@ -106,6 +106,7 @@ export function pickLobbyLine(
   count: number,
   code: string,
 ): { spoken: string; raw: string } {
+  if (isAdultMode()) return pickLobbyLineAdult(history, count, code);
   let pool: string[];
   if (count === 0) pool = [...IDLE_EMPTY, ...IDLE_JOIN_NUDGE, ...IDLE_GENERIC];
   else if (count <= 2) pool = [...IDLE_LOW, ...IDLE_GENERIC];
@@ -121,6 +122,7 @@ export function pickLobbyLine(
 }
 
 export function pickOpener(): string {
+  if (isAdultMode()) return pickOpenerAdult();
   return OPENER_LINES[Math.floor(Math.random() * OPENER_LINES.length)];
 }
 
