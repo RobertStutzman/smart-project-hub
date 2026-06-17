@@ -11,6 +11,8 @@ import {
   countDuplicateAnswers,
   countMissingExplanations,
   deleteQuestion,
+  deleteQuestionsByIds,
+  findSemanticDuplicates,
   generateQuestionImage,
   generateQuestionVoice,
   generateQuestions,
