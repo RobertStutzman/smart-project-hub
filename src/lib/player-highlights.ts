@@ -1,6 +1,12 @@
 // Per-player best/worst caption derivation for the credits highlight reel.
 // Also exposes short Vox one-liners that match each caption category, so the
 // announcer can riff on the same beat as the on-screen caption.
+import {
+  BEST_TEMPLATES_ADULT,
+  WORST_TEMPLATES_ADULT,
+  BEST_VOX_ADULT,
+  WORST_VOX_ADULT,
+} from "@/lib/player-highlights.adult";
 
 export type HighlightPlayer = {
   nickname: string;
