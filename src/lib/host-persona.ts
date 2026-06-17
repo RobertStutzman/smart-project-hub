@@ -777,7 +777,7 @@ export function pickLine(moment: Moment, seed: string | number = Date.now()): st
   let pool: string[] = LINES[moment];
   if (typeof window !== "undefined") {
     try {
-      if (window.localStorage.getItem("btd-adult-mode") === "1") {
+      if (window.sessionStorage.getItem("btd-adult-mode") === "1") {
         pool = LINES_ADULT[moment] ?? pool;
       }
     } catch {

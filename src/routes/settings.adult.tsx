@@ -16,6 +16,8 @@ export const Route = createFileRoute("/settings/adult")({
 function AdultSettingsPage() {
   const [enabled, setEnabled] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [ageOk, setAgeOk] = useState(false);
+  const [tosOk, setTosOk] = useState(false);
 
   useEffect(() => {
     setEnabled(isAdultMode());
@@ -27,13 +29,22 @@ function AdultSettingsPage() {
       setEnabled(false);
       return;
     }
+    setAgeOk(false);
+    setTosOk(false);
     setConfirming(true);
   }
 
   function confirm() {
+    if (!ageOk || !tosOk) return;
     setAdultMode(true);
     setEnabled(true);
     setConfirming(false);
+  }
+
+  function cancel() {
+    setConfirming(false);
+    setAgeOk(false);
+    setTosOk(false);
   }
 
   return (
@@ -53,9 +64,13 @@ function AdultSettingsPage() {
             18+ ONLY. Crude language and sexual humor in the announcer.
           </p>
           <p className="mt-2 text-xs text-red-200/80">
-            Do not enable around minors. The host voice will swear (f-bombs, shit, asshole, dick) and make crude jokes between
-            questions, on reveals, and in the credits. Question content is unchanged. This is a per-device setting, stored only
-            in your browser.
+            Built for the college crowd. The host voice will swear (f-bombs, shit, asshole, dick) and make crude jokes
+            between questions, on reveals, and in the credits. Question content is unchanged.
+          </p>
+          <p className="mt-2 text-xs font-semibold text-red-200">
+            Auto-resets when you leave the game. Adult Mode is stored only for this browser tab — close the tab, end
+            the game, or open a fresh window and it turns off automatically. It will NEVER be on by default next time
+            someone (or their kid) opens the app.
           </p>
         </div>
 
@@ -64,7 +79,7 @@ function AdultSettingsPage() {
             <div>
               <h2 className="text-lg font-bold">Adult announcer</h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                {enabled ? "Currently ON — gloves off." : "Currently OFF — the show stays PG-13."}
+                {enabled ? "Currently ON — gloves off. Resets when this tab closes." : "Currently OFF — the show stays PG-13."}
               </p>
             </div>
             <button
@@ -91,13 +106,40 @@ function AdultSettingsPage() {
           <div className="w-full max-w-md rounded-3xl border-2 border-red-500/70 bg-card p-6 shadow-2xl">
             <h3 className="text-xl font-black">Confirm 18+</h3>
             <p className="mt-3 text-sm text-muted-foreground">
-              By enabling Adult Mode you confirm you are 18 or older and accept that the host will use profanity and crude
-              sexual humor. This is not for kids. Definitely not for family game night with grandma.
+              Adult Mode unleashes crude profanity and sexual humor from the host. Not for kids, not for the office,
+              definitely not for family game night with grandma.
             </p>
+
+            <label className="mt-5 flex items-start gap-3 rounded-2xl border border-border bg-background/40 p-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={ageOk}
+                onChange={(e) => setAgeOk(e.target.checked)}
+                className="mt-1 h-4 w-4 accent-red-500"
+              />
+              <span className="text-xs text-foreground">
+                I confirm I am <strong>18 years or older</strong> and that no minors are in the room.
+              </span>
+            </label>
+
+            <label className="mt-2 flex items-start gap-3 rounded-2xl border border-border bg-background/40 p-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={tosOk}
+                onChange={(e) => setTosOk(e.target.checked)}
+                className="mt-1 h-4 w-4 accent-red-500"
+              />
+              <span className="text-xs text-foreground">
+                I agree to the{" "}
+                <Link to="/terms" className="underline">Terms of Service</Link> and accept full responsibility for who
+                hears this content. I understand Adult Mode will auto-disable when this tab closes or the game ends.
+              </span>
+            </label>
+
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setConfirming(false)}
+                onClick={cancel}
                 className="rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-card/60"
               >
                 Cancel
@@ -105,7 +147,8 @@ function AdultSettingsPage() {
               <button
                 type="button"
                 onClick={confirm}
-                className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600"
+                disabled={!ageOk || !tosOk}
+                className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 I am 18+, enable it
               </button>

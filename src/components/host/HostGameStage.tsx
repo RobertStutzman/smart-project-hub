@@ -1608,6 +1608,9 @@ export function HostGameStage({ room }: Props) {
         players={players}
         wrongPicks={wrongPicksRef.current}
         onPlayAgain={() => {
+          // Adult Mode auto-disables when the game ends — host must
+          // re-opt-in in /settings/adult before the next game gets spicy.
+          void import("@/lib/adult-mode").then((m) => m.clearAdultMode());
           restartGameFn({
             data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
           }).catch(() => {});

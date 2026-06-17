@@ -151,7 +151,7 @@ function pick<T>(arr: T[], seedStr: string): T {
 
 function isAdult(): boolean {
   if (typeof window === "undefined") return false;
-  try { return window.localStorage.getItem("btd-adult-mode") === "1"; } catch { return false; }
+  try { return window.sessionStorage.getItem("btd-adult-mode") === "1"; } catch { return false; }
 }
 
 export function derivePlayerHighlights(p: HighlightPlayer): PlayerHighlights {
