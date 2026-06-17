@@ -777,18 +777,13 @@ export function pickLine(moment: Moment, seed: string | number = Date.now()): st
   if (typeof window !== "undefined") {
     try {
       if (window.localStorage.getItem("btd-adult-mode") === "1") {
-        // Lazy import to keep this file free of side effects.
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const adult = (require("@/lib/host-persona.adult") as typeof import("@/lib/host-persona.adult")).LINES_ADULT;
-        pool = adult[moment] ?? pool;
+        pool = LINES_ADULT[moment] ?? pool;
       }
     } catch {
-      /* fall back to PG pool */
+      /* fall back */
     }
   }
-  // Mix in a daily-ish bucket so two back-to-back games on the same evening
-  // don't land on the same line for the same seed input (e.g. same qid).
-  const dailyBucket = Math.floor(Date.now() / (1000 * 60 * 30)); // 30-min bucket
+  const dailyBucket = Math.floor(Date.now() / (1000 * 60 * 30));
   const base =
     typeof seed === "string"
       ? seed.length * 131 + seed.charCodeAt(0) * 17 + (seed.charCodeAt(seed.length - 1) ?? 0)
