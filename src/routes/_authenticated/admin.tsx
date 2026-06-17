@@ -303,6 +303,7 @@ function AdminPage() {
           <div className="flex flex-col gap-6">
             <ExplanationBackfill onUpdated={reload} />
             <DuplicateAnswersRepair onUpdated={reload} />
+            <SemanticDupeScanner onUpdated={reload} categories={mergedCategories} />
             <p className="text-xs text-muted-foreground">
               Narrating questions or "Did you know?" lives on the{" "}
               <a href="/admin-sounds" className="font-bold underline">Sounds</a> page.
