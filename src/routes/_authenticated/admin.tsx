@@ -1935,6 +1935,8 @@ function GeminiImporter({
   const bakeFn = useServerFn(bakeAllQuestionTTS);
   const bakeExplanationFn = useServerFn(bakeAllExplanationTTS);
   const checkDupesFn = useServerFn(checkDuplicates);
+  const ensureCategoryMetaFn = useServerFn(ensureCategoryMeta);
+  const listCategoryMetaFn = useServerFn(listCategoryMeta);
   const [category, setCategory] = useState(CATEGORIES[0].name);
   const [count, setCount] = useState(50);
   const [difficulty, setDifficulty] = useState<Diff | "mixed">("mixed");
