@@ -23,7 +23,7 @@ import {
   newId,
 } from "@/lib/player-session";
 import { supabase } from "@/integrations/supabase/client";
-import { CATEGORIES, DEFAULT_OFF_CATEGORIES, MIX_CATEGORY, emojiForCategory } from "@/lib/categories";
+import { CATEGORIES, MIX_CATEGORY, emojiForCategory, mergedDefaultOffCategories } from "@/lib/categories";
 import { useTheme } from "@/components/ThemeProvider";
 import { play, setMuted as setSoundMuted, startMusic, stopMusic, type Sfx } from "@/lib/sound-engine";
 import { HostGameStage, useRevealAutoAdvance } from "@/components/host/HostGameStage";
