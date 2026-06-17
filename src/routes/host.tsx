@@ -272,16 +272,17 @@ function HostPage() {
         const names = merged.filter((c) => c.count > 0).map((c) => c.name);
         setAllCategories(merged);
         let initial: Set<string>;
+        const offSet = mergedDefaultOffCategories();
         try {
           const raw = window.localStorage.getItem(CATEGORIES_KEY);
           if (raw) {
             const arr = JSON.parse(raw) as string[];
             initial = new Set(arr.filter((n) => names.includes(n)));
           } else {
-            initial = new Set(names.filter((n) => !DEFAULT_OFF_CATEGORIES.includes(n)));
+            initial = new Set(names.filter((n) => !offSet.has(n)));
           }
         } catch {
-          initial = new Set(names.filter((n) => !DEFAULT_OFF_CATEGORIES.includes(n)));
+          initial = new Set(names.filter((n) => !offSet.has(n)));
         }
         setEnabledCats(initial);
         const all = initial.size === names.length;
