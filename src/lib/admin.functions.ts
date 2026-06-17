@@ -953,3 +953,84 @@ export const deleteQuestionsByIds = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { deleted: data.ids.length };
   });
+
+/**
+ * Ensure a category_meta row exists for the given category name. If it
+ * doesn't, asks Lovable AI to pick a representative single emoji and inserts
+ * the row. Returns the resulting row (existing or freshly created).
+ *
+ * Used by the Gemini paste-in importer to auto-register any unknown category
+ * encountered in the pasted JSON, so emoji/defaults flow through the rest of
+ * the app without a manual code edit.
+ */
+export const ensureCategoryMeta = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({ name: z.string().min(1).max(60) }).parse,
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const name = data.name.trim();
+    if (!name) throw new Error("Empty category name");
+
+    const existing = await supabaseAdmin
+      .from("category_meta")
+      .select("name, emoji, off_by_default")
+      .eq("name", name)
+      .maybeSingle();
+    if (existing.error) throw new Error(existing.error.message);
+    if (existing.data) return { meta: existing.data, created: false };
+
+    // Ask Lovable AI for one emoji that represents the category.
+    let emoji = "❓";
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (apiKey) {
+      try {
+        const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You pick a single emoji that best represents a trivia category. Reply with ONLY the emoji — no words, no punctuation, no quotes, no spaces. Exactly one emoji.",
+              },
+              { role: "user", content: `Trivia category: ${name}` },
+            ],
+            max_completion_tokens: 16,
+          }),
+        });
+        if (res.ok) {
+          const json: any = await res.json();
+          const raw: string = json?.choices?.[0]?.message?.content ?? "";
+          // Grab the first emoji-like glyph (extended pictographic or symbol).
+          const match = raw.match(/\p{Extended_Pictographic}/u);
+          if (match) emoji = match[0];
+        }
+      } catch {
+        // fall through to default ❓
+      }
+    }
+
+    const inserted = await supabaseAdmin
+      .from("category_meta")
+      .insert({ name, emoji, off_by_default: false })
+      .select("name, emoji, off_by_default")
+      .single();
+    if (inserted.error) {
+      // Race: another caller inserted concurrently — fetch the winning row.
+      const refetch = await supabaseAdmin
+        .from("category_meta")
+        .select("name, emoji, off_by_default")
+        .eq("name", name)
+        .maybeSingle();
+      if (refetch.data) return { meta: refetch.data, created: false };
+      throw new Error(inserted.error.message);
+    }
+    return { meta: inserted.data, created: true };
+  });
