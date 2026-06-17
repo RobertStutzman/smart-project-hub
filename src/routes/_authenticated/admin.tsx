@@ -12,6 +12,7 @@ import {
   countMissingExplanations,
   deleteQuestion,
   deleteQuestionsByIds,
+  ensureCategoryMeta,
   findSemanticDuplicates,
   generateQuestionImage,
   generateQuestionVoice,
@@ -24,7 +25,8 @@ import {
 import { dedupeKey } from "@/lib/dedupe";
 import { bakeAllQuestionTTS, bakeAllExplanationTTS } from "@/lib/announcer.functions";
 import { supabase } from "@/integrations/supabase/client";
-import { CATEGORIES } from "@/lib/categories";
+import { CATEGORIES, setCategoryMetaCache } from "@/lib/categories";
+import { listCategoryMeta } from "@/lib/categories.functions";
 import { listCategories } from "@/lib/rooms.functions";
 import { CapacityWidget } from "@/components/admin/CapacityWidget";
 
