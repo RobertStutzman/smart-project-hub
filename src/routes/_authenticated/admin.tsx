@@ -2070,6 +2070,43 @@ function GeminiImporter({
     setBusy(true);
     let imported = 0;
     const failures: string[] = [];
+
+    // Auto-register any brand-new categories present in this batch so they
+    // get a real emoji + show up in the host lobby with full polish.
+    try {
+      const known = new Set(CATEGORIES.map((c) => c.name));
+      const batchCats = Array.from(new Set(toInsert.map((r) => r.category))).filter(
+        (n) => n && !known.has(n),
+      );
+      if (batchCats.length) {
+        const results = await Promise.all(
+          batchCats.map((name) =>
+            ensureCategoryMetaFn({ data: { name } })
+              .then((res) => ({ ok: true as const, res }))
+              .catch((e) => ({ ok: false as const, name, error: e as Error })),
+          ),
+        );
+        const created = results
+          .filter((r) => r.ok && r.res.created)
+          .map((r) => (r.ok ? `${r.res.meta.emoji} ${r.res.meta.name}` : ""))
+          .filter(Boolean);
+        if (created.length) {
+          toast.success(`Added ${created.length} new categor${created.length === 1 ? "y" : "ies"}: ${created.join(", ")}`);
+          try {
+            const refreshed = await listCategoryMetaFn();
+            setCategoryMetaCache(refreshed.meta);
+          } catch {
+            // non-fatal
+          }
+        }
+        const failed = results.filter((r) => !r.ok);
+        if (failed.length) {
+          toast.error(`Could not register ${failed.length} categor${failed.length === 1 ? "y" : "ies"} — imports will still proceed.`);
+        }
+      }
+    } catch (e) {
+      console.warn("ensureCategoryMeta batch failed", e);
+    }
     try {
       const total = toInsert.length;
       for (let i = 0; i < toInsert.length; i += IMPORT_CHUNK) {
