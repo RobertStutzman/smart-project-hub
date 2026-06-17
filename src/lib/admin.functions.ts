@@ -313,10 +313,64 @@ export const generateQuestions = createServerFn({ method: "POST" })
       category: data.category,
       is_premium: data.isPremium,
     }));
-    const questions = all.filter(answersAreDistinct);
+    const distinct = all.filter(answersAreDistinct);
+    const skipped = all.length - distinct.length;
 
-    const skipped = all.length - questions.length;
-    return { questions, skipped };
+    // Semantic-duplicate filtering (within batch + against existing DB rows).
+    const tagged = distinct.map((q, i) => ({ ...q, __tmpId: `new-${i}` }));
+    const buckets = new Map<string, typeof tagged>();
+    for (const q of tagged) {
+      const key = normalizeAnswer(q.correct_answer);
+      if (!key) continue;
+      const arr = buckets.get(key) ?? [];
+      arr.push(q);
+      buckets.set(key, arr);
+    }
+
+    const skipIds = new Set<string>();
+    let skippedSemanticDupes = 0;
+    for (const [ansKey, newRows] of buckets) {
+      // Pull existing DB rows with the same category + correct_answer.
+      const { data: existing } = await supabaseAdmin
+        .from("questions")
+        .select("id, question_text, correct_answer")
+        .eq("category", data.category)
+        .limit(50);
+      const sameAnsExisting = (existing ?? []).filter(
+        (r) => normalizeAnswer(r.correct_answer) === ansKey,
+      );
+      const pool = [
+        ...newRows.map((r) => ({ id: r.__tmpId, question_text: r.question_text })),
+        ...sameAnsExisting.map((r) => ({ id: `db-${r.id}`, question_text: r.question_text })),
+      ];
+      if (pool.length < 2) continue;
+      try {
+        const groups = await semanticGroupsForBucket(apiKey, pool);
+        for (const group of groups) {
+          // Within each group, keep the first DB row if any (preserve existing).
+          // If group is all new, keep the first new one.
+          const hasDb = group.some((id) => id.startsWith("db-"));
+          let keptOne = !hasDb ? false : true;
+          for (const id of group) {
+            if (id.startsWith("db-")) continue;
+            if (!keptOne) {
+              keptOne = true;
+              continue;
+            }
+            skipIds.add(id);
+            skippedSemanticDupes++;
+          }
+        }
+      } catch {
+        // If the AI semantic check fails, do not block insert — fall through.
+      }
+    }
+
+    const questions = tagged
+      .filter((q) => !skipIds.has(q.__tmpId))
+      .map(({ __tmpId: _t, ...rest }) => rest);
+
+    return { questions, skipped, skippedSemanticDupes };
   });
 
 /**
