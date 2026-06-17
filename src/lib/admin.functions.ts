@@ -327,18 +327,24 @@ export const generateQuestions = createServerFn({ method: "POST" })
       buckets.set(key, arr);
     }
 
+    // Fetch existing questions in this category once and index by answer key.
+    const { data: existingRows } = await supabaseAdmin
+      .from("questions")
+      .select("id, question_text, correct_answer")
+      .eq("category", data.category);
+    const existingByAns = new Map<string, Array<{ id: string; question_text: string }>>();
+    for (const r of existingRows ?? []) {
+      const k = normalizeAnswer(r.correct_answer);
+      if (!k) continue;
+      const arr = existingByAns.get(k) ?? [];
+      arr.push({ id: r.id, question_text: r.question_text });
+      existingByAns.set(k, arr);
+    }
+
     const skipIds = new Set<string>();
     let skippedSemanticDupes = 0;
     for (const [ansKey, newRows] of buckets) {
-      // Pull existing DB rows with the same category + correct_answer.
-      const { data: existing } = await supabaseAdmin
-        .from("questions")
-        .select("id, question_text, correct_answer")
-        .eq("category", data.category)
-        .limit(50);
-      const sameAnsExisting = (existing ?? []).filter(
-        (r) => normalizeAnswer(r.correct_answer) === ansKey,
-      );
+      const sameAnsExisting = existingByAns.get(ansKey) ?? [];
       const pool = [
         ...newRows.map((r) => ({ id: r.__tmpId, question_text: r.question_text })),
         ...sameAnsExisting.map((r) => ({ id: `db-${r.id}`, question_text: r.question_text })),
@@ -347,10 +353,9 @@ export const generateQuestions = createServerFn({ method: "POST" })
       try {
         const groups = await semanticGroupsForBucket(apiKey, pool);
         for (const group of groups) {
-          // Within each group, keep the first DB row if any (preserve existing).
-          // If group is all new, keep the first new one.
-          const hasDb = group.some((id) => id.startsWith("db-"));
-          let keptOne = !hasDb ? false : true;
+          // Keep the first DB row if any (preserve existing); else keep first new.
+          const hasDb = group.some((id: string) => id.startsWith("db-"));
+          let keptOne = hasDb;
           for (const id of group) {
             if (id.startsWith("db-")) continue;
             if (!keptOne) {
@@ -365,6 +370,7 @@ export const generateQuestions = createServerFn({ method: "POST" })
         // If the AI semantic check fails, do not block insert — fall through.
       }
     }
+
 
     const questions = tagged
       .filter((q) => !skipIds.has(q.__tmpId))
