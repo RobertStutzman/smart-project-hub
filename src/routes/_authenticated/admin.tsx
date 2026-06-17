@@ -718,6 +718,7 @@ function AIGenerator({
       } else {
         // Batched mode: generate + auto-insert in chunks of BATCH
         let totalInserted = 0;
+        let totalSemanticSkipped = 0;
         const total = count;
         setProgress({ done: 0, total });
         let remaining = total;
@@ -726,6 +727,7 @@ function AIGenerator({
           const res = await generate({
             data: { prompt, category, count: batchSize, isPremium, difficulty },
           });
+          totalSemanticSkipped += res.skippedSemanticDupes ?? 0;
           const rows = res.questions.map((q) => ({
             category: q.category,
             subcategory: null,
@@ -745,7 +747,9 @@ function AIGenerator({
           remaining -= batchSize;
           setProgress({ done: total - remaining, total });
         }
-        toast.success(`Inserted ${totalInserted} AI questions`);
+        toast.success(
+          `Inserted ${totalInserted} AI questions${totalSemanticSkipped ? ` · ${totalSemanticSkipped} semantic dupes skipped` : ""}`,
+        );
         await onInserted();
       }
     } catch (e) {
