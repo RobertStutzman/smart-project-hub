@@ -16,6 +16,8 @@ import { resumeAmbienceContext, retryBlockedAmbience } from "@/lib/ambience-engi
 import { unlockElfVoice } from "@/lib/elf-voice";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeParticles } from "@/components/ThemeParticles";
+import { setCategoryMetaCache } from "@/lib/categories";
+import { listCategoryMeta } from "@/lib/categories.functions";
 import { Toaster } from "sonner";
 
 
@@ -166,6 +168,25 @@ function RootComponent() {
       window.removeEventListener("pointerdown", tryUnlock, true);
       window.removeEventListener("keydown", tryUnlock, true);
       window.removeEventListener("touchstart", tryUnlock, true);
+    };
+  }, []);
+
+  // Load DB-backed category metadata (emoji + off-by-default flags) once on
+  // mount. Lets new categories added via the Gemini importer show their real
+  // emoji everywhere without a code change.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await listCategoryMeta();
+        if (cancelled) return;
+        setCategoryMetaCache(res.meta);
+      } catch {
+        // non-fatal — falls back to hardcoded CATEGORIES list
+      }
+    })();
+    return () => {
+      cancelled = true;
     };
   }, []);
 

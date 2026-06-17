@@ -12,6 +12,7 @@ import {
   countMissingExplanations,
   deleteQuestion,
   deleteQuestionsByIds,
+  ensureCategoryMeta,
   findSemanticDuplicates,
   generateQuestionImage,
   generateQuestionVoice,
@@ -24,7 +25,8 @@ import {
 import { dedupeKey } from "@/lib/dedupe";
 import { bakeAllQuestionTTS, bakeAllExplanationTTS } from "@/lib/announcer.functions";
 import { supabase } from "@/integrations/supabase/client";
-import { CATEGORIES } from "@/lib/categories";
+import { CATEGORIES, setCategoryMetaCache } from "@/lib/categories";
+import { listCategoryMeta } from "@/lib/categories.functions";
 import { listCategories } from "@/lib/rooms.functions";
 import { CapacityWidget } from "@/components/admin/CapacityWidget";
 
@@ -1933,6 +1935,8 @@ function GeminiImporter({
   const bakeFn = useServerFn(bakeAllQuestionTTS);
   const bakeExplanationFn = useServerFn(bakeAllExplanationTTS);
   const checkDupesFn = useServerFn(checkDuplicates);
+  const ensureCategoryMetaFn = useServerFn(ensureCategoryMeta);
+  const listCategoryMetaFn = useServerFn(listCategoryMeta);
   const [category, setCategory] = useState(CATEGORIES[0].name);
   const [count, setCount] = useState(50);
   const [difficulty, setDifficulty] = useState<Diff | "mixed">("mixed");
@@ -2066,6 +2070,43 @@ function GeminiImporter({
     setBusy(true);
     let imported = 0;
     const failures: string[] = [];
+
+    // Auto-register any brand-new categories present in this batch so they
+    // get a real emoji + show up in the host lobby with full polish.
+    try {
+      const known = new Set(CATEGORIES.map((c) => c.name));
+      const batchCats = Array.from(new Set(toInsert.map((r) => r.category))).filter(
+        (n) => n && !known.has(n),
+      );
+      if (batchCats.length) {
+        const results = await Promise.all(
+          batchCats.map((name) =>
+            ensureCategoryMetaFn({ data: { name } })
+              .then((res) => ({ ok: true as const, res }))
+              .catch((e) => ({ ok: false as const, name, error: e as Error })),
+          ),
+        );
+        const created = results
+          .filter((r) => r.ok && r.res.created)
+          .map((r) => (r.ok ? `${r.res.meta.emoji} ${r.res.meta.name}` : ""))
+          .filter(Boolean);
+        if (created.length) {
+          toast.success(`Added ${created.length} new categor${created.length === 1 ? "y" : "ies"}: ${created.join(", ")}`);
+          try {
+            const refreshed = await listCategoryMetaFn();
+            setCategoryMetaCache(refreshed.meta);
+          } catch {
+            // non-fatal
+          }
+        }
+        const failed = results.filter((r) => !r.ok);
+        if (failed.length) {
+          toast.error(`Could not register ${failed.length} categor${failed.length === 1 ? "y" : "ies"} — imports will still proceed.`);
+        }
+      }
+    } catch (e) {
+      console.warn("ensureCategoryMeta batch failed", e);
+    }
     try {
       const total = toInsert.length;
       for (let i = 0; i < toInsert.length; i += IMPORT_CHUNK) {

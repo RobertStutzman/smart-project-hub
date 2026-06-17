@@ -35,6 +35,30 @@ export type Database = {
         }
         Relationships: []
       }
+      category_meta: {
+        Row: {
+          created_at: string
+          emoji: string
+          name: string
+          off_by_default: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          emoji?: string
+          name: string
+          off_by_default?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          name?: string
+          off_by_default?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       players: {
         Row: {
           answered_count: number
