@@ -261,7 +261,7 @@ const FALLBACK_MOMENT: Record<LiveMoment, Parameters<typeof pickLine>[0]> = {
 function pickTemplate(ctx: PersonaContext): string {
   if (typeof window !== "undefined") {
     try {
-      if (window.localStorage.getItem("btd-adult-mode") === "1") {
+      if (window.sessionStorage.getItem("btd-adult-mode") === "1") {
         return pickTemplateAdult(ctx);
       }
     } catch { /* fall back */ }
