@@ -14,8 +14,8 @@ const BEAT_EXIT = { opacity: 0, y: -14 };
 // Even, predictable pacing — viewers complained the old per-beat durations
 // (2.0–3.2s) felt rushed and irregular. Hold each celebratory card long
 // enough to read names + stats; give the scoreboard extra room.
-const BEAT_MS = 3200;
-const SCOREBOARD_MS = 5000;
+const BEAT_MS = 5200;
+const SCOREBOARD_MS = 7800;
 
 
 type Player = {

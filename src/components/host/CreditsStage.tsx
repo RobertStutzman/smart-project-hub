@@ -125,38 +125,49 @@ function deriveAwards(live: Player[]): Award[] {
 
 function PolaroidCard({ award, rotate }: { award: Award; rotate: number }) {
   const { player } = award;
+  // Wooden Spoon ("worst player") gets a hero-sized polaroid so the room
+  // can actually read the roast from across the bar.
+  const featured = award.key === "spoon";
+  const photoSize = featured ? "h-80 w-80" : "h-44 w-44";
+  const photoFallback = featured ? "text-[10rem]" : "text-7xl";
+  const padding = featured ? "p-6" : "p-3";
+  const tapeSize = featured ? "h-7 w-32 -top-3" : "h-5 w-20 -top-2";
+  const labelSize = featured ? "text-sm tracking-[0.4em]" : "text-[10px] tracking-[0.3em]";
+  const nameSize = featured ? "mt-2 text-5xl" : "mt-1 text-2xl";
+  const detailSize = featured ? "mt-1 text-lg" : "text-xs";
   return (
     <motion.div
       initial={{ opacity: 0, y: 30, rotate: rotate - 6, scale: 0.9 }}
       whileInView={{ opacity: 1, y: 0, rotate, scale: 1 }}
       viewport={{ once: true, margin: "-10%" }}
       transition={{ type: "spring", stiffness: 140, damping: 16 }}
-      className="relative inline-block rounded-lg bg-[#f5ecd6] p-3 shadow-[0_18px_40px_-15px_rgba(0,0,0,0.65)]"
+      className={`relative inline-block rounded-lg bg-[#f5ecd6] ${padding} shadow-[0_18px_40px_-15px_rgba(0,0,0,0.65)]`}
       style={{ transform: `rotate(${rotate}deg)` }}
     >
       {/* tape */}
-      <div className="absolute -top-2 left-1/2 h-5 w-20 -translate-x-1/2 rotate-[-3deg] bg-yellow-200/70 mix-blend-multiply shadow-sm" />
-      <div className={`grid h-44 w-44 place-items-center overflow-hidden rounded bg-gradient-to-br ${award.tint}`}>
+      <div className={`absolute left-1/2 -translate-x-1/2 rotate-[-3deg] bg-yellow-200/70 mix-blend-multiply shadow-sm ${tapeSize}`} />
+      <div className={`grid ${photoSize} place-items-center overflow-hidden rounded bg-gradient-to-br ${award.tint}`}>
         {player.avatar_url ? (
           <img src={player.avatar_url} alt={player.nickname} className="h-full w-full object-cover" />
         ) : (
-          <div className="font-display text-7xl font-black text-amber-950">
+          <div className={`font-display font-black text-amber-950 ${photoFallback}`}>
             {player.nickname.slice(0, 1).toUpperCase()}
           </div>
         )}
       </div>
       <div className="mt-3 px-1 text-center">
-        <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-amber-900/70">
+        <div className={`font-mono uppercase text-amber-900/70 ${labelSize}`}>
           {award.emoji} {award.label}
         </div>
-        <div className="mt-1 font-display text-2xl font-black uppercase tracking-tight text-amber-950">
+        <div className={`font-display font-black uppercase tracking-tight text-amber-950 ${nameSize}`}>
           {player.nickname}
         </div>
-        <div className="text-xs italic text-amber-900/80">{award.detail}</div>
+        <div className={`italic text-amber-900/80 ${detailSize}`}>{award.detail}</div>
       </div>
     </motion.div>
   );
 }
+
 
 function DumbAnswerCard({
   questionText,
