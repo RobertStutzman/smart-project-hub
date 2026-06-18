@@ -4,7 +4,7 @@
 // (or a pre-baked TTS file) reads them in under ~3 seconds.
 import { LINES_ADULT } from "@/lib/host-persona.adult";
 
-export const HOST_NAME = "[Insert Your Funny Announcer Name Here]";
+export const HOST_NAME = "Donnie Drop";
 
 type Moment =
   | "intro_hype"        // cold open, after title card
