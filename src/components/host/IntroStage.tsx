@@ -43,13 +43,16 @@ export function IntroStage({ players, onDone }: Props) {
     const at = (ms: number, fn: () => void) =>
       timers.push(window.setTimeout(fn, ms));
 
-    // Timing budget:
-    //   t=0      whoosh + ambience handoff
-    //   t=900    welcome-back quip (replay) OR intro hype (fresh)
-    //            — ~2.6s line length, comfortably ends before t=5500
-    //   t=2600   roster
-    //   t=5500   hard cancel any lingering intro speech (safety net)
-    //   t=6200   countdown "3" + "Alright… here we go in three!" (interrupts)
+    // Timing budget (tight, no dead air):
+    //   t=0      whoosh + title card
+    //   t=900    intro hype line (~2.4s)
+    //   t=2600   roster + staggered walk-on stingers
+    //   t=4400   hard-cancel intro quip, snap into countdown
+    //   t=4400   "3" + tick + speak "Three." (fire-and-forget)
+    //   t=5400   "2" + tick + speak "Two."
+    //   t=6400   "1" + tick + speak "One."
+    //   t=7400   GO + whoosh
+    //   t=8200   onDone
     at(900, () => {
       if (isReplayIntro) {
         speakPersona(pickWelcomeBack(), { preset: "hype", interrupt: true });
@@ -68,38 +71,51 @@ export function IntroStage({ players, onDone }: Props) {
       }
     }
 
-
-    at(5500, () => {
-      // Guarantee a clean slate before the countdown line — if the intro
-      // quip ran long for any reason, cut it cleanly so it never overlaps
-      // the 3-2-1 callout or the subsequent first-question TTS.
-      void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
-    });
     let cancelled = false;
-    at(6200, () => {
-      void (async () => {
-        const { speakAsElf } = await import("@/lib/elf-voice");
+    const TICK_MS = 1000;
+    const COUNTDOWN_START = 4400;
+    const speakDigit = (n: 3 | 2 | 1) => {
+      // Fire-and-forget: the persona pack pre-bakes "Three." / "Two." / "One."
+      // as cached URLs, so playback starts within a frame. We do NOT await —
+      // the visual ticks on a strict 1s interval regardless of audio length.
+      void import("@/lib/elf-voice").then((m) => {
         if (cancelled) return;
-        setStep("countdown");
-        // Lead-in line, then count digits in sync with audio.
-        await speakAsElf("Here we go.", { interrupt: true, preset: "hype" });
-        for (const n of [3, 2, 1] as const) {
-          if (cancelled) return;
-          setCount(n);
-          play("tick");
-          // Speaking the digit + waiting for it to finish guarantees the
-          // visual number and the announcer voice stay locked together.
-          await speakAsElf(`${n === 3 ? "Three" : n === 2 ? "Two" : "One"}.`, {
-            preset: "hype",
-          });
-        }
-        if (cancelled) return;
-        setStep("go");
-        play("whoosh");
-        window.setTimeout(() => {
-          if (!cancelled) onDoneRef.current();
-        }, 900);
-      })();
+        void m.speakAsElf(`${n === 3 ? "Three" : n === 2 ? "Two" : "One"}.`, {
+          preset: "hype",
+          interrupt: true,
+        });
+      });
+    };
+
+    at(COUNTDOWN_START, () => {
+      if (cancelled) return;
+      // Cut any lingering intro quip so the digit lands clean.
+      void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
+      setStep("countdown");
+      setCount(3);
+      play("tick");
+      speakDigit(3);
+    });
+    at(COUNTDOWN_START + TICK_MS, () => {
+      if (cancelled) return;
+      setCount(2);
+      play("tick");
+      speakDigit(2);
+    });
+    at(COUNTDOWN_START + TICK_MS * 2, () => {
+      if (cancelled) return;
+      setCount(1);
+      play("tick");
+      speakDigit(1);
+    });
+    at(COUNTDOWN_START + TICK_MS * 3, () => {
+      if (cancelled) return;
+      setStep("go");
+      play("whoosh");
+    });
+    at(COUNTDOWN_START + TICK_MS * 3 + 800, () => {
+      if (cancelled) return;
+      onDoneRef.current();
     });
 
 
