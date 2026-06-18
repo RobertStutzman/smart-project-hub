@@ -35,7 +35,7 @@ import { InstantReplay } from "@/components/host/InstantReplay";
 import { AudienceFeed } from "@/components/host/AudienceFeed";
 import { useHostStageMode } from "@/hooks/useHostStageMode";
 import { useHostHotkeys } from "@/hooks/useHostHotkeys";
-import { HowToPlay } from "@/components/HowToPlay";
+
 import { useWakeLock } from "@/hooks/use-wake-lock";
 
 
