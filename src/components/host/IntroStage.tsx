@@ -118,13 +118,14 @@ export function IntroStage({ players, onDone }: Props) {
       const deadline = Date.now() + HERE_WE_GO_MAX_MS;
       at(HERE_WE_GO_MAX_MS, startCountdown);
       void import("@/lib/elf-voice")
-        .then((m) =>
-          m.speakAsElf("Here we go.", {
+        .then((m) => {
+          if (cancelled || countdownStarted) return undefined;
+          return m.speakAsElf("Here we go.", {
             preset: "hype",
             interrupt: true,
             deadline,
-          }),
-        )
+          });
+        })
         .then(startCountdown)
         .catch(startCountdown);
     });
