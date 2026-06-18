@@ -278,6 +278,7 @@ type CustomClip = { url: string; volume: number; loop: boolean };
 // Built-in default clips (CDN-hosted). Used when no admin-assigned clip
 // exists for the slot. Keeps lobby/final feeling polished out of the box.
 import lobbyTrivia from "@/assets/audio/music/lobby_trivia.mp3.asset.json";
+import questionThink from "@/assets/audio/music/question_think.mp3.asset.json";
 import finalSting from "@/assets/audio/final/final_sting.mp3.asset.json";
 import finalWagerBed from "@/assets/audio/final/final_wager_bed.mp3.asset.json";
 import creditsOutro from "@/assets/audio/music/credits_outro.mp3.asset.json";
