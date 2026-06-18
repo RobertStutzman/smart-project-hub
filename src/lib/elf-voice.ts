@@ -510,6 +510,7 @@ export function playVoiceUrl(
   } = {},
 ): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();
+  if (Date.now() < silenceUntil) return Promise.resolve();
   const volume = opts.volume ?? 1.0;
   const priority = opts.priority ?? 1;
   const deadline = opts.deadline;
