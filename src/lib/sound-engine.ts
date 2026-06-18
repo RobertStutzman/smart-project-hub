@@ -745,6 +745,7 @@ export function stopMusic(immediate = false) {
  */
 export function silenceAllAudio() {
   stopLoopAudio(true);
+  stopQuestionBed(0);
   stopCreditsMusic(0);
   stopWagerBed(0);
   // Pooled one-shot stings (audience soundboard) — pause any still playing.
