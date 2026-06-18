@@ -63,17 +63,16 @@ export function IntroStage({ players, onDone }: Props) {
     let countdownStarted = false;
     const TICK_MS = 1000;
     const HERE_WE_GO_AT = 900;
-    const HERE_WE_GO_MAX_MS = 650;
+    // Safety net only — if TTS hangs we don't want to wait forever.
+    // "Here we go!" is ~900ms of audio, so 2800ms is comfortably past it.
+    const HERE_WE_GO_SAFETY_MS = 2800;
     const speakDigit = (n: 3 | 2 | 1) => {
-      // Fire-and-forget: the persona pack pre-bakes "Three." / "Two." / "One."
-      // as cached URLs, so playback starts within a frame. We do NOT await —
-      // the visual ticks on a strict 1s interval regardless of audio length.
+      // Fire-and-forget, QUEUED (no interrupt) so the digit can't chop
+      // the tail off "Here we go!". Pre-baked URLs play within a frame.
       void import("@/lib/elf-voice").then((m) => {
         if (cancelled) return;
-        void m.speakAsElf(`${n === 3 ? "Three" : n === 2 ? "Two" : "One"}.`, {
+        void m.speakAsElf(`${n === 3 ? "Three" : n === 2 ? "Two" : "One"}!`, {
           preset: "hype",
-          interrupt: true,
-          deadline: Date.now() + 900,
         });
       });
     };
@@ -110,16 +109,15 @@ export function IntroStage({ players, onDone }: Props) {
 
     at(HERE_WE_GO_AT, () => {
       if (cancelled) return;
-      const deadline = Date.now() + HERE_WE_GO_MAX_MS;
-      at(HERE_WE_GO_MAX_MS, startCountdown);
+      // Hard safety net so a stalled TTS request can't block the show.
+      at(HERE_WE_GO_SAFETY_MS, startCountdown);
       void import("@/lib/elf-voice")
         .then((m) => {
           if (cancelled || countdownStarted) return undefined;
-          return m.speakAsElf("Here we go.", {
-            preset: "hype",
-            interrupt: true,
-            deadline,
-          });
+          // No interrupt — let the line play to completion. The promise
+          // resolves when audio actually finishes, so chaining
+          // startCountdown gives a tight, natural handoff with no chop.
+          return m.speakAsElf("Here we go!", { preset: "hype" });
         })
         .then(startCountdown)
         .catch(startCountdown);
