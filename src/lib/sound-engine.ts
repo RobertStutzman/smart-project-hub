@@ -490,6 +490,99 @@ let currentLoopMode: "lobby" | "tense" | null = null;
 let synthLoopTimer: number | null = null;
 const stingPool = new Map<string, HTMLAudioElement>();
 
+// ─── Question "think music" bed ────────────────────────────────────
+// A driving loop that plays UNDER the heartbeat during the question phase.
+// ElevenLabs voiceover ducks this by 40% (volume * 0.6); the final-3s fade
+// brings it to silence so only the heartbeat remains for max tension.
+let questionBedAudio: HTMLAudioElement | null = null;
+let questionBedBaseVol = 0.22;
+let questionBedFadeTimer: number | null = null;
+
+export function startQuestionBed(volume = 0.22) {
+  if (muted || typeof window === "undefined") return;
+  // If already playing, just re-assert volume (handles intensity nudges).
+  if (questionBedAudio && !questionBedAudio.paused) {
+    questionBedBaseVol = volume;
+    if (questionBedFadeTimer === null) {
+      questionBedAudio.volume = duckActive ? volume * 0.6 : volume;
+    }
+    return;
+  }
+  stopQuestionBed(0);
+  try {
+    questionBedAudio = new Audio(questionThink.url);
+    questionBedAudio.loop = true;
+    questionBedBaseVol = volume;
+    questionBedAudio.volume = duckActive ? volume * 0.6 : volume;
+    questionBedAudio.play().catch(() => {});
+  } catch {
+    /* noop */
+  }
+}
+
+export function stopQuestionBed(fadeMs = 250) {
+  if (questionBedFadeTimer !== null) {
+    window.clearInterval(questionBedFadeTimer);
+    questionBedFadeTimer = null;
+  }
+  const a = questionBedAudio;
+  questionBedAudio = null;
+  if (!a) return;
+  if (fadeMs <= 0) {
+    try { a.pause(); a.currentTime = 0; } catch { /* noop */ }
+    return;
+  }
+  const startVol = a.volume;
+  const steps = 10;
+  let i = 0;
+  const id = window.setInterval(() => {
+    i++;
+    a.volume = Math.max(0, startVol * (1 - i / steps));
+    if (i >= steps) {
+      window.clearInterval(id);
+      try { a.pause(); a.currentTime = 0; } catch { /* noop */ }
+    }
+  }, Math.max(15, fadeMs / steps));
+}
+
+/**
+ * Fade the question think-music bed to silence over `fadeMs` while keeping
+ * the heartbeat layer untouched. Used in the final 3 seconds of the timer
+ * so only the accelerating heartbeat remains before the time-up buzzer.
+ */
+export function fadeOutQuestionBed(fadeMs = 3000) {
+  const a = questionBedAudio;
+  if (!a) return;
+  if (questionBedFadeTimer !== null) {
+    window.clearInterval(questionBedFadeTimer);
+    questionBedFadeTimer = null;
+  }
+  const startVol = a.volume;
+  if (startVol <= 0.001) return;
+  const steps = 30;
+  let i = 0;
+  questionBedFadeTimer = window.setInterval(() => {
+    i++;
+    if (!questionBedAudio || questionBedAudio !== a) {
+      if (questionBedFadeTimer !== null) {
+        window.clearInterval(questionBedFadeTimer);
+        questionBedFadeTimer = null;
+      }
+      return;
+    }
+    a.volume = Math.max(0, startVol * (1 - i / steps));
+    if (i >= steps) {
+      if (questionBedFadeTimer !== null) {
+        window.clearInterval(questionBedFadeTimer);
+        questionBedFadeTimer = null;
+      }
+      try { a.pause(); a.currentTime = 0; } catch { /* noop */ }
+      questionBedAudio = null;
+    }
+  }, Math.max(20, fadeMs / steps));
+}
+
+
 export function loadCustomEvents(
   events: Partial<Record<GameEvent, CustomClip>>,
 ) {
