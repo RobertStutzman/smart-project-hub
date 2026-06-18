@@ -1,27 +1,48 @@
 ## Goal
 
-When the round reveals and the player picked the wrong answer, flash a big ✕ across the whole player screen — the same chunky icon currently shown on a dropped/eliminated answer tile — instead of (or on top of) the small "✗ Wrong" badge.
+When the host presses "End · new room" mid-game (or the dev parent posts `parent:new-room`), the app should:
+1. Kill every audio surface — ElevenLabs announcer queue, end-game music, credits bed, wager bed, question bed, boot music, funny SFX — instantly, and refuse to play any further end-game audio.
+2. Skip the Game Recap / credits / final scoreboard entirely and snap back to the lobby on this device.
+
+Today both flows do call `cancelElfSpeech` + `silenceAllAudio` + `stopAllAmbience`, **but** they `await endRoomFn` before flipping local state, so during the await:
+- The server sets `phase = "ended"`, realtime arrives, `HostGameStage` mounts/keeps running and schedules a 20s "auto-roll credits" timer and end-game persona lines.
+- New `speakAsElf` / `playEvent` calls made by those effects land **after** our cancel, so the announcer fires anyway.
+
+Also `silenceAllAudio()` misses `stopBootMusic`.
 
 ## What changes
 
-**File:** `src/routes/play.tsx`
+**1. `src/routes/host.tsx` — `endAndStartNewRoom` (lines ~702–731)**
 
-1. Add a new local state + effect that detects the transition into `phase === "reveal"` when `me.last_answer_correct === false`. On that transition, set `showWrongFlash = true` for ~1.4s, then auto-clear.
-2. Render a full-viewport overlay (fixed inset-0, z-50, pointer-events-none) on top of the player UI when `showWrongFlash` is true:
-   - Dim/red-tinted backdrop (`bg-rose-950/70 backdrop-blur-sm`)
-   - Giant ✕ glyph centered, matching the dropped-tile style (font-black, text-destructive, drop-shadow), sized to fill the screen (`text-[55vw] sm:text-[40vw]`)
-   - Entrance via `animate-scale-in`, then a quick scale/fade exit
-   - Subtle "WRONG" label under it in uppercase tracking, same rose palette
-3. Leave the existing small reveal banner in place behind the flash so the score delta / "Shake it off." copy is still visible once the flash fades. (Optional: shrink the small ✗ Wrong badge or drop it entirely — see Open question.)
-4. Trigger haptics `Haptics.wrong()` once when the flash mounts (already fires on pick, but firing at reveal too reinforces the moment).
+Reorder + harden:
+- Confirm prompt first.
+- **Immediately** `setRoomPhase("lobby")` and `setPlayers([])` so `HostGameStage` unmounts on the next render, cleaning up all its effects/timers before any new audio can queue.
+- Cancel speech, call `silenceAllAudio()`, `stopAllAmbience()`, `resetAmbience()`.
+- Schedule a second cancel/silence sweep at ~250ms and ~700ms (handles late tasks that were already mid-flight on dynamic import resolution).
+- Then `await endRoomFn(...)`, then `createRoomFn(...)`, then set the new room. Wrap both server calls in try/catch so audio stays silenced even if either fails.
+- Restart only the lobby crowd ambience (already handled by the lobby effect on remount).
 
-## Technical details
+**2. `src/routes/host.tsx` — `parent:new-room` listener (lines ~322–352)**
 
-- Use a `useRef` to track the previously seen phase so the flash only fires on the question→reveal edge, not on every render while in reveal.
-- Reset the flash whenever `room.current_question_text` changes, so a fast next-question doesn't carry it over.
-- No backend / schema / sound-engine changes. The big ✕ glyph is plain text (same `✕` character used in `AnswerGrid.tsx`), no new asset.
-- Correct answers are unchanged — still get the existing emerald banner, no full-screen flash.
+Apply the exact same reordering: flip local state to lobby first, then cancel/silence (twice), then end + create room.
 
-## Open question
+**3. `src/lib/sound-engine.ts` — `silenceAllAudio()` (line ~746)**
 
-Do you want the small "✗ Wrong" banner below the answer grid to stay (so the score delta is readable after the flash), or get fully replaced by the big flash?
+Add `stopBootMusic(0)` so the boot/intro bed cannot bleed past a reset. (It's already exported and called by `stopOtherMusic`.)
+
+**4. `src/lib/elf-voice.ts` — small guard**
+
+Add an exported `silenceFor(ms: number)` that bumps `generation`, drops the queue, and sets a short window during which new `speakAsElf` / `playVoiceUrl` calls return immediately. Call it from the host reset with `silenceFor(1500)` so any persona-live / orchestrator callbacks that fire during the ~1s server round-trip are no-ops instead of getting queued.
+
+## Technical details / non-goals
+
+- No server-side change. `endRoom` still marks the room `ended`; we just stop reacting to that on the host device.
+- `HostGameStage` unmount happens because `host.tsx` gates it on `roomPhase !== "lobby"`. Flipping local state first guarantees its effects/timers (the 20s `phase==="ended" → credits` setTimeout, the final-question persona reactions, etc.) tear down before they can schedule more audio.
+- Other clients (players, audience view) still see the room end naturally — this is a host-device-only kill switch, which matches the existing behavior.
+- No UI change to the "End · new room" button itself.
+
+## Files touched
+
+- `src/routes/host.tsx`
+- `src/lib/sound-engine.ts`
+- `src/lib/elf-voice.ts`
