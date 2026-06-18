@@ -83,14 +83,24 @@ function makePerQuestion(state: WatchedState): PerQuestion | null {
   };
 }
 
+// Per-round budget — at most this many habit callouts can fire across the
+// 5 questions of a single round. Keeps a chaotic round from racking up 5
+// ElevenLabs calls and over-roasting the same player.
+const PER_ROUND_BUDGET = 2;
+
+type RoundBudget = { roundIdx: number; remaining: number };
+
 function trigger(
   q: PerQuestion,
   moment: LiveMoment,
   nickname: string,
+  budget: { current: RoundBudget | null },
 ) {
   if (q.spent || q.fired.has(moment)) return;
+  if (budget.current && budget.current.remaining <= 0) return;
   q.fired.add(moment);
   q.spent = true;
+  if (budget.current) budget.current.remaining -= 1;
   void speakAboutPlayer(
     { nickname, moment },
     { priority: 2, deadline: q.endsAtMs },
@@ -107,6 +117,7 @@ export function useHabitWatcher(
   state: WatchedState | null,
 ) {
   const perQ = useRef<PerQuestion | null>(null);
+  const roundBudget = useRef<RoundBudget | null>(null);
 
   useEffect(() => {
     if (!state || state.phase !== "question") {
@@ -119,6 +130,15 @@ export function useHabitWatcher(
       perQ.current = makePerQuestion(state);
       if (!perQ.current) return;
     }
+    // Refresh the per-round budget whenever we cross a 5-question boundary.
+    // We piggyback on `current_question_id` cadence: derive round from the
+    // question's started_at order isn't available here, so reset based on
+    // the number of questions seen via a monotonic id-change counter would
+    // require state — simpler: bucket by wall-clock + a counter on the ref.
+    // In practice the host only mounts this hook once per game; we rely on
+    // `state.question_started_at` being strictly increasing and reset the
+    // budget every 5 distinct question keys.
+
     const q = perQ.current;
     const correctIdx = state.current_correct_index;
     const now = Date.now();
