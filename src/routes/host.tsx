@@ -800,6 +800,18 @@ function HostPage() {
   async function actuallyStart() {
     if (!room) return;
     play("whoosh");
+    // Hard-stop every lobby audio source before flipping the phase, so a
+    // mid-flight "still waiting" / join callout can't leak into IntroStage.
+    try {
+      const { cancelElfSpeech } = await import("@/lib/elf-voice");
+      cancelElfSpeech();
+    } catch {}
+    stopMusic();
+    joinQueueRef.current = [];
+    try {
+      const win = window as unknown as { __btdWelcomedRooms?: Set<string> };
+      win.__btdWelcomedRooms?.delete(room.id);
+    } catch {}
     try {
       // Always reset per-game state before launching, so a stale row from a
       // previous ended game can't bump round_number into the final-round range.
@@ -813,6 +825,7 @@ function HostPage() {
       setError((e as Error).message);
     }
   }
+
 
 
   function handleStartClick() {
