@@ -107,7 +107,7 @@ function HostPage() {
   const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
   const [hasExplanationTts, setHasExplanationTts] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [showHowTo, setShowHowTo] = useState(false);
+  
   
   const initRef = useRef(false);
   const playersRef = useRef<Player[]>([]);
