@@ -352,7 +352,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
         ? LIGHTNING_DURATION_MS
         : wildcard === "sudden_drop"
           ? SUDDEN_DROP_DURATION_MS
-          : 25000;
+          : 15000;
 
     // Wildcard rounds need extra lead-time so the announcer explainer plays
     // before the question read; non-wildcard rounds keep the original 6s.
