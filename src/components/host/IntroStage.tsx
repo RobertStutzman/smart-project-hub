@@ -31,27 +31,25 @@ export function IntroStage({ players, onDone }: Props) {
   }, [onDone]);
 
   useEffect(() => {
-    // Hype line via TTS as the title card lands
+    // Hard-clear any lobby/join announcer audio so it can't sit in front of
+    // the intro countdown. Without this, "Here we go!" and the 3/2/1 lines
+    // queue behind stale callouts and play during the first question.
+    void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
+
     play("whoosh");
 
     const timers: number[] = [];
     const at = (ms: number, fn: () => void) =>
       timers.push(window.setTimeout(fn, ms));
 
-    // Timing budget: "Here we go" is the cue, then the countdown starts
-    // immediately after that short line ends (with a hard 650ms fallback).
+    // Timing budget:
     //   t=0       whoosh + title card
-    //   t=450     roster + fast walk-on stingers
-    //   t=900     "Here we go."
-    //   t≈1.4s    3
-    //   +1.0s     2
-    //   +2.0s     1
-    //   +3.0s     GO
-    //   +3.3s     first question
+    //   t=450     roster + walk-on stingers
+    //   t=900     "Here we go!" (interrupting, P1)
+    //   t≈1.8s    countdown: 3 → 2 → 1 → GO at exact 1s ticks
+    //   +3.3s     onDone → first question (queue cleared)
 
     at(450, () => setStep("roster"));
-    // Walk-on stingers — one per contestant, staggered to match the
-    // card pop animation (220ms cadence, starting ~150ms after roster appears).
     {
       const maxStingers = Math.min(players.length, 8);
       for (let i = 0; i < maxStingers; i++) {
@@ -63,16 +61,20 @@ export function IntroStage({ players, onDone }: Props) {
     let countdownStarted = false;
     const TICK_MS = 1000;
     const HERE_WE_GO_AT = 900;
-    // Safety net only — if TTS hangs we don't want to wait forever.
-    // "Here we go!" is ~900ms of audio, so 2800ms is comfortably past it.
-    const HERE_WE_GO_SAFETY_MS = 2800;
+    // Safety net: if TTS hangs, fall through to countdown anyway.
+    const HERE_WE_GO_SAFETY_MS = 2400;
+
     const speakDigit = (n: 3 | 2 | 1) => {
-      // Fire-and-forget, QUEUED (no interrupt) so the digit can't chop
-      // the tail off "Here we go!". Pre-baked URLs play within a frame.
+      // Each digit interrupts whatever's playing and carries a tight deadline:
+      // if it can't start within ~900ms (before the next tick), drop it
+      // entirely rather than letting it leak into the first question.
       void import("@/lib/elf-voice").then((m) => {
         if (cancelled) return;
         void m.speakAsElf(`${n === 3 ? "Three" : n === 2 ? "Two" : "One"}!`, {
           preset: "hype",
+          interrupt: true,
+          priority: 1,
+          deadline: Date.now() + 900,
         });
       });
     };
@@ -80,6 +82,8 @@ export function IntroStage({ players, onDone }: Props) {
     const startCountdown = () => {
       if (cancelled || countdownStarted) return;
       countdownStarted = true;
+      // Make absolutely sure nothing precedes "Three!"
+      void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
       setStep("countdown");
       setCount(3);
       play("tick");
@@ -103,6 +107,9 @@ export function IntroStage({ players, onDone }: Props) {
       });
       at(TICK_MS * 3 + 300, () => {
         if (cancelled) return;
+        // Drop any digit still sitting in the queue so it can't play over
+        // the first question read.
+        void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
         onDoneRef.current();
       });
     };
@@ -114,10 +121,12 @@ export function IntroStage({ players, onDone }: Props) {
       void import("@/lib/elf-voice")
         .then((m) => {
           if (cancelled || countdownStarted) return undefined;
-          // No interrupt — let the line play to completion. The promise
-          // resolves when audio actually finishes, so chaining
-          // startCountdown gives a tight, natural handoff with no chop.
-          return m.speakAsElf("Here we go!", { preset: "hype" });
+          return m.speakAsElf("Here we go!", {
+            preset: "hype",
+            interrupt: true,
+            priority: 1,
+            deadline: Date.now() + 2200,
+          });
         })
         .then(startCountdown)
         .catch(startCountdown);
