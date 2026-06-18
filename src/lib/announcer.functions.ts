@@ -364,7 +364,7 @@ export const previewAnnouncerLine = createServerFn({ method: "POST" })
 // Persona voice — live Vox catchphrases, intro/credits narration, dynamic roasts.
 // No admin gate; any authenticated host can call during a game.
 const PERSONA_PRESETS = {
-  hype: { stability: 0.2, similarity_boost: 0.75, style: 0.9, use_speaker_boost: true, speed: 1.0 },
+  hype: { stability: 0.15, similarity_boost: 0.8, style: 1.0, use_speaker_boost: true, speed: 1.05 },
   calm: { stability: 0.5, similarity_boost: 0.75, style: 0.4, use_speaker_boost: true, speed: 1.0 },
 } as const;
 
