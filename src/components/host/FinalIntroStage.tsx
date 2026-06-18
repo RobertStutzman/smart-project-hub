@@ -41,32 +41,32 @@ export function FinalIntroStage({ top3, onDone }: Props) {
     speakPersona("And now…", { preset: "hype", interrupt: true });
 
     if (third) {
-      at(800, () => {
+      at(500, () => {
         setStage("third");
         play("tick");
-        speakPersona(`In third place — ${third.nickname}.`, { preset: "hype", interrupt: false });
+        speakPersona(`In third — ${third.nickname}.`, { preset: "hype", interrupt: false });
       });
     }
     if (second) {
-      at(2600, () => {
+      at(1700, () => {
         setStage("second");
         play("tickHeavy");
-        speakPersona(`In second — ${second.nickname}.`, { preset: "hype", interrupt: false });
+        speakPersona(`Second — ${second.nickname}.`, { preset: "hype", interrupt: false });
       });
     }
-    at(4600, () => {
+    at(2900, () => {
       setStage("first");
       play("whoosh");
       if (first) {
-        speakPersona(`And your leader — ${first.nickname}.`, { preset: "hype", interrupt: false });
+        speakPersona(`Your leader — ${first.nickname}.`, { preset: "hype", interrupt: false });
       }
     });
-    at(7200, () => {
+    at(4300, () => {
       setStage("title");
       play("drop");
-      speakPersona("This is the final round. One question. Winner takes all.", { preset: "hype", interrupt: false });
+      speakPersona("Final round. Winner takes all.", { preset: "hype", interrupt: false });
     });
-    at(9500, () => {
+    at(5800, () => {
       setStage("out");
       onDoneRef.current();
     });

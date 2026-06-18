@@ -376,6 +376,8 @@ function PlayPage() {
 
   const pick = async (i: 0 | 1 | 2 | 3) => {
     if (!session) return;
+    // Locking is final — ignore re-picks once we already have an answer.
+    if (me?.current_answer !== null && me?.current_answer !== undefined) return;
     Haptics.tap();
     const correctIdx = room?.current_correct_index;
     const isWrong =
@@ -871,13 +873,7 @@ function PlayPage() {
                   />
                 </div>
 
-                {room.phase === "question" &&
-                  wrongPicks.length > 0 &&
-                  me?.current_answer !== room.current_correct_index && (
-                    <div className="text-center text-xs font-black uppercase tracking-[0.3em] text-rose-300 animate-pulse">
-                      Nope — try again
-                    </div>
-                  )}
+                {/* "Try again" prompt removed — first pick is now final. */}
 
                 {buttonsScrambled && (
                   <div className="absolute inset-x-0 top-1/2 z-30 -translate-y-1/2 text-center font-display text-3xl font-black tracking-widest text-fuchsia-300 drop-shadow">
