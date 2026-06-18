@@ -25,7 +25,11 @@ export type LiveMoment =
   | "final_showdown"
   | "winner"
   | "last_to_lock"
-  | "random_jab";
+  | "random_jab"
+  | "bandwagon"
+  | "lone_wolf"
+  | "buzzer_beater"
+  | "sunk_cost";
 
 export interface PersonaContext {
   /** Primary player nickname. */
