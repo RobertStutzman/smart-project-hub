@@ -1,34 +1,27 @@
 ## Goal
 
-Stop the redundant "scan the QR / grab your phone" sequence after the host starts the game, and make sure no idle lobby voice lines can leak into the intro or first question.
+When the round reveals and the player picked the wrong answer, flash a big ✕ across the whole player screen — the same chunky icon currently shown on a dropped/eliminated answer tile — instead of (or on top of) the small "✗ Wrong" badge.
 
-## Changes
+## What changes
 
-### 1. Skip the "How to Play" overlay after start
+**File:** `src/routes/play.tsx`
 
-`src/components/HowToPlay.tsx` is the 3-slide overlay that triggers right after the host clicks Start. Its first slide ("Grab your phone…") narrates the join instructions a second time even though every player is already in the lobby.
+1. Add a new local state + effect that detects the transition into `phase === "reveal"` when `me.last_answer_correct === false`. On that transition, set `showWrongFlash = true` for ~1.4s, then auto-clear.
+2. Render a full-viewport overlay (fixed inset-0, z-50, pointer-events-none) on top of the player UI when `showWrongFlash` is true:
+   - Dim/red-tinted backdrop (`bg-rose-950/70 backdrop-blur-sm`)
+   - Giant ✕ glyph centered, matching the dropped-tile style (font-black, text-destructive, drop-shadow), sized to fill the screen (`text-[55vw] sm:text-[40vw]`)
+   - Entrance via `animate-scale-in`, then a quick scale/fade exit
+   - Subtle "WRONG" label under it in uppercase tracking, same rose palette
+3. Leave the existing small reveal banner in place behind the flash so the score delta / "Shake it off." copy is still visible once the flash fades. (Optional: shrink the small ✗ Wrong badge or drop it entirely — see Open question.)
+4. Trigger haptics `Haptics.wrong()` once when the flash mounts (already fires on pick, but firing at reveal too reinforces the moment).
 
-- In `src/routes/host.tsx` `handleStartClick`, always call `actuallyStart()` directly. Drop the `HOWTO_KEY` sessionStorage check and the `setShowHowTo(true)` branch so the overlay never appears between lobby and IntroStage.
-- Remove the now-unused `showHowTo` state, the `<HowToPlay>` render, the `HOWTO_KEY` constant, and the `HowToPlay` import from `src/routes/host.tsx`.
-- Leave `src/components/HowToPlay.tsx` itself in place (still referenced from the landing page / docs) — just unhook it from the host start flow.
+## Technical details
 
-### 2. Hard-stop lobby audio the moment the game starts
+- Use a `useRef` to track the previously seen phase so the flash only fires on the question→reveal edge, not on every render while in reveal.
+- Reset the flash whenever `room.current_question_text` changes, so a fast next-question doesn't carry it over.
+- No backend / schema / sound-engine changes. The big ✕ glyph is plain text (same `✕` character used in `AnswerGrid.tsx`), no new asset.
+- Correct answers are unchanged — still get the existing emerald banner, no full-screen flash.
 
-The lobby quip effect cancels its own timers on phase change, but a quip that was already queued in the shared Elf voice FIFO will keep playing into the IntroStage. The join-callout queue (`joinQueueRef` / `joinDrainingRef`) has the same problem.
+## Open question
 
-In `src/routes/host.tsx` `actuallyStart()`, before calling `restartGameFn` / `setPhaseFn`:
-
-- Dynamically import `@/lib/elf-voice` and call `cancelElfSpeech()` to drain anything already speaking or queued (welcome, opener, quip, join callouts).
-- Stop the lobby music bed via `stopMusic()` from `@/lib/sound-engine` so the handoff into IntroStage is clean (IntroStage's own `whoosh` + ambience handoff takes over).
-- Clear the pending join-callout queue (`joinQueueRef.current = []`) so a name that arrived in the final second can't fire after the intro starts.
-- Reset the per-room welcome guard (`window.__btdWelcomedRooms?.delete(room.id)`) so a future Play Again lobby still gets its welcome, but the current lobby's welcome can't replay.
-
-### 3. Verify intro path is unchanged
-
-`IntroStage` (`src/components/host/IntroStage.tsx`) already owns the post-lobby flow: whoosh → intro hype line → roster → "here we go in three" countdown → GO. No changes there; it becomes the single intro the player sees once the lobby ends.
-
-## Technical notes
-
-- `actuallyStart` becomes `async` work that awaits the cancel + stop calls before the phase write, so there's no race where the new `intro` phase mounts `HostGameStage` while a stale quip is still in the speaker.
-- `cancelElfSpeech()` already drains both the in-flight ElevenLabs request and any queued items, which is exactly what we need for items 1 and 2 of the bug report.
-- Removing `HowToPlay` from the host route doesn't affect players (`/play`) — they never saw it.
+Do you want the small "✗ Wrong" banner below the answer grid to stay (so the score delta is readable after the flash), or get fully replaced by the big flash?

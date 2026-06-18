@@ -116,6 +116,8 @@ function PlayPage() {
   const [now, setNow] = useState(() => Date.now());
   const [serverOffsetMs, setServerOffsetMs] = useState(0);
   const [eliminatedFlash, setEliminatedFlash] = useState(false);
+  const [wrongFlash, setWrongFlash] = useState(false);
+  const wrongFlashFiredRef = useRef<string | null>(null);
   const [wagerDraft, setWagerDraft] = useState<number>(0);
   const lastDroppedSig = useRef("");
   const [wrongPicks, setWrongPicks] = useState<number[]>([]);
@@ -276,15 +278,22 @@ function PlayPage() {
     }
   }, [room?.dropped_indexes, room?.current_question_text, me?.current_answer]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reveal feedback haptics
+  // Reveal feedback haptics + full-screen wrong flash (fires once per question
+  // on the question→reveal edge when the player picked wrong).
   useEffect(() => {
     if (room?.phase !== "reveal" || me?.last_answer_correct === null) return;
     if (me?.last_answer_correct) {
       Haptics.correct();
     } else if (me?.last_answer_correct === false) {
       Haptics.wrong();
+      const qid = room?.current_question_text ?? "";
+      if (wrongFlashFiredRef.current !== qid) {
+        wrongFlashFiredRef.current = qid;
+        setWrongFlash(true);
+        window.setTimeout(() => setWrongFlash(false), 1400);
+      }
     }
-  }, [room?.phase, me?.last_answer_correct]);
+  }, [room?.phase, me?.last_answer_correct, room?.current_question_text]);
 
   // Reset local wrong-pick memory whenever the question changes or we leave question phase.
   useEffect(() => {
@@ -1004,6 +1013,24 @@ function PlayPage() {
           </div>
         </div>
       )}
+
+      {/* Full-screen WRONG flash on reveal when the player picked incorrectly. */}
+      {wrongFlash && (
+        <div className="pointer-events-none fixed inset-0 z-50 grid place-items-center bg-rose-950/70 backdrop-blur-sm animate-scale-in">
+          <div className="text-center">
+            <div
+              className="font-display font-black leading-none text-destructive drop-shadow-[0_10px_30px_oklch(0.55_0.25_25/0.85)]"
+              style={{ fontSize: "min(55vw, 55vh)" }}
+            >
+              ✕
+            </div>
+            <div className="mt-4 font-display text-3xl font-black uppercase tracking-[0.4em] text-rose-100 sm:text-5xl">
+              Wrong
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {paused && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/90 p-6 backdrop-blur">
