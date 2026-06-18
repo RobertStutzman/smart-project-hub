@@ -151,7 +151,10 @@ export const ALL_ROUND_CALLOUTS: string[] = (() => {
   }
   // Static one-shots used outside the per-question flow but spoken every
   // game. Baking them turns ~6 ElevenLabs calls per game into free URL hits.
-  out.push("Alright… here we go in three!");
+  out.push("Here we go.");
+  out.push("Three.");
+  out.push("Two.");
+  out.push("One.");
   out.push("And now…");
   out.push("Final round. Winner takes all.");
   for (let r = 1; r <= 4; r++) {
