@@ -193,7 +193,7 @@ export function useHabitWatcher(
         const lockMs = new Date(lockedAtIso).getTime();
         const msLeftAtLock = q.endsAtMs - lockMs;
         if (msLeftAtLock <= 500 && msLeftAtLock >= -250) {
-          trigger(q, "buzzer_beater", p.nickname);
+          trigger(q, "buzzer_beater", p.nickname, budgetHolder.current);
         }
       }
 
@@ -208,7 +208,7 @@ export function useHabitWatcher(
         remainingMs <= 3000 &&
         remainingMs > 0
       ) {
-        trigger(q, "sunk_cost", p.nickname);
+        trigger(q, "sunk_cost", p.nickname, budgetHolder.current);
       }
 
       q.lastAnswer.set(p.id, ans);
@@ -239,7 +239,7 @@ export function useHabitWatcher(
         }
       }
       if (copycats >= 2 && firstLockerNickname) {
-        trigger(q, "bandwagon", firstLockerNickname);
+        trigger(q, "bandwagon", firstLockerNickname, budgetHolder.current);
       }
     }
 
@@ -271,7 +271,7 @@ export function useHabitWatcher(
           }
         }
         if (candidate) {
-          trigger(q, "lone_wolf", candidate.nickname);
+          trigger(q, "lone_wolf", candidate.nickname, budgetHolder.current);
         }
       }
     }
