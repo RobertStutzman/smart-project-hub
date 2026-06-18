@@ -308,6 +308,10 @@ const FALLBACK_MOMENT: Record<LiveMoment, Parameters<typeof pickLine>[0]> = {
   winner: "credits_open",
   last_to_lock: "last_to_lock",
   random_jab: "random_jab",
+  bandwagon: "random_jab",
+  lone_wolf: "random_jab",
+  buzzer_beater: "last_to_lock",
+  sunk_cost: "elimination",
 };
 
 function pickTemplate(ctx: PersonaContext): string {
