@@ -379,7 +379,14 @@ export const nextQuestion = createServerFn({ method: "POST" })
         round_number: nextRound,
         wildcard: wildcard,
         saboteur_session_id: saboteurSessionId,
-        glitch_active_until: null,
+        // Glitch round: auto-activate the screen-scramble for the entire
+        // question window so the round visibly does something without
+        // requiring the last-place player to manually tap the button.
+        glitch_active_until:
+          wildcard === "glitch"
+            ? new Date(Date.now() + startDelayMs + durationMs).toISOString()
+            : null,
+        glitch_used: wildcard === "glitch" ? true : false,
         roast_candidates: null,
       })
       .eq("id", room.id);
@@ -1322,23 +1329,26 @@ export const lockAnswer = createServerFn({ method: "POST" })
       }
     }
     // Capture the FIRST answer the player committed to this question.
-    // Streak credit (see scoreRound) only applies when this matches the
-    // correct index — players who change their pick after locking still
-    // get points for the new pick, but lose streak eligibility.
+    // Locking is now FINAL — once a player picks, they cannot change their
+    // answer for this question. This prevents the "everyone gets it right"
+    // bug where players re-locked onto the remaining correct tile after
+    // wrong answers were auto-eliminated during the countdown.
     const { data: existing } = await supabaseAdmin
       .from("players")
       .select("id, current_first_answer")
       .eq("room_id", room.id)
       .eq("session_id", data.sessionId)
       .maybeSingle();
-    const firstAnswer =
-      existing?.current_first_answer ?? data.answerIndex;
+    if (existing?.current_first_answer !== null && existing?.current_first_answer !== undefined) {
+      // Already locked this question — first answer is final.
+      return { ok: false, reason: "already_locked" };
+    }
     const { error } = await supabaseAdmin
       .from("players")
       .update({
         current_answer: data.answerIndex,
         current_answer_locked_at: new Date().toISOString(),
-        current_first_answer: firstAnswer,
+        current_first_answer: data.answerIndex,
       })
       .eq("room_id", room.id)
       .eq("session_id", data.sessionId);

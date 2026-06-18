@@ -206,7 +206,8 @@ function playInner(sfx: Sfx) {
       tone(880, 0.18, "triangle", 0.22, 0.08);
       break;
     case "wrong":
-      sweep(200, 60, 0.4, "square", 0.22);
+      // Quieter than correct/drop so it sits beneath the music bed
+      sweep(200, 60, 0.4, "square", 0.09);
       break;
     case "drop":
       sweep(800, 80, 0.6, "sawtooth", 0.25);

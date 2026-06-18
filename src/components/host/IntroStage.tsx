@@ -224,37 +224,6 @@ export function IntroStage({ players, onDone }: Props) {
           </motion.div>
         )}
 
-        {step === "countdown" && (
-          <motion.div
-            key={`count-${count}`}
-            initial={{ opacity: 0, scale: 0.6 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.5 }}
-            transition={{
-              opacity: { duration: 0.25, ease: [0.22, 1, 0.36, 1] },
-              scale: { duration: 0.25, ease: [0.22, 1, 0.36, 1] },
-            }}
-            className="relative text-center"
-          >
-            <div className="text-[11px] font-bold uppercase tracking-[0.6em] text-amber-300/90">
-              Get ready
-            </div>
-            <div
-              className="mt-2 font-display text-[34vw] font-black uppercase leading-none tracking-tight text-transparent sm:text-[24vw]"
-              style={{
-                backgroundImage:
-                  "linear-gradient(180deg, oklch(0.97 0.15 90) 0%, oklch(0.70 0.22 50) 100%)",
-                WebkitBackgroundClip: "text",
-                backgroundClip: "text",
-                filter: "drop-shadow(0 14px 70px oklch(0.85 0.22 70 / 0.85))",
-              }}
-            >
-              {count}
-            </div>
-          </motion.div>
-
-        )}
-
         {step === "go" && (
 
           <motion.div
@@ -280,6 +249,39 @@ export function IntroStage({ players, onDone }: Props) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Countdown digit rendered outside the wait-mode AnimatePresence so
+          each tick (3 → 2 → 1) doesn't have to wait for the previous to
+          finish exiting before appearing. Without this, only the final
+          digit was visible long enough to read. */}
+      {step === "countdown" && (
+        <div className="pointer-events-none absolute inset-0 grid place-items-center">
+          <div className="text-center">
+            <div className="text-[11px] font-bold uppercase tracking-[0.6em] text-amber-300/90">
+              Get ready
+            </div>
+            <AnimatePresence>
+              <motion.div
+                key={`count-${count}`}
+                initial={{ opacity: 0, scale: 0.6 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.4 }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-x-0 mt-2 font-display text-[34vw] font-black uppercase leading-none tracking-tight text-transparent sm:text-[24vw]"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(180deg, oklch(0.97 0.15 90) 0%, oklch(0.70 0.22 50) 100%)",
+                  WebkitBackgroundClip: "text",
+                  backgroundClip: "text",
+                  filter: "drop-shadow(0 14px 70px oklch(0.85 0.22 70 / 0.85))",
+                }}
+              >
+                {count}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
 
       <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 text-[10px] uppercase tracking-[0.4em] text-white/40">
         Press space to skip

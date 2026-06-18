@@ -114,7 +114,13 @@ export function RoundRecapReel({ players, roundNumber, triggerKey, onDone }: Pro
         ? byRoundAsc[0]
         : null;
 
-    const zeroes = real.filter((p) => (p.current_round_score ?? 0) === 0);
+    // Goose Eggs: only call out players who actually scored 0 this round AND
+    // are NOT the current overall leader (avoid roasting the top scorer for
+    // a quiet round).
+    const overallLeaderId = [...real].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0]?.id ?? null;
+    const zeroes = real.filter(
+      (p) => (p.current_round_score ?? 0) === 0 && p.id !== overallLeaderId,
+    );
     const hasZeroes = zeroes.length > 0 && real.length >= 2;
 
     // Biggest Climb / Drop — compare rank by score vs rank by prev score.

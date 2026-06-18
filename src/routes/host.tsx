@@ -450,7 +450,18 @@ function HostPage() {
     // Welcome intro + join-instructions opener. Both go through the single
     // Elf-voice queue (FIFO), so the opener is guaranteed to play *after*
     // the welcome finishes — no interrupt, no cut-off. Skipped on replay.
+    // Module-scoped guard prevents StrictMode double-mount or transient
+    // re-renders (auth load, phase flicker) from playing the welcome twice
+    // — that's what caused "Grab your phone" to repeat.
+    const win2 = window as unknown as { __btdWelcomedRooms?: Set<string> };
+    if (!win2.__btdWelcomedRooms) win2.__btdWelcomedRooms = new Set();
+    const welcomedRooms = win2.__btdWelcomedRooms;
+    const roomKey = room?.id ?? "";
+    const alreadyWelcomed = roomKey ? welcomedRooms.has(roomKey) : false;
+
     const speakWelcomeAndOpener = async () => {
+      if (alreadyWelcomed) return;
+      if (roomKey) welcomedRooms.add(roomKey);
       const [{ speakAsElf }, { pickOpener, pickWelcomeIntro }] = await Promise.all([
         import("@/lib/elf-voice"),
         import("@/lib/lobby-banter"),
@@ -458,8 +469,6 @@ function HostPage() {
       if (cancelled) return;
       dlog("welcome");
       void speakAsElf(pickWelcomeIntro(), { preset: "hype", interrupt: false });
-      // Only pitch the scan/join instructions when nobody has joined yet —
-      // once a phone is in the room, they've clearly already scanned.
       if (playersRef.current.length === 0) {
         dlog("opener queued");
         void speakAsElf(pickOpener(), { preset: "hype", interrupt: false });
@@ -467,7 +476,7 @@ function HostPage() {
         dlog("opener skipped: players present");
       }
     };
-    const openerTimer = isReplayLobby
+    const openerTimer = isReplayLobby || alreadyWelcomed
       ? null
       : window.setTimeout(() => {
           void speakWelcomeAndOpener();

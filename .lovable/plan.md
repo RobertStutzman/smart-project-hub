@@ -1,75 +1,48 @@
+## Bug fixes — post-playtest pass
 
-## Adult Mode (18+)
+### 1. Intro audio loop ("grab your phone" plays twice)
+- `useLobbyChatter` calls `resetAmbience()` then `startLobbyChatter()`, and also re-attaches on `onAmbienceBlockedChange`. When the chatter track restarts mid-line it replays from the top.
+- Fix: in `src/hooks/use-lobby-chatter.ts`, only attach gesture/blocked-state retries when the **first** `startLobbyChatter()` call resolves `false`. Once playback succeeds, ignore subsequent `onAmbienceBlockedChange(true)` until the consumer unmounts. Also gate the initial call with a module-scoped "already started" flag so React StrictMode double-mount can't fire two simultaneous starts of the welcome VO.
+- Verify in console there is exactly one `startLobbyChatter` audible start per page load.
 
-A per-device opt-in toggle, hidden inside the settings area where someone has to deliberately go look for it. When on, every announcer line pool draws from a spicier "adult" variant — full f-bombs and crude sexual humor, no slurs, no real-person targeting, no minors. When off (default), the existing PG lines are unchanged.
+### 2. Host name → placeholder
+- Change `HOST_NAME` in `src/lib/host-persona.ts` from `"Vox"` to `"[Insert Your Funny Announcer Name Here]"`.
+- Audit and update any hard-coded "Vox" string (e.g. `pickHighlightVox` labels in `src/lib/player-highlights.ts`, "BEST_VOX"/"WORST_VOX" naming is internal only — leave). Grep `\bVox\b` in `src/` and replace user-facing instances.
 
-### 1. The toggle — `/settings/adult`
+### 3. First-question 3-2-1 countdown flashes only "1"
+- In `src/components/host/IntroStage.tsx`, the `<AnimatePresence mode="wait">` uses `key={\`count-${count}\`}`, but the parent step stays `"countdown"` while only the keyed child changes. With `mode="wait"`, each new number must wait for the previous exit (≈250ms) before entering — at the 1.1s tick interval the visible window collapses, and the final "1" is the only one that lands cleanly before `step` flips to `"go"`.
+- Fix: split the countdown into its own subtree (no `mode="wait"`) so each digit can crossfade independently; or remove `mode="wait"` just for countdown by rendering the digit outside the `AnimatePresence` and animating via `key` on a local motion.div. Confirm 3 → 2 → 1 are each on-screen ~900ms and the voice line "three… two… one" lines up.
+- Note: this is the **intro** countdown before the very first question, not per-question. The existing "no pre-question 3-2-1 splash" rule is preserved.
 
-New route `src/routes/settings.adult.tsx`, modeled on `settings.streamer.tsx`:
+### 4. Wrong-answer SFX too loud
+- Locate the wrong-answer sound usage (likely `play("buzzer")` or a funny-sound id in `QuestionStage.tsx` / `HostGameStage.tsx`).
+- Lower its `gain`/`volume` at the call site (or in `src/lib/sound-engine.ts` / `funny-sounds.ts` mapping) by ~50% so it sits beneath the music bed. Leave correct-answer and stinger volumes untouched.
 
-- Stored in `localStorage` under `btd-adult-mode` (`"1"` or `"0"`). Per-device, no account-level state — matches how streamer mode works.
-- Big warning card up top: "Adult Mode — 18+ only. Crude language and sexual humor. Do not enable around minors." Red border, not playful.
-- Two-step enable: flip the toggle → confirm dialog ("I am 18 or older and I want this") → only then persist.
-- Disable is one click, no confirm.
-- A small text line: "Currently OFF — the show stays PG-13" / "Currently ON — gloves off."
-- Linked from the existing settings landing (whatever page lists Streamer mode) as its own card with a 🔞 chip. No mention or link from the home page, lobby, or host UI.
+### 5. Inverted leaderboard / round recap
+- In `src/components/host/RoundRecapReel.tsx` (and any sort feeding it from `HostGameStage.tsx` / `player-highlights.ts`), the ranking sort comparator is reversed — first place is being treated as zero-score.
+- Fix: ensure the sort is `b.score - a.score` (descending), and that "best" / "worst" picks in `derivePlayerHighlights` read `players[0]` as top, `players.at(-1)` as bottom. Add a guard: if all scores are equal, skip the "got none right" callout entirely.
 
-### 2. Reading the flag — `src/lib/adult-mode.ts` (new)
+### 6. "Everyone got it right" — answer changes during elimination
+- Players can swap answers as wrong options are eliminated; current correctness check probably reads the **current** `players.answer` snapshot when the timer expires, which has already been auto-coerced toward the remaining options.
+- Fix: snapshot each player's answer at the moment of submission and freeze it once the question timer reaches 0. Concretely: in `src/lib/game.functions.ts` resolve-question path, score against the answer row's `submitted_at <= question.ends_at` (or the latest such row) and ignore writes after `ends_at`. Disable client-side answer changes once `now >= ends_at` in `src/routes/play.tsx`. Also make any "auto-collapse toward remaining options" UI purely cosmetic — never re-submit on the player's behalf.
 
-Single tiny module:
+### 7. Final Round splash too long
+- In `src/components/host/FinalIntroStage.tsx`, shorten the on-screen duration / `onDone` timeout (and matching VO budget) by ~40-50%. Trim any internal `setTimeout` chains so the title card holds ~2.5s instead of the current ~5-6s, then advances directly into the wager stage.
 
-```ts
-export function isAdultMode(): boolean { ... }       // reads localStorage
-export function subscribeAdultMode(cb): () => void   // storage event + custom event
-```
+### 8. Glitch Round does nothing
+- `src/components/host/GlitchOverlay.tsx` reads `room.glitch_active_until` but nothing currently writes that field, and answer elimination isn't wired to glitch rounds.
+- Fix: in `src/lib/game.functions.ts`, when a Glitch round question opens, set `glitch_active_until = ends_at` on the room row and pick a target player (current leader). On the player view (`src/routes/play.tsx`), when `glitch_active_until > now` AND `player.id === room.glitch_target_id`, periodically swap/hide one wrong answer tile (CSS scramble + `aria-hidden`) so the targeted phone visibly glitches. On the host view, `GlitchOverlay` already renders correctly once `glitch_active_until` is set — verify the chyron shows and the screen-tear bands animate.
+- Scope note: this is a behaviour wiring fix only; no schema additions unless `glitch_active_until` / `glitch_target_id` columns are missing — in that case add them via a migration with proper GRANTs and RLS.
 
-The host-side queues read it once when picking a line, so toggling mid-game takes effect at the next callout (no live state plumbing needed).
+### Verification checklist
+- Hard reload preview → intro VO plays exactly once, no "grab your phone" repeat.
+- Title card reads "Hosted by [Insert Your Funny Announcer Name Here]".
+- First question: see 3, then 2, then 1, each ~1s, with matching voice.
+- Wrong answer: buzzer is noticeably quieter than the music bed.
+- Finish a 3-player round with distinct scores → recap names the actual top scorer first.
+- Mid-question: change answer after another option is eliminated → if it was wrong, you get it wrong (not auto-correct).
+- Final Round splash exits within ~3s.
+- Glitch Round: leader's phone visibly scrambles; host TV shows fuchsia chyron + tear bands.
 
-### 3. Adult line pools — `src/lib/*.adult.ts` (new, parallel files)
-
-To keep diffs reviewable and to leave the PG content alone, each existing pool gets a sibling file:
-
-- `src/lib/lobby-banter.adult.ts` — adult versions of `IDLE_EMPTY`, `IDLE_LOW`, `IDLE_MID`, `IDLE_HIGH`, `IDLE_GENERIC`, `IDLE_JOIN_NUDGE`, `WELCOME_INTROS`. Same shape, same `{count}`/`{code}` tokens.
-- `src/lib/host-persona.adult.ts` — adult `LINES` map covering every `Moment` already in `host-persona.ts` (intro_hype, question_open, all_correct, all_wrong, first_blood, streak_milestone, elimination, leader_changed, final_hype, credits_open, comeback, round_recap, wooden_spoon, goose_egg, idle_interject, round_transition, last_to_lock, random_jab).
-- `src/lib/persona-live.adult.ts` — adult `TEMPLATES` map for each `LiveMoment` (the Tier 1 personalized lines spoken with the player's name).
-- `src/lib/player-highlights.adult.ts` — adult `BEST_TEMPLATES`, `WORST_TEMPLATES`, `BEST_VOX`, `WORST_VOX` for credits captions and quips.
-
-Roughly the same line counts as today (~30 intro_hype, ~40 question_open, ~10 per persona-live moment, ~3 per highlight kind) so picker variety stays high.
-
-Content rules baked in at the top of each file as comments and enforced by the writer:
-- F-bombs, shit, asshole, bullshit, dick, balls, horny, crude metaphors — yes.
-- Slurs of any kind — no.
-- Anything sexual involving minors, real public figures, or non-consensual scenarios — no.
-- Self-deprecating + roasting the *players* — yes. Targeting protected classes — no.
-
-### 4. Picker wiring — minimal edits to existing files
-
-The selection functions stay where they are; each one gets a one-line branch on `isAdultMode()`:
-
-- `lobby-banter.ts` `pickLobbyLine` / `pickOpener` / `pickWelcomeIntro` → swap pools when adult mode is on.
-- `host-persona.ts` `pickLine` → read from the adult `LINES` map.
-- `persona-live.ts` `pickTemplate` → read from adult `TEMPLATES`.
-- `player-highlights.ts` `derivePlayerHighlights` + `pickHighlightVox` → swap template/vox maps.
-
-The voice cap, TTS cache, tier system, and queueing all stay unchanged — adult lines go through the same Brian voice and the same per-game cap.
-
-### 5. ElevenLabs persona pack
-
-The existing baked `generateAnnouncerPack` server function bakes the PG `VO_LINES` and `ALL_ROUND_CALLOUTS`. Adult mode plays *live* TTS for adult-pool lines (Tier 1 + 2 paths already do this), so no new pre-bake is required to ship. The fallback Tier 3 baked clips will be PG even when adult mode is on — acceptable for v1.
-
-If you later want fully-adult fallback audio, that's a follow-up: add an `ALL_ADULT_LINES` exporter and a `generateAdultPersonaPack` admin function that writes to a `Persona-Adult` folder. **Not in this plan** unless you ask.
-
-### 6. Out of scope
-
-- No account-level setting, no DB column, no RLS work. localStorage only.
-- No age-verification beyond the self-attestation confirm dialog.
-- No swap of the question content itself — only the announcer chatter.
-- No new beats (sponsor reads, callbacks, etc.) — those are still on the table from the previous "more funny" thread, separate plan.
-
-### Verification
-
-1. `/settings/adult` exists, warns clearly, requires the confirm dialog to enable.
-2. With adult mode off: lobby, intros, reveals, credits all read identical to today.
-3. With adult mode on: open a fresh lobby — idle quips swear, welcome intro swears. Play through — first blood/streak/elimination callouts swear. Credits captions swear.
-4. Toggling adult mode off mid-session reverts to PG lines on the next callout.
-5. No PG line file is modified (git diff confirms `lobby-banter.ts`/`host-persona.ts`/`persona-live.ts`/`player-highlights.ts` only get the small picker-branch edits).
+### Out of scope
+- No new announcer content, no Adult Mode changes, no auth/profile changes, no schema changes beyond what Glitch Round strictly requires.
