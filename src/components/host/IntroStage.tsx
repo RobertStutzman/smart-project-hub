@@ -86,8 +86,6 @@ export function IntroStage({ players, onDone }: Props) {
     const startCountdown = () => {
       if (cancelled || countdownStarted) return;
       countdownStarted = true;
-      // Cut the cue if it overruns the fallback so the first digit lands clean.
-      void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
       setStep("countdown");
       setCount(3);
       play("tick");
