@@ -440,6 +440,7 @@ export function HostGameStage({ room }: Props) {
     const timer = window.setTimeout(() => {
       // Queue behind any in-flight persona reaction so they don't overlap.
       void playVoiceUrl(url, {
+        priority: 1, // DYK explanation — game-critical
         onStart: () => {
           duckMusic(true);
           markExplanationStarted(qid);
