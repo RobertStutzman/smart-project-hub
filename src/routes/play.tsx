@@ -278,15 +278,22 @@ function PlayPage() {
     }
   }, [room?.dropped_indexes, room?.current_question_text, me?.current_answer]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reveal feedback haptics
+  // Reveal feedback haptics + full-screen wrong flash (fires once per question
+  // on the question→reveal edge when the player picked wrong).
   useEffect(() => {
     if (room?.phase !== "reveal" || me?.last_answer_correct === null) return;
     if (me?.last_answer_correct) {
       Haptics.correct();
     } else if (me?.last_answer_correct === false) {
       Haptics.wrong();
+      const qid = room?.current_question_text ?? "";
+      if (wrongFlashFiredRef.current !== qid) {
+        wrongFlashFiredRef.current = qid;
+        setWrongFlash(true);
+        window.setTimeout(() => setWrongFlash(false), 1400);
+      }
     }
-  }, [room?.phase, me?.last_answer_correct]);
+  }, [room?.phase, me?.last_answer_correct, room?.current_question_text]);
 
   // Reset local wrong-pick memory whenever the question changes or we leave question phase.
   useEffect(() => {
