@@ -332,11 +332,22 @@ function pickTemplate(ctx: PersonaContext): string {
 /**
  * Speak about a player. Picks the appropriate tier based on the per-game
  * counter and plays through the shared voice queue.
+ *
+ * @param opts.priority  Audio Queue Manager priority (1 = critical, 2 = roast).
+ *                       Habit callouts should pass 2 so the host always wins.
+ * @param opts.deadline  ms epoch; line is dropped if queue hasn't reached it.
+ *                       Use the question's `ends_at` so situational callouts
+ *                       cancel themselves when the question times out.
  */
-export async function speakAboutPlayer(ctx: PersonaContext): Promise<void> {
+export async function speakAboutPlayer(
+  ctx: PersonaContext,
+  opts?: { priority?: 1 | 2; deadline?: number },
+): Promise<void> {
   if (typeof window === "undefined") return;
   const tier = currentTier();
   bumpCounter();
+  const priority = opts?.priority;
+  const deadline = opts?.deadline;
 
   try {
     if (tier === 1) {
@@ -349,22 +360,24 @@ export async function speakAboutPlayer(ctx: PersonaContext): Promise<void> {
           roomId: activeRoomId ?? undefined,
         },
       });
+      // Bail if we missed the deadline while the TTS server was working.
+      if (deadline !== undefined && Date.now() > deadline) return;
       if (res && "skipped" in res && res.skipped) {
         // Server-side cap hit — fall back to tier 3
-        await speakPersona(pickLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname));
+        await speakPersona(pickLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname), { priority, deadline });
         return;
       }
       if (res && "audioUrl" in res && res.audioUrl) {
-        await playVoiceUrl(res.audioUrl, { volume: 1.0 });
+        await playVoiceUrl(res.audioUrl, { volume: 1.0, priority, deadline });
         return;
       }
       if (res && "audioBase64" in res && res.audioBase64) {
         // Rare fallback path — play as data URI through the queue
-        await playVoiceUrl(`data:audio/mpeg;base64,${res.audioBase64}`, { volume: 1.0 });
+        await playVoiceUrl(`data:audio/mpeg;base64,${res.audioBase64}`, { volume: 1.0, priority, deadline });
         return;
       }
       // No audio came back — degrade gracefully
-      await speakPersona(pickLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname));
+      await speakPersona(pickLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname), { priority, deadline });
       return;
     }
 
@@ -375,13 +388,13 @@ export async function speakAboutPlayer(ctx: PersonaContext): Promise<void> {
       const namePrefix = `${ctx.nickname}!`;
       const baked = pickLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname);
       // Speak as two queued lines so they play back-to-back without overlap.
-      await speakAsElf(namePrefix, { preset: "hype" });
-      await speakAsElf(baked, { preset: "hype" });
+      await speakAsElf(namePrefix, { preset: "hype", priority, deadline });
+      await speakAsElf(baked, { preset: "hype", priority, deadline });
       return;
     }
 
     // Tier 3: 100% baked, no name
-    await speakPersona(pickLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname));
+    await speakPersona(pickLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname), { priority, deadline });
   } catch {
     // Never crash the game on a voice line failure
     try {
