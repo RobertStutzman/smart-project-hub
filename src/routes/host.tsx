@@ -820,21 +820,9 @@ function HostPage() {
       setSettingsOpen(true);
       return;
     }
-    const shown = typeof window !== "undefined" && window.sessionStorage.getItem(HOWTO_KEY) === "1";
-    if (shown) {
-      actuallyStart();
-      return;
-    }
-    setShowHowTo(true);
-  }
-
-  function finishHowTo() {
-    setShowHowTo(false);
-    try {
-      window.sessionStorage.setItem(HOWTO_KEY, "1");
-    } catch {}
     actuallyStart();
   }
+
 
 
   return (
