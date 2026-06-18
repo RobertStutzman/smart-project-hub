@@ -1014,6 +1014,24 @@ function PlayPage() {
         </div>
       )}
 
+      {/* Full-screen WRONG flash on reveal when the player picked incorrectly. */}
+      {wrongFlash && (
+        <div className="pointer-events-none fixed inset-0 z-50 grid place-items-center bg-rose-950/70 backdrop-blur-sm animate-scale-in">
+          <div className="text-center">
+            <div
+              className="font-display font-black leading-none text-destructive drop-shadow-[0_10px_30px_oklch(0.55_0.25_25/0.85)]"
+              style={{ fontSize: "min(55vw, 55vh)" }}
+            >
+              ✕
+            </div>
+            <div className="mt-4 font-display text-3xl font-black uppercase tracking-[0.4em] text-rose-100 sm:text-5xl">
+              Wrong
+            </div>
+          </div>
+        </div>
+      )}
+
+
       {paused && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/90 p-6 backdrop-blur">
           <div className="max-w-sm text-center">
