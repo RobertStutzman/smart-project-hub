@@ -75,39 +75,48 @@ export function IntroStage({ players, onDone }: Props) {
       // the 3-2-1 callout or the subsequent first-question TTS.
       void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
     });
+    let cancelled = false;
     at(6200, () => {
-      setStep("countdown");
-      setCount(3);
-      speakPersona("Alright… here we go in three!", { interrupt: true });
-      play("tick");
+      void (async () => {
+        const { speakAsElf } = await import("@/lib/elf-voice");
+        if (cancelled) return;
+        setStep("countdown");
+        // Lead-in line, then count digits in sync with audio.
+        await speakAsElf("Here we go.", { interrupt: true, preset: "hype" });
+        for (const n of [3, 2, 1] as const) {
+          if (cancelled) return;
+          setCount(n);
+          play("tick");
+          // Speaking the digit + waiting for it to finish guarantees the
+          // visual number and the announcer voice stay locked together.
+          await speakAsElf(`${n === 3 ? "Three" : n === 2 ? "Two" : "One"}.`, {
+            preset: "hype",
+          });
+        }
+        if (cancelled) return;
+        setStep("go");
+        play("whoosh");
+        window.setTimeout(() => {
+          if (!cancelled) onDoneRef.current();
+        }, 900);
+      })();
     });
-    at(7300, () => {
-      setCount(2);
-      play("tick");
-    });
-    at(8400, () => {
-      setCount(1);
-      play("tick");
-    });
-    at(9500, () => {
-      setStep("go");
-      play("whoosh");
-    });
-    at(11200, () => {
-      onDoneRef.current();
-    });
+
 
 
 
     const onKey = (e: KeyboardEvent) => {
       if (e.code === "Space") {
         e.preventDefault();
+        cancelled = true;
         timers.forEach((t) => window.clearTimeout(t));
+        void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
         onDoneRef.current();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => {
+      cancelled = true;
       timers.forEach((t) => window.clearTimeout(t));
       window.removeEventListener("keydown", onKey);
     };
