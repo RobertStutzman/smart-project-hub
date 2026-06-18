@@ -252,28 +252,103 @@ export interface SpeakOptions {
   volume?: number;
   /** If true, interrupt anything currently playing. Default: queue behind. */
   interrupt?: boolean;
+  /**
+   * Audio Queue Manager priority. Lower number = higher priority.
+   *   1 = Game-critical (host question read, DYK, essential announcements).
+   *   2 = Mid-question player roasts / habit callouts.
+   * P1 items are inserted ahead of all P2 items already waiting. The
+   * currently playing line is NEVER preempted — interruption is opt-in
+   * via `interrupt: true`.
+   */
+  priority?: 1 | 2;
+  /**
+   * Absolute deadline (Date.now() ms). If the queue hasn't reached this
+   * task by `deadline`, it's silently dropped. Use for situational
+   * callouts that are meaningless after the question ends.
+   */
+  deadline?: number;
 }
 
 /** Bumped on every cancelElfSpeech() so already-queued tasks can bail out. */
 let generation = 0;
 
-let queue: Promise<void> = Promise.resolve();
+// ─── Audio Queue Manager ───────────────────────────────────────────────
+// Array-backed scheduler so we can insert P1 ahead of P2 and skip tasks
+// whose deadline has passed. ONE voice file ever plays at a time. A 200ms
+// safe gap separates consecutive plays so the seam sounds clean. Music
+// ducking is held across the entire batch — beds only restore once the
+// queue fully drains, not between individual lines.
+type QueueTask = {
+  priority: 1 | 2;
+  deadline?: number;
+  gen: number;
+  run: () => Promise<void>;
+  resolve: () => void;
+};
+const tasks: QueueTask[] = [];
+let pumping = false;
+let pumpHoldingDuck = false;
+const SAFE_GAP_MS = 200;
+
+function schedule(task: QueueTask) {
+  // Stable insert: keep items already in front of equal-priority items in
+  // their original order; place this task before any item with strictly
+  // higher (numerically larger) priority.
+  let i = tasks.length;
+  while (i > 0 && tasks[i - 1].priority > task.priority) i--;
+  tasks.splice(i, 0, task);
+  void pump();
+}
+
+async function pump() {
+  if (pumping || typeof window === "undefined") return;
+  pumping = true;
+  if (!pumpHoldingDuck) {
+    pumpHoldingDuck = true;
+    beginDuck(); // hold music ducked across the whole batch
+  }
+  try {
+    while (tasks.length > 0) {
+      const next = tasks.shift()!;
+      if (next.gen !== generation) { next.resolve(); continue; }
+      if (next.deadline !== undefined && Date.now() > next.deadline) {
+        next.resolve();
+        continue;
+      }
+      try {
+        await next.run();
+      } catch {
+        /* swallow — never crash the queue */
+      }
+      next.resolve();
+      if (tasks.length > 0) {
+        await new Promise<void>((r) => window.setTimeout(r, SAFE_GAP_MS));
+      }
+    }
+  } finally {
+    pumping = false;
+    if (pumpHoldingDuck) {
+      pumpHoldingDuck = false;
+      endDuck();
+    }
+  }
+}
 
 /** Speak a line as The Elf. Returns when playback finishes (or fails silently). */
 export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();
   const preset = opts.preset ?? "hype";
   const volume = opts.volume ?? 1.0;
+  const priority = opts.priority ?? 1;
+  const deadline = opts.deadline;
 
   if (opts.interrupt) cancelElfSpeech();
-  // Capture at call time, AFTER any opt-in interrupt: this task survives its
-  // own cancel but dies if anyone else cancels before/while it runs.
   const myGen = generation;
 
   const task = async () => {
     const isAlive = () => generation === myGen;
     if (!isAlive()) return;
-
+    if (deadline !== undefined && Date.now() > deadline) return;
     // 1. Pre-baked URL (free, instant)
     const baked = urlCache.get(text);
     if (baked) {
@@ -283,6 +358,7 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
     // 2. URL/base64 from cache or live ElevenLabs
     const res = await fetchAudio(text, preset);
     if (!isAlive()) return;
+    if (deadline !== undefined && Date.now() > deadline) return;
     if (!res || res.kind === "skipped") return;
     if (res.kind === "url") {
       await playUrl(res.url, volume);
@@ -297,8 +373,10 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
       task(),
       new Promise<void>((resolve) => window.setTimeout(resolve, 12000)),
     ]);
-  queue = queue.then(safe, safe);
-  return queue;
+
+  return new Promise<void>((resolve) => {
+    schedule({ priority, deadline, gen: myGen, run: safe, resolve });
+  });
 }
 
 /** Stop any currently playing Elf line and drop everything already queued. */
@@ -317,12 +395,16 @@ export function cancelElfSpeech() {
     }
   }
   voiceBusy = false;
-  queue = Promise.resolve();
+  // Resolve and drop every queued task so awaiters don't hang.
+  while (tasks.length > 0) {
+    const t = tasks.shift()!;
+    try { t.resolve(); } catch { /* ignore */ }
+  }
 }
 
 /** True if any Elf line is currently playing (or parked awaiting unlock). */
 export function isElfSpeaking(): boolean {
-  return voiceBusy;
+  return voiceBusy || tasks.length > 0;
 }
 
 /** Pre-warm the cache for a set of lines (fire-and-forget). */
@@ -344,19 +426,25 @@ export function playVoiceUrl(
     interrupt?: boolean;
     onStart?: () => void;
     onEnd?: () => void;
+    priority?: 1 | 2;
+    deadline?: number;
   } = {},
 ): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();
   const volume = opts.volume ?? 1.0;
+  const priority = opts.priority ?? 1;
+  const deadline = opts.deadline;
 
   if (opts.interrupt) cancelElfSpeech();
   const myGen = generation;
 
   const task = async () => {
     if (generation !== myGen) return;
+    if (deadline !== undefined && Date.now() > deadline) return;
     await playUrl(url, volume, { onStart: opts.onStart, onEnd: opts.onEnd });
   };
 
-  queue = queue.then(task, task);
-  return queue;
+  return new Promise<void>((resolve) => {
+    schedule({ priority, deadline, gen: myGen, run: task, resolve });
+  });
 }
