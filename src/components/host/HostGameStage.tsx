@@ -568,6 +568,11 @@ export function HostGameStage({ room }: Props) {
     }
   }, [state, now, players, dropWrongFn, endQuestionFn, room.roomCode, room.hostSessionId]);
 
+  // Audio Queue Manager — situational player-habit callouts (P2, deadline = ends_at)
+  useHabitWatcher(players, state ?? null);
+
+
+
   // Tense music during question, lobby during lobby
   const ambienceHandedRef = useRef(false);
   const playedOnceRef = useRef(false);
