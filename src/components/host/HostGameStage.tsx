@@ -380,6 +380,7 @@ export function HostGameStage({ room }: Props) {
       }
       void playVoiceUrl(url, {
         interrupt: false,
+        priority: 1, // host question read — never let a P2 roast preempt
         onStart: () => duckMusic(true),
         onEnd: () => duckMusic(false),
       });
