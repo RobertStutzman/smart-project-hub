@@ -812,7 +812,16 @@ export function pickWelcomeBack(): string {
 
 
 /** Speak a persona line in The Elf's voice (ElevenLabs). */
-export function speakPersona(text: string, opts?: { volume?: number; interrupt?: boolean; preset?: "hype" | "calm" }) {
+export function speakPersona(
+  text: string,
+  opts?: {
+    volume?: number;
+    interrupt?: boolean;
+    preset?: "hype" | "calm";
+    priority?: 1 | 2;
+    deadline?: number;
+  },
+) {
   if (typeof window === "undefined") return;
   // Dynamic import keeps the server function reference out of any SSR path
   // that imports host-persona purely for catchphrase strings.
@@ -821,6 +830,8 @@ export function speakPersona(text: string, opts?: { volume?: number; interrupt?:
       volume: opts?.volume ?? 1.0,
       interrupt: opts?.interrupt ?? false,
       preset: opts?.preset ?? "hype",
+      priority: opts?.priority,
+      deadline: opts?.deadline,
     });
   });
 }
