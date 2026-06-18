@@ -25,7 +25,11 @@ export type LiveMoment =
   | "final_showdown"
   | "winner"
   | "last_to_lock"
-  | "random_jab";
+  | "random_jab"
+  | "bandwagon"
+  | "lone_wolf"
+  | "buzzer_beater"
+  | "sunk_cost";
 
 export interface PersonaContext {
   /** Primary player nickname. */
@@ -231,6 +235,54 @@ const TEMPLATES: Record<LiveMoment, Template[]> = {
     (c) => `${c.nickname}, showing up is half the battle. The other half is points.`,
     (c) => `${c.nickname} lurking. Calculating. Mid.`,
   ],
+  bandwagon: [
+    (c) => `Oh look — everyone's copying ${c.nickname}. Brave room.`,
+    (c) => `${c.nickname} locks in, the sheep follow. Baaa.`,
+    (c) => `Whole room just rode ${c.nickname}'s coattails. Embarrassing.`,
+    (c) => `Bandwagon alert: ${c.nickname} clicks, the rest stampede.`,
+    (c) => `${c.nickname} is now everyone's homework answer.`,
+    (c) => `Independent thought has left the chat. Thanks, ${c.nickname}.`,
+    (c) => `${c.nickname} picks, the room peer-pressures itself. Beautiful.`,
+    (c) => `Three people just changed their answer to match ${c.nickname}. Original.`,
+    (c) => `Following ${c.nickname} like ducklings. Adorable. Dangerous.`,
+    (c) => `${c.nickname} leads, the lemmings cliff-dive.`,
+  ],
+  lone_wolf: [
+    (c) => `${c.nickname} is the only one on that answer. Bold or doomed?`,
+    (c) => `Everyone vs ${c.nickname}. ${c.nickname} thinks they're smarter.`,
+    (c) => `Lone wolf alert — ${c.nickname} sees something we don't. Maybe.`,
+    (c) => `${c.nickname} alone on an island. Bring snacks.`,
+    (c) => `Hot take from ${c.nickname}. Whole room disagrees.`,
+    (c) => `${c.nickname} is dying on a hill the rest of you avoided.`,
+    (c) => `One answer, one believer: ${c.nickname}. Faith of a saint.`,
+    (c) => `${c.nickname} is solo. Either a genius or about to learn something.`,
+    (c) => `${c.nickname}, party of one, on a completely different answer.`,
+    (c) => `Everybody zigged. ${c.nickname} zagged. We'll see.`,
+  ],
+  buzzer_beater: [
+    (c) => `${c.nickname} locked it with a hair of a second left. Theatrical.`,
+    (c) => `Buzzer beater from ${c.nickname}. Heart rates ruined.`,
+    (c) => `${c.nickname} cuts it down to the last frame. Show-off.`,
+    (c) => `${c.nickname} treats the timer like a suggestion. Locks at zero point five.`,
+    (c) => `That was a half-second from disaster, ${c.nickname}.`,
+    (c) => `${c.nickname} waited until the very last tick. Drama queen.`,
+    (c) => `Submitted with crumbs of time, ${c.nickname}. Wild.`,
+    (c) => `${c.nickname} just speed-ran a panic attack. Locked in on the buzzer.`,
+    (c) => `Last possible second — ${c.nickname}. We saw that.`,
+    (c) => `${c.nickname} likes living dangerously. Lock with nothing left.`,
+  ],
+  sunk_cost: [
+    (c) => `${c.nickname} just switched OFF the right answer. Painful to watch.`,
+    (c) => `${c.nickname} had it. Then second-guessed it. Classic.`,
+    (c) => `Oh no — ${c.nickname} just talked themselves out of the win.`,
+    (c) => `${c.nickname} bailed on the correct answer in the final seconds. Brutal.`,
+    (c) => `${c.nickname} chose the wrong horse at the wrong time.`,
+    (c) => `Cold feet from ${c.nickname}. They were RIGHT.`,
+    (c) => `${c.nickname} just performed surgery on themselves. With a spoon.`,
+    (c) => `${c.nickname} had the truth. Then ran from it.`,
+    (c) => `${c.nickname} just changed correct to wrong. We can't help you.`,
+    (c) => `${c.nickname} self-destructed in real time. Bravo.`,
+  ],
 };
 
 function listNames(c: PersonaContext): string {
@@ -256,6 +308,10 @@ const FALLBACK_MOMENT: Record<LiveMoment, Parameters<typeof pickLine>[0]> = {
   winner: "credits_open",
   last_to_lock: "last_to_lock",
   random_jab: "random_jab",
+  bandwagon: "random_jab",
+  lone_wolf: "random_jab",
+  buzzer_beater: "last_to_lock",
+  sunk_cost: "elimination",
 };
 
 function pickTemplate(ctx: PersonaContext): string {
@@ -276,11 +332,22 @@ function pickTemplate(ctx: PersonaContext): string {
 /**
  * Speak about a player. Picks the appropriate tier based on the per-game
  * counter and plays through the shared voice queue.
+ *
+ * @param opts.priority  Audio Queue Manager priority (1 = critical, 2 = roast).
+ *                       Habit callouts should pass 2 so the host always wins.
+ * @param opts.deadline  ms epoch; line is dropped if queue hasn't reached it.
+ *                       Use the question's `ends_at` so situational callouts
+ *                       cancel themselves when the question times out.
  */
-export async function speakAboutPlayer(ctx: PersonaContext): Promise<void> {
+export async function speakAboutPlayer(
+  ctx: PersonaContext,
+  opts?: { priority?: 1 | 2; deadline?: number },
+): Promise<void> {
   if (typeof window === "undefined") return;
   const tier = currentTier();
   bumpCounter();
+  const priority = opts?.priority;
+  const deadline = opts?.deadline;
 
   try {
     if (tier === 1) {
@@ -293,22 +360,24 @@ export async function speakAboutPlayer(ctx: PersonaContext): Promise<void> {
           roomId: activeRoomId ?? undefined,
         },
       });
+      // Bail if we missed the deadline while the TTS server was working.
+      if (deadline !== undefined && Date.now() > deadline) return;
       if (res && "skipped" in res && res.skipped) {
         // Server-side cap hit — fall back to tier 3
-        await speakPersona(pickLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname));
+        await speakPersona(pickLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname), { priority, deadline });
         return;
       }
       if (res && "audioUrl" in res && res.audioUrl) {
-        await playVoiceUrl(res.audioUrl, { volume: 1.0 });
+        await playVoiceUrl(res.audioUrl, { volume: 1.0, priority, deadline });
         return;
       }
       if (res && "audioBase64" in res && res.audioBase64) {
         // Rare fallback path — play as data URI through the queue
-        await playVoiceUrl(`data:audio/mpeg;base64,${res.audioBase64}`, { volume: 1.0 });
+        await playVoiceUrl(`data:audio/mpeg;base64,${res.audioBase64}`, { volume: 1.0, priority, deadline });
         return;
       }
       // No audio came back — degrade gracefully
-      await speakPersona(pickLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname));
+      await speakPersona(pickLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname), { priority, deadline });
       return;
     }
 
@@ -319,13 +388,13 @@ export async function speakAboutPlayer(ctx: PersonaContext): Promise<void> {
       const namePrefix = `${ctx.nickname}!`;
       const baked = pickLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname);
       // Speak as two queued lines so they play back-to-back without overlap.
-      await speakAsElf(namePrefix, { preset: "hype" });
-      await speakAsElf(baked, { preset: "hype" });
+      await speakAsElf(namePrefix, { preset: "hype", priority, deadline });
+      await speakAsElf(baked, { preset: "hype", priority, deadline });
       return;
     }
 
     // Tier 3: 100% baked, no name
-    await speakPersona(pickLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname));
+    await speakPersona(pickLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname), { priority, deadline });
   } catch {
     // Never crash the game on a voice line failure
     try {

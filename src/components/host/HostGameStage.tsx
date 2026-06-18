@@ -40,6 +40,7 @@ import {
 } from "@/lib/asymmetry";
 
 import { speakAboutPlayer, setLiveRoomId, resetLiveCap } from "@/lib/persona-live";
+import { useHabitWatcher } from "@/lib/habit-watcher";
 import { play, playEvent, playRandomDrop, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
 import { playFunnySoundById, preloadFunnyBank } from "@/lib/funny-sounds";
 import { FinalWagerStage, FinalRevealStage } from "./FinalStages";
@@ -380,6 +381,7 @@ export function HostGameStage({ room }: Props) {
       }
       void playVoiceUrl(url, {
         interrupt: false,
+        priority: 1, // host question read — never let a P2 roast preempt
         onStart: () => duckMusic(true),
         onEnd: () => duckMusic(false),
       });
@@ -439,6 +441,7 @@ export function HostGameStage({ room }: Props) {
     const timer = window.setTimeout(() => {
       // Queue behind any in-flight persona reaction so they don't overlap.
       void playVoiceUrl(url, {
+        priority: 1, // DYK explanation — game-critical
         onStart: () => {
           duckMusic(true);
           markExplanationStarted(qid);
@@ -564,6 +567,11 @@ export function HostGameStage({ room }: Props) {
         .catch(() => {});
     }
   }, [state, now, players, dropWrongFn, endQuestionFn, room.roomCode, room.hostSessionId]);
+
+  // Audio Queue Manager — situational player-habit callouts (P2, deadline = ends_at)
+  useHabitWatcher(players, state ?? null);
+
+
 
   // Tense music during question, lobby during lobby
   const ambienceHandedRef = useRef(false);
