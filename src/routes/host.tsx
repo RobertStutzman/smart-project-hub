@@ -60,7 +60,7 @@ type Player = {
   is_audience: boolean;
 };
 
-const HOWTO_KEY = "btd:howto-shown";
+
 
 const MUTE_KEY = "btd:muted";
 
