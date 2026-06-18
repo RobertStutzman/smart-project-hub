@@ -116,6 +116,8 @@ function PlayPage() {
   const [now, setNow] = useState(() => Date.now());
   const [serverOffsetMs, setServerOffsetMs] = useState(0);
   const [eliminatedFlash, setEliminatedFlash] = useState(false);
+  const [wrongFlash, setWrongFlash] = useState(false);
+  const wrongFlashFiredRef = useRef<string | null>(null);
   const [wagerDraft, setWagerDraft] = useState<number>(0);
   const lastDroppedSig = useRef("");
   const [wrongPicks, setWrongPicks] = useState<number[]>([]);
