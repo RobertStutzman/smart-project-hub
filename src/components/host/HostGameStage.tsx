@@ -40,6 +40,7 @@ import {
 } from "@/lib/asymmetry";
 
 import { speakAboutPlayer, setLiveRoomId, resetLiveCap } from "@/lib/persona-live";
+import { useHabitWatcher } from "@/lib/habit-watcher";
 import { play, playEvent, playRandomDrop, startMusic, stopMusic, duckMusic } from "@/lib/sound-engine";
 import { playFunnySoundById, preloadFunnyBank } from "@/lib/funny-sounds";
 import { FinalWagerStage, FinalRevealStage } from "./FinalStages";
