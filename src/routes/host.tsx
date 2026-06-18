@@ -1253,7 +1253,7 @@ function HostPage() {
         )}
       </AnimatePresence>
 
-      {showHowTo && <HowToPlay onComplete={finishHowTo} />}
+      
 
 
     </main>
