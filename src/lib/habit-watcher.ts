@@ -117,27 +117,37 @@ export function useHabitWatcher(
   state: WatchedState | null,
 ) {
   const perQ = useRef<PerQuestion | null>(null);
-  const roundBudget = useRef<RoundBudget | null>(null);
+  const roundBudgetRef = useRef<RoundBudget | null>(null);
+  const seenQuestionsRef = useRef<{ count: number; lastKey: string | null }>({
+    count: 0,
+    lastKey: null,
+  });
+  // Stable holder passed to trigger() so it can mutate the live budget.
+  const budgetHolder = useRef<{ current: RoundBudget | null }>({ current: null });
 
   useEffect(() => {
     if (!state || state.phase !== "question") {
       perQ.current = null;
       return;
     }
-    // (Re)initialize on new question.
     const key = `${state.current_question_id ?? "?"}|${state.question_started_at ?? ""}`;
+    // Detect a new question crossing — increment our per-game counter and
+    // refresh the per-round budget whenever we enter a new 5-question block.
+    if (seenQuestionsRef.current.lastKey !== key) {
+      seenQuestionsRef.current.lastKey = key;
+      seenQuestionsRef.current.count += 1;
+      const roundIdx = Math.ceil(seenQuestionsRef.current.count / 5);
+      if (!roundBudgetRef.current || roundBudgetRef.current.roundIdx !== roundIdx) {
+        roundBudgetRef.current = { roundIdx, remaining: PER_ROUND_BUDGET };
+      }
+    }
+    budgetHolder.current.current = roundBudgetRef.current;
+
     if (!perQ.current || perQ.current.key !== key) {
       perQ.current = makePerQuestion(state);
       if (!perQ.current) return;
     }
-    // Refresh the per-round budget whenever we cross a 5-question boundary.
-    // We piggyback on `current_question_id` cadence: derive round from the
-    // question's started_at order isn't available here, so reset based on
-    // the number of questions seen via a monotonic id-change counter would
-    // require state — simpler: bucket by wall-clock + a counter on the ref.
-    // In practice the host only mounts this hook once per game; we rely on
-    // `state.question_started_at` being strictly increasing and reset the
-    // budget every 5 distinct question keys.
+
 
     const q = perQ.current;
     const correctIdx = state.current_correct_index;
