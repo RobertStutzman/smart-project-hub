@@ -149,5 +149,14 @@ export const ALL_ROUND_CALLOUTS: string[] = (() => {
     const q = r * 5;
     for (const k of kinds) out.push(...wildcardLines(k, q));
   }
+  // Static one-shots used outside the per-question flow but spoken every
+  // game. Baking them turns ~6 ElevenLabs calls per game into free URL hits.
+  out.push("Alright… here we go in three!");
+  out.push("And now…");
+  out.push("Final round. Winner takes all.");
+  for (let r = 1; r <= 4; r++) {
+    out.push(`Standings after round ${r}.`);
+  }
   return out;
 })();
+

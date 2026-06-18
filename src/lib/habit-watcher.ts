@@ -83,14 +83,24 @@ function makePerQuestion(state: WatchedState): PerQuestion | null {
   };
 }
 
+// Per-round budget — at most this many habit callouts can fire across the
+// 5 questions of a single round. Keeps a chaotic round from racking up 5
+// ElevenLabs calls and over-roasting the same player.
+const PER_ROUND_BUDGET = 2;
+
+type RoundBudget = { roundIdx: number; remaining: number };
+
 function trigger(
   q: PerQuestion,
   moment: LiveMoment,
   nickname: string,
+  budget: { current: RoundBudget | null },
 ) {
   if (q.spent || q.fired.has(moment)) return;
+  if (budget.current && budget.current.remaining <= 0) return;
   q.fired.add(moment);
   q.spent = true;
+  if (budget.current) budget.current.remaining -= 1;
   void speakAboutPlayer(
     { nickname, moment },
     { priority: 2, deadline: q.endsAtMs },
@@ -107,18 +117,38 @@ export function useHabitWatcher(
   state: WatchedState | null,
 ) {
   const perQ = useRef<PerQuestion | null>(null);
+  const roundBudgetRef = useRef<RoundBudget | null>(null);
+  const seenQuestionsRef = useRef<{ count: number; lastKey: string | null }>({
+    count: 0,
+    lastKey: null,
+  });
+  // Stable holder passed to trigger() so it can mutate the live budget.
+  const budgetHolder = useRef<{ current: RoundBudget | null }>({ current: null });
 
   useEffect(() => {
     if (!state || state.phase !== "question") {
       perQ.current = null;
       return;
     }
-    // (Re)initialize on new question.
     const key = `${state.current_question_id ?? "?"}|${state.question_started_at ?? ""}`;
+    // Detect a new question crossing — increment our per-game counter and
+    // refresh the per-round budget whenever we enter a new 5-question block.
+    if (seenQuestionsRef.current.lastKey !== key) {
+      seenQuestionsRef.current.lastKey = key;
+      seenQuestionsRef.current.count += 1;
+      const roundIdx = Math.ceil(seenQuestionsRef.current.count / 5);
+      if (!roundBudgetRef.current || roundBudgetRef.current.roundIdx !== roundIdx) {
+        roundBudgetRef.current = { roundIdx, remaining: PER_ROUND_BUDGET };
+      }
+    }
+    budgetHolder.current.current = roundBudgetRef.current;
+
     if (!perQ.current || perQ.current.key !== key) {
       perQ.current = makePerQuestion(state);
       if (!perQ.current) return;
     }
+
+
     const q = perQ.current;
     const correctIdx = state.current_correct_index;
     const now = Date.now();
@@ -163,7 +193,7 @@ export function useHabitWatcher(
         const lockMs = new Date(lockedAtIso).getTime();
         const msLeftAtLock = q.endsAtMs - lockMs;
         if (msLeftAtLock <= 500 && msLeftAtLock >= -250) {
-          trigger(q, "buzzer_beater", p.nickname);
+          trigger(q, "buzzer_beater", p.nickname, budgetHolder.current);
         }
       }
 
@@ -178,7 +208,7 @@ export function useHabitWatcher(
         remainingMs <= 3000 &&
         remainingMs > 0
       ) {
-        trigger(q, "sunk_cost", p.nickname);
+        trigger(q, "sunk_cost", p.nickname, budgetHolder.current);
       }
 
       q.lastAnswer.set(p.id, ans);
@@ -209,7 +239,7 @@ export function useHabitWatcher(
         }
       }
       if (copycats >= 2 && firstLockerNickname) {
-        trigger(q, "bandwagon", firstLockerNickname);
+        trigger(q, "bandwagon", firstLockerNickname, budgetHolder.current);
       }
     }
 
@@ -241,7 +271,7 @@ export function useHabitWatcher(
           }
         }
         if (candidate) {
-          trigger(q, "lone_wolf", candidate.nickname);
+          trigger(q, "lone_wolf", candidate.nickname, budgetHolder.current);
         }
       }
     }
