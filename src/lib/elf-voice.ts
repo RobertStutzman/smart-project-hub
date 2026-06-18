@@ -399,9 +399,23 @@ async function pump() {
   }
 }
 
+/**
+ * Hard-mute window. While `silenceUntil > Date.now()`, every new
+ * `speakAsElf` / `playVoiceUrl` call is a no-op. Used at room-reset
+ * boundaries so late-arriving callouts (persona-live, orchestrator
+ * effects firing during the server round-trip) can't sneak through.
+ */
+let silenceUntil = 0;
+
+export function silenceFor(ms: number) {
+  silenceUntil = Math.max(silenceUntil, Date.now() + Math.max(0, ms));
+  cancelElfSpeech();
+}
+
 /** Speak a line as The Elf. Returns when playback finishes (or fails silently). */
 export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();
+  if (Date.now() < silenceUntil) return Promise.resolve();
   const preset = opts.preset ?? "hype";
   const volume = opts.volume ?? 1.0;
   const priority = opts.priority ?? 1;
@@ -496,6 +510,7 @@ export function playVoiceUrl(
   } = {},
 ): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();
+  if (Date.now() < silenceUntil) return Promise.resolve();
   const volume = opts.volume ?? 1.0;
   const priority = opts.priority ?? 1;
   const deadline = opts.deadline;

@@ -324,20 +324,28 @@ function HostPage() {
     function onMsg(e: MessageEvent) {
       const data = e.data as { type?: string } | null;
       if (data?.type !== "parent:new-room") return;
+      // Same hard-kill order as endAndStartNewRoom: flip local UI first,
+      // then silence audio (with a short silence window), then end + create.
+      setRoomPhase("lobby");
+      setPlayers([]);
+      const killAudio = async () => {
+        const { silenceFor } = await import("@/lib/elf-voice");
+        silenceFor(1500);
+        const { silenceAllAudio } = await import("@/lib/sound-engine");
+        silenceAllAudio();
+        const ambience = await import("@/lib/ambience-engine");
+        ambience.stopAllAmbience();
+        ambience.resetAmbience();
+      };
+      void killAudio();
+      window.setTimeout(() => void killAudio(), 250);
+      window.setTimeout(() => void killAudio(), 700);
       void (async () => {
         try {
           setCreating(true);
-          const { cancelElfSpeech } = await import("@/lib/elf-voice");
-          cancelElfSpeech();
-          const { silenceAllAudio } = await import("@/lib/sound-engine");
-          silenceAllAudio();
-          const ambience = await import("@/lib/ambience-engine");
-          ambience.stopAllAmbience();
-          ambience.resetAmbience();
           const hostSessionId = newId();
           const res = await createRoomFn({ data: { hostSessionId } });
           saveHostSession({ sessionId: hostSessionId, roomCode: res.roomCode });
-          setPlayers([]);
           setRoom({ id: res.id, roomCode: res.roomCode, hostSessionId });
           toast.success(`New room ${res.roomCode}`);
         } catch (err) {
@@ -702,25 +710,37 @@ function HostPage() {
   async function endAndStartNewRoom() {
     if (!room) return;
     if (!window.confirm("End this game and start a fresh room?")) return;
-    try {
-      setCreating(true);
-      const { cancelElfSpeech } = await import("@/lib/elf-voice");
-      cancelElfSpeech();
+    // 1. Snap local UI back to lobby FIRST so HostGameStage unmounts and
+    //    all its end-game timers / audio-scheduling effects tear down
+    //    before they can queue another line.
+    setRoomPhase("lobby");
+    setPlayers([]);
+    setRoundNumber(0);
+    setActiveCategory(null);
+
+    // 2. Hard-kill all audio and arm a silence window so any callouts
+    //    fired during the server round-trip are no-ops.
+    const killAudio = async () => {
+      const { silenceFor } = await import("@/lib/elf-voice");
+      silenceFor(1500);
       const { silenceAllAudio } = await import("@/lib/sound-engine");
       silenceAllAudio();
       const ambience = await import("@/lib/ambience-engine");
       ambience.stopAllAmbience();
       ambience.resetAmbience();
+    };
+    void killAudio();
+    window.setTimeout(() => void killAudio(), 250);
+    window.setTimeout(() => void killAudio(), 700);
+
+    try {
+      setCreating(true);
       await endRoomFn({
         data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
       }).catch(() => undefined);
       const hostSessionId = newId();
       const res = await createRoomFn({ data: { hostSessionId } });
       saveHostSession({ sessionId: hostSessionId, roomCode: res.roomCode });
-      setPlayers([]);
-      setRoomPhase("lobby");
-      setRoundNumber(0);
-      setActiveCategory(null);
       setRoom({ id: res.id, roomCode: res.roomCode, hostSessionId });
       toast.success(`New room ${res.roomCode}`);
     } catch (err) {
