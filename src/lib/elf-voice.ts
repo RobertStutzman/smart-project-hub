@@ -26,14 +26,72 @@ const CACHE_MAX = 64;
 const cache = new Map<string, string>(); // key -> base64 mp3 OR "url::<https...>"
 const URL_PREFIX = "url::";
 
+// Persistent (localStorage) cache for URL entries only. Base64 audio is too
+// big to safely persist (5MB quota). A storage URL is ~250B, so we can keep
+// hundreds of dynamic lines (name-interpolated quips, habit callouts) across
+// sessions and only pay ElevenLabs the first time each unique string is
+// generated. URLs are signed for 7 days; the server re-signs on cache miss.
+const PERSIST_KEY = "btd:elf-url-cache:v1";
+const PERSIST_MAX = 300;
+type PersistEntry = { v: string; t: number }; // value, last-used timestamp
+let persistMap: Map<string, PersistEntry> | null = null;
+
+function loadPersist(): Map<string, PersistEntry> {
+  if (persistMap) return persistMap;
+  persistMap = new Map();
+  if (typeof window === "undefined") return persistMap;
+  try {
+    const raw = window.localStorage.getItem(PERSIST_KEY);
+    if (!raw) return persistMap;
+    const parsed = JSON.parse(raw) as Record<string, PersistEntry>;
+    for (const [k, v] of Object.entries(parsed ?? {})) {
+      if (v && typeof v.v === "string") persistMap.set(k, v);
+    }
+  } catch {
+    /* corrupted or quota — start fresh */
+  }
+  return persistMap;
+}
+
+let flushTimer: number | null = null;
+function flushPersist() {
+  if (!persistMap || typeof window === "undefined") return;
+  if (flushTimer !== null) return;
+  flushTimer = window.setTimeout(() => {
+    flushTimer = null;
+    if (!persistMap) return;
+    // Trim to PERSIST_MAX by oldest-used timestamp.
+    if (persistMap.size > PERSIST_MAX) {
+      const sorted = [...persistMap.entries()].sort((a, b) => a[1].t - b[1].t);
+      persistMap = new Map(sorted.slice(sorted.length - PERSIST_MAX));
+    }
+    try {
+      const obj: Record<string, PersistEntry> = {};
+      for (const [k, v] of persistMap) obj[k] = v;
+      window.localStorage.setItem(PERSIST_KEY, JSON.stringify(obj));
+    } catch {
+      /* quota — drop silently */
+    }
+  }, 1500);
+}
+
 function cacheGet(key: string): string | undefined {
   const v = cache.get(key);
   if (v !== undefined) {
-    // LRU bump
     cache.delete(key);
     cache.set(key, v);
+    return v;
   }
-  return v;
+  // Fall back to persistent URL cache.
+  const pm = loadPersist();
+  const hit = pm.get(key);
+  if (hit) {
+    hit.t = Date.now();
+    flushPersist();
+    cache.set(key, URL_PREFIX + hit.v);
+    return URL_PREFIX + hit.v;
+  }
+  return undefined;
 }
 
 function cacheSet(key: string, val: string) {
@@ -42,7 +100,14 @@ function cacheSet(key: string, val: string) {
     if (oldest !== undefined) cache.delete(oldest);
   }
   cache.set(key, val);
+  // Persist URL entries only — base64 blobs blow past the 5MB quota fast.
+  if (val.startsWith(URL_PREFIX)) {
+    const pm = loadPersist();
+    pm.set(key, { v: val.slice(URL_PREFIX.length), t: Date.now() });
+    flushPersist();
+  }
 }
+
 
 type FetchResult =
   | { kind: "url"; url: string }
