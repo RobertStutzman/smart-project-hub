@@ -10,7 +10,7 @@ import cymbalAsset from "@/assets/audio/cymbal-swell.mp3.asset.json";
 import crowdSeamlessAsset from "@/assets/audio/crowd-ambience-seamless.wav.asset.json";
 
 const CHATTER_TARGET = 0.11;
-const CROWD_TARGET = 0.18;
+const CROWD_TARGET = 0.5;
 const DRUM_TARGET = 0.22;
 const CYMBAL_VOL = 0.6;
 const FADE_MS = 800;
