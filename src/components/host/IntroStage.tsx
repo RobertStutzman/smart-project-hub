@@ -108,12 +108,15 @@ export function IntroStage({ players, onDone }: Props) {
     const onKey = (e: KeyboardEvent) => {
       if (e.code === "Space") {
         e.preventDefault();
+        cancelled = true;
         timers.forEach((t) => window.clearTimeout(t));
+        void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
         onDoneRef.current();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => {
+      cancelled = true;
       timers.forEach((t) => window.clearTimeout(t));
       window.removeEventListener("keydown", onKey);
     };
