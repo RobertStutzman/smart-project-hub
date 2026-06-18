@@ -35,7 +35,7 @@ import { InstantReplay } from "@/components/host/InstantReplay";
 import { AudienceFeed } from "@/components/host/AudienceFeed";
 import { useHostStageMode } from "@/hooks/useHostStageMode";
 import { useHostHotkeys } from "@/hooks/useHostHotkeys";
-import { HowToPlay } from "@/components/HowToPlay";
+
 import { useWakeLock } from "@/hooks/use-wake-lock";
 
 
@@ -60,7 +60,7 @@ type Player = {
   is_audience: boolean;
 };
 
-const HOWTO_KEY = "btd:howto-shown";
+
 
 const MUTE_KEY = "btd:muted";
 
@@ -107,7 +107,7 @@ function HostPage() {
   const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
   const [hasExplanationTts, setHasExplanationTts] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [showHowTo, setShowHowTo] = useState(false);
+  
   
   const initRef = useRef(false);
   const playersRef = useRef<Player[]>([]);
@@ -800,6 +800,18 @@ function HostPage() {
   async function actuallyStart() {
     if (!room) return;
     play("whoosh");
+    // Hard-stop every lobby audio source before flipping the phase, so a
+    // mid-flight "still waiting" / join callout can't leak into IntroStage.
+    try {
+      const { cancelElfSpeech } = await import("@/lib/elf-voice");
+      cancelElfSpeech();
+    } catch {}
+    stopMusic();
+    joinQueueRef.current = [];
+    try {
+      const win = window as unknown as { __btdWelcomedRooms?: Set<string> };
+      win.__btdWelcomedRooms?.delete(room.id);
+    } catch {}
     try {
       // Always reset per-game state before launching, so a stale row from a
       // previous ended game can't bump round_number into the final-round range.
@@ -815,26 +827,15 @@ function HostPage() {
   }
 
 
+
   function handleStartClick() {
     if (!canStart) {
       setSettingsOpen(true);
       return;
     }
-    const shown = typeof window !== "undefined" && window.sessionStorage.getItem(HOWTO_KEY) === "1";
-    if (shown) {
-      actuallyStart();
-      return;
-    }
-    setShowHowTo(true);
-  }
-
-  function finishHowTo() {
-    setShowHowTo(false);
-    try {
-      window.sessionStorage.setItem(HOWTO_KEY, "1");
-    } catch {}
     actuallyStart();
   }
+
 
 
   return (
@@ -1265,7 +1266,7 @@ function HostPage() {
         )}
       </AnimatePresence>
 
-      {showHowTo && <HowToPlay onComplete={finishHowTo} />}
+      
 
 
     </main>
