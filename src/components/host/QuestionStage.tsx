@@ -160,6 +160,21 @@ export const QuestionStage = memo(function QuestionStage({
   }, [secondsLeft, totalS, phase, reading]);
   useEffect(() => () => setMusicIntensity(0), []);
 
+  // Final 3s of the question timer: fade the driving think-music bed to
+  // silence so only the accelerating heartbeat carries the tension into
+  // the time-up buzzer. Heartbeat layer is untouched.
+  const bedFadedRef = useRef<string>("");
+  useEffect(() => {
+    if (phase !== "question" || reading) {
+      bedFadedRef.current = "";
+      return;
+    }
+    if (secondsLeft <= 3 && bedFadedRef.current !== questionKey) {
+      bedFadedRef.current = questionKey;
+      fadeOutQuestionBed(Math.max(500, secondsLeft * 1000));
+    }
+  }, [secondsLeft, phase, reading, questionKey]);
+
 
 
   const { lockedByIndex, lockedCount } = useMemo<{
