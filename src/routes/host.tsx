@@ -324,20 +324,28 @@ function HostPage() {
     function onMsg(e: MessageEvent) {
       const data = e.data as { type?: string } | null;
       if (data?.type !== "parent:new-room") return;
+      // Same hard-kill order as endAndStartNewRoom: flip local UI first,
+      // then silence audio (with a short silence window), then end + create.
+      setRoomPhase("lobby");
+      setPlayers([]);
+      const killAudio = async () => {
+        const { silenceFor } = await import("@/lib/elf-voice");
+        silenceFor(1500);
+        const { silenceAllAudio } = await import("@/lib/sound-engine");
+        silenceAllAudio();
+        const ambience = await import("@/lib/ambience-engine");
+        ambience.stopAllAmbience();
+        ambience.resetAmbience();
+      };
+      void killAudio();
+      window.setTimeout(() => void killAudio(), 250);
+      window.setTimeout(() => void killAudio(), 700);
       void (async () => {
         try {
           setCreating(true);
-          const { cancelElfSpeech } = await import("@/lib/elf-voice");
-          cancelElfSpeech();
-          const { silenceAllAudio } = await import("@/lib/sound-engine");
-          silenceAllAudio();
-          const ambience = await import("@/lib/ambience-engine");
-          ambience.stopAllAmbience();
-          ambience.resetAmbience();
           const hostSessionId = newId();
           const res = await createRoomFn({ data: { hostSessionId } });
           saveHostSession({ sessionId: hostSessionId, roomCode: res.roomCode });
-          setPlayers([]);
           setRoom({ id: res.id, roomCode: res.roomCode, hostSessionId });
           toast.success(`New room ${res.roomCode}`);
         } catch (err) {
