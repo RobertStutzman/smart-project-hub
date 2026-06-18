@@ -748,7 +748,6 @@ export function silenceAllAudio() {
   stopQuestionBed(0);
   stopCreditsMusic(0);
   stopWagerBed(0);
-  stopBootMusic(0);
   // Pooled one-shot stings (audience soundboard) — pause any still playing.
   for (const a of stingPool.values()) {
     try { a.pause(); a.currentTime = 0; } catch { /* ignore */ }
