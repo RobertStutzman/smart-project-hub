@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { play, setMusicIntensity } from "@/lib/sound-engine";
+import { play, setMusicIntensity, fadeOutQuestionBed } from "@/lib/sound-engine";
 import { ShatteredFaces } from "./ShatteredFaces";
 import { ShutterTransition } from "./ShutterTransition";
 import { CategoryReveal } from "./CategoryReveal";
@@ -159,6 +159,21 @@ export const QuestionStage = memo(function QuestionStage({
     setMusicIntensity(i);
   }, [secondsLeft, totalS, phase, reading]);
   useEffect(() => () => setMusicIntensity(0), []);
+
+  // Final 3s of the question timer: fade the driving think-music bed to
+  // silence so only the accelerating heartbeat carries the tension into
+  // the time-up buzzer. Heartbeat layer is untouched.
+  const bedFadedRef = useRef<string>("");
+  useEffect(() => {
+    if (phase !== "question" || reading) {
+      bedFadedRef.current = "";
+      return;
+    }
+    if (secondsLeft <= 3 && bedFadedRef.current !== questionKey) {
+      bedFadedRef.current = questionKey;
+      fadeOutQuestionBed(Math.max(500, secondsLeft * 1000));
+    }
+  }, [secondsLeft, phase, reading, questionKey]);
 
 
 

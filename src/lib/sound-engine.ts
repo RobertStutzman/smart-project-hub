@@ -278,6 +278,7 @@ type CustomClip = { url: string; volume: number; loop: boolean };
 // Built-in default clips (CDN-hosted). Used when no admin-assigned clip
 // exists for the slot. Keeps lobby/final feeling polished out of the box.
 import lobbyTrivia from "@/assets/audio/music/lobby_trivia.mp3.asset.json";
+import questionThink from "@/assets/audio/music/question_think.mp3.asset.json";
 import finalSting from "@/assets/audio/final/final_sting.mp3.asset.json";
 import finalWagerBed from "@/assets/audio/final/final_wager_bed.mp3.asset.json";
 import creditsOutro from "@/assets/audio/music/credits_outro.mp3.asset.json";
@@ -489,6 +490,99 @@ let currentLoopMode: "lobby" | "tense" | null = null;
 let synthLoopTimer: number | null = null;
 const stingPool = new Map<string, HTMLAudioElement>();
 
+// ─── Question "think music" bed ────────────────────────────────────
+// A driving loop that plays UNDER the heartbeat during the question phase.
+// ElevenLabs voiceover ducks this by 40% (volume * 0.6); the final-3s fade
+// brings it to silence so only the heartbeat remains for max tension.
+let questionBedAudio: HTMLAudioElement | null = null;
+let questionBedBaseVol = 0.22;
+let questionBedFadeTimer: number | null = null;
+
+export function startQuestionBed(volume = 0.22) {
+  if (muted || typeof window === "undefined") return;
+  // If already playing, just re-assert volume (handles intensity nudges).
+  if (questionBedAudio && !questionBedAudio.paused) {
+    questionBedBaseVol = volume;
+    if (questionBedFadeTimer === null) {
+      questionBedAudio.volume = duckActive ? volume * 0.6 : volume;
+    }
+    return;
+  }
+  stopQuestionBed(0);
+  try {
+    questionBedAudio = new Audio(questionThink.url);
+    questionBedAudio.loop = true;
+    questionBedBaseVol = volume;
+    questionBedAudio.volume = duckActive ? volume * 0.6 : volume;
+    questionBedAudio.play().catch(() => {});
+  } catch {
+    /* noop */
+  }
+}
+
+export function stopQuestionBed(fadeMs = 250) {
+  if (questionBedFadeTimer !== null) {
+    window.clearInterval(questionBedFadeTimer);
+    questionBedFadeTimer = null;
+  }
+  const a = questionBedAudio;
+  questionBedAudio = null;
+  if (!a) return;
+  if (fadeMs <= 0) {
+    try { a.pause(); a.currentTime = 0; } catch { /* noop */ }
+    return;
+  }
+  const startVol = a.volume;
+  const steps = 10;
+  let i = 0;
+  const id = window.setInterval(() => {
+    i++;
+    a.volume = Math.max(0, startVol * (1 - i / steps));
+    if (i >= steps) {
+      window.clearInterval(id);
+      try { a.pause(); a.currentTime = 0; } catch { /* noop */ }
+    }
+  }, Math.max(15, fadeMs / steps));
+}
+
+/**
+ * Fade the question think-music bed to silence over `fadeMs` while keeping
+ * the heartbeat layer untouched. Used in the final 3 seconds of the timer
+ * so only the accelerating heartbeat remains before the time-up buzzer.
+ */
+export function fadeOutQuestionBed(fadeMs = 3000) {
+  const a = questionBedAudio;
+  if (!a) return;
+  if (questionBedFadeTimer !== null) {
+    window.clearInterval(questionBedFadeTimer);
+    questionBedFadeTimer = null;
+  }
+  const startVol = a.volume;
+  if (startVol <= 0.001) return;
+  const steps = 30;
+  let i = 0;
+  questionBedFadeTimer = window.setInterval(() => {
+    i++;
+    if (!questionBedAudio || questionBedAudio !== a) {
+      if (questionBedFadeTimer !== null) {
+        window.clearInterval(questionBedFadeTimer);
+        questionBedFadeTimer = null;
+      }
+      return;
+    }
+    a.volume = Math.max(0, startVol * (1 - i / steps));
+    if (i >= steps) {
+      if (questionBedFadeTimer !== null) {
+        window.clearInterval(questionBedFadeTimer);
+        questionBedFadeTimer = null;
+      }
+      try { a.pause(); a.currentTime = 0; } catch { /* noop */ }
+      questionBedAudio = null;
+    }
+  }, Math.max(20, fadeMs / steps));
+}
+
+
 export function loadCustomEvents(
   events: Partial<Record<GameEvent, CustomClip>>,
 ) {
@@ -568,6 +662,9 @@ export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
   }
 
   if (mode === "tense") {
+    // Driving "think music" bed (real track) layered UNDER the heartbeat.
+    // Heartbeat synth gain stays loud so it sits slightly above the bed.
+    startQuestionBed();
     // Accelerating heartbeat: lub-dub double-thump that gets faster.
     // tempoMs is reinterpreted as the ramp window — interval scales from
     // ~900ms down to ~300ms across that window. Default 12s.
@@ -579,7 +676,9 @@ export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
       if (muted || currentLoopMode !== "tense") return;
       const a = ac();
       if (a) {
-        const g = 0.55 * (duckActive ? 0.35 : 1);
+        // Slightly hotter than before so the heartbeat sits clearly above
+        // the question_think music bed even when the bed is at full volume.
+        const g = 0.7 * (duckActive ? 0.5 : 1);
         // "lub" — deeper, slightly louder
         sweep(95, 38, 0.22, "sine", g);
         // "dub" — softer second thump 140ms later
@@ -612,7 +711,7 @@ export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
 }
 
 let duckActive = false;
-/** Temporarily lower all background music (loop, credits, wager bed) under voice/TTS. */
+/** Temporarily lower all background music (loop, credits, wager bed, question bed) under voice/TTS. */
 export function duckMusic(on: boolean) {
   duckActive = on;
   if (loopAudio) {
@@ -626,10 +725,16 @@ export function duckMusic(on: boolean) {
     const base = wagerBaseVol ?? 0.32;
     wagerBedAudio.volume = on ? base * 0.35 : base;
   }
+  // Question think-music bed: 40% reduction under ElevenLabs voice (per spec).
+  if (questionBedAudio && questionBedFadeTimer === null) {
+    const base = questionBedBaseVol;
+    questionBedAudio.volume = on ? base * 0.6 : base;
+  }
 }
 
 export function stopMusic(immediate = false) {
   stopLoopAudio(immediate);
+  stopQuestionBed(immediate ? 0 : 250);
 }
 
 /**
@@ -640,6 +745,7 @@ export function stopMusic(immediate = false) {
  */
 export function silenceAllAudio() {
   stopLoopAudio(true);
+  stopQuestionBed(0);
   stopCreditsMusic(0);
   stopWagerBed(0);
   // Pooled one-shot stings (audience soundboard) — pause any still playing.
