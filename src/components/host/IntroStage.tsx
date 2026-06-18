@@ -33,11 +33,6 @@ export function IntroStage({ players, onDone }: Props) {
   useEffect(() => {
     // Hype line via TTS as the title card lands
     play("whoosh");
-    const w = window as unknown as { __btdReplayIntro?: boolean };
-    const isReplayIntro = w.__btdReplayIntro === true;
-    if (isReplayIntro) {
-      w.__btdReplayIntro = false;
-    }
 
     const timers: number[] = [];
     const at = (ms: number, fn: () => void) =>
