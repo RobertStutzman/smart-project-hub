@@ -569,6 +569,9 @@ export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
   }
 
   if (mode === "tense") {
+    // Driving "think music" bed (real track) layered UNDER the heartbeat.
+    // Heartbeat synth gain stays loud so it sits slightly above the bed.
+    startQuestionBed();
     // Accelerating heartbeat: lub-dub double-thump that gets faster.
     // tempoMs is reinterpreted as the ramp window — interval scales from
     // ~900ms down to ~300ms across that window. Default 12s.
@@ -580,7 +583,9 @@ export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
       if (muted || currentLoopMode !== "tense") return;
       const a = ac();
       if (a) {
-        const g = 0.55 * (duckActive ? 0.35 : 1);
+        // Slightly hotter than before so the heartbeat sits clearly above
+        // the question_think music bed even when the bed is at full volume.
+        const g = 0.7 * (duckActive ? 0.5 : 1);
         // "lub" — deeper, slightly louder
         sweep(95, 38, 0.22, "sine", g);
         // "dub" — softer second thump 140ms later
