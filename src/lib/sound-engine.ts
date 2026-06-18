@@ -618,7 +618,7 @@ export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
 }
 
 let duckActive = false;
-/** Temporarily lower all background music (loop, credits, wager bed) under voice/TTS. */
+/** Temporarily lower all background music (loop, credits, wager bed, question bed) under voice/TTS. */
 export function duckMusic(on: boolean) {
   duckActive = on;
   if (loopAudio) {
@@ -632,10 +632,16 @@ export function duckMusic(on: boolean) {
     const base = wagerBaseVol ?? 0.32;
     wagerBedAudio.volume = on ? base * 0.35 : base;
   }
+  // Question think-music bed: 40% reduction under ElevenLabs voice (per spec).
+  if (questionBedAudio && questionBedFadeTimer === null) {
+    const base = questionBedBaseVol;
+    questionBedAudio.volume = on ? base * 0.6 : base;
+  }
 }
 
 export function stopMusic(immediate = false) {
   stopLoopAudio(immediate);
+  stopQuestionBed(immediate ? 0 : 250);
 }
 
 /**
