@@ -95,7 +95,7 @@ export const getCustomOrder = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     if (!order) throw new Error("Order not found");
 
-    let questions: Array<Record<string, unknown>> = [];
+    let questions: unknown[] = [];
     const pack = (order as { pack: { category_tag?: string } | null }).pack;
     if (pack?.category_tag) {
       const { data: qs } = await supabaseAdmin
