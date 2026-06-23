@@ -1401,3 +1401,47 @@ function LobbyTipCarousel() {
   );
 }
 
+function CustomCodeEntry({ onSubmit }: { onSubmit: (code: string) => void }) {
+  const [value, setValue] = useState("");
+  const [open, setOpen] = useState(false);
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="mt-[1vh] text-[clamp(0.65rem,1.2vh,0.8rem)] text-white/40 underline-offset-2 hover:text-amber-200 hover:underline"
+      >
+        Have a custom pack code?
+      </button>
+    );
+  }
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const code = value.trim().toUpperCase();
+        if (code.length < 4) return;
+        onSubmit(code);
+      }}
+      className="mt-[1vh] flex items-center gap-2"
+    >
+      <input
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value.toUpperCase())}
+        placeholder="PACK CODE"
+        maxLength={12}
+        className="w-36 rounded-lg border border-amber-400/40 bg-black/40 px-3 py-1.5 text-center font-mono text-sm font-bold uppercase tracking-widest text-amber-200 focus:outline-none"
+      />
+      <button
+        type="submit"
+        className="rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950 hover:bg-amber-300"
+      >
+        Load
+      </button>
+      <button type="button" onClick={() => setOpen(false)} className="text-xs text-white/40 hover:text-white">
+        ✕
+      </button>
+    </form>
+  );
+}
+
