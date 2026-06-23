@@ -127,7 +127,7 @@ type Props = {
 // Elapsed seconds (from question_started_at) at which each wrong answer drops.
 // Driven off elapsed time so the elimination sequence ALWAYS plays out,
 // even when every player locks in immediately.
-const DROP_AT_ELAPSED_S = [6, 9, 12];
+const DROP_AT_ELAPSED_S = [8, 13, 17];
 // After the final wrong answer drops, hold on the lone correct answer
 // for this long before triggering endQuestion / reveal.
 const FINAL_HOLD_MS = 2500;
@@ -504,8 +504,10 @@ export function HostGameStage({ room }: Props) {
     }
 
     // schedule drops based on ELAPSED time so the elimination sequence
-    // always plays out, regardless of how fast players lock in
-    DROP_AT_ELAPSED_S.forEach((thresholdElapsed, idx) => {
+    // always plays out, regardless of how fast players lock in.
+    // Lightning round: no drops — answer right or wrong, no help.
+    const skipDrops = state.wildcard === "lightning";
+    if (!skipDrops) DROP_AT_ELAPSED_S.forEach((thresholdElapsed, idx) => {
       if (elapsedS >= thresholdElapsed && !droppedRef.current.has(idx)) {
         droppedRef.current.add(idx);
         dropWrongFn({
@@ -1723,6 +1725,7 @@ export function HostGameStage({ room }: Props) {
           mediaUrl={(state as { current_media_url?: string | null }).current_media_url ?? null}
           mediaType={(state as { current_media_type?: string | null }).current_media_type ?? null}
           category={state.current_category}
+          questionNumber={null}
         />
 
 
