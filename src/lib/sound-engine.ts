@@ -464,6 +464,7 @@ let wagerBedAudio: HTMLAudioElement | null = null;
 let wagerBaseVol: number | null = null;
 export function playWagerBed(volume = 0.35) {
   if (muted || typeof window === "undefined") return;
+  if (!canUseAudioUrl(finalWagerBed.url)) return;
   stopWagerBed();
   stopOtherMusic("wager", 450);
   try {
@@ -510,6 +511,7 @@ let questionBedFadeTimer: number | null = null;
 
 export function startQuestionBed(volume = 0.22) {
   if (muted || typeof window === "undefined") return;
+  if (!canUseAudioUrl(questionThink.url)) return;
   // If already playing, just re-assert volume (handles intensity nudges).
   if (questionBedAudio && !questionBedAudio.paused) {
     questionBedBaseVol = volume;
@@ -649,7 +651,7 @@ export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
 
   if (mode === "lobby") {
     const clip = eventClips.lobby_music;
-    if (clip) {
+    if (clip && canUseAudioUrl(clip.url)) {
       if (typeof window === "undefined") return;
       loopAudio = new Audio(clip.url);
       loopAudio.loop = clip.loop;
@@ -772,7 +774,7 @@ export function silenceAllAudio() {
 export function playEvent(event: GameEvent) {
   if (muted) return;
   const clip = eventClips[event];
-  if (clip && typeof window !== "undefined") {
+  if (clip && canUseAudioUrl(clip.url) && typeof window !== "undefined") {
     const audio = new Audio(clip.url);
     audio.volume = Math.max(0, Math.min(1, clip.volume));
     audio.play().catch(() => {});
@@ -851,8 +853,13 @@ export function playRandomDrop() {
     play("drop");
     return;
   }
-  const pool = DROP_BANK.filter((c) => c.url !== lastDropUrl);
-  const choices = pool.length > 0 ? pool : DROP_BANK;
+  const playableBank = DROP_BANK.filter((c) => canUseAudioUrl(c.url));
+  if (playableBank.length === 0) {
+    play("drop");
+    return;
+  }
+  const pool = playableBank.filter((c) => c.url !== lastDropUrl);
+  const choices = pool.length > 0 ? pool : playableBank;
   const total = choices.reduce((s, c) => s + c.weight, 0);
   let r = Math.random() * total;
   let pick = choices[0];
