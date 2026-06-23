@@ -272,6 +272,8 @@ function HostPage() {
   // picker server-side sees the right filter on the very first round.
   useEffect(() => {
     if (!room) return;
+    // Custom-pack rooms have their own private category — never overwrite it.
+    if (customPackTitle) return;
     let cancelled = false;
     void (async () => {
       try {
