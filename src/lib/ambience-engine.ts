@@ -471,7 +471,7 @@ export function retryBlockedAmbience(): void {
 export function climaxAndHandoff() {
   if (!isClient() || handedOff) return;
   handedOff = true;
-  if (!muted) {
+  if (!muted && canUseAudioUrl(cymbalAsset.url)) {
     const swell = new Audio(cymbalAsset.url);
     swell.volume = CYMBAL_VOL;
     swell.play().catch(() => {});
