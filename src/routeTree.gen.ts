@@ -17,6 +17,7 @@ import { Route as JoinRouteImport } from './routes/join'
 import { Route as HostRouteImport } from './routes/host'
 import { Route as HRouteImport } from './routes/h'
 import { Route as DevRouteImport } from './routes/dev'
+import { Route as CustomRouteImport } from './routes/custom'
 import { Route as AudienceRouteImport } from './routes/audience'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
@@ -70,6 +71,11 @@ const HRoute = HRouteImport.update({
 const DevRoute = DevRouteImport.update({
   id: '/dev',
   path: '/dev',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CustomRoute = CustomRouteImport.update({
+  id: '/custom',
+  path: '/custom',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AudienceRoute = AudienceRouteImport.update({
@@ -149,6 +155,7 @@ const ApiPublicHooksCleanupAvatarsRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/audience': typeof AudienceRoute
+  '/custom': typeof CustomRoute
   '/dev': typeof DevRoute
   '/h': typeof HRoute
   '/host': typeof HostRoute
@@ -172,6 +179,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/audience': typeof AudienceRoute
+  '/custom': typeof CustomRoute
   '/dev': typeof DevRoute
   '/h': typeof HRoute
   '/host': typeof HostRoute
@@ -197,6 +205,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/audience': typeof AudienceRoute
+  '/custom': typeof CustomRoute
   '/dev': typeof DevRoute
   '/h': typeof HRoute
   '/host': typeof HostRoute
@@ -222,6 +231,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/audience'
+    | '/custom'
     | '/dev'
     | '/h'
     | '/host'
@@ -245,6 +255,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/audience'
+    | '/custom'
     | '/dev'
     | '/h'
     | '/host'
@@ -269,6 +280,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/audience'
+    | '/custom'
     | '/dev'
     | '/h'
     | '/host'
@@ -294,6 +306,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AudienceRoute: typeof AudienceRoute
+  CustomRoute: typeof CustomRoute
   DevRoute: typeof DevRoute
   HRoute: typeof HRoute
   HostRoute: typeof HostRoute
@@ -368,6 +381,13 @@ declare module '@tanstack/react-router' {
       path: '/dev'
       fullPath: '/dev'
       preLoaderRoute: typeof DevRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/custom': {
+      id: '/custom'
+      path: '/custom'
+      fullPath: '/custom'
+      preLoaderRoute: typeof CustomRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/audience': {
@@ -491,6 +511,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AudienceRoute: AudienceRoute,
+  CustomRoute: CustomRoute,
   DevRoute: DevRoute,
   HRoute: HRoute,
   HostRoute: HostRoute,
