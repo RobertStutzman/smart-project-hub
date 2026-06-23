@@ -275,6 +275,12 @@ function playInner(sfx: Sfx) {
 
 type CustomClip = { url: string; volume: number; loop: boolean };
 
+function canUseAudioUrl(url: string | null | undefined): url is string {
+  // The generated /__l5e asset URLs can be absent in preview/published builds;
+  // when that happens, prefer synth fallbacks over noisy 404s or dead audio.
+  return !!url && !url.startsWith("/__l5e/");
+}
+
 // Built-in default clips (CDN-hosted). Used when no admin-assigned clip
 // exists for the slot. Keeps lobby/final feeling polished out of the box.
 import lobbyTrivia from "@/assets/audio/music/lobby_trivia.mp3.asset.json";
@@ -296,6 +302,7 @@ const TICK_CLIP_URLS: Record<"tick" | "tickHeavy", string> = {
 const tickPool: Partial<Record<"tick" | "tickHeavy", HTMLAudioElement>> = {};
 function playTickClip(kind: "tick" | "tickHeavy", baseVolume: number): boolean {
   if (typeof window === "undefined") return false;
+  if (!canUseAudioUrl(TICK_CLIP_URLS[kind])) return false;
   try {
     let a = tickPool[kind];
     if (!a) {
@@ -329,6 +336,7 @@ let bootVoiceAudio: HTMLAudioElement | null = null;
 /** Start the boot intro music sting (one-shot, ~9s) with a short fade-in. */
 export function playBootMusic(volume = 0.78) {
   if (muted || typeof window === "undefined") return;
+  if (!canUseAudioUrl(bootSting.url)) return;
   stopBootMusic(0);
   stopOtherMusic("boot", 400);
   try {
@@ -380,6 +388,7 @@ export function stopBootMusic(fadeMs = 600) {
 /** Play the voiced station ID over the boot music, auto-ducking the bed. */
 export function playBootStationId(volume = 0.95) {
   if (muted || typeof window === "undefined") return;
+  if (!canUseAudioUrl(bootStationId.url)) return;
   try {
     if (bootVoiceAudio) {
       bootVoiceAudio.pause();
@@ -407,6 +416,7 @@ let creditsAudio: HTMLAudioElement | null = null;
 let creditsBaseVol: number | null = null;
 export function playCreditsMusic(volume = 0.32) {
   if (muted || typeof window === "undefined") return;
+  if (!canUseAudioUrl(creditsOutro.url)) return;
   const base = Math.max(0, Math.min(1, volume));
   // If the same track is already playing, just adjust volume — avoids
   // a stop+restart "blip" when recap hands off to credits.
