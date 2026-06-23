@@ -11,19 +11,40 @@ type Player = {
 
 type Props = {
   players: Player[];
-  /** Called when the intro finishes its 8-9s sequence. */
+  /** Called when the intro finishes its ~6s sequence. */
   onDone: () => void;
 };
 
-/**
- * Cold open: title card → "Tonight's contestants" roster → GO stinger.
- * Total runtime ≈ 8.5s. Host can press Space to skip.
- */
+// ── Fixed timeline (ms from mount) ─────────────────────────────────────────
+// Everything is derived from elapsed time so chained setTimeout drift on slow
+// devices cannot stretch the countdown. The visual digits are authoritative;
+// voice/audio is decoration that gets dropped if it can't keep up.
+const T_ROSTER = 450;
+const T_HERE_WE_GO = 850;
+const T_COUNT_3 = 1650;
+const T_COUNT_2 = T_COUNT_3 + 1000;
+const T_COUNT_1 = T_COUNT_3 + 2000;
+const T_GO = T_COUNT_3 + 3000;
+const T_DONE = T_GO + 350;
+
+type Step = "title" | "roster" | "countdown" | "go";
+
+function stepFor(elapsed: number): Step {
+  if (elapsed < T_ROSTER) return "title";
+  if (elapsed < T_COUNT_3) return "roster";
+  if (elapsed < T_GO) return "countdown";
+  return "go";
+}
+
+function digitFor(elapsed: number): 3 | 2 | 1 {
+  if (elapsed < T_COUNT_2) return 3;
+  if (elapsed < T_COUNT_1) return 2;
+  return 1;
+}
+
 export function IntroStage({ players, onDone }: Props) {
-  const [step, setStep] = useState<
-    "title" | "roster" | "countdown" | "go"
-  >("title");
-  const [count, setCount] = useState(3);
+  const [step, setStep] = useState<Step>("title");
+  const [count, setCount] = useState<3 | 2 | 1>(3);
   const onDoneRef = useRef(onDone);
 
   useEffect(() => {
@@ -31,42 +52,33 @@ export function IntroStage({ players, onDone }: Props) {
   }, [onDone]);
 
   useEffect(() => {
-    // Hard-clear any lobby/join announcer audio so it can't sit in front of
-    // the intro countdown. Without this, "Here we go!" and the 3/2/1 lines
-    // queue behind stale callouts and play during the first question.
+    // Clear any lobby/join announcer audio so it can't sit in front of the
+    // intro countdown.
     void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
 
+    const t0 = performance.now();
     play("whoosh");
 
-    const timers: number[] = [];
-    const at = (ms: number, fn: () => void) =>
-      timers.push(window.setTimeout(fn, ms));
-
-    // Timing budget:
-    //   t=0       whoosh + title card
-    //   t=450     roster + walk-on stingers
-    //   t=900     "Here we go!" (interrupting, P1)
-    //   t≈1.8s    countdown: 3 → 2 → 1 → GO at exact 1s ticks
-    //   +3.3s     onDone → first question (queue cleared)
-
-    at(450, () => setStep("roster"));
-    {
-      const maxStingers = Math.min(players.length, 8);
-      for (let i = 0; i < maxStingers; i++) {
-        at(520 + i * 80, () => playWalkOnStinger(i));
-      }
-    }
+    // Mark global timings for verification harnesses (Playwright). No-op in
+    // production browsers — just a sparse object we read in tests.
+    const marks: Record<string, number> = {};
+    (window as unknown as { __introTimings?: Record<string, number> }).__introTimings = marks;
+    const mark = (name: string) => { marks[name] = performance.now() - t0; };
+    mark("mount");
 
     let cancelled = false;
-    let countdownStarted = false;
-    const TICK_MS = 1000;
-    const HERE_WE_GO_AT = 850;
-    const COUNTDOWN_AT = 1650;
+    let rafId = 0;
+    let lastStep: Step = "title";
+    let lastDigit: 3 | 2 | 1 = 3;
+    let firedHereWeGo = false;
+    let firedDigitVoice: Record<3 | 2 | 1, boolean> = { 3: false, 2: false, 1: false };
+    let firedGoWhoosh = false;
+    let firedDone = false;
 
     const speakDigit = (n: 3 | 2 | 1) => {
-      // Voice digits are optional decoration; the visual countdown is the
-      // source of truth. If a digit can't start before the next tick, drop it
-      // instead of letting it leak into the first question.
+      if (firedDigitVoice[n]) return;
+      firedDigitVoice[n] = true;
+      mark(`voice_${n}`);
       void import("@/lib/elf-voice").then((m) => {
         if (cancelled) return;
         void m.speakAsElf(`${n === 3 ? "Three" : n === 2 ? "Two" : "One"}!`, {
@@ -78,64 +90,74 @@ export function IntroStage({ players, onDone }: Props) {
       });
     };
 
-    const startCountdown = () => {
-      if (cancelled || countdownStarted) return;
-      countdownStarted = true;
-      setStep("countdown");
-      setCount(3);
-      play("tick");
-      speakDigit(3);
-      at(TICK_MS, () => {
-        if (cancelled) return;
-        setCount(2);
+    const loop = () => {
+      if (cancelled) return;
+      const elapsed = performance.now() - t0;
+      const nextStep = stepFor(elapsed);
+      const nextDigit = digitFor(elapsed);
+
+      if (nextStep !== lastStep) {
+        mark(`step_${nextStep}`);
+        lastStep = nextStep;
+        setStep(nextStep);
+        if (nextStep === "countdown") {
+          play("tick");
+        } else if (nextStep === "go" && !firedGoWhoosh) {
+          firedGoWhoosh = true;
+          play("whoosh");
+        }
+      }
+      if (nextStep === "countdown" && nextDigit !== lastDigit) {
+        mark(`digit_${nextDigit}`);
+        lastDigit = nextDigit;
+        setCount(nextDigit);
         play("tick");
-        speakDigit(2);
-      });
-      at(TICK_MS * 2, () => {
-        if (cancelled) return;
-        setCount(1);
-        play("tick");
-        speakDigit(1);
-      });
-      at(TICK_MS * 3, () => {
-        if (cancelled) return;
-        setStep("go");
-        play("whoosh");
-      });
-      at(TICK_MS * 3 + 300, () => {
-        if (cancelled) return;
-        // Drop any digit still sitting in the queue so it can't play over
-        // the first question read.
+      }
+      // Voice cues fire once when their slot is reached.
+      if (!firedHereWeGo && elapsed >= T_HERE_WE_GO) {
+        firedHereWeGo = true;
+        mark("here_we_go");
+        void import("@/lib/elf-voice").then((m) => {
+          if (cancelled) return;
+          void m.speakAsElf("Here we go!", {
+            preset: "hype",
+            interrupt: true,
+            priority: 1,
+            deadline: Date.now() + 850,
+          });
+        });
+      }
+      if (nextStep === "countdown") speakDigit(nextDigit);
+
+      if (!firedDone && elapsed >= T_DONE) {
+        firedDone = true;
+        mark("done");
+        // Drop any lingering digit so it can't play over the first question.
         void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
         onDoneRef.current();
-      });
+        return; // stop loop after handoff
+      }
+      rafId = window.requestAnimationFrame(loop);
     };
+    rafId = window.requestAnimationFrame(loop);
 
-    at(HERE_WE_GO_AT, () => {
-      if (cancelled) return;
-      void import("@/lib/elf-voice").then((m) => {
-        if (cancelled || countdownStarted) return;
-        void m.speakAsElf("Here we go!", {
-          preset: "hype",
-          interrupt: true,
-          priority: 1,
-          deadline: Date.now() + 850,
-        });
-      });
-    });
-
-    // The visual 3-2-1 must never depend on TTS finishing, fetching, or being
-    // allowed by browser autoplay. It starts on a fixed beat every time.
-    at(COUNTDOWN_AT, startCountdown);
-
-
-
+    // Walk-on stingers — pure ear candy, fire on chained timeouts.
+    const stingerTimers: number[] = [];
+    const maxStingers = Math.min(players.length, 8);
+    for (let i = 0; i < maxStingers; i++) {
+      stingerTimers.push(
+        window.setTimeout(() => {
+          if (!cancelled) playWalkOnStinger(i);
+        }, 520 + i * 80),
+      );
+    }
 
     const onKey = (e: KeyboardEvent) => {
       if (e.code === "Space") {
         e.preventDefault();
         cancelled = true;
-        timers.forEach((t) => window.clearTimeout(t));
+        window.cancelAnimationFrame(rafId);
+        stingerTimers.forEach((t) => window.clearTimeout(t));
         void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
         onDoneRef.current();
       }
@@ -143,11 +165,11 @@ export function IntroStage({ players, onDone }: Props) {
     window.addEventListener("keydown", onKey);
     return () => {
       cancelled = true;
-      timers.forEach((t) => window.clearTimeout(t));
+      window.cancelAnimationFrame(rafId);
+      stingerTimers.forEach((t) => window.clearTimeout(t));
       window.removeEventListener("keydown", onKey);
     };
   }, [players.length]);
-
 
   return (
     <div
@@ -260,7 +282,6 @@ export function IntroStage({ players, onDone }: Props) {
         )}
 
         {step === "go" && (
-
           <motion.div
             key="go"
             initial={{ opacity: 0, scale: 0.7 }}
@@ -270,6 +291,7 @@ export function IntroStage({ players, onDone }: Props) {
             className="relative text-center"
           >
             <div
+              data-testid="intro-go"
               className="font-display text-[20vw] font-black uppercase leading-none tracking-tight text-transparent sm:text-[14vw]"
               style={{
                 backgroundImage:
@@ -286,9 +308,7 @@ export function IntroStage({ players, onDone }: Props) {
       </AnimatePresence>
 
       {/* Countdown digit rendered outside the wait-mode AnimatePresence so
-          each tick (3 → 2 → 1) doesn't have to wait for the previous to
-          finish exiting before appearing. Without this, only the final
-          digit was visible long enough to read. */}
+          each tick doesn't have to wait for the previous to finish exiting. */}
       {step === "countdown" && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center">
           <div className="text-center">
@@ -298,6 +318,7 @@ export function IntroStage({ players, onDone }: Props) {
             <AnimatePresence>
               <motion.div
                 key={`count-${count}`}
+                data-testid={`intro-count-${count}`}
                 initial={{ opacity: 0, scale: 0.6 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 1.4 }}

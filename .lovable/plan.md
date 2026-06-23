@@ -1,21 +1,25 @@
-I’ll fix the intro sequence at the source instead of tuning more delays.
+Plan to verify and fix the countdown timing properly:
 
-Plan:
-1. **Clear stale announcer audio when intro starts**
-   - As soon as `IntroStage` mounts, hard-cancel the Elf voice queue so lobby/join callouts cannot sit ahead of the intro countdown.
+1. Establish exact timing checkpoints
+   - Capture timestamps for these visible states: intro mount, “Here we go!”, `3`, `2`, `1`, `GO`, first question mount, question text reveal, answer reveal.
+   - Acceptance target: `3 → 2 → 1 → GO` at 1.0s intervals, and the first question must not mount until after `GO` has displayed and intro voice has been cleared.
 
-2. **Make “Here we go!” own the handoff**
-   - Play “Here we go!” as an interrupting, game-critical line.
-   - Start the visual `3 → 2 → 1` countdown only after that line finishes, with a bounded fallback so it cannot hang forever.
-   - Do not let a late queued “Here we go!” play after the countdown starts.
+2. Run browser verification on the live preview
+   - Use Playwright against the running app, not just source inspection.
+   - Automate a host start flow and record DOM/visual state transitions frame-by-frame.
+   - Save screenshots/timestamps for each countdown state and the first question state.
 
-3. **Stop queuing countdown numbers behind unrelated audio**
-   - Either interrupt/clear before each countdown cue or suppress stale countdown TTS if it misses its tick window.
-   - The visual countdown remains authoritative: `3`, `2`, `1`, `GO` at exact 1-second intervals.
+3. Test slow-device behavior
+   - Re-run the same flow with CPU throttling enabled to simulate a slow laptop/mobile-class device.
+   - Verify timers remain based on elapsed time, not delayed animation completion or ElevenLabs latency.
 
-4. **Prevent first-question overlap**
-   - Delay `onDone()` until the countdown sequence has fully completed.
-   - Immediately cancel any remaining countdown/intro voice task before calling `nextQuestion`, so no `3/2/1` audio can start on the first question screen.
+4. Test repeated transitions
+   - Repeat the start/intro/first-question sequence multiple times where possible.
+   - Advance through at least a few question/leaderboard transitions to confirm no stale `3/2/1` audio or visual state appears in later rounds.
 
-5. **Verify timing in code paths**
-   - Check that the intro phase cannot advance to the first question until after `GO`, and that queued voice/audio is cleared at that boundary.
+5. Fix only if verification shows drift
+   - If the countdown is late, skipped, or overlaps the first question, adjust the source so the intro uses a single monotonic timeline and a guarded `onDone` handoff.
+   - If slow devices drop animation frames, keep the visual state deterministic by deriving the displayed countdown from elapsed time instead of chained timeouts.
+
+6. Report actual measured results
+   - Provide measured timings, pass/fail against the target, and any code changes made if the verification exposes a real issue.
