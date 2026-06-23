@@ -28,6 +28,7 @@ import wahwah from "@/assets/audio/funny/wahwah.mp3.asset.json";
 import nooo from "@/assets/audio/funny/nooo.mp3.asset.json";
 import snore from "@/assets/audio/funny/snore.mp3.asset.json";
 import vineboom from "@/assets/audio/funny/vineboom.mp3.asset.json";
+import { play } from "@/lib/sound-engine";
 
 export type FunnySound = {
   id: string;
@@ -107,9 +108,9 @@ function playClip(clip: FunnySound, opts?: { delayMs?: number; volume?: number }
       }
       audio.currentTime = 0;
       audio.volume = Math.max(0, Math.min(1, opts?.volume ?? clip.volume));
-      audio.play().catch(() => {});
+      audio.play().catch(() => play("drop", 0.55));
     } catch {
-      /* ignore */
+      play("drop", 0.55);
     }
   };
   if (opts?.delayMs && opts.delayMs > 0) {
@@ -141,14 +142,9 @@ export function playFunnySoundById(
 
 // Preload all clips so the first play is instant.
 export function preloadFunnyBank() {
-  if (typeof window === "undefined") return;
-  for (const clip of FUNNY_BANK) {
-    if (!pool.has(clip.url)) {
-      const a = new Audio(clip.url);
-      a.preload = "auto";
-      pool.set(clip.url, a);
-    }
-  }
+  // Avoid eagerly fetching dozens of optional gag clips. Some deployments may
+  // not have every bundled clip available; lazy playback falls back to synth.
+  return;
 }
 
 /** Hard-stop any funny sound currently playing (used at room reset). */
