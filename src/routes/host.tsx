@@ -72,6 +72,7 @@ const CATEGORIES_KEY = "btd:enabled-categories:v2";
 
 function HostPage() {
   const navigate = useNavigate();
+  const { code: customPackCode } = Route.useSearch();
   const { theme } = useTheme();
   const { isFullscreen, toggleFullscreen } = useHostStageMode();
   useHostHotkeys(toggleFullscreen);
