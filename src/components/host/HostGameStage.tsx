@@ -1198,9 +1198,10 @@ export function HostGameStage({ room }: Props) {
       if (finalAdvancedRef.current === key) return;
 
       const qid = state.current_question_id ?? null;
-      const hasExplanation = !!state.current_explanation;
+      const hasExplanation = !!state.current_explanation_tts_url;
       const MIN_HOLD_MS = 7000; // never snap the winner up faster than the old timer
-      const SAFETY_CAP_MS = 45000;
+      const SPEECH_START_DEADLINE_MS = 6500;
+      const SAFETY_CAP_MS = 18000;
       const POLL_MS = 200;
       const start = Date.now();
 
@@ -1235,6 +1236,11 @@ export function HostGameStage({ room }: Props) {
           if (hasExplanation && qid) {
             const exp = getExplanationStateFor(qid);
             if (exp.expected && exp.ended && elapsed >= MIN_HOLD_MS) {
+              if (pollId !== null) window.clearInterval(pollId);
+              pollId = null;
+              fire();
+            }
+            if (!exp.expected && elapsed >= SPEECH_START_DEADLINE_MS) {
               if (pollId !== null) window.clearInterval(pollId);
               pollId = null;
               fire();
