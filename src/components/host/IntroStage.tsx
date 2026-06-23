@@ -60,21 +60,20 @@ export function IntroStage({ players, onDone }: Props) {
     let cancelled = false;
     let countdownStarted = false;
     const TICK_MS = 1000;
-    const HERE_WE_GO_AT = 900;
-    // Safety net: if TTS hangs, fall through to countdown anyway.
-    const HERE_WE_GO_SAFETY_MS = 2400;
+    const HERE_WE_GO_AT = 850;
+    const COUNTDOWN_AT = 1650;
 
     const speakDigit = (n: 3 | 2 | 1) => {
-      // Each digit interrupts whatever's playing and carries a tight deadline:
-      // if it can't start within ~900ms (before the next tick), drop it
-      // entirely rather than letting it leak into the first question.
+      // Voice digits are optional decoration; the visual countdown is the
+      // source of truth. If a digit can't start before the next tick, drop it
+      // instead of letting it leak into the first question.
       void import("@/lib/elf-voice").then((m) => {
         if (cancelled) return;
         void m.speakAsElf(`${n === 3 ? "Three" : n === 2 ? "Two" : "One"}!`, {
           preset: "hype",
-          interrupt: true,
+          interrupt: false,
           priority: 1,
-          deadline: Date.now() + 900,
+          deadline: Date.now() + 850,
         });
       });
     };
@@ -82,8 +81,6 @@ export function IntroStage({ players, onDone }: Props) {
     const startCountdown = () => {
       if (cancelled || countdownStarted) return;
       countdownStarted = true;
-      // Make absolutely sure nothing precedes "Three!"
-      void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
       setStep("countdown");
       setCount(3);
       play("tick");
@@ -116,21 +113,20 @@ export function IntroStage({ players, onDone }: Props) {
 
     at(HERE_WE_GO_AT, () => {
       if (cancelled) return;
-      // Hard safety net so a stalled TTS request can't block the show.
-      at(HERE_WE_GO_SAFETY_MS, startCountdown);
-      void import("@/lib/elf-voice")
-        .then((m) => {
-          if (cancelled || countdownStarted) return undefined;
-          return m.speakAsElf("Here we go!", {
-            preset: "hype",
-            interrupt: true,
-            priority: 1,
-            deadline: Date.now() + 2200,
-          });
-        })
-        .then(startCountdown)
-        .catch(startCountdown);
+      void import("@/lib/elf-voice").then((m) => {
+        if (cancelled || countdownStarted) return;
+        void m.speakAsElf("Here we go!", {
+          preset: "hype",
+          interrupt: true,
+          priority: 1,
+          deadline: Date.now() + 850,
+        });
+      });
     });
+
+    // The visual 3-2-1 must never depend on TTS finishing, fetching, or being
+    // allowed by browser autoplay. It starts on a fixed beat every time.
+    at(COUNTDOWN_AT, startCountdown);
 
 
 
