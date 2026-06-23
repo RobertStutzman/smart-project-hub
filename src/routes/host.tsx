@@ -111,6 +111,8 @@ function HostPage() {
   const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
   const [hasExplanationTts, setHasExplanationTts] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [customPackTitle, setCustomPackTitle] = useState<string | null>(null);
+  
   
   
   const initRef = useRef(false);
