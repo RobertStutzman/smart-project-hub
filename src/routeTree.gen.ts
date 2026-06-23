@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PreviewQuestionRouteImport } from './routes/preview-question'
+import { Route as PreviewIntroRouteImport } from './routes/preview-intro'
 import { Route as PlayRouteImport } from './routes/play'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as JoinRouteImport } from './routes/join'
@@ -34,6 +35,11 @@ import { Route as ApiPublicHooksCleanupAvatarsRouteImport } from './routes/api/p
 const PreviewQuestionRoute = PreviewQuestionRouteImport.update({
   id: '/preview-question',
   path: '/preview-question',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PreviewIntroRoute = PreviewIntroRouteImport.update({
+  id: '/preview-intro',
+  path: '/preview-intro',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlayRoute = PlayRouteImport.update({
@@ -149,6 +155,7 @@ export interface FileRoutesByFullPath {
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/play': typeof PlayRoute
+  '/preview-intro': typeof PreviewIntroRoute
   '/preview-question': typeof PreviewQuestionRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/play': typeof PlayRoute
+  '/preview-intro': typeof PreviewIntroRoute
   '/preview-question': typeof PreviewQuestionRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
@@ -195,6 +203,7 @@ export interface FileRoutesById {
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/play': typeof PlayRoute
+  '/preview-intro': typeof PreviewIntroRoute
   '/preview-question': typeof PreviewQuestionRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/admin-questions': typeof AuthenticatedAdminQuestionsRoute
@@ -219,6 +228,7 @@ export interface FileRouteTypes {
     | '/join'
     | '/login'
     | '/play'
+    | '/preview-intro'
     | '/preview-question'
     | '/admin'
     | '/admin-questions'
@@ -241,6 +251,7 @@ export interface FileRouteTypes {
     | '/join'
     | '/login'
     | '/play'
+    | '/preview-intro'
     | '/preview-question'
     | '/admin'
     | '/admin-questions'
@@ -264,6 +275,7 @@ export interface FileRouteTypes {
     | '/join'
     | '/login'
     | '/play'
+    | '/preview-intro'
     | '/preview-question'
     | '/_authenticated/admin'
     | '/_authenticated/admin-questions'
@@ -288,6 +300,7 @@ export interface RootRouteChildren {
   JoinRoute: typeof JoinRoute
   LoginRoute: typeof LoginRoute
   PlayRoute: typeof PlayRoute
+  PreviewIntroRoute: typeof PreviewIntroRoute
   PreviewQuestionRoute: typeof PreviewQuestionRoute
   LegalContactRoute: typeof LegalContactRoute
   LegalPrivacyRoute: typeof LegalPrivacyRoute
@@ -306,6 +319,13 @@ declare module '@tanstack/react-router' {
       path: '/preview-question'
       fullPath: '/preview-question'
       preLoaderRoute: typeof PreviewQuestionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/preview-intro': {
+      id: '/preview-intro'
+      path: '/preview-intro'
+      fullPath: '/preview-intro'
+      preLoaderRoute: typeof PreviewIntroRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/play': {
@@ -477,6 +497,7 @@ const rootRouteChildren: RootRouteChildren = {
   JoinRoute: JoinRoute,
   LoginRoute: LoginRoute,
   PlayRoute: PlayRoute,
+  PreviewIntroRoute: PreviewIntroRoute,
   PreviewQuestionRoute: PreviewQuestionRoute,
   LegalContactRoute: LegalContactRoute,
   LegalPrivacyRoute: LegalPrivacyRoute,
