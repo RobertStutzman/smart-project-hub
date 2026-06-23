@@ -654,23 +654,33 @@ export function HostGameStage({ room }: Props) {
       window.clearTimeout(introBedTimerRef.current);
       introBedTimerRef.current = null;
     }
-    if (
-      state.phase === "question" ||
-      state.phase === "final_question"
-    )
+    if (state.phase === "question") {
       startMusic("tense", 380);
-    else if (state.phase === "reveal" || state.phase === "final_reveal")
+      void import("@/lib/sound-engine").then((m) => m.stopWagerBed(400));
+    }
+    else if (state.phase === "final_question") {
+      // Final question: cinematic orchestral bed (no beepy heartbeat).
       stopMusic();
+      void import("@/lib/sound-engine").then((m) => m.playWagerBed(0.38));
+    }
+    else if (state.phase === "reveal" || state.phase === "final_reveal") {
+      stopMusic();
+      void import("@/lib/sound-engine").then((m) => m.stopWagerBed(500));
+    }
     else if (state.phase === "intro")
       startMusic("lobby", 600);
     else if (state.phase === "lobby" || state.phase === "leaderboard") {
       // Lobby plays the trivia bed under the crowd ambience.
       startMusic("lobby", 600);
+      void import("@/lib/sound-engine").then((m) => m.stopWagerBed(400));
     } else if (state.phase === "final_intro" || state.phase === "final_wager")
       startMusic("tense", 520);
     else if (state.phase === "ended") {
       // Celebratory bed under WinnerSpotlight; credits phase will duck it to 0.22.
-      void import("@/lib/sound-engine").then((m) => m.playCreditsMusic(0.42));
+      void import("@/lib/sound-engine").then((m) => {
+        m.stopWagerBed(400);
+        m.playCreditsMusic(0.42);
+      });
     } else if (state.phase === "credits") {
       // CreditsStage starts its own playCreditsMusic(0.22); don't fight it.
     } else stopMusic();
