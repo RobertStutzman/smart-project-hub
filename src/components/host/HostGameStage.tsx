@@ -1198,9 +1198,10 @@ export function HostGameStage({ room }: Props) {
       if (finalAdvancedRef.current === key) return;
 
       const qid = state.current_question_id ?? null;
-      const hasExplanation = !!state.current_explanation;
+      const hasExplanation = !!state.current_explanation_tts_url;
       const MIN_HOLD_MS = 7000; // never snap the winner up faster than the old timer
-      const SAFETY_CAP_MS = 45000;
+      const SPEECH_START_DEADLINE_MS = 6500;
+      const SAFETY_CAP_MS = 18000;
       const POLL_MS = 200;
       const start = Date.now();
 
@@ -1235,6 +1236,11 @@ export function HostGameStage({ room }: Props) {
           if (hasExplanation && qid) {
             const exp = getExplanationStateFor(qid);
             if (exp.expected && exp.ended && elapsed >= MIN_HOLD_MS) {
+              if (pollId !== null) window.clearInterval(pollId);
+              pollId = null;
+              fire();
+            }
+            if (!exp.expected && elapsed >= SPEECH_START_DEADLINE_MS) {
               if (pollId !== null) window.clearInterval(pollId);
               pollId = null;
               fire();
@@ -1950,7 +1956,7 @@ export function useRevealAutoAdvance(
     // Reveal card animates in over ~3.8s before "Did you know?" starts playing.
     // Give the persona reaction that much plus a small margin to actually start.
     const SPEECH_START_DEADLINE_MS = hasExplanation ? 7000 : 4500;
-    const SAFETY_CAP_MS = 45000; // only catches stuck/never-ending audio
+    const SAFETY_CAP_MS = 18000; // catches stuck/never-ending audio without feeling frozen
     const POLL_MS = 200;
     const start = Date.now();
 
@@ -1999,6 +2005,11 @@ export function useRevealAutoAdvance(
         if (hasExplanation && currentQuestionId) {
           const exp = getExplanationStateFor(currentQuestionId);
           if (exp.expected && exp.ended) {
+            if (pollId !== null) window.clearInterval(pollId);
+            pollId = null;
+            advance();
+          }
+          if (!exp.expected && elapsed >= SPEECH_START_DEADLINE_MS) {
             if (pollId !== null) window.clearInterval(pollId);
             pollId = null;
             advance();
