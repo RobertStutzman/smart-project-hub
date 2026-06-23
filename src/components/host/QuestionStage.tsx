@@ -28,7 +28,7 @@ type Props = {
   explanation?: string | null;
   mediaUrl?: string | null;
   mediaType?: string | null; // 'image' | 'audio'
-  questionNumber?: number;
+  questionNumber?: number | null;
   hideTimer?: boolean;
   /** Optional category name e.g. "Movies" — drives the category-reveal card during the intro. */
   category?: string | null;
@@ -327,11 +327,12 @@ export const QuestionStage = memo(function QuestionStage({
         <QuestionVideo src={mediaUrl} autoStart={!reading} />
       )}
 
-      {/* Cinematic shutter wipe + "QUESTION N" card during phase 1 */}
+      {/* Cinematic shutter wipe + "QUESTION N" card during phase 1.
+          Final round passes questionNumber={null} so no "Question 1" appears. */}
       <ShutterTransition
         visible={showBadge}
-        eyebrow="Get ready"
-        title={`Question ${questionNumber}`}
+        eyebrow={questionNumber == null ? "" : "Get ready"}
+        title={questionNumber == null ? "" : `Question ${questionNumber}`}
         closeMs={420}
         holdMs={900}
         openMs={520}
@@ -344,7 +345,7 @@ export const QuestionStage = memo(function QuestionStage({
       <CategoryReveal
         category={category}
         visible={showBadge}
-        subline={`Question ${questionNumber}`}
+        subline={questionNumber == null ? "" : `Question ${questionNumber}`}
         zIndex={35}
         appearDelayMs={1250}
       />

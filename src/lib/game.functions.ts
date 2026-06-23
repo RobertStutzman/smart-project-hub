@@ -352,7 +352,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
         ? LIGHTNING_DURATION_MS
         : wildcard === "sudden_drop"
           ? SUDDEN_DROP_DURATION_MS
-          : 15000;
+          : 20000;
 
     // Wildcard rounds need extra lead-time so the announcer explainer plays
     // before the question read; non-wildcard rounds keep the original 6s.
@@ -409,6 +409,10 @@ export const dropWrongAnswer = createServerFn({ method: "POST" })
     const room = await getRoomByHost(data.roomCode, data.hostSessionId);
     const secretIdx = await getSecretCorrectIndex(room.id);
     if (room.phase !== "question" || secretIdx === null) {
+      return { ok: false, dropped: null };
+    }
+    // Lightning round: no auto-drops. Players answer right or wrong, no help.
+    if (room.wildcard === "lightning") {
       return { ok: false, dropped: null };
     }
     const dropped: number[] = room.dropped_indexes ?? [];
@@ -858,14 +862,12 @@ export const startFinalRound = createServerFn({ method: "POST" })
       wrong_3: string;
       category?: string | null;
     } | null = null;
-    // Fallback chain for the final round (prefer staying in the selected category):
+    // Fallback chain for the final round — TRUE hard/impossible only.
     //   1. impossible/hard in current category
-    //   2. any difficulty in current category
-    //   3. impossible/hard in any category
-    //   4. any question at all
+    //   2. impossible/hard in any category
+    //   3. any question (last resort if pool is empty)
     const attempts: Array<{ difficulties: string[] | null; useCategory: boolean }> = [
       { difficulties: ["impossible", "hard"], useCategory: true },
-      { difficulties: null, useCategory: true },
       { difficulties: ["impossible", "hard"], useCategory: false },
       { difficulties: null, useCategory: false },
     ];
@@ -938,7 +940,7 @@ export const startFinalRound = createServerFn({ method: "POST" })
         current_question_tts_url: finalTtsUrl,
         current_explanation_tts_url: finalExplanationTtsUrl,
         question_started_at: null,
-        question_duration_ms: 25000,
+        question_duration_ms: 30000,
         dropped_indexes: [],
         wildcard: null,
         saboteur_session_id: null,
@@ -999,7 +1001,7 @@ export const startFinalQuestion = createServerFn({ method: "POST" })
       .update({
         phase: "final_question",
         question_started_at: new Date().toISOString(),
-        question_duration_ms: 25000,
+        question_duration_ms: 30000,
       })
       .eq("id", room.id);
     return { ok: true };
@@ -1324,7 +1326,7 @@ export const lockAnswer = createServerFn({ method: "POST" })
       if (elapsed < 0) {
         throw new Error("Read the question first");
       }
-      if (elapsed > (room.question_duration_ms ?? 15000)) {
+      if (elapsed > (room.question_duration_ms ?? 20000)) {
         throw new Error("Time's up");
       }
     }

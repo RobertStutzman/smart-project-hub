@@ -127,7 +127,7 @@ type Props = {
 // Elapsed seconds (from question_started_at) at which each wrong answer drops.
 // Driven off elapsed time so the elimination sequence ALWAYS plays out,
 // even when every player locks in immediately.
-const DROP_AT_ELAPSED_S = [6, 9, 12];
+const DROP_AT_ELAPSED_S = [8, 13, 17];
 // After the final wrong answer drops, hold on the lone correct answer
 // for this long before triggering endQuestion / reveal.
 const FINAL_HOLD_MS = 2500;
@@ -504,8 +504,10 @@ export function HostGameStage({ room }: Props) {
     }
 
     // schedule drops based on ELAPSED time so the elimination sequence
-    // always plays out, regardless of how fast players lock in
-    DROP_AT_ELAPSED_S.forEach((thresholdElapsed, idx) => {
+    // always plays out, regardless of how fast players lock in.
+    // Lightning round: no drops — answer right or wrong, no help.
+    const skipDrops = state.wildcard === "lightning";
+    if (!skipDrops) DROP_AT_ELAPSED_S.forEach((thresholdElapsed, idx) => {
       if (elapsedS >= thresholdElapsed && !droppedRef.current.has(idx)) {
         droppedRef.current.add(idx);
         dropWrongFn({
@@ -652,23 +654,33 @@ export function HostGameStage({ room }: Props) {
       window.clearTimeout(introBedTimerRef.current);
       introBedTimerRef.current = null;
     }
-    if (
-      state.phase === "question" ||
-      state.phase === "final_question"
-    )
+    if (state.phase === "question") {
       startMusic("tense", 380);
-    else if (state.phase === "reveal" || state.phase === "final_reveal")
+      void import("@/lib/sound-engine").then((m) => m.stopWagerBed(400));
+    }
+    else if (state.phase === "final_question") {
+      // Final question: cinematic orchestral bed (no beepy heartbeat).
       stopMusic();
+      void import("@/lib/sound-engine").then((m) => m.playWagerBed(0.38));
+    }
+    else if (state.phase === "reveal" || state.phase === "final_reveal") {
+      stopMusic();
+      void import("@/lib/sound-engine").then((m) => m.stopWagerBed(500));
+    }
     else if (state.phase === "intro")
       startMusic("lobby", 600);
     else if (state.phase === "lobby" || state.phase === "leaderboard") {
       // Lobby plays the trivia bed under the crowd ambience.
       startMusic("lobby", 600);
+      void import("@/lib/sound-engine").then((m) => m.stopWagerBed(400));
     } else if (state.phase === "final_intro" || state.phase === "final_wager")
       startMusic("tense", 520);
     else if (state.phase === "ended") {
       // Celebratory bed under WinnerSpotlight; credits phase will duck it to 0.22.
-      void import("@/lib/sound-engine").then((m) => m.playCreditsMusic(0.42));
+      void import("@/lib/sound-engine").then((m) => {
+        m.stopWagerBed(400);
+        m.playCreditsMusic(0.42);
+      });
     } else if (state.phase === "credits") {
       // CreditsStage starts its own playCreditsMusic(0.22); don't fight it.
     } else stopMusic();
@@ -1723,6 +1735,7 @@ export function HostGameStage({ room }: Props) {
           mediaUrl={(state as { current_media_url?: string | null }).current_media_url ?? null}
           mediaType={(state as { current_media_type?: string | null }).current_media_type ?? null}
           category={state.current_category}
+          questionNumber={null}
         />
 
 
