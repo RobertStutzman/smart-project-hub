@@ -27,6 +27,7 @@ import { Route as ResultsRoomIdRouteImport } from './routes/results.$roomId'
 import { Route as LegalTermsRouteImport } from './routes/legal.terms'
 import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
 import { Route as LegalContactRouteImport } from './routes/legal.contact'
+import { Route as CustomOrderRouteImport } from './routes/custom.order'
 import { Route as AuthenticatedAdminSoundsRouteImport } from './routes/_authenticated/admin-sounds'
 import { Route as AuthenticatedAdminQuestionsRouteImport } from './routes/_authenticated/admin-questions'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
@@ -122,6 +123,11 @@ const LegalContactRoute = LegalContactRouteImport.update({
   path: '/legal/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CustomOrderRoute = CustomOrderRouteImport.update({
+  id: '/order',
+  path: '/order',
+  getParentRoute: () => CustomRoute,
+} as any)
 const AuthenticatedAdminSoundsRoute =
   AuthenticatedAdminSoundsRouteImport.update({
     id: '/admin-sounds',
@@ -155,7 +161,7 @@ const ApiPublicHooksCleanupAvatarsRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/audience': typeof AudienceRoute
-  '/custom': typeof CustomRoute
+  '/custom': typeof CustomRouteWithChildren
   '/dev': typeof DevRoute
   '/h': typeof HRoute
   '/host': typeof HostRoute
@@ -167,6 +173,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRoute
   '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
+  '/custom/order': typeof CustomOrderRoute
   '/legal/contact': typeof LegalContactRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
@@ -179,7 +186,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/audience': typeof AudienceRoute
-  '/custom': typeof CustomRoute
+  '/custom': typeof CustomRouteWithChildren
   '/dev': typeof DevRoute
   '/h': typeof HRoute
   '/host': typeof HostRoute
@@ -191,6 +198,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminRoute
   '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
+  '/custom/order': typeof CustomOrderRoute
   '/legal/contact': typeof LegalContactRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
@@ -205,7 +213,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/audience': typeof AudienceRoute
-  '/custom': typeof CustomRoute
+  '/custom': typeof CustomRouteWithChildren
   '/dev': typeof DevRoute
   '/h': typeof HRoute
   '/host': typeof HostRoute
@@ -217,6 +225,7 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/_authenticated/admin-sounds': typeof AuthenticatedAdminSoundsRoute
+  '/custom/order': typeof CustomOrderRoute
   '/legal/contact': typeof LegalContactRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
@@ -243,6 +252,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin-questions'
     | '/admin-sounds'
+    | '/custom/order'
     | '/legal/contact'
     | '/legal/privacy'
     | '/legal/terms'
@@ -267,6 +277,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin-questions'
     | '/admin-sounds'
+    | '/custom/order'
     | '/legal/contact'
     | '/legal/privacy'
     | '/legal/terms'
@@ -292,6 +303,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/admin-questions'
     | '/_authenticated/admin-sounds'
+    | '/custom/order'
     | '/legal/contact'
     | '/legal/privacy'
     | '/legal/terms'
@@ -306,7 +318,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AudienceRoute: typeof AudienceRoute
-  CustomRoute: typeof CustomRoute
+  CustomRoute: typeof CustomRouteWithChildren
   DevRoute: typeof DevRoute
   HRoute: typeof HRoute
   HostRoute: typeof HostRoute
@@ -453,6 +465,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LegalContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/custom/order': {
+      id: '/custom/order'
+      path: '/order'
+      fullPath: '/custom/order'
+      preLoaderRoute: typeof CustomOrderRouteImport
+      parentRoute: typeof CustomRoute
+    }
     '/_authenticated/admin-sounds': {
       id: '/_authenticated/admin-sounds'
       path: '/admin-sounds'
@@ -507,11 +526,22 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
   AuthenticatedRouteChildren,
 )
 
+interface CustomRouteChildren {
+  CustomOrderRoute: typeof CustomOrderRoute
+}
+
+const CustomRouteChildren: CustomRouteChildren = {
+  CustomOrderRoute: CustomOrderRoute,
+}
+
+const CustomRouteWithChildren =
+  CustomRoute._addFileChildren(CustomRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AudienceRoute: AudienceRoute,
-  CustomRoute: CustomRoute,
+  CustomRoute: CustomRouteWithChildren,
   DevRoute: DevRoute,
   HRoute: HRoute,
   HostRoute: HostRoute,
