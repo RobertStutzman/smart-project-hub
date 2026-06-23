@@ -89,7 +89,15 @@ export const createRoom = createServerFn({ method: "POST" })
     // Try up to 5 times to avoid rare code collisions
     for (let attempt = 0; attempt < 5; attempt++) {
       const code = generateRoomCode();
-      const insertPayload: Record<string, unknown> = {
+      const insertPayload: {
+        room_code: string;
+        host_session_id: string;
+        status: string;
+        custom_pack_id?: string;
+        enabled_categories?: string[];
+        difficulty_mode?: string | null;
+        current_category?: string;
+      } = {
         room_code: code,
         host_session_id: data.hostSessionId,
         status: customPack ? "playing" : "lobby",
