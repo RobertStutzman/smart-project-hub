@@ -278,7 +278,7 @@ type CustomClip = { url: string; volume: number; loop: boolean };
 function canUseAudioUrl(url: string | null | undefined): url is string {
   // The generated /__l5e asset URLs can be absent in preview/published builds;
   // when that happens, prefer synth fallbacks over noisy 404s or dead audio.
-  return !!url && !url.startsWith("/__l5e/");
+  return !!url && !url.includes("/__l5e/");
 }
 
 // Built-in default clips (CDN-hosted). Used when no admin-assigned clip

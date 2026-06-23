@@ -98,7 +98,7 @@ export function setFunnyMuted(v: boolean) {
 const pool = new Map<string, HTMLAudioElement>();
 
 function canUseAudioUrl(url: string | null | undefined): url is string {
-  return !!url && !url.startsWith("/__l5e/");
+  return !!url && !url.includes("/__l5e/");
 }
 
 function playClip(clip: FunnySound, opts?: { delayMs?: number; volume?: number }) {

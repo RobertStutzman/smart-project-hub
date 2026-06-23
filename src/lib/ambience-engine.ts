@@ -18,7 +18,7 @@ const SCHEDULE_AHEAD_SEC = 24;
 const SCHEDULE_TICK_MS = 2000;
 
 function canUseAudioUrl(url: string | null | undefined): url is string {
-  return !!url && !url.startsWith("/__l5e/");
+  return !!url && !url.includes("/__l5e/");
 }
 
 let muted = false;
