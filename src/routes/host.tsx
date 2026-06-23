@@ -40,6 +40,9 @@ import { useWakeLock } from "@/hooks/use-wake-lock";
 
 
 export const Route = createFileRoute("/host")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    code: typeof s.code === "string" ? s.code.trim().toUpperCase().slice(0, 12) : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Host — Beat the Drop Trivia" },
@@ -69,6 +72,7 @@ const CATEGORIES_KEY = "btd:enabled-categories:v2";
 
 function HostPage() {
   const navigate = useNavigate();
+  const { code: customPackCode } = Route.useSearch();
   const { theme } = useTheme();
   const { isFullscreen, toggleFullscreen } = useHostStageMode();
   useHostHotkeys(toggleFullscreen);
@@ -107,6 +111,8 @@ function HostPage() {
   const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
   const [hasExplanationTts, setHasExplanationTts] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [customPackTitle, setCustomPackTitle] = useState<string | null>(null);
+  
   
   
   const initRef = useRef(false);
@@ -137,18 +143,29 @@ function HostPage() {
       const existing = loadHostSession();
       try {
         setCreating(true);
-        const hostSessionId = existing?.sessionId ?? newId();
-        const res = await createRoomFn({ data: { hostSessionId } });
+        // Custom pack code: always start a fresh host session so we don't
+        // accidentally resume an unrelated lobby.
+        const hostSessionId = customPackCode ? newId() : (existing?.sessionId ?? newId());
+        const res = await createRoomFn({
+          data: customPackCode
+            ? { hostSessionId, customPackCode }
+            : { hostSessionId },
+        });
         saveHostSession({ sessionId: hostSessionId, roomCode: res.roomCode });
         setRoom({ id: res.id, roomCode: res.roomCode, hostSessionId });
-        if (res.resumed) toast.success(`Resumed room ${res.roomCode}`);
+        if (res.customPack?.title) {
+          setCustomPackTitle(res.customPack.title);
+          toast.success(`Loaded custom pack: ${res.customPack.title}`);
+        } else if (res.resumed) {
+          toast.success(`Resumed room ${res.roomCode}`);
+        }
       } catch (e) {
         setError((e as Error).message);
       } finally {
         setCreating(false);
       }
     })();
-  }, [createRoomFn]);
+  }, [createRoomFn, customPackCode]);
 
   // Realtime players + host heartbeat
   useEffect(() => {
@@ -255,6 +272,8 @@ function HostPage() {
   // picker server-side sees the right filter on the very first round.
   useEffect(() => {
     if (!room) return;
+    // Custom-pack rooms have their own private category — never overwrite it.
+    if (customPackTitle) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -954,7 +973,12 @@ function HostPage() {
             </div>
           )}
 
-          {activeCategory && (
+          {customPackTitle ? (
+            <div className="text-[clamp(0.7rem,1.4vh,0.95rem)] text-white/80">
+              <span className="rounded-full bg-amber-400/20 px-3 py-1 font-bold uppercase tracking-widest text-amber-200">Custom Pack</span>
+              <span className="ml-2 font-semibold text-amber-100">{customPackTitle}</span>
+            </div>
+          ) : activeCategory && (
             <div className="text-[clamp(0.7rem,1.4vh,0.95rem)] text-white/60">
               Category: <span className="font-semibold text-amber-200">{activeCategory}</span>
             </div>
@@ -1091,6 +1115,15 @@ function HostPage() {
 
 
           <LobbyTipCarousel />
+
+          {!customPackTitle && (
+            <CustomCodeEntry
+              onSubmit={(code) => {
+                if (!code) return;
+                navigate({ to: "/host", search: { code } });
+              }}
+            />
+          )}
         </section>
       </div>
 
@@ -1365,6 +1398,50 @@ function LobbyTipCarousel() {
         </motion.div>
       </AnimatePresence>
     </div>
+  );
+}
+
+function CustomCodeEntry({ onSubmit }: { onSubmit: (code: string) => void }) {
+  const [value, setValue] = useState("");
+  const [open, setOpen] = useState(false);
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="mt-[1vh] text-[clamp(0.65rem,1.2vh,0.8rem)] text-white/40 underline-offset-2 hover:text-amber-200 hover:underline"
+      >
+        Have a custom pack code?
+      </button>
+    );
+  }
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const code = value.trim().toUpperCase();
+        if (code.length < 4) return;
+        onSubmit(code);
+      }}
+      className="mt-[1vh] flex items-center gap-2"
+    >
+      <input
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value.toUpperCase())}
+        placeholder="PACK CODE"
+        maxLength={12}
+        className="w-36 rounded-lg border border-amber-400/40 bg-black/40 px-3 py-1.5 text-center font-mono text-sm font-bold uppercase tracking-widest text-amber-200 focus:outline-none"
+      />
+      <button
+        type="submit"
+        className="rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950 hover:bg-amber-300"
+      >
+        Load
+      </button>
+      <button type="button" onClick={() => setOpen(false)} className="text-xs text-white/40 hover:text-white">
+        ✕
+      </button>
+    </form>
   );
 }
 

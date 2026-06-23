@@ -131,6 +131,15 @@ function LandingPage() {
           </Link>
         </div>
 
+        <Link
+          to="/custom"
+          className="mt-6 inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-400/10 px-5 py-2 text-sm font-bold uppercase tracking-widest text-amber-200 transition hover:bg-amber-400/20"
+        >
+          ✨ Custom trivia for your party →
+        </Link>
+
+
+
         <div className="mt-16 grid w-full grid-cols-1 gap-3 text-left sm:grid-cols-3">
           <Feature n="01" t="Code in" d="Type 4 letters to join. No app." />
           <Feature n="02" t="Beat the clock" d="Answer before the drop." />

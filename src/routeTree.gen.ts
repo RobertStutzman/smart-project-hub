@@ -17,6 +17,7 @@ import { Route as JoinRouteImport } from './routes/join'
 import { Route as HostRouteImport } from './routes/host'
 import { Route as HRouteImport } from './routes/h'
 import { Route as DevRouteImport } from './routes/dev'
+import { Route as CustomRouteImport } from './routes/custom'
 import { Route as AudienceRouteImport } from './routes/audience'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
@@ -26,8 +27,10 @@ import { Route as ResultsRoomIdRouteImport } from './routes/results.$roomId'
 import { Route as LegalTermsRouteImport } from './routes/legal.terms'
 import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
 import { Route as LegalContactRouteImport } from './routes/legal.contact'
+import { Route as CustomOrderRouteImport } from './routes/custom.order'
 import { Route as AuthenticatedAdminSoundsRouteImport } from './routes/_authenticated/admin-sounds'
 import { Route as AuthenticatedAdminQuestionsRouteImport } from './routes/_authenticated/admin-questions'
+import { Route as AuthenticatedAdminCustomRouteImport } from './routes/_authenticated/admin-custom'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as ApiPublicHooksQuestionQualityAlertRouteImport } from './routes/api/public/hooks/question-quality-alert'
 import { Route as ApiPublicHooksCleanupAvatarsRouteImport } from './routes/api/public/hooks/cleanup-avatars'
@@ -70,6 +73,11 @@ const HRoute = HRouteImport.update({
 const DevRoute = DevRouteImport.update({
   id: '/dev',
   path: '/dev',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CustomRoute = CustomRouteImport.update({
+  id: '/custom',
+  path: '/custom',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AudienceRoute = AudienceRouteImport.update({
@@ -116,6 +124,11 @@ const LegalContactRoute = LegalContactRouteImport.update({
   path: '/legal/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CustomOrderRoute = CustomOrderRouteImport.update({
+  id: '/order',
+  path: '/order',
+  getParentRoute: () => CustomRoute,
+} as any)
 const AuthenticatedAdminSoundsRoute =
   AuthenticatedAdminSoundsRouteImport.update({
     id: '/admin-sounds',
@@ -126,6 +139,12 @@ const AuthenticatedAdminQuestionsRoute =
   AuthenticatedAdminQuestionsRouteImport.update({
     id: '/admin-questions',
     path: '/admin-questions',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAdminCustomRoute =
+  AuthenticatedAdminCustomRouteImport.update({
+    id: '/admin-custom',
+    path: '/admin-custom',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
@@ -149,6 +168,7 @@ const ApiPublicHooksCleanupAvatarsRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/audience': typeof AudienceRoute
+  '/custom': typeof CustomRouteWithChildren
   '/dev': typeof DevRoute
   '/h': typeof HRoute
   '/host': typeof HostRoute
@@ -158,8 +178,10 @@ export interface FileRoutesByFullPath {
   '/preview-intro': typeof PreviewIntroRoute
   '/preview-question': typeof PreviewQuestionRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/admin-custom': typeof AuthenticatedAdminCustomRoute
   '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
+  '/custom/order': typeof CustomOrderRoute
   '/legal/contact': typeof LegalContactRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
@@ -172,6 +194,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/audience': typeof AudienceRoute
+  '/custom': typeof CustomRouteWithChildren
   '/dev': typeof DevRoute
   '/h': typeof HRoute
   '/host': typeof HostRoute
@@ -181,8 +204,10 @@ export interface FileRoutesByTo {
   '/preview-intro': typeof PreviewIntroRoute
   '/preview-question': typeof PreviewQuestionRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/admin-custom': typeof AuthenticatedAdminCustomRoute
   '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
+  '/custom/order': typeof CustomOrderRoute
   '/legal/contact': typeof LegalContactRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
@@ -197,6 +222,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/audience': typeof AudienceRoute
+  '/custom': typeof CustomRouteWithChildren
   '/dev': typeof DevRoute
   '/h': typeof HRoute
   '/host': typeof HostRoute
@@ -206,8 +232,10 @@ export interface FileRoutesById {
   '/preview-intro': typeof PreviewIntroRoute
   '/preview-question': typeof PreviewQuestionRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/admin-custom': typeof AuthenticatedAdminCustomRoute
   '/_authenticated/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/_authenticated/admin-sounds': typeof AuthenticatedAdminSoundsRoute
+  '/custom/order': typeof CustomOrderRoute
   '/legal/contact': typeof LegalContactRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
@@ -222,6 +250,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/audience'
+    | '/custom'
     | '/dev'
     | '/h'
     | '/host'
@@ -231,8 +260,10 @@ export interface FileRouteTypes {
     | '/preview-intro'
     | '/preview-question'
     | '/admin'
+    | '/admin-custom'
     | '/admin-questions'
     | '/admin-sounds'
+    | '/custom/order'
     | '/legal/contact'
     | '/legal/privacy'
     | '/legal/terms'
@@ -245,6 +276,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/audience'
+    | '/custom'
     | '/dev'
     | '/h'
     | '/host'
@@ -254,8 +286,10 @@ export interface FileRouteTypes {
     | '/preview-intro'
     | '/preview-question'
     | '/admin'
+    | '/admin-custom'
     | '/admin-questions'
     | '/admin-sounds'
+    | '/custom/order'
     | '/legal/contact'
     | '/legal/privacy'
     | '/legal/terms'
@@ -269,6 +303,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/audience'
+    | '/custom'
     | '/dev'
     | '/h'
     | '/host'
@@ -278,8 +313,10 @@ export interface FileRouteTypes {
     | '/preview-intro'
     | '/preview-question'
     | '/_authenticated/admin'
+    | '/_authenticated/admin-custom'
     | '/_authenticated/admin-questions'
     | '/_authenticated/admin-sounds'
+    | '/custom/order'
     | '/legal/contact'
     | '/legal/privacy'
     | '/legal/terms'
@@ -294,6 +331,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AudienceRoute: typeof AudienceRoute
+  CustomRoute: typeof CustomRouteWithChildren
   DevRoute: typeof DevRoute
   HRoute: typeof HRoute
   HostRoute: typeof HostRoute
@@ -370,6 +408,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/custom': {
+      id: '/custom'
+      path: '/custom'
+      fullPath: '/custom'
+      preLoaderRoute: typeof CustomRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/audience': {
       id: '/audience'
       path: '/audience'
@@ -433,6 +478,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LegalContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/custom/order': {
+      id: '/custom/order'
+      path: '/order'
+      fullPath: '/custom/order'
+      preLoaderRoute: typeof CustomOrderRouteImport
+      parentRoute: typeof CustomRoute
+    }
     '/_authenticated/admin-sounds': {
       id: '/_authenticated/admin-sounds'
       path: '/admin-sounds'
@@ -445,6 +497,13 @@ declare module '@tanstack/react-router' {
       path: '/admin-questions'
       fullPath: '/admin-questions'
       preLoaderRoute: typeof AuthenticatedAdminQuestionsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin-custom': {
+      id: '/_authenticated/admin-custom'
+      path: '/admin-custom'
+      fullPath: '/admin-custom'
+      preLoaderRoute: typeof AuthenticatedAdminCustomRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin': {
@@ -473,12 +532,14 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedAdminCustomRoute: typeof AuthenticatedAdminCustomRoute
   AuthenticatedAdminQuestionsRoute: typeof AuthenticatedAdminQuestionsRoute
   AuthenticatedAdminSoundsRoute: typeof AuthenticatedAdminSoundsRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedAdminCustomRoute: AuthenticatedAdminCustomRoute,
   AuthenticatedAdminQuestionsRoute: AuthenticatedAdminQuestionsRoute,
   AuthenticatedAdminSoundsRoute: AuthenticatedAdminSoundsRoute,
 }
@@ -487,10 +548,22 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
   AuthenticatedRouteChildren,
 )
 
+interface CustomRouteChildren {
+  CustomOrderRoute: typeof CustomOrderRoute
+}
+
+const CustomRouteChildren: CustomRouteChildren = {
+  CustomOrderRoute: CustomOrderRoute,
+}
+
+const CustomRouteWithChildren =
+  CustomRoute._addFileChildren(CustomRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AudienceRoute: AudienceRoute,
+  CustomRoute: CustomRouteWithChildren,
   DevRoute: DevRoute,
   HRoute: HRoute,
   HostRoute: HostRoute,
