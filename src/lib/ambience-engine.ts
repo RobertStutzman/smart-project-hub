@@ -17,6 +17,10 @@ const FADE_MS = 800;
 const SCHEDULE_AHEAD_SEC = 24;
 const SCHEDULE_TICK_MS = 2000;
 
+function canUseAudioUrl(url: string | null | undefined): url is string {
+  return !!url && !url.startsWith("/__l5e/");
+}
+
 let muted = false;
 let handedOff = false;
 
@@ -80,6 +84,7 @@ export function onAmbienceBlockedChange(cb: (blocked: boolean) => void) {
 const bufferCache = new Map<string, Promise<AudioBuffer | null>>();
 
 async function loadBuffer(url: string): Promise<AudioBuffer | null> {
+  if (!canUseAudioUrl(url)) return null;
   let p = bufferCache.get(url);
   if (p) return p;
   p = (async () => {
@@ -176,6 +181,7 @@ function ensureHtmlAudio(layer: HtmlLayer): HTMLAudioElement | null {
 
 async function startHtmlLayer(layer: HtmlLayer): Promise<boolean> {
   if (!isClient() || muted || handedOff) return false;
+  if (!canUseAudioUrl(layer.url)) return false;
   layer.wantPlaying = true;
   const a = ensureHtmlAudio(layer);
   if (!a) return false;
