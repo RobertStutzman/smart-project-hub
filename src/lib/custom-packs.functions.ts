@@ -95,15 +95,27 @@ export const getCustomOrder = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     if (!order) throw new Error("Order not found");
 
-    let questions: unknown[] = [];
+    type CustomQ = {
+      id: string;
+      category: string;
+      question_text: string;
+      correct_answer: string;
+      wrong_1: string;
+      wrong_2: string;
+      wrong_3: string;
+      explanation: string | null;
+      difficulty: string;
+      created_at: string;
+    };
+    let questions: CustomQ[] = [];
     const pack = (order as { pack: { category_tag?: string } | null }).pack;
     if (pack?.category_tag) {
       const { data: qs } = await supabaseAdmin
         .from("questions")
-        .select("*")
+        .select("id, category, question_text, correct_answer, wrong_1, wrong_2, wrong_3, explanation, difficulty, created_at")
         .eq("category", pack.category_tag)
         .order("created_at", { ascending: true });
-      questions = qs ?? [];
+      questions = (qs ?? []) as CustomQ[];
     }
     return { order, questions };
   });
