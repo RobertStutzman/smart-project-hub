@@ -973,7 +973,12 @@ function HostPage() {
             </div>
           )}
 
-          {activeCategory && (
+          {customPackTitle ? (
+            <div className="text-[clamp(0.7rem,1.4vh,0.95rem)] text-white/80">
+              <span className="rounded-full bg-amber-400/20 px-3 py-1 font-bold uppercase tracking-widest text-amber-200">Custom Pack</span>
+              <span className="ml-2 font-semibold text-amber-100">{customPackTitle}</span>
+            </div>
+          ) : activeCategory && (
             <div className="text-[clamp(0.7rem,1.4vh,0.95rem)] text-white/60">
               Category: <span className="font-semibold text-amber-200">{activeCategory}</span>
             </div>
