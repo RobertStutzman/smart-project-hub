@@ -34,40 +34,94 @@ export const createRoom = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       hostSessionId: z.string().min(8).max(128),
+      customPackCode: z.string().trim().min(4).max(12).optional(),
     }).parse,
   )
   .handler(async ({ data }) => {
-    // Resume an existing non-ended room for this host session, if any.
-    const { data: existing } = await supabaseAdmin
-      .from("rooms")
-      .select("id, room_code")
-      .eq("host_session_id", data.hostSessionId)
-      .neq("status", "ended")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (existing) {
-      // Refresh heartbeat so the room isn't considered abandoned.
-      await supabaseAdmin
+    // Resolve a custom pack, if a code was supplied. Custom rooms always
+    // create fresh — they never resume a previous lobby — because the pack
+    // binding is fixed at room creation.
+    let customPack: { id: string; category_tag: string; title: string } | null = null;
+    if (data.customPackCode) {
+      const code = data.customPackCode.toUpperCase();
+      const { data: p } = await supabaseAdmin
+        .from("custom_packs")
+        .select("id, category_tag, title, is_active, single_use, used_at, expires_at")
+        .eq("pack_code", code)
+        .maybeSingle();
+      const pp = p as
+        | {
+            id: string;
+            category_tag: string;
+            title: string;
+            is_active: boolean;
+            single_use: boolean;
+            used_at: string | null;
+            expires_at: string | null;
+          }
+        | null;
+      if (!pp) throw new Error("Custom code not found");
+      if (!pp.is_active) throw new Error("This custom code is not active.");
+      if (pp.expires_at && new Date(pp.expires_at) < new Date()) throw new Error("This custom code has expired.");
+      if (pp.single_use && pp.used_at) throw new Error("This custom code has already been used.");
+      customPack = { id: pp.id, category_tag: pp.category_tag, title: pp.title };
+    }
+
+    if (!customPack) {
+      // Resume an existing non-ended room for this host session, if any.
+      const { data: existing } = await supabaseAdmin
         .from("rooms")
-        .update({ host_last_seen_at: new Date().toISOString() })
-        .eq("id", existing.id);
-      return { id: existing.id, roomCode: existing.room_code, resumed: true };
+        .select("id, room_code")
+        .eq("host_session_id", data.hostSessionId)
+        .neq("status", "ended")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (existing) {
+        await supabaseAdmin
+          .from("rooms")
+          .update({ host_last_seen_at: new Date().toISOString() })
+          .eq("id", existing.id);
+        return { id: existing.id, roomCode: existing.room_code, resumed: true, customPack: null };
+      }
     }
 
     // Try up to 5 times to avoid rare code collisions
     for (let attempt = 0; attempt < 5; attempt++) {
       const code = generateRoomCode();
+      const insertPayload: Record<string, unknown> = {
+        room_code: code,
+        host_session_id: data.hostSessionId,
+        status: customPack ? "playing" : "lobby",
+      };
+      if (customPack) {
+        insertPayload.custom_pack_id = customPack.id;
+        insertPayload.enabled_categories = [customPack.category_tag];
+        insertPayload.difficulty_mode = null;
+        insertPayload.current_category = customPack.title;
+      }
       const { data: row, error } = await supabaseAdmin
         .from("rooms")
-        .insert({
-          room_code: code,
-          host_session_id: data.hostSessionId,
-          status: "lobby",
-        })
+        .insert(insertPayload)
         .select("id, room_code")
         .single();
-      if (!error && row) return { id: row.id, roomCode: row.room_code, resumed: false };
+      if (!error && row) {
+        if (customPack) {
+          // Mark single-use pack as used so a second code attempt fails.
+          await supabaseAdmin
+            .from("custom_packs")
+            .update({ used_at: new Date().toISOString() })
+            .eq("id", customPack.id)
+            .is("used_at", null)
+            .eq("single_use", true);
+        }
+        return {
+          id: row.id,
+          roomCode: row.room_code,
+          resumed: false,
+          customPack: customPack ? { title: customPack.title } : null,
+        };
+      }
       if (error && !error.message.toLowerCase().includes("duplicate")) {
         throw new Error(error.message);
       }
