@@ -59,6 +59,118 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_orders: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          customer_email: string
+          customer_name: string
+          delivered_at: string | null
+          event_date: string | null
+          event_type: string
+          honoree_names: string
+          id: string
+          intake_payload: Json
+          pack_id: string | null
+          question_count: number
+          status: string
+          tone: string
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          customer_email: string
+          customer_name: string
+          delivered_at?: string | null
+          event_date?: string | null
+          event_type: string
+          honoree_names: string
+          id?: string
+          intake_payload?: Json
+          pack_id?: string | null
+          question_count?: number
+          status?: string
+          tone?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          customer_email?: string
+          customer_name?: string
+          delivered_at?: string | null
+          event_date?: string | null
+          event_type?: string
+          honoree_names?: string
+          id?: string
+          intake_payload?: Json
+          pack_id?: string | null
+          question_count?: number
+          status?: string
+          tone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_orders_pack_fk"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "custom_packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_packs: {
+        Row: {
+          category_tag: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          order_id: string
+          pack_code: string
+          single_use: boolean
+          title: string
+          updated_at: string
+          used_at: string | null
+        }
+        Insert: {
+          category_tag: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          order_id: string
+          pack_code: string
+          single_use?: boolean
+          title: string
+          updated_at?: string
+          used_at?: string | null
+        }
+        Update: {
+          category_tag?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          order_id?: string
+          pack_code?: string
+          single_use?: boolean
+          title?: string
+          updated_at?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_packs_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "custom_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       players: {
         Row: {
           answered_count: number
@@ -337,6 +449,7 @@ export type Database = {
           current_question_id: string | null
           current_question_text: string | null
           current_question_tts_url: string | null
+          custom_pack_id: string | null
           difficulty_mode: string | null
           dropped_indexes: number[]
           enabled_categories: string[] | null
@@ -382,6 +495,7 @@ export type Database = {
           current_question_id?: string | null
           current_question_text?: string | null
           current_question_tts_url?: string | null
+          custom_pack_id?: string | null
           difficulty_mode?: string | null
           dropped_indexes?: number[]
           enabled_categories?: string[] | null
@@ -427,6 +541,7 @@ export type Database = {
           current_question_id?: string | null
           current_question_text?: string | null
           current_question_tts_url?: string | null
+          custom_pack_id?: string | null
           difficulty_mode?: string | null
           dropped_indexes?: number[]
           enabled_categories?: string[] | null
@@ -451,7 +566,15 @@ export type Database = {
           tts_cap_started_at?: string | null
           wildcard?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "rooms_custom_pack_id_fkey"
+            columns: ["custom_pack_id"]
+            isOneToOne: false
+            referencedRelation: "custom_packs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sound_clips: {
         Row: {
