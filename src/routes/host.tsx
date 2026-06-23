@@ -40,6 +40,9 @@ import { useWakeLock } from "@/hooks/use-wake-lock";
 
 
 export const Route = createFileRoute("/host")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    code: typeof s.code === "string" ? s.code.trim().toUpperCase().slice(0, 12) : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Host — Beat the Drop Trivia" },
