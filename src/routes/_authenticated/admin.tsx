@@ -252,6 +252,12 @@ function AdminPage() {
               Sounds
             </Link>
             <Link
+              to="/admin-custom"
+              className="rounded-full border border-border px-4 py-2 text-sm hover:bg-card/60"
+            >
+              Custom Packs
+            </Link>
+            <Link
               to="/host"
               className="rounded-full border border-border px-4 py-2 text-sm hover:bg-card/60"
             >
