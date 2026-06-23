@@ -52,9 +52,14 @@ export function IntroStage({ players, onDone }: Props) {
   }, [onDone]);
 
   useEffect(() => {
-    // Clear any lobby/join announcer audio so it can't sit in front of the
-    // intro countdown.
-    void import("@/lib/elf-voice").then((m) => m.cancelElfSpeech());
+    // Clear any lobby/join/previous-intro announcer audio so a stale "Two!"
+    // can't bleed into a fresh game (e.g. starting a new game from a
+    // finished one). Cancel synchronously AND after a tick to catch any
+    // in-flight TTS fetch that resolves immediately after mount.
+    void import("@/lib/elf-voice").then((m) => {
+      m.cancelElfSpeech();
+      m.silenceFor(200); // hard-mute the queue for 200ms during the handoff
+    });
 
     const t0 = performance.now();
     play("whoosh");
@@ -78,14 +83,24 @@ export function IntroStage({ players, onDone }: Props) {
     const speakDigit = (n: 3 | 2 | 1) => {
       if (firedDigitVoice[n]) return;
       firedDigitVoice[n] = true;
+      // Guard against stale fires: if this digit's visual slot has already
+      // passed, drop it so the announcer can't say "2" while "1"/"GO" is on
+      // screen.
+      const elapsed = performance.now() - t0;
+      const slotEnd = n === 3 ? T_COUNT_2 : n === 2 ? T_COUNT_1 : T_GO;
+      if (elapsed >= slotEnd) return;
       mark(`voice_${n}`);
       void import("@/lib/elf-voice").then((m) => {
         if (cancelled) return;
+        // Tight deadline — must finish before the next digit's slot starts.
+        const deadlineMs = t0 + slotEnd - 50;
         void m.speakAsElf(`${n === 3 ? "Three" : n === 2 ? "Two" : "One"}!`, {
           preset: "hype",
           interrupt: false,
           priority: 1,
-          deadline: Date.now() + 850,
+          deadline: performance.timeOrigin
+            ? performance.timeOrigin + deadlineMs
+            : Date.now() + (slotEnd - elapsed) - 50,
         });
       });
     };
