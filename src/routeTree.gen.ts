@@ -30,6 +30,7 @@ import { Route as LegalContactRouteImport } from './routes/legal.contact'
 import { Route as CustomOrderRouteImport } from './routes/custom.order'
 import { Route as AuthenticatedAdminSoundsRouteImport } from './routes/_authenticated/admin-sounds'
 import { Route as AuthenticatedAdminQuestionsRouteImport } from './routes/_authenticated/admin-questions'
+import { Route as AuthenticatedAdminCustomRouteImport } from './routes/_authenticated/admin-custom'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as ApiPublicHooksQuestionQualityAlertRouteImport } from './routes/api/public/hooks/question-quality-alert'
 import { Route as ApiPublicHooksCleanupAvatarsRouteImport } from './routes/api/public/hooks/cleanup-avatars'
@@ -140,6 +141,12 @@ const AuthenticatedAdminQuestionsRoute =
     path: '/admin-questions',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAdminCustomRoute =
+  AuthenticatedAdminCustomRouteImport.update({
+    id: '/admin-custom',
+    path: '/admin-custom',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -171,6 +178,7 @@ export interface FileRoutesByFullPath {
   '/preview-intro': typeof PreviewIntroRoute
   '/preview-question': typeof PreviewQuestionRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/admin-custom': typeof AuthenticatedAdminCustomRoute
   '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/custom/order': typeof CustomOrderRoute
@@ -196,6 +204,7 @@ export interface FileRoutesByTo {
   '/preview-intro': typeof PreviewIntroRoute
   '/preview-question': typeof PreviewQuestionRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/admin-custom': typeof AuthenticatedAdminCustomRoute
   '/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/custom/order': typeof CustomOrderRoute
@@ -223,6 +232,7 @@ export interface FileRoutesById {
   '/preview-intro': typeof PreviewIntroRoute
   '/preview-question': typeof PreviewQuestionRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/admin-custom': typeof AuthenticatedAdminCustomRoute
   '/_authenticated/admin-questions': typeof AuthenticatedAdminQuestionsRoute
   '/_authenticated/admin-sounds': typeof AuthenticatedAdminSoundsRoute
   '/custom/order': typeof CustomOrderRoute
@@ -250,6 +260,7 @@ export interface FileRouteTypes {
     | '/preview-intro'
     | '/preview-question'
     | '/admin'
+    | '/admin-custom'
     | '/admin-questions'
     | '/admin-sounds'
     | '/custom/order'
@@ -275,6 +286,7 @@ export interface FileRouteTypes {
     | '/preview-intro'
     | '/preview-question'
     | '/admin'
+    | '/admin-custom'
     | '/admin-questions'
     | '/admin-sounds'
     | '/custom/order'
@@ -301,6 +313,7 @@ export interface FileRouteTypes {
     | '/preview-intro'
     | '/preview-question'
     | '/_authenticated/admin'
+    | '/_authenticated/admin-custom'
     | '/_authenticated/admin-questions'
     | '/_authenticated/admin-sounds'
     | '/custom/order'
@@ -486,6 +499,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminQuestionsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin-custom': {
+      id: '/_authenticated/admin-custom'
+      path: '/admin-custom'
+      fullPath: '/admin-custom'
+      preLoaderRoute: typeof AuthenticatedAdminCustomRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/admin': {
       id: '/_authenticated/admin'
       path: '/admin'
@@ -512,12 +532,14 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedAdminCustomRoute: typeof AuthenticatedAdminCustomRoute
   AuthenticatedAdminQuestionsRoute: typeof AuthenticatedAdminQuestionsRoute
   AuthenticatedAdminSoundsRoute: typeof AuthenticatedAdminSoundsRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedAdminCustomRoute: AuthenticatedAdminCustomRoute,
   AuthenticatedAdminQuestionsRoute: AuthenticatedAdminQuestionsRoute,
   AuthenticatedAdminSoundsRoute: AuthenticatedAdminSoundsRoute,
 }
