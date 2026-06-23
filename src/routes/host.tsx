@@ -143,18 +143,29 @@ function HostPage() {
       const existing = loadHostSession();
       try {
         setCreating(true);
-        const hostSessionId = existing?.sessionId ?? newId();
-        const res = await createRoomFn({ data: { hostSessionId } });
+        // Custom pack code: always start a fresh host session so we don't
+        // accidentally resume an unrelated lobby.
+        const hostSessionId = customPackCode ? newId() : (existing?.sessionId ?? newId());
+        const res = await createRoomFn({
+          data: customPackCode
+            ? { hostSessionId, customPackCode }
+            : { hostSessionId },
+        });
         saveHostSession({ sessionId: hostSessionId, roomCode: res.roomCode });
         setRoom({ id: res.id, roomCode: res.roomCode, hostSessionId });
-        if (res.resumed) toast.success(`Resumed room ${res.roomCode}`);
+        if (res.customPack?.title) {
+          setCustomPackTitle(res.customPack.title);
+          toast.success(`Loaded custom pack: ${res.customPack.title}`);
+        } else if (res.resumed) {
+          toast.success(`Resumed room ${res.roomCode}`);
+        }
       } catch (e) {
         setError((e as Error).message);
       } finally {
         setCreating(false);
       }
     })();
-  }, [createRoomFn]);
+  }, [createRoomFn, customPackCode]);
 
   // Realtime players + host heartbeat
   useEffect(() => {
