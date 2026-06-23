@@ -90,17 +90,14 @@ export function IntroStage({ players, onDone }: Props) {
       const slotEnd = n === 3 ? T_COUNT_2 : n === 2 ? T_COUNT_1 : T_GO;
       if (elapsed >= slotEnd) return;
       mark(`voice_${n}`);
+      const remainingMs = slotEnd - elapsed;
       void import("@/lib/elf-voice").then((m) => {
         if (cancelled) return;
-        // Tight deadline — must finish before the next digit's slot starts.
-        const deadlineMs = t0 + slotEnd - 50;
         void m.speakAsElf(`${n === 3 ? "Three" : n === 2 ? "Two" : "One"}!`, {
           preset: "hype",
           interrupt: false,
           priority: 1,
-          deadline: performance.timeOrigin
-            ? performance.timeOrigin + deadlineMs
-            : Date.now() + (slotEnd - elapsed) - 50,
+          deadline: Date.now() + Math.max(150, remainingMs - 50),
         });
       });
     };
