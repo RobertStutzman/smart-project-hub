@@ -1115,6 +1115,15 @@ function HostPage() {
 
 
           <LobbyTipCarousel />
+
+          {!customPackTitle && (
+            <CustomCodeEntry
+              onSubmit={(code) => {
+                if (!code) return;
+                navigate({ to: "/host", search: { code } });
+              }}
+            />
+          )}
         </section>
       </div>
 
