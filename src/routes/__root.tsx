@@ -128,10 +128,29 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
+  // Self-contained, inline-styled fallback for legacy browsers (Samsung Tizen
+  // TV, old Chromium/Safari < 2023). Tailwind v4 requires Chrome 111+ and
+  // does not render at all on those browsers, so we replace the page with a
+  // plain-HTML notice instead of leaving a blank screen.
+  const legacyBrowserScript = `(function(){try{
+    var ok = window.CSS && CSS.supports && CSS.supports('color','oklch(0 0 0)') && CSS.supports('color','color-mix(in oklab, red, blue)');
+    if (ok) return;
+    var msg = '<div style="position:fixed;inset:0;background:#0f0a1f;color:#fff;font-family:Georgia,serif;display:flex;align-items:center;justify-content:center;padding:6vmin;text-align:center;z-index:2147483647;">'
+      + '<div style="max-width:720px;">'
+      + '<div style="font-size:6vmin;font-weight:700;margin-bottom:3vmin;color:#d6a23a;">Browser not supported</div>'
+      + '<div style="font-size:3vmin;line-height:1.5;margin-bottom:4vmin;">Drop Trivia needs a modern browser to host a game. Your TV browser is too old to render this page.</div>'
+      + '<div style="font-size:2.6vmin;line-height:1.6;opacity:.9;">Try one of these instead:<br/><br/>'
+      + '\u2022 Open <b>droptrivia.app</b> on a phone or laptop and cast/mirror to the TV<br/>'
+      + '\u2022 Use a Chromecast, Apple TV, or Fire Stick browser<br/>'
+      + '\u2022 Players can still join with their phones at <b>droptrivia.app</b></div>'
+      + '</div></div>';
+    document.addEventListener('DOMContentLoaded', function(){ document.body.insertAdjacentHTML('beforeend', msg); });
+  }catch(e){}})();`;
   return (
     <html lang="en" data-theme="fellowship">
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: legacyBrowserScript }} />
       </head>
       <body>
         {children}
