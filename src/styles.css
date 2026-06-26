@@ -65,6 +65,50 @@
   --body-font: "EB Garamond", Georgia, serif;
 }
 
+/* =========================================================
+ * Fallback for legacy browsers (Samsung Tizen TV, older
+ * Chromium/Safari < 2023) that don't parse oklch().
+ * Without this, every color token is invalid and the page
+ * renders as unstyled HTML.
+ * ========================================================= */
+@supports not (color: oklch(0 0 0)) {
+  :root,
+  [data-theme="fellowship"] {
+    --background: #f5f3ed;
+    --foreground: #2c3340;
+    --card: #ffffff;
+    --card-foreground: #2c3340;
+    --popover: #ffffff;
+    --popover-foreground: #2c3340;
+    --primary: #2f7a4f;
+    --primary-foreground: #f9f7f1;
+    --secondary: #e6e9ee;
+    --secondary-foreground: #2c3340;
+    --muted: #eaedf1;
+    --muted-foreground: #6e7785;
+    --accent: #d6a23a;
+    --accent-foreground: #2c3340;
+    --destructive: #c43d2c;
+    --destructive-foreground: #f9f7f1;
+    --border: #d6dae0;
+    --input: #e1e5ea;
+    --ring: #3f9466;
+  }
+  body[data-a11y-contrast="high"] {
+    --background: #000000;
+    --foreground: #ffffff;
+    --card: #0d0d0d;
+    --card-foreground: #ffffff;
+    --muted: #262626;
+    --muted-foreground: #e6e6e6;
+    --border: #ffffff;
+    --primary: #ffffff;
+    --primary-foreground: #000000;
+    --accent: #ffffff;
+    --accent-foreground: #000000;
+  }
+}
+
 
 
 
