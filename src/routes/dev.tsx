@@ -131,6 +131,7 @@ function DevPage() {
         .eq("id", roomId)
         .maybeSingle();
       if (!room) return;
+      setRoomPhase(room.phase ?? "");
 
       if (
         room.phase === "question" &&
