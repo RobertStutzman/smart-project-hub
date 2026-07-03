@@ -8,6 +8,7 @@
 import drumAsset from "@/assets/audio/drumroll-build.mp3.asset.json";
 import cymbalAsset from "@/assets/audio/cymbal-swell.mp3.asset.json";
 import crowdSeamlessAsset from "@/assets/audio/crowd-ambience-seamless.wav.asset.json";
+import { emitDebug } from "@/lib/debug-bus";
 
 const CHATTER_TARGET = 0.11;
 const CROWD_TARGET = 0.5;
