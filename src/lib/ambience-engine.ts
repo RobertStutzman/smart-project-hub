@@ -421,21 +421,30 @@ export function startLobbyChatter(): Promise<boolean> {
   if (!isClient() || muted || handedOff) return Promise.resolve(false);
   wanted.add("chatter");
   installWatchdog();
-  return startHtmlLayer(chatterHtml);
+  return startHtmlLayer(chatterHtml).then((ok) => {
+    emitDebug(ok ? { type: "ambience.start", layer: "chatter" } : { type: "ambience.blocked", layer: "chatter" });
+    return ok;
+  });
 }
 
 export function startCrowd(): Promise<boolean> {
   if (!isClient() || muted || handedOff) return Promise.resolve(false);
   wanted.add("crowd");
   installWatchdog();
-  return startHtmlLayer(crowdHtml);
+  return startHtmlLayer(crowdHtml).then((ok) => {
+    emitDebug(ok ? { type: "ambience.start", layer: "crowd" } : { type: "ambience.blocked", layer: "crowd" });
+    return ok;
+  });
 }
 
 export function startDrumroll(): Promise<boolean> {
   if (!isClient() || muted || handedOff) return Promise.resolve(false);
   wanted.add("drumroll");
   installWatchdog();
-  return startLoop(drumroll);
+  return startLoop(drumroll).then((ok) => {
+    emitDebug(ok ? { type: "ambience.start", layer: "drumroll" } : { type: "ambience.blocked", layer: "drumroll" });
+    return ok;
+  });
 }
 
 /**
