@@ -380,10 +380,13 @@ function HostPage() {
 
   useEffect(() => {
     if (!room) return;
-    // Load soundboard clips once, then start the seamless crowd ambience.
-    // Game-show music is deferred until host starts the game (phase=intro),
-    // where HostGameStage triggers climaxAndHandoff.
+    if (roomPhase !== "lobby") return;
+    // Load soundboard clips once (idempotent), then (re)start the seamless
+    // crowd ambience. Runs on first mount, new-room, and any return-to-lobby
+    // (e.g. Play Again) so the handoff latch from a previous game is cleared.
     let cancelled = false;
+    let detachGesture: (() => void) | undefined;
+
     void (async () => {
       try {
         const { getActiveSounds } = await import("@/lib/sounds.functions");
@@ -391,29 +394,50 @@ function HostPage() {
         if (cancelled) return;
         const { loadCustomEvents } = await import("@/lib/sound-engine");
         loadCustomEvents(res.events as never);
-        // Welcome intro is now spoken by The Elf via the persona TTS queue
-        // (see the lobby announcer effect below), so the opener can no
-        // longer be interrupted mid-sentence by a late-arriving clip.
       } catch {
         /* ignore — fall back to synth */
-      } finally {
-        if (!cancelled) {
-          const ambience = await import("@/lib/ambience-engine");
-          ambience.stopAllAmbience();
-          ambience.resetAmbience();
-          // Shared global unlock listener in __root.tsx will retry this
-          // layer automatically on the user's next gesture if blocked.
-          void ambience.startCrowd();
-        }
       }
+      if (cancelled) return;
+
+      const ambience = await import("@/lib/ambience-engine");
+      ambience.resetAmbience();
+      const ok = await ambience.startCrowd();
+      if (cancelled || ok) return;
+
+      // Autoplay blocked (Samsung Tizen, Amazon Silk, iPad mirroring, etc.)
+      // Retry on ANY user gesture until playback succeeds.
+      const events = ["pointerdown", "keydown", "touchstart"] as const;
+      const retry = () => {
+        ambience.resumeAmbienceContext();
+        ambience.resetAmbience();
+        void ambience.startCrowd().then((played) => {
+          if (played) detachGesture?.();
+        });
+      };
+      const detach = () => {
+        events.forEach((e) =>
+          window.removeEventListener(e, retry, { capture: true } as EventListenerOptions),
+        );
+        detachGesture = undefined;
+      };
+      events.forEach((e) =>
+        window.addEventListener(e, retry, { capture: true, passive: true }),
+      );
+      detachGesture = detach;
     })();
+
     return () => {
       cancelled = true;
-      stopMusic();
-      // Only fade host-specific layers; keep chatter alive for landing/join.
-      void import("@/lib/ambience-engine").then((m) => m.stopLobbyBuildup());
+      detachGesture?.();
+      // Only stop lobby buildup when we're actually leaving the lobby
+      // (game start / unmount). If just room.id changed between lobbies,
+      // keep 'crowd' in `wanted` so gesture retries stay effective.
+      if (roomPhase !== "lobby") {
+        stopMusic();
+        void import("@/lib/ambience-engine").then((m) => m.stopLobbyBuildup());
+      }
     };
-  }, [room?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [room?.id, roomPhase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initialize the Elf voice for the QR-code lobby. HostGameStage does this
   // once the game starts, but lobby quips fire before that component mounts —

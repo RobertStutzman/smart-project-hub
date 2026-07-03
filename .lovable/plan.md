@@ -1,31 +1,24 @@
-## Fixes
+## Problem
 
-### 1. Final round — make it feel like the final round
-- **Remove "Question 1" label**: in `HostGameStage.tsx` `final_question` render block, render `QuestionStage` with a new `hideQuestionNumber` prop (or pass `questionNumber={null}`). Update `QuestionStage` to omit the "Question N" title/subline when null. Replace with no label at all — the existing `★ Final question` chyron at the top already identifies it.
-- **Replace bouncy/beeping bed** during `final_question`: don't start the standard `questionThink` ticking bed. Instead, in `HostGameStage.tsx` where music is selected per phase (~line 657 area), play a new dedicated *final tension* bed. Add `playFinalTensionBed(volume)` / `stopFinalTensionBed(fadeMs)` in `sound-engine.ts`. Source: generate an orchestral/cinematic loop via ElevenLabs Music (or reuse an existing dramatic asset if one is already loaded — check `wagerBed`/stinger assets first). Stop the standard `questionBed` for this phase.
-- **Increase timer to 30s**: change `question_duration_ms: 25000` → `30000` in `game.functions.ts` at both `startFinalQuestion` (line 1002) and the final question seeding write (line 941).
-- **Force a true "hard" pick**: in the final question fallback chain (lines 866–871), tighten attempt #1 to `["hard", "impossible"]` (already does) but remove attempt #2 (any difficulty in category) so we don't silently fall to easy/medium just because the chosen category is thin. Order becomes: hard/impossible in category → hard/impossible in any category → any (last resort, log a warning). Keep "impossible weighted 2×".
+On `/host` the crowd/lobby ambience only starts once, in an effect keyed on `room?.id`. It gets torn down whenever:
+- `climaxAndHandoff()` fires when the game starts (expected), but if the host returns to the lobby of the **same room** (Play Again / phase → lobby), `handedOff` stays true and no code restarts ambience.
+- The initial `startCrowd()` is blocked by autoplay on TV browsers (Samsung Tizen, Amazon Silk, iPad screen mirroring). The `__root.tsx` gesture listener retries, but on a QR-code lobby the host often never taps the TV screen, so ambience never unlocks.
+- After `stopLobbyBuildup()` runs in the effect cleanup, `wanted` no longer contains `"crowd"`, so `retryBlockedAmbience()` becomes a no-op even when a gesture later occurs.
 
-### 2. Standard question time — middle ground
-- Change default `durationMs` for non-wildcard questions in `game.functions.ts` line 355 from `15000` → `20000` (and the same fallback in `lockAnswer` line 1327). Lightning stays 8s, sudden-drop stays as-is.
+## Fix
 
-### 3. Lightning round — no tile drops
-- Lightning currently uses 8s timer with no auto-drop logic (drops are only `sudden_drop`). However the host can manually call `dropOneWrong` (line ~408) during any question. Guard that server fn so it refuses when `room.wildcard === "lightning"`, and hide/disable any host control that triggers it during lightning in `HostGameStage.tsx` if one exists. Net effect: in lightning, all 4 tiles stay visible until time runs out — answer right or wrong, no help.
+1. **Restart ambience whenever the host enters/returns to the lobby.** Change the ambience effect in `src/routes/host.tsx` (currently lines ~381-416) to depend on `[room?.id, roomPhase]`, gated by `roomPhase === "lobby"`. Call `resetAmbience()` before `startCrowd()` so the handoff latch from a previous game is cleared. This covers first-mount, new-room, and Play-Again returns.
 
-### 4. Stale "2!" countdown voice on game restart
-- Root cause: when starting a new game from a finished one, the previous intro's queued digit TTS (`speakAsElf("Two!")`) is still buffered in `elf-voice`. The new `IntroStage` mounts and calls `cancelElfSpeech()`, but a digit already in-flight (loaded `<audio>` element) keeps playing.
-- Fix in `IntroStage.tsx` mount effect: call `cancelElfSpeech()` AND a new `hardResetElfVoice()` that (a) stops any currently-playing audio element, (b) clears the priority queue, (c) bumps a generation counter so any in-flight TTS fetch's `.then(play)` no-ops. Add `hardResetElfVoice()` to `src/lib/elf-voice.ts`. Also call it once when transitioning out of `final_reveal`/`game_over` back into a fresh `lobby`/`intro` in `HostGameStage.tsx`.
-- Belt-and-suspenders: gate `speakDigit` in `IntroStage` so it never speaks a digit whose visual slot has already passed (`elapsed > T_COUNT_<n+1>`) — prevents a delayed "2!" from playing while "1" or "GO" is on screen.
+2. **Retry ambience on any user gesture on the host lobby**, mirroring what `useLobbyChatter` does for `/` and `/join`. Add a small effect on `/host` (or reuse a trimmed version of the existing hook, crowd-only) that:
+   - listens for `pointerdown` / `keydown` / `touchstart` while the host is in the lobby,
+   - calls `resetAmbience()` + `startCrowd()` on each gesture until one resolves `true`,
+   - detaches once playing.
+   This makes the ambience come back on the first click on the "Start Game" button / QR area for autoplay-blocked TV browsers.
 
-### Technical notes
-- `QuestionStage` prop change: `questionNumber: number` → `questionNumber: number | null`; when null, skip the `title`/`subline` text. Single call site update needed in `final_question` branch.
-- `sound-engine.ts` final-tension bed: mirror existing `playWagerBed` structure (loop, volume, duck-aware), import an mp3 asset; if generating fresh audio is out of scope this turn, temporarily reuse `finalWagerBed` (already cinematic) as the playing bed during `final_question` to immediately replace the beeping.
-- No DB migration needed.
+3. **Keep the crowd layer "wanted" while in lobby.** The current effect-cleanup calls `stopLobbyBuildup()` which removes `"crowd"` from `wanted`. Only call that on unmount when leaving lobby (i.e. `roomPhase !== "lobby"`); when only `room.id` changes between lobbies, do nothing so the global gesture-unlock retry stays effective.
 
-### Files touched
-- `src/lib/game.functions.ts` (durations, hard-only fallback, dropOneWrong guard)
-- `src/components/host/HostGameStage.tsx` (final question label off, final bed wiring, reset elf-voice on restart)
-- `src/components/host/QuestionStage.tsx` (optional questionNumber)
-- `src/components/host/IntroStage.tsx` (hard reset on mount, gate stale digits)
-- `src/lib/elf-voice.ts` (`hardResetElfVoice`)
-- `src/lib/sound-engine.ts` (final tension bed helpers)
+No changes to `ambience-engine.ts`, other routes, or game logic. Purely host-lobby wiring so the crowd bed is audible from room creation through game start on every browser, and comes back after Play Again.
+
+## Files touched
+
+- `src/routes/host.tsx` — retune the ambience `useEffect` and add a gesture-retry effect scoped to `roomPhase === "lobby"`.
