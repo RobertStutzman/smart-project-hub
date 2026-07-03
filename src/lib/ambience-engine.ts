@@ -497,6 +497,7 @@ export function stopAllAmbience() {
   stopHtmlLayer(chatterHtml, 0);
   stopHtmlLayer(crowdHtml, 0);
   stopLoop(drumroll, 0);
+  emitDebug({ type: "ambience.stop", layer: "all" });
 }
 
 /** Fade out host buildup layers only; chatter persists as the pre-game layer. */
