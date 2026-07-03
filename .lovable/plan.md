@@ -1,24 +1,75 @@
-## Problem
+## Goal
 
-On `/host` the crowd/lobby ambience only starts once, in an effect keyed on `room?.id`. It gets torn down whenever:
-- `climaxAndHandoff()` fires when the game starts (expected), but if the host returns to the lobby of the **same room** (Play Again / phase → lobby), `handedOff` stays true and no code restarts ambience.
-- The initial `startCrowd()` is blocked by autoplay on TV browsers (Samsung Tizen, Amazon Silk, iPad screen mirroring). The `__root.tsx` gesture listener retries, but on a QR-code lobby the host often never taps the TV screen, so ambience never unlocks.
-- After `stopLobbyBuildup()` runs in the effect cleanup, `wanted` no longer contains `"crowd"`, so `retryBlockedAmbience()` becomes a no-op even when a gesture later occurs.
+Give you a single page (`/dev`) where you can run a whole game end-to-end with bots and see, in real time, whether the things we've been fixing are actually working — with pass/fail lights instead of you having to catch regressions by ear/eye.
 
-## Fix
+## What exists today
 
-1. **Restart ambience whenever the host enters/returns to the lobby.** Change the ambience effect in `src/routes/host.tsx` (currently lines ~381-416) to depend on `[room?.id, roomPhase]`, gated by `roomPhase === "lobby"`. Call `resetAmbience()` before `startCrowd()` so the handoff latch from a previous game is cleared. This covers first-mount, new-room, and Play-Again returns.
+`/dev` already spawns bots into a host iframe and answers questions. It has no observability: you still have to watch and listen to know if anything broke.
 
-2. **Retry ambience on any user gesture on the host lobby**, mirroring what `useLobbyChatter` does for `/` and `/join`. Add a small effect on `/host` (or reuse a trimmed version of the existing hook, crowd-only) that:
-   - listens for `pointerdown` / `keydown` / `touchstart` while the host is in the lobby,
-   - calls `resetAmbience()` + `startCrowd()` on each gesture until one resolves `true`,
-   - detaches once playing.
-   This makes the ambience come back on the first click on the "Start Game" button / QR area for autoplay-blocked TV browsers.
+## What I'll add
 
-3. **Keep the crowd layer "wanted" while in lobby.** The current effect-cleanup calls `stopLobbyBuildup()` which removes `"crowd"` from `wanted`. Only call that on unmount when leaving lobby (i.e. `roomPhase !== "lobby"`); when only `room.id` changes between lobbies, do nothing so the global gesture-unlock retry stays effective.
+### 1. Lightweight in-app event bus (`src/lib/debug-bus.ts`)
 
-No changes to `ambience-engine.ts`, other routes, or game logic. Purely host-lobby wiring so the crowd bed is audible from room creation through game start on every browser, and comes back after Play Again.
+A tiny `window.__btdDebug` pub/sub that the key subsystems emit into. No behavior change in production — it's a fire-and-forget `emit()` that's a no-op when no listener is attached.
 
-## Files touched
+Events emitted from the code that has been regressing:
 
-- `src/routes/host.tsx` — retune the ambience `useEffect` and add a gesture-retry effect scoped to `roomPhase === "lobby"`.
+- `ambience.start` / `ambience.stop` / `ambience.blocked` — from `ambience-engine.ts`
+- `music.start` / `music.stop` — from `sound-engine.ts` music helpers
+- `phase.change` — from host phase transitions (lobby / intro / question / reveal / round / final / results)
+- `question.show` `{ index, roundLabel, category, difficulty }` — from `QuestionStage`
+- `countdown.show` `{ kind: "get-ready" | "big-321" | "final" }` — from IntroStage / final intro
+- `timer.start` `{ phase, durationMs }` — whenever a question/final timer is armed
+- `drop.answer` `{ index }` — lightning-round anti-drop check (should NEVER fire in lightning)
+- `tts.speak` `{ preset, text }` — announcer lines
+- `final.question` `{ difficulty, questionId }` — final-round question metadata
+
+Every emit is one line of code near where the behavior happens. No refactors.
+
+### 2. QA panel on `/dev`
+
+New right-hand column next to the bot rail with three sections:
+
+**a) Assertions (auto-graded checklist).** Rules encoded as small functions that consume the event stream. Each row shows ⚪ pending / ✅ pass / ❌ fail with the offending event on failure. Initial rules covering the recent regressions:
+
+- Lobby ambience: `ambience.start(chatter|crowd)` fires within 5s of `phase.change(lobby)`; still playing when `phase.change(intro)` arrives.
+- No giant 3-2-1 countdown: `countdown.show({kind:"big-321"})` must NOT fire between lobby → question.
+- Question label: on `question.show`, `roundLabel` for final round is `"Final"` (never `"Question 1"`).
+- Question timer duration: `timer.start` for regular questions is 15s ± tolerance, mid-round adjusts as configured; final is 30s.
+- Lightning round no-drop: while `phase` indicates lightning, no `drop.answer` events fire.
+- Final music: `music.start("final")` fires within 2s of final intro, not the "bouncing beeping" preset.
+- Final question difficulty: `final.question.difficulty === "hard"`.
+- Announcer sanity: no `tts.speak` whose text is a bare number ("2", "3") during phase transitions (catches the "just said 2 and started" bug).
+
+**b) Live event log.** Scrollable, filterable, timestamped. Copy-to-clipboard button so you can paste it into a bug report.
+
+**c) One-click scenarios.** Buttons that drive a full run: `Full 3-round game (smart bots)`, `Lightning round only`, `Final round only`, `Return-to-lobby stress (game → new room ×3)`. Each scenario spawns bots, waits for the host to reach the right phase, advances via the existing host controls (already exposed through `postMessage`), and reports the assertion summary at the end.
+
+### 3. Optional: headless mode flag
+
+Add `?auto=1` to `/dev` to auto-run the "Full 3-round game" scenario on load and print `PASS`/`FAIL` to the console + a big banner. Useful when you want to spot-check after a change without clicking anything.
+
+## Files
+
+- **New** `src/lib/debug-bus.ts` — event bus + types.
+- **New** `src/components/dev/QAPanel.tsx` — assertions, log, scenario buttons.
+- **Edit** `src/routes/dev.tsx` — mount `QAPanel`, wire scenarios.
+- **Edit (one-line emits, no logic changes)**:
+  - `src/lib/ambience-engine.ts`
+  - `src/lib/sound-engine.ts` (music start/stop)
+  - `src/routes/host.tsx` (phase.change)
+  - `src/components/host/QuestionStage.tsx` (question.show, timer.start)
+  - `src/components/host/IntroStage.tsx` (countdown.show)
+  - `src/components/host/FinalIntroStage.tsx` / `FinalStages.tsx` (final.question, countdown.show)
+  - `src/lib/game.functions.ts` — emit `drop.answer` in the lightning branch guard so tests catch regressions from the client side (or emit from the host reveal handler that receives dropped_indexes)
+  - `src/lib/announcer.functions.ts` client wrapper (`tts.speak`)
+
+## Non-goals
+
+- Not adding a full test runner (Vitest/Playwright) yet — this is a live in-app harness you can trigger between rounds without leaving the preview.
+- Not changing any gameplay behavior. Emits are additive.
+- Not persisting results across reloads (session-only). Can add later if you want history.
+
+## What you get after this ships
+
+Open `/dev`, click **Full 3-round game**, watch the checklist fill in as the bots play. If final round accidentally re-labels itself "Question 1" or the lobby ambience goes silent, you see a red ❌ with the exact event and timestamp, before you have to hear it yourself.

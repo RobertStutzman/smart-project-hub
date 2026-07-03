@@ -8,6 +8,7 @@
 import drumAsset from "@/assets/audio/drumroll-build.mp3.asset.json";
 import cymbalAsset from "@/assets/audio/cymbal-swell.mp3.asset.json";
 import crowdSeamlessAsset from "@/assets/audio/crowd-ambience-seamless.wav.asset.json";
+import { emitDebug } from "@/lib/debug-bus";
 
 const CHATTER_TARGET = 0.11;
 const CROWD_TARGET = 0.5;
@@ -420,21 +421,30 @@ export function startLobbyChatter(): Promise<boolean> {
   if (!isClient() || muted || handedOff) return Promise.resolve(false);
   wanted.add("chatter");
   installWatchdog();
-  return startHtmlLayer(chatterHtml);
+  return startHtmlLayer(chatterHtml).then((ok) => {
+    emitDebug(ok ? { type: "ambience.start", layer: "chatter" } : { type: "ambience.blocked", layer: "chatter" });
+    return ok;
+  });
 }
 
 export function startCrowd(): Promise<boolean> {
   if (!isClient() || muted || handedOff) return Promise.resolve(false);
   wanted.add("crowd");
   installWatchdog();
-  return startHtmlLayer(crowdHtml);
+  return startHtmlLayer(crowdHtml).then((ok) => {
+    emitDebug(ok ? { type: "ambience.start", layer: "crowd" } : { type: "ambience.blocked", layer: "crowd" });
+    return ok;
+  });
 }
 
 export function startDrumroll(): Promise<boolean> {
   if (!isClient() || muted || handedOff) return Promise.resolve(false);
   wanted.add("drumroll");
   installWatchdog();
-  return startLoop(drumroll);
+  return startLoop(drumroll).then((ok) => {
+    emitDebug(ok ? { type: "ambience.start", layer: "drumroll" } : { type: "ambience.blocked", layer: "drumroll" });
+    return ok;
+  });
 }
 
 /**
@@ -487,6 +497,7 @@ export function stopAllAmbience() {
   stopHtmlLayer(chatterHtml, 0);
   stopHtmlLayer(crowdHtml, 0);
   stopLoop(drumroll, 0);
+  emitDebug({ type: "ambience.stop", layer: "all" });
 }
 
 /** Fade out host buildup layers only; chatter persists as the pre-game layer. */

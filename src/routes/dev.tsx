@@ -5,6 +5,7 @@ import { joinRoom } from "@/lib/rooms.functions";
 import { lockAnswer } from "@/lib/game.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { newId } from "@/lib/player-session";
+import { QAPanel } from "@/components/dev/QAPanel";
 
 export const Route = createFileRoute("/dev")({
   head: () => ({
@@ -40,6 +41,7 @@ function DevPage() {
 
   const [roomCode, setRoomCode] = useState<string>("");
   const [roomId, setRoomId] = useState<string>("");
+  const [roomPhase, setRoomPhase] = useState<string>("");
   const [count, setCount] = useState(4);
   const [mode, setMode] = useState<Mode>("smart");
   const [delay, setDelay] = useState(1200);
@@ -129,6 +131,7 @@ function DevPage() {
         .eq("id", roomId)
         .maybeSingle();
       if (!room) return;
+      setRoomPhase(room.phase ?? "");
 
       if (
         room.phase === "question" &&
@@ -324,10 +327,15 @@ function DevPage() {
             Drive the game from the host view on the left. Bots react in real time.
           </div>
         </aside>
+
+        {/* QA harness */}
+        <QAPanel roomCode={roomCode} roomPhase={roomPhase} />
       </div>
     </main>
   );
 }
+
+// Trailing helper unchanged below
 
 function BotRow({ bot }: { bot: Bot }) {
   const dot =

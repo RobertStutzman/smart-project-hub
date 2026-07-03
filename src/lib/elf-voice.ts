@@ -421,6 +421,11 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
   const priority = opts.priority ?? 1;
   const deadline = opts.deadline;
 
+  // Debug-bus emit (no-op unless QA harness is listening)
+  void import("@/lib/debug-bus").then(({ emitDebug }) =>
+    emitDebug({ type: "tts.speak", preset, text }),
+  );
+
   if (opts.interrupt) cancelElfSpeech();
   const myGen = generation;
 

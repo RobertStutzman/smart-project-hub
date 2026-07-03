@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { HOST_NAME } from "@/lib/host-persona";
 import { play, playWalkOnStinger } from "@/lib/sound-engine";
+import { emitDebug } from "@/lib/debug-bus";
 
 type Player = {
   id: string;
@@ -63,6 +64,7 @@ export function IntroStage({ players, onDone }: Props) {
 
     const t0 = performance.now();
     play("whoosh");
+    emitDebug({ type: "countdown.show", kind: "intro-321" });
 
     // Mark global timings for verification harnesses (Playwright). No-op in
     // production browsers — just a sparse object we read in tests.

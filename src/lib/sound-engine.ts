@@ -1,5 +1,9 @@
 // Web Audio synth-based sound engine — plus uploaded clip overrides per event.
 
+import { emitDebug } from "@/lib/debug-bus";
+
+
+
 export type Sfx =
   | "tap"
   | "whoosh"
@@ -648,6 +652,7 @@ export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
   stopOtherMusic("loop", 450);
   if (muted) return;
   currentLoopMode = mode;
+  emitDebug({ type: "music.start", mode });
 
   if (mode === "lobby") {
     const clip = eventClips.lobby_music;
@@ -747,6 +752,7 @@ export function duckMusic(on: boolean) {
 export function stopMusic(immediate = false) {
   stopLoopAudio(immediate);
   stopQuestionBed(immediate ? 0 : 250);
+  emitDebug({ type: "music.stop" });
 }
 
 /**
