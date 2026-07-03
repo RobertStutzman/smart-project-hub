@@ -5,6 +5,7 @@ import { ShatteredFaces } from "./ShatteredFaces";
 import { ShutterTransition } from "./ShutterTransition";
 import { CategoryReveal } from "./CategoryReveal";
 import { mirrorLetters } from "@/lib/wildcards";
+import { emitDebug } from "@/lib/debug-bus";
 
 
 type Player = {
