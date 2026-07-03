@@ -327,10 +327,15 @@ function DevPage() {
             Drive the game from the host view on the left. Bots react in real time.
           </div>
         </aside>
+
+        {/* QA harness */}
+        <QAPanel roomCode={roomCode} roomPhase={roomPhase} />
       </div>
     </main>
   );
 }
+
+// Trailing helper unchanged below
 
 function BotRow({ bot }: { bot: Bot }) {
   const dot =
