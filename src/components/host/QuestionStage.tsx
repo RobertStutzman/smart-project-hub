@@ -83,6 +83,13 @@ export const QuestionStage = memo(function QuestionStage({
   const [, forceTick] = useState(0);
   useEffect(() => {
     if (phase !== "question") return;
+    emitDebug({
+      type: "question.show",
+      questionKey,
+      questionNumber: questionNumber ?? null,
+      category: category ?? null,
+    });
+    emitDebug({ type: "timer.start", scope: "question", durationS: totalS });
     const startedAt = localStartRef.current?.startedAt ?? performance.now();
     const id = window.setInterval(() => {
       forceTick((n) => n + 1);
@@ -92,7 +99,7 @@ export const QuestionStage = memo(function QuestionStage({
       }
     }, 100);
     return () => window.clearInterval(id);
-  }, [phase, questionKey]);
+  }, [phase, questionKey, questionNumber, category, totalS]);
 
   const localReadSecondsLeft =
     phase === "question"
