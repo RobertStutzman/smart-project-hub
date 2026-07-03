@@ -1,75 +1,81 @@
+
 ## Goal
 
-Give you a single page (`/dev`) where you can run a whole game end-to-end with bots and see, in real time, whether the things we've been fixing are actually working — with pass/fail lights instead of you having to catch regressions by ear/eye.
+Add a one-click "Run automated round" harness on `/dev` that drives a real game from lobby → intro → question → reveal → climax/final without any manual clicks, then prints a pass/fail report based on the QA assertions + a scenario-specific checklist.
 
-## What exists today
+## How it works
 
-`/dev` already spawns bots into a host iframe and answers questions. It has no observability: you still have to watch and listen to know if anything broke.
+The `/dev` page already:
+- Embeds `/host` in an iframe (creates the room, emits `phase.change` etc. through the debug bus).
+- Can spawn bots that join and lock answers via server functions.
+- Subscribes to the debug bus via `QAPanel`.
 
-## What I'll add
+The runner is a small state machine on top of those pieces. It listens to the debug bus, advances by observing events (not timers), and only *nudges* the host when a phase needs a manual click (e.g. "Start game" from lobby, "Next round").
 
-### 1. Lightweight in-app event bus (`src/lib/debug-bus.ts`)
+### New file: `src/lib/round-runner.ts`
+Pure controller. Given `{ roomCode, iframe, spawnBots, waitForEvent, emit }`, it exposes:
+- `run(scenario)` where scenario ∈ `full3Round | lightningOnly | finalOnly | lobbyStress`
+- Returns `RunnerReport { steps: StepResult[], assertions: AssertionResult[], passed: boolean }`
 
-A tiny `window.__btdDebug` pub/sub that the key subsystems emit into. No behavior change in production — it's a fire-and-forget `emit()` that's a no-op when no listener is attached.
+Uses `waitForEvent(predicate, timeoutMs)` built on `subscribeDebugBus`. Each step records `{ label, ok, detail, elapsedMs }`.
 
-Events emitted from the code that has been regressing:
+### Host-side control messages (host.tsx)
+Extend the existing `parent:*` postMessage protocol with:
+- `parent:start-game` → same effect as clicking "Start" (host advances lobby → intro)
+- `parent:advance` → click primary CTA on current stage (Next / Continue / Start round)
+- `parent:force-phase` (debug-only, gated on `import.meta.env.DEV`) — optional escape hatch; not required for the happy path.
 
-- `ambience.start` / `ambience.stop` / `ambience.blocked` — from `ambience-engine.ts`
-- `music.start` / `music.stop` — from `sound-engine.ts` music helpers
-- `phase.change` — from host phase transitions (lobby / intro / question / reveal / round / final / results)
-- `question.show` `{ index, roundLabel, category, difficulty }` — from `QuestionStage`
-- `countdown.show` `{ kind: "get-ready" | "big-321" | "final" }` — from IntroStage / final intro
-- `timer.start` `{ phase, durationMs }` — whenever a question/final timer is armed
-- `drop.answer` `{ index }` — lightning-round anti-drop check (should NEVER fire in lightning)
-- `tts.speak` `{ preset, text }` — announcer lines
-- `final.question` `{ difficulty, questionId }` — final-round question metadata
+The runner prefers `parent:start-game` / `parent:advance` (they mirror real user clicks and exercise the real code paths). Host wires them by calling the same handlers its buttons already use.
 
-Every emit is one line of code near where the behavior happens. No refactors.
+### Runner flow (full 3-round scenario)
+1. `parent:new-room` → wait for `host:room` (get roomCode).
+2. Wait for `phase.change: lobby` → assert lobby crowd ambience within 5s (reuses `A.lobbyAmbience`).
+3. Spawn N bots (default 4) → wait until all report `lobby`.
+4. `parent:start-game` → wait for `phase.change: intro`.
+5. For each round r ∈ 1..3:
+   - Wait for `question.show` → assert `no.big321` (no `countdown.show` between phase change and question).
+   - Assert timer window via `timer.start` (15–25s regular, ~30s final).
+   - Ask each bot to lock an answer (existing smart/random logic).
+   - Wait for `phase.change: reveal` (or scoreboard/climax event, whichever fires).
+   - If lightning round: assert `lightning.nodrop` (no `drop.answer` events during the round window).
+   - `parent:advance` to next round.
+6. Final round: assert `final.difficulty`, `final.timer`, `final.music`, no bare-number TTS.
+7. Wait for climax/handoff phase (`phase.change: final-reveal` or `climax`) → mark run complete.
+8. Compile report from step results + current `QAPanel` assertion states.
 
-### 2. QA panel on `/dev`
+Each `waitForEvent` has a scenario-appropriate timeout (e.g. 20s for phase transitions, 40s for question resolution). Timeouts mark the step failed but the runner keeps going so the report shows *where* it broke.
 
-New right-hand column next to the bot rail with three sections:
+### New file: `src/components/dev/RunnerPanel.tsx`
+UI on `/dev` above/next to `QAPanel`:
+- Scenario dropdown: Full 3-round | Lightning only | Final only | Lobby stress.
+- Bot count + mode (reuses existing dev controls).
+- Buttons: "Run", "Stop", "Copy report".
+- Live step list rendering `StepResult[]` (green check / red x / spinner + elapsedMs + detail).
+- Final banner: PASSED / FAILED (X / Y steps, Z assertions).
 
-**a) Assertions (auto-graded checklist).** Rules encoded as small functions that consume the event stream. Each row shows ⚪ pending / ✅ pass / ❌ fail with the offending event on failure. Initial rules covering the recent regressions:
+Runner calls back into `dev.tsx` for `spawnBot` and postMessage; no duplication.
 
-- Lobby ambience: `ambience.start(chatter|crowd)` fires within 5s of `phase.change(lobby)`; still playing when `phase.change(intro)` arrives.
-- No giant 3-2-1 countdown: `countdown.show({kind:"big-321"})` must NOT fire between lobby → question.
-- Question label: on `question.show`, `roundLabel` for final round is `"Final"` (never `"Question 1"`).
-- Question timer duration: `timer.start` for regular questions is 15s ± tolerance, mid-round adjusts as configured; final is 30s.
-- Lightning round no-drop: while `phase` indicates lightning, no `drop.answer` events fire.
-- Final music: `music.start("final")` fires within 2s of final intro, not the "bouncing beeping" preset.
-- Final question difficulty: `final.question.difficulty === "hard"`.
-- Announcer sanity: no `tts.speak` whose text is a bare number ("2", "3") during phase transitions (catches the "just said 2 and started" bug).
+### Instrumentation gaps to close
+Confirmed present: `phase.change`, `ambience.*`, `music.*`, `question.show`, `countdown.show`, `timer.start`, `tts.speak`. Add if missing (small emits, no behavior change):
+- `drop.answer` inside lightning-round guard in `src/lib/game.functions.ts` (client-side no-op wrapper if server-only — emitted from host on receiving lightning state)
+- `round.end` / `climax.start` in `host.tsx` when transitioning out of the last question and into the final reveal, so the runner has a clean terminator.
 
-**b) Live event log.** Scrollable, filterable, timestamped. Copy-to-clipboard button so you can paste it into a bug report.
+### Non-goals
+- No Vitest/Playwright. Runs entirely in-browser on `/dev`.
+- No changes to gameplay, audio, or scoring logic.
+- No persistence of reports (copy-to-clipboard only).
 
-**c) One-click scenarios.** Buttons that drive a full run: `Full 3-round game (smart bots)`, `Lightning round only`, `Final round only`, `Return-to-lobby stress (game → new room ×3)`. Each scenario spawns bots, waits for the host to reach the right phase, advances via the existing host controls (already exposed through `postMessage`), and reports the assertion summary at the end.
+## Files touched
+- **new** `src/lib/round-runner.ts` — scenario state machine + report type.
+- **new** `src/components/dev/RunnerPanel.tsx` — UI.
+- **edit** `src/routes/dev.tsx` — mount `RunnerPanel`, expose `spawnBot`/postMessage handle to it.
+- **edit** `src/routes/host.tsx` — accept `parent:start-game` / `parent:advance`; add `climax.start` emit at final handoff.
+- **edit** `src/lib/debug-bus.ts` — add `climax.start`, `round.end`, `drop.answer` event types (if not already).
+- **edit** `src/lib/game.functions.ts` *(only if needed)* — emit `drop.answer` client-side when a lightning-round answer is dropped.
 
-### 3. Optional: headless mode flag
-
-Add `?auto=1` to `/dev` to auto-run the "Full 3-round game" scenario on load and print `PASS`/`FAIL` to the console + a big banner. Useful when you want to spot-check after a change without clicking anything.
-
-## Files
-
-- **New** `src/lib/debug-bus.ts` — event bus + types.
-- **New** `src/components/dev/QAPanel.tsx` — assertions, log, scenario buttons.
-- **Edit** `src/routes/dev.tsx` — mount `QAPanel`, wire scenarios.
-- **Edit (one-line emits, no logic changes)**:
-  - `src/lib/ambience-engine.ts`
-  - `src/lib/sound-engine.ts` (music start/stop)
-  - `src/routes/host.tsx` (phase.change)
-  - `src/components/host/QuestionStage.tsx` (question.show, timer.start)
-  - `src/components/host/IntroStage.tsx` (countdown.show)
-  - `src/components/host/FinalIntroStage.tsx` / `FinalStages.tsx` (final.question, countdown.show)
-  - `src/lib/game.functions.ts` — emit `drop.answer` in the lightning branch guard so tests catch regressions from the client side (or emit from the host reveal handler that receives dropped_indexes)
-  - `src/lib/announcer.functions.ts` client wrapper (`tts.speak`)
-
-## Non-goals
-
-- Not adding a full test runner (Vitest/Playwright) yet — this is a live in-app harness you can trigger between rounds without leaving the preview.
-- Not changing any gameplay behavior. Emits are additive.
-- Not persisting results across reloads (session-only). Can add later if you want history.
-
-## What you get after this ships
-
-Open `/dev`, click **Full 3-round game**, watch the checklist fill in as the bots play. If final round accidentally re-labels itself "Question 1" or the lobby ambience goes silent, you see a red ❌ with the exact event and timestamp, before you have to hear it yourself.
+## Acceptance
+Clicking "Run — Full 3-round" on `/dev` with 4 bots:
+- Advances lobby → intro → 3 questions → final → climax with zero manual clicks.
+- Produces a step list where every step is green.
+- QA assertions in the existing panel all resolve to pass.
+- If a regression appears (e.g. big 3-2-1 comes back, lobby ambience silent, final too easy), the exact failing step + assertion is shown with timing.
