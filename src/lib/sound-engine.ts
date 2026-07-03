@@ -652,6 +652,7 @@ export function startMusic(mode: "lobby" | "tense", tempoMs = 480) {
   stopOtherMusic("loop", 450);
   if (muted) return;
   currentLoopMode = mode;
+  emitDebug({ type: "music.start", mode });
 
   if (mode === "lobby") {
     const clip = eventClips.lobby_music;
