@@ -194,7 +194,12 @@ function HostPage() {
             current_explanation_tts_url?: string | null;
             difficulty_mode?: string | null;
           } | undefined;
-          if (next?.phase) setRoomPhase(next.phase);
+          if (next?.phase) {
+            setRoomPhase(next.phase);
+            void import("@/lib/debug-bus").then(({ emitDebug }) =>
+              emitDebug({ type: "phase.change", phase: next.phase!, roundNumber: next.round_number }),
+            );
+          }
           if (typeof next?.round_number === "number") setRoundNumber(next.round_number);
           if (typeof next?.team_mode === "boolean") setTeamMode(next.team_mode);
           if (next && "current_category" in next) setActiveCategory(next.current_category ?? null);
