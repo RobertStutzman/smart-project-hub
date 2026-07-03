@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { HOST_NAME } from "@/lib/host-persona";
 import { play, playWalkOnStinger } from "@/lib/sound-engine";
+import { emitDebug } from "@/lib/debug-bus";
 
 type Player = {
   id: string;
