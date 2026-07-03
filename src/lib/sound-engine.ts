@@ -1,5 +1,9 @@
 // Web Audio synth-based sound engine — plus uploaded clip overrides per event.
 
+import { emitDebug } from "@/lib/debug-bus";
+
+
+
 export type Sfx =
   | "tap"
   | "whoosh"
