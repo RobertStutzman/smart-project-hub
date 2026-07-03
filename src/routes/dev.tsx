@@ -41,6 +41,7 @@ function DevPage() {
 
   const [roomCode, setRoomCode] = useState<string>("");
   const [roomId, setRoomId] = useState<string>("");
+  const [roomPhase, setRoomPhase] = useState<string>("");
   const [count, setCount] = useState(4);
   const [mode, setMode] = useState<Mode>("smart");
   const [delay, setDelay] = useState(1200);
