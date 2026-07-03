@@ -752,6 +752,7 @@ export function duckMusic(on: boolean) {
 export function stopMusic(immediate = false) {
   stopLoopAudio(immediate);
   stopQuestionBed(immediate ? 0 : 250);
+  emitDebug({ type: "music.stop" });
 }
 
 /**
