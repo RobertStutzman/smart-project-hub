@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   runScenario,
   type RunnerReport,
@@ -6,6 +6,7 @@ import {
   type Step,
 } from "@/lib/round-runner";
 import { enableDebugBus } from "@/lib/debug-bus";
+import { startRecorder, type RecorderData } from "@/lib/run-recorder";
 
 type Props = {
   roomCode: string;
