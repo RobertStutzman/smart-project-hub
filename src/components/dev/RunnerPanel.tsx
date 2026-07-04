@@ -85,7 +85,11 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount, qaRef, 
     async (which: Scenario, signal: AbortSignal) => {
       setSteps([]);
       setReport(null);
-      const recorder = startRecorder();
+      const recorder = startRecorder({
+        getBots: () => getBots?.() ?? [],
+        getRoom: () => getRoomState?.(),
+        getAssertions: () => qaRef?.current?.getAssertions() ?? [],
+      });
       let rep: RunnerReport | null = null;
       try {
         rep = await runScenario({
@@ -96,6 +100,7 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount, qaRef, 
           onStepsChange: setSteps,
           onDone: setReport,
           abortSignal: signal,
+          recorder,
         });
       } finally {
         recorder.stop();
@@ -114,7 +119,7 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount, qaRef, 
       });
       return rep!;
     },
-    [botCount, spawnBots, sendToHost],
+    [botCount, spawnBots, sendToHost, getBots, getRoomState, qaRef],
   );
 
 
