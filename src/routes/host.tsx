@@ -69,6 +69,16 @@ const MUTE_KEY = "btd:muted";
 
 const CATEGORIES_KEY = "btd:enabled-categories:v2";
 
+const PUBLIC_PLAYER_ORIGIN = "https://droptrivia.app";
+
+function getPlayerJoinOrigin() {
+  if (typeof window === "undefined") return PUBLIC_PLAYER_ORIGIN;
+  const { hostname, origin } = window.location;
+  if (hostname === "localhost" || hostname === "127.0.0.1") return origin;
+  if (hostname === "droptrivia.app" || hostname === "www.droptrivia.app") return origin;
+  return PUBLIC_PLAYER_ORIGIN;
+}
+
 
 function HostPage() {
   const navigate = useNavigate();
@@ -747,7 +757,7 @@ function HostPage() {
 
   const joinUrl = useMemo(() => {
     if (!origin || !room) return "";
-    return `${window.location.origin}/join?code=${room.roomCode}`;
+    return `${getPlayerJoinOrigin()}/join?code=${room.roomCode}`;
   }, [room, origin]);
 
   function toggleMute() {
@@ -1015,11 +1025,16 @@ function HostPage() {
           </div>
 
           {joinUrl && (
-            <div
-              className="inline-block rounded-xl bg-white p-[1vh] shadow-[0_0_40px_oklch(0.85_0.18_85/0.32)] ring-1 ring-white/20"
-              style={{ width: "clamp(120px, 22vh, 200px)", height: "clamp(120px, 22vh, 200px)" }}
-            >
-              <QRCodeSVG value={joinUrl} size={256} level="M" includeMargin={false} style={{ width: "100%", height: "100%" }} />
+            <div className="flex flex-col items-center gap-2">
+              <div
+                className="inline-block rounded-xl bg-white p-[1vh] shadow-[0_0_40px_oklch(0.85_0.18_85/0.32)] ring-1 ring-white/20"
+                style={{ width: "clamp(120px, 22vh, 200px)", height: "clamp(120px, 22vh, 200px)" }}
+              >
+                <QRCodeSVG value={joinUrl} size={256} level="M" includeMargin={false} style={{ width: "100%", height: "100%" }} />
+              </div>
+              <div className="font-mono text-[clamp(0.55rem,1.05vh,0.75rem)] tracking-wide text-white/55">
+                droptrivia.app/join
+              </div>
             </div>
           )}
 

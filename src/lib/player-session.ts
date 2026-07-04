@@ -35,7 +35,11 @@ export function getOrCreateSessionId(storageKey = KEY): string {
 
 export function savePlayerSession(s: PlayerSession) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(KEY, JSON.stringify(s));
+  try {
+    localStorage.setItem(KEY, JSON.stringify(s));
+  } catch {
+    /* Storage can be blocked on some in-app browsers. Joining should still continue. */
+  }
 }
 
 export function loadPlayerSession(): PlayerSession | null {
@@ -50,12 +54,20 @@ export function loadPlayerSession(): PlayerSession | null {
 
 export function clearPlayerSession() {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(KEY);
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 export function saveHostSession(s: HostSession) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(HOST_KEY, JSON.stringify(s));
+  try {
+    localStorage.setItem(HOST_KEY, JSON.stringify(s));
+  } catch {
+    /* Storage can be blocked on some browsers; the host room still exists server-side. */
+  }
 }
 
 export function loadHostSession(): HostSession | null {
