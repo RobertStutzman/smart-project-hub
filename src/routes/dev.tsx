@@ -48,6 +48,8 @@ type Bot = {
 function DevPage() {
   const joinFn = useServerFn(joinRoom);
   const lockFn = useServerFn(lockAnswer);
+  const lockDevFn = useServerFn(lockDev);
+
 
   const [roomCode, setRoomCode] = useState<string>("");
   const [roomId, setRoomId] = useState<string>("");
