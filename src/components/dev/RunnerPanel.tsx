@@ -252,7 +252,7 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount, qaRef, 
     try { await navigator.clipboard.writeText(lines.join("\n")); } catch {}
   }, [batch, report, scenario, steps]);
 
-  // Deep-link auto-run: /dev?run=full3Round[&batch=3]
+  // Deep-link auto-run: /dev?run=full3Round[&batch=3][&post=1]
   const autoRanRef = useRef(false);
   useEffect(() => {
     if (autoRanRef.current) return;
@@ -260,15 +260,17 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount, qaRef, 
     const params = new URLSearchParams(window.location.search);
     const runParam = params.get("run") as Scenario | null;
     const batchParam = params.get("batch");
+    const postParam = params.get("post");
     if (!runParam && !batchParam) return;
     autoRanRef.current = true;
+    const post = postParam === "1";
     if (batchParam) {
       const n = Math.max(1, Math.min(20, Number(batchParam) || 1));
       setIterations(n);
-      window.setTimeout(() => void onBatch(), 500);
+      window.setTimeout(() => void onBatch(post), 500);
     } else if (runParam && SCENARIOS.some((s) => s.id === runParam)) {
       setScenario(runParam);
-      window.setTimeout(() => void onRun(), 500);
+      window.setTimeout(() => void onRun(post), 500);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomCode]);
