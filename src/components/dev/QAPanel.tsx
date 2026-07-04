@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import {
   enableDebugBus,
   installDebugBridge,
@@ -12,6 +12,10 @@ type Assertion = {
   label: string;
   state: AssertionState;
   detail?: string;
+};
+
+export type QAPanelRef = {
+  getAssertions: () => Assertion[];
 };
 
 type Props = {
@@ -44,13 +48,17 @@ function defaultAssertions(): Assertion[] {
   ];
 }
 
-export function QAPanel({ roomCode, roomPhase }: Props) {
+export const QAPanel = forwardRef<QAPanelRef, Props>(function QAPanel({ roomCode, roomPhase }, ref) {
   const [events, setEvents] = useState<StampedEvent[]>([]);
   const [assertions, setAssertions] = useState<Assertion[]>(defaultAssertions);
   const [filter, setFilter] = useState("");
   const [paused, setPaused] = useState(false);
   const pausedRef = useRef(false);
   useEffect(() => { pausedRef.current = paused; }, [paused]);
+
+  useImperativeHandle(ref, () => ({
+    getAssertions: () => assertions,
+  }), [assertions]);
 
   // Enable + bridge
   useEffect(() => {
@@ -201,7 +209,7 @@ export function QAPanel({ roomCode, roomPhase }: Props) {
       </div>
     </aside>
   );
-}
+});
 
 function shortPayload(e: StampedEvent): string {
   const { type: _t, t: _at, from: _f, ...rest } = e as unknown as Record<string, unknown>;

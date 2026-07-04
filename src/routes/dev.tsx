@@ -5,7 +5,7 @@ import { joinRoom } from "@/lib/rooms.functions";
 import { lockAnswer } from "@/lib/game.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { newId } from "@/lib/player-session";
-import { QAPanel } from "@/components/dev/QAPanel";
+import { QAPanel, type QAPanelRef } from "@/components/dev/QAPanel";
 import { RunnerPanel } from "@/components/dev/RunnerPanel";
 
 export const Route = createFileRoute("/dev")({
@@ -48,6 +48,8 @@ function DevPage() {
   const [delay, setDelay] = useState(1200);
   const [bots, setBots] = useState<Bot[]>([]);
   const botsRef = useRef<Bot[]>([]);
+  const roomStateRef = useRef<unknown>(null);
+  const qaRef = useRef<QAPanelRef | null>(null);
   const lastQRef = useRef<string>("");
   const modeRef = useRef<Mode>(mode);
   const delayRef = useRef<number>(delay);
@@ -132,6 +134,7 @@ function DevPage() {
         .eq("id", roomId)
         .maybeSingle();
       if (!room) return;
+      roomStateRef.current = room;
       setRoomPhase(room.phase ?? "");
 
       if (
@@ -330,7 +333,7 @@ function DevPage() {
         </aside>
 
         {/* QA harness */}
-        <QAPanel roomCode={roomCode} roomPhase={roomPhase} />
+        <QAPanel ref={qaRef} roomCode={roomCode} roomPhase={roomPhase} />
 
         {/* Automated runner */}
         <RunnerPanel
@@ -338,6 +341,9 @@ function DevPage() {
           hostIframe={iframeRef.current}
           spawnBots={async (n) => { await spawnAll(n); }}
           botCount={count}
+          qaRef={qaRef}
+          getBots={() => botsRef.current}
+          getRoomState={() => roomStateRef.current}
         />
       </div>
     </main>

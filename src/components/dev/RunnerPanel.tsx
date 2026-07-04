@@ -7,12 +7,24 @@ import {
 } from "@/lib/round-runner";
 import { enableDebugBus } from "@/lib/debug-bus";
 import { startRecorder, type RecorderData } from "@/lib/run-recorder";
+import { type QAPanelRef } from "@/components/dev/QAPanel";
+
+export type BotInput = {
+  key: string;
+  name: string;
+  state: string;
+  score: number;
+  error?: string;
+};
 
 type Props = {
   roomCode: string;
   hostIframe: HTMLIFrameElement | null;
   spawnBots: (n: number) => Promise<void>;
   botCount: number;
+  qaRef?: React.RefObject<QAPanelRef | null>;
+  getBots?: () => BotInput[];
+  getRoomState?: () => unknown;
 };
 
 const SCENARIOS: { id: Scenario; label: string }[] = [
@@ -50,7 +62,7 @@ function saveHistory(items: RunArtifact[]) {
   } catch { /* quota — ignore */ }
 }
 
-export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props) {
+export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount, qaRef, getBots, getRoomState }: Props) {
   const [scenario, setScenario] = useState<Scenario>("full3Round");
   const [steps, setSteps] = useState<Step[]>([]);
   const [running, setRunning] = useState(false);
@@ -70,10 +82,14 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
   );
 
   const runOne = useCallback(
-    async (which: Scenario, signal: AbortSignal) => {
+    async (which: Scenario, signal: AbortSignal, post = false) => {
       setSteps([]);
       setReport(null);
-      const recorder = startRecorder();
+      const recorder = startRecorder({
+        getBots: () => getBots?.() ?? [],
+        getRoom: () => getRoomState?.(),
+        getAssertions: () => qaRef?.current?.getAssertions() ?? [],
+      });
       let rep: RunnerReport | null = null;
       try {
         rep = await runScenario({
@@ -84,6 +100,7 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
           onStepsChange: setSteps,
           onDone: setReport,
           abortSignal: signal,
+          recorder,
         });
       } finally {
         recorder.stop();
@@ -100,13 +117,16 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
         saveHistory(next);
         return next;
       });
+      if (post && window.opener) {
+        try { window.opener.postMessage({ type: "qa-report", artifact }, "*"); } catch {}
+      }
       return rep!;
     },
-    [botCount, spawnBots, sendToHost],
+    [botCount, spawnBots, sendToHost, getBots, getRoomState, qaRef],
   );
 
 
-  const onRun = useCallback(async () => {
+  const onRun = useCallback(async (post = false) => {
     if (running) return;
     enableDebugBus();
     setBatch(null);
@@ -114,7 +134,7 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
     const ac = new AbortController();
     abortRef.current = ac;
     try {
-      const rep = await runOne(scenario, ac.signal);
+      const rep = await runOne(scenario, ac.signal, post);
       setReport(rep);
     } finally {
       setRunning(false);
@@ -122,7 +142,7 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
     }
   }, [running, scenario, runOne]);
 
-  const onBatch = useCallback(async () => {
+  const onBatch = useCallback(async (post = false) => {
     if (running) return;
     enableDebugBus();
     const n = Math.max(1, Math.min(20, iterations));
@@ -137,7 +157,7 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
         for (const s of SCENARIOS) {
           if (ac.signal.aborted) break;
           setBatch((prev) => prev && { ...prev, current: { scenario: s.id, iter: i } });
-          const rep = await runOne(s.id, ac.signal);
+          const rep = await runOne(s.id, ac.signal, post);
           setBatch((prev) => {
             if (!prev) return prev;
             const cell = { ...prev.results[s.id] };
@@ -232,7 +252,7 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
     try { await navigator.clipboard.writeText(lines.join("\n")); } catch {}
   }, [batch, report, scenario, steps]);
 
-  // Deep-link auto-run: /dev?run=full3Round[&batch=3]
+  // Deep-link auto-run: /dev?run=full3Round[&batch=3][&post=1]
   const autoRanRef = useRef(false);
   useEffect(() => {
     if (autoRanRef.current) return;
@@ -240,15 +260,17 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
     const params = new URLSearchParams(window.location.search);
     const runParam = params.get("run") as Scenario | null;
     const batchParam = params.get("batch");
+    const postParam = params.get("post");
     if (!runParam && !batchParam) return;
     autoRanRef.current = true;
+    const post = postParam === "1";
     if (batchParam) {
       const n = Math.max(1, Math.min(20, Number(batchParam) || 1));
       setIterations(n);
-      window.setTimeout(() => void onBatch(), 500);
+      window.setTimeout(() => void onBatch(post), 500);
     } else if (runParam && SCENARIOS.some((s) => s.id === runParam)) {
       setScenario(runParam);
-      window.setTimeout(() => void onRun(), 500);
+      window.setTimeout(() => void onRun(post), 500);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomCode]);
@@ -286,7 +308,7 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
 
         <div className="flex items-center gap-2">
           <button
-            onClick={onRun}
+            onClick={() => onRun()}
             disabled={!canRun}
             className="flex-1 rounded bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black disabled:opacity-40"
           >
@@ -346,7 +368,7 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
             />
           </label>
           <button
-            onClick={onBatch}
+            onClick={() => onBatch()}
             disabled={!canRun}
             className="flex-1 rounded bg-amber-500 px-3 py-1.5 text-xs font-semibold text-black disabled:opacity-40"
           >

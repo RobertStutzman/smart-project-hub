@@ -13,6 +13,7 @@
 // user would (buttons -> setPhase server fns).
 
 import { subscribeDebugBus, type StampedEvent } from "@/lib/debug-bus";
+import { type Recorder } from "@/lib/run-recorder";
 
 export type StepStatus = "pending" | "running" | "pass" | "fail" | "skipped";
 
@@ -44,15 +45,18 @@ type Options = {
   onStepsChange: (steps: Step[]) => void;
   onDone: (report: RunnerReport) => void;
   abortSignal: AbortSignal;
+  recorder?: Recorder;
 };
 
 class StepRecorder {
   steps: Step[] = [];
   private startedAt = new Map<string, number>();
   private onChange: (s: Step[]) => void;
+  private recorder?: Recorder;
 
-  constructor(onChange: (s: Step[]) => void) {
+  constructor(onChange: (s: Step[]) => void, recorder?: Recorder) {
     this.onChange = onChange;
+    this.recorder = recorder;
   }
 
   begin(id: string, label: string) {
@@ -74,7 +78,10 @@ class StepRecorder {
     this.onChange([...this.steps]);
   }
 
-  fail(id: string, detail: string) { this.end(id, "fail", detail); }
+  fail(id: string, detail: string) {
+    const tail = this.recorder?.data.events.slice(-8).map((e) => `${e.type}@${e.t}`).join(", ") ?? "";
+    this.end(id, "fail", tail ? `${detail} | tail: ${tail}` : detail);
+  }
   pass(id: string, detail?: string) { this.end(id, "pass", detail); }
   skip(id: string, detail?: string) { this.end(id, "skipped", detail); }
 }
@@ -124,8 +131,8 @@ const sleep = (ms: number, signal: AbortSignal) =>
   });
 
 export async function runScenario(opts: Options): Promise<RunnerReport> {
-  const { scenario, botCount, spawnBots, sendToHost, onStepsChange, onDone, abortSignal } = opts;
-  const rec = new StepRecorder(onStepsChange);
+  const { scenario, botCount, spawnBots, sendToHost, onStepsChange, onDone, abortSignal, recorder } = opts;
+  const rec = new StepRecorder(onStepsChange, recorder);
   const startedAt = Date.now();
 
   const emit: Emit = (type, payload) => sendToHost({ type, ...(payload ?? {}) });
