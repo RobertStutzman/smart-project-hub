@@ -131,8 +131,8 @@ const sleep = (ms: number, signal: AbortSignal) =>
   });
 
 export async function runScenario(opts: Options): Promise<RunnerReport> {
-  const { scenario, botCount, spawnBots, sendToHost, onStepsChange, onDone, abortSignal } = opts;
-  const rec = new StepRecorder(onStepsChange);
+  const { scenario, botCount, spawnBots, sendToHost, onStepsChange, onDone, abortSignal, recorder } = opts;
+  const rec = new StepRecorder(onStepsChange, recorder);
   const startedAt = Date.now();
 
   const emit: Emit = (type, payload) => sendToHost({ type, ...(payload ?? {}) });
