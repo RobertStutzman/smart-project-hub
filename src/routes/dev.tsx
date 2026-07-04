@@ -333,7 +333,7 @@ function DevPage() {
         </aside>
 
         {/* QA harness */}
-        <QAPanel roomCode={roomCode} roomPhase={roomPhase} />
+        <QAPanel ref={qaRef} roomCode={roomCode} roomPhase={roomPhase} />
 
         {/* Automated runner */}
         <RunnerPanel
@@ -341,6 +341,9 @@ function DevPage() {
           hostIframe={iframeRef.current}
           spawnBots={async (n) => { await spawnAll(n); }}
           botCount={count}
+          qaRef={qaRef}
+          getBots={() => botsRef.current}
+          getRoomState={() => roomStateRef.current}
         />
       </div>
     </main>
