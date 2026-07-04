@@ -366,7 +366,7 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount, qaRef, 
             />
           </label>
           <button
-            onClick={onBatch}
+            onClick={() => onBatch()}
             disabled={!canRun}
             className="flex-1 rounded bg-amber-500 px-3 py-1.5 text-xs font-semibold text-black disabled:opacity-40"
           >
