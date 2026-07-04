@@ -222,7 +222,14 @@ export async function runScenario(opts: Options): Promise<RunnerReport> {
       const intro = await waitForEvent(
         (e) => e.type === "phase.change" && e.phase === "intro",
         8000, abortSignal);
-      if (!intro) { offHandoff(); rec.fail("start", "intro never fired"); throw new Error("intro"); }
+      if (!intro) {
+        offHandoff();
+        rec.fail("start", "intro never fired");
+        const endedAt = Date.now();
+        const report: RunnerReport = { scenario, passed: false, startedAt, endedAt, steps: rec.steps };
+        onDone(report);
+        return report;
+      }
       const introAt = intro.t;
       rec.pass("start", `+${Math.round(performance.now() - startAt)}ms`);
 
