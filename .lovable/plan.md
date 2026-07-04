@@ -1,50 +1,65 @@
-## Debug Pack: make the QA harness self-diagnosing
+# Fix answer changes + gate /dev + batch workflow
 
-### Problem
-The current `/dev` QA harness runs scenarios but gives only a pass/fail summary. When a run fails, we need console logs, network errors, room-state snapshots, and the exact event tail to diagnose the bug without back-and-forth.
+## Context — why this regressed
 
-### Solution
-Instrument the QA runner so every run produces a downloadable JSON report containing everything needed to debug a failure offline.
+Commit `bd0a858` (2026-06-18, a multi-file "Changes" commit that also wired up the glitch-round auto-activate) added an `already_locked` short-circuit to `lockAnswer` under the mistaken belief it was needed to prevent an "everyone gets it right after eliminations" cheat. That cheat was already impossible: `lockAnswer` rejects any tile in `dropped_indexes` (L1320-1322), and streak fairness is already enforced by `current_first_answer` in `scoreRound` (L567-585). The lockout was unnecessary and broke the core Drop Trivia mechanic. This plan reverts it.
 
-### Deliverables
+## 1. Restore "change your answer" behavior
 
-1. **`src/lib/run-recorder.ts` (new)** — Instrumentation harness
-   - Capture the full `StampedEvent` stream from the runner.
-   - Wrap `window.fetch`: record URL, method, status, duration, and response body preview for 4xx/5xx.
-   - Wrap `console.error`/`console.warn`: keep the last 20 lines.
-   - Record bot roster snapshots at the start of each phase.
-   - Record room-state samples on every `phase.change` event.
-   - Detect autoplay blocks: flag when `ambience.blocked` fires or no `ambience.start` occurs within 5 s without a user gesture.
+Players re-tap tiles freely until (a) time runs out, or (b) their current tile is auto-dropped. Only **Final Answer** stays locked-on-first-pick.
 
-2. **`src/lib/round-runner.ts` (edit)** — Convert hard failures to soft failures
-   - `runScenario` should record a step and continue instead of throwing, marking failed steps clearly.
-   - On failure, include the step detail plus the recent event tail from the recorder.
-   - Accept a `recorder` parameter so the runner can push events into the report.
+### Changes
 
-3. **`src/components/dev/RunnerPanel.tsx` (edit)** — QA runner UI upgrades
-   - Add a **🔊 Prime audio** button that dispatches a synthetic `pointerdown` into the host iframe to unlock the browser audio context.
-   - Add a **⬇ JSON** button that downloads the run artifact as `qa-report-<scenario>-<timestamp>.json`.
-   - Persist batch-run history in `localStorage` (last 10 runs) and allow reloading a previous report.
-   - Support deep-link auto-run: `/dev?run=<scenario>` starts the scenario on load; `/dev?post=1` posts the report to `window.opener` for automated testing.
+**`src/lib/game.functions.ts` — `lockAnswer` handler (~L1304-1359)**
+- Remove the `already_locked` early return.
+- Restore: `firstAnswer = existing?.current_first_answer ?? data.answerIndex` so `current_first_answer` is set once, on the first pick, and preserved on every re-pick.
+- Continue rejecting: wrong phase, dropped tile, before `question_started_at`, past `question_duration_ms`.
+- `current_answer` and `current_answer_locked_at` update on every valid call.
 
-4. **`src/components/dev/QAPanel.tsx` (edit)** — Expose assertion state
-   - Provide a ref or callback so the recorder can include the current assertion verdict in the report.
+**`src/routes/play.tsx` (~L388-389)**
+- Remove the client early return `if (me?.current_answer !== null …) return;` so tapping a different tile fires a new `lockAnswer`.
+- Keep the "your pick got dropped, clear it" flow (L264-279).
+- Tiles stay visually enabled while `phase === "question"` and time remains.
 
-5. **`src/routes/dev.tsx` (edit)** — Deep-link plumbing
-   - Parse `?run` and `?batch` params on mount and pass them into the runner panel.
-   - Pass a bot-error snapshot getter into the runner so the recorder can attach the latest bot state.
+**Untouched (correctly locked):** `lockFinalAnswer`, `submitWager`, `submitAsymEntry`, `submitAsymVote`.
 
-6. **`src/lib/ambience-engine.ts` (edit)** — Emit autoplay signal
-   - Fire an `ambience.blocked` event when the browser prevents autoplay so the recorder can label it as a skip, not a failure.
+### Acceptance
+- Sandbox: pick A, then pick B → DB shows `current_answer = B`, `current_first_answer = A`.
+- Streak advances only when `current_first_answer === correct`.
+- Re-tapping a dropped tile still errors "That answer was eliminated".
+- After the timer, re-taps error "Time's up".
 
-### Non-goals
-- No gameplay or sound-engine logic changes.
-- No Playwright/e2e harness; everything runs in the browser.
-- No new backend tables or API changes.
+## 2. Password-gate `/dev` only
 
-### Acceptance criteria
-- Running any scenario in `/dev` yields a downloadable JSON report with all events, network errors, console errors, bot snapshots, room-state samples, and QA assertion verdicts.
-- When ambience is blocked by autoplay policy, the step is marked skipped (yellow) and labeled `autoplay-blocked`, not failed.
-- Visiting `/dev?run=full3Round` automatically starts the full run and downloads the JSON report.
-- Batch history persists across page reloads.
-- After this lands, you can send me a JSON report from a failed run and I can fix the root cause in one turn.
+Shared-password gate on the QA harness so `/dev` stays hidden on the live site. Password: `Bigben0919!`. Follows `tanstack-shared-password-gate`.
+
+### Changes
+- On approval, call `secrets--add_secret` for `SITE_PASSWORD = Bigben0919!` and `SESSION_SECRET` = 32+ char random.
+- New `src/lib/dev-gate.functions.ts` — `unlockDev`, `lockDev`, `requireDevUnlocked` server fns. `useSession` cookie `dev-gate`, 7-day maxAge, httpOnly + secure + sameSite=lax. Hashed `timingSafeEqual` password compare.
+- New `src/routes/dev.unlock.tsx` — minimal password form; on success `router.navigate({ to: "/dev" })`.
+- `src/routes/dev.tsx` — `beforeLoad` calls `requireDevUnlocked`; on failure `throw redirect({ to: "/dev/unlock" })`. Small "Lock" button in dev header.
+
+Public routes (`/`, `/host`, `/play`, `/lobby`, …) unaffected.
+
+### Acceptance
+- `/dev` without cookie → redirects to `/dev/unlock`.
+- Wrong password → generic error, no cookie set.
+- Correct password → cookie set, redirect to `/dev`, 7-day persistence per device.
+- `/dev/unlock` is public (no gate loop).
+
+## 3. Batch-test workflow (confirmation, no code)
+
+- **"Add X to batch test"** → I extend `src/lib/round-runner.ts` (or relevant harness) with the step/assertion/scenario and expose any toggle in `RunnerPanel` if needed.
+- **JSON drop** → paste the `RunArtifact` JSON (from `RunnerPanel`'s `?post=1` postMessage or the "Download report" button on `/dev`). I read `events` tail, `logs` (console.error + 4xx/5xx), `snapshots.bots`, `snapshots.room`, `snapshots.assertions`, diagnose, propose the fix, apply on your approval.
+
+Nothing to build for this item.
+
+## Non-goals
+- No changes to `lockFinalAnswer`, wager, asym.
+- No changes to scoring math or streak rules.
+- No gating of `/admin` or public routes.
+- No new batch-test scenarios in this pass.
+
+## Technical notes
+- `lockAnswer` becomes "upsert of current pick, preserve first pick". `current_first_answer` is the fairness anchor; never overwrite on re-picks.
+- Gate uses `useSession` from `@tanstack/react-start/server`. `SITE_PASSWORD` is server-only — never `VITE_`-prefixed.
