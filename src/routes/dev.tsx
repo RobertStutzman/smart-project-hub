@@ -48,6 +48,8 @@ function DevPage() {
   const [delay, setDelay] = useState(1200);
   const [bots, setBots] = useState<Bot[]>([]);
   const botsRef = useRef<Bot[]>([]);
+  const roomStateRef = useRef<unknown>(null);
+  const qaRef = useRef<QAPanelRef | null>(null);
   const lastQRef = useRef<string>("");
   const modeRef = useRef<Mode>(mode);
   const delayRef = useRef<number>(delay);
