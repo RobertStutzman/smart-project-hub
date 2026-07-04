@@ -302,6 +302,17 @@ function DevPage() {
           >
             🔄 New room
           </button>
+          <button
+            onClick={async () => {
+              await lockDevFn({ data: undefined as never });
+              window.location.href = "/dev/unlock";
+            }}
+            className="rounded border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400 hover:bg-zinc-900"
+            title="Lock the dev gate on this device"
+          >
+            🔒 Lock
+          </button>
+
         </div>
       </header>
 
