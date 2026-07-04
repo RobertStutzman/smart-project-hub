@@ -102,12 +102,12 @@ function DevPage() {
   );
 
   // Spawn N bots
-  const spawnAll = useCallback(async () => {
+  const spawnAll = useCallback(async (n?: number) => {
     if (!roomCode) return;
-    // Clear existing
+    const target = typeof n === "number" ? n : count;
     setBots([]);
     lastQRef.current = "";
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < target; i++) {
       await spawnBot(i);
     }
   }, [roomCode, count, spawnBot]);
