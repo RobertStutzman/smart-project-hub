@@ -1331,31 +1331,29 @@ export const lockAnswer = createServerFn({ method: "POST" })
       }
     }
     // Capture the FIRST answer the player committed to this question.
-    // Locking is now FINAL — once a player picks, they cannot change their
-    // answer for this question. This prevents the "everyone gets it right"
-    // bug where players re-locked onto the remaining correct tile after
-    // wrong answers were auto-eliminated during the countdown.
+    // Streak credit (see scoreRound) only applies when this matches the
+    // correct index — players who change their pick after locking still
+    // get points for the new pick, but lose streak eligibility.
     const { data: existing } = await supabaseAdmin
       .from("players")
       .select("id, current_first_answer")
       .eq("room_id", room.id)
       .eq("session_id", data.sessionId)
       .maybeSingle();
-    if (existing?.current_first_answer !== null && existing?.current_first_answer !== undefined) {
-      // Already locked this question — first answer is final.
-      return { ok: false, reason: "already_locked" };
-    }
+    const firstAnswer =
+      existing?.current_first_answer ?? data.answerIndex;
     const { error } = await supabaseAdmin
       .from("players")
       .update({
         current_answer: data.answerIndex,
         current_answer_locked_at: new Date().toISOString(),
-        current_first_answer: data.answerIndex,
+        current_first_answer: firstAnswer,
       })
       .eq("room_id", room.id)
       .eq("session_id", data.sessionId);
     if (error) throw new Error(error.message);
     return { ok: true };
+
   });
 
 export const activate2x = createServerFn({ method: "POST" })
