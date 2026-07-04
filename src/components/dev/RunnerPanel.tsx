@@ -134,7 +134,7 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount, qaRef, 
     const ac = new AbortController();
     abortRef.current = ac;
     try {
-      const rep = await runOne(scenario, ac.signal);
+      const rep = await runOne(scenario, ac.signal, false);
       setReport(rep);
     } finally {
       setRunning(false);
