@@ -142,7 +142,7 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount, qaRef, 
     }
   }, [running, scenario, runOne]);
 
-  const onBatch = useCallback(async () => {
+  const onBatch = useCallback(async (post = false) => {
     if (running) return;
     enableDebugBus();
     const n = Math.max(1, Math.min(20, iterations));
@@ -157,7 +157,7 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount, qaRef, 
         for (const s of SCENARIOS) {
           if (ac.signal.aborted) break;
           setBatch((prev) => prev && { ...prev, current: { scenario: s.id, iter: i } });
-          const rep = await runOne(s.id, ac.signal);
+          const rep = await runOne(s.id, ac.signal, post);
           setBatch((prev) => {
             if (!prev) return prev;
             const cell = { ...prev.results[s.id] };
