@@ -306,6 +306,30 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
           >
             ⧉ Copy
           </button>
+          <button
+            onClick={downloadJson}
+            disabled={!lastArtifactRef.current}
+            title="Download full JSON report (events, network, console)"
+            className="rounded border border-zinc-700 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-900 disabled:opacity-40"
+          >
+            ⬇ JSON
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={primeAudio}
+            className="flex-1 rounded border border-blue-500/60 px-2 py-1 text-[11px] text-blue-300 hover:bg-blue-500/10"
+            title="Focus the host iframe and dispatch a click so autoplay-blocked audio can start"
+          >
+            🔊 Prime audio
+          </button>
+          <button
+            onClick={() => setShowHistory((s) => !s)}
+            className="rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-900"
+          >
+            {showHistory ? "Hide" : "History"} ({history.length})
+          </button>
         </div>
 
         <div className="mt-1 flex items-center gap-2 border-t border-zinc-800 pt-2">
