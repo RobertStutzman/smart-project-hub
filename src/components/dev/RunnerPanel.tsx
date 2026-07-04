@@ -116,18 +116,26 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
   }, []);
 
   const copyReport = useCallback(async () => {
+    if (batch) {
+      const lines: string[] = [`# QA batch — ${batch.iterations} iterations`];
+      for (const s of SCENARIOS) {
+        const c = batch.results[s.id];
+        lines.push(`- ${s.label}: ${c.passes}/${c.runs} passed${c.fails ? ` · fails: ${[...new Set(c.failedSteps)].join(", ")}` : ""}`);
+      }
+      try { await navigator.clipboard.writeText(lines.join("\n")); } catch {}
+      return;
+    }
     const r = report ?? { scenario, passed: false, startedAt: 0, endedAt: 0, steps };
     const lines = [
       `# QA Runner report — ${r.scenario}`,
       `passed: ${r.passed}`,
-      `duration: ${r.endedAt && r.startedAt ? Math.round((r.endedAt - r.startedAt) / 1000) : "?"}s`,
       "",
       ...r.steps.map(
         (s) => `[${s.status.padEnd(7)}] ${s.label}${s.detail ? "  — " + s.detail : ""}${s.elapsedMs != null ? `  (${s.elapsedMs}ms)` : ""}`,
       ),
     ];
     try { await navigator.clipboard.writeText(lines.join("\n")); } catch {}
-  }, [report, scenario, steps]);
+  }, [batch, report, scenario, steps]);
 
   const canRun = !!roomCode && !running;
 
