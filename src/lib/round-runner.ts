@@ -45,6 +45,7 @@ type Options = {
   onStepsChange: (steps: Step[]) => void;
   onDone: (report: RunnerReport) => void;
   abortSignal: AbortSignal;
+  recorder?: Recorder;
 };
 
 class StepRecorder {
