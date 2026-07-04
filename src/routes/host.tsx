@@ -382,13 +382,15 @@ function HostPage() {
       }
       if (data?.type === "parent:start-game") {
         // QA-runner shortcut — same code path as clicking the Start button.
-        // Fires an event so the parent can time the transition.
+        // Dispatch through a ref so we always call the latest closure
+        // (this effect registers once; a stale closure would see room=null).
         try {
           window.parent?.postMessage({ type: "host:start-ack" }, "*");
         } catch {}
-        void actuallyStart();
+        actuallyStartRef.current();
         return;
       }
+
     }
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
@@ -876,7 +878,15 @@ function HostPage() {
     persistEnabled(next);
   }
 
+  // Ref so the message-listener effect (registered once) always dispatches
+  // to the latest actuallyStart closure — otherwise it sees room=null forever.
+  const actuallyStartRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    actuallyStartRef.current = () => { void actuallyStart(); };
+  });
+
   async function actuallyStart() {
+
     if (!room) return;
     play("whoosh");
     // Hard-stop every lobby audio source before flipping the phase, so a
