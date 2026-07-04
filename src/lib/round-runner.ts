@@ -24,7 +24,7 @@ export type Step = {
   elapsedMs?: number;
 };
 
-export type Scenario = "full3Round" | "lightning" | "finalOnly" | "lobbyStress";
+export type Scenario = "full3Round" | "lightning" | "finalOnly" | "lobbyStress" | "audienceHandoff";
 
 export type RunnerReport = {
   scenario: Scenario;
