@@ -7,12 +7,24 @@ import {
 } from "@/lib/round-runner";
 import { enableDebugBus } from "@/lib/debug-bus";
 import { startRecorder, type RecorderData } from "@/lib/run-recorder";
+import { type QAPanelRef } from "@/components/dev/QAPanel";
+
+export type BotInput = {
+  key: string;
+  name: string;
+  state: string;
+  score: number;
+  error?: string;
+};
 
 type Props = {
   roomCode: string;
   hostIframe: HTMLIFrameElement | null;
   spawnBots: (n: number) => Promise<void>;
   botCount: number;
+  qaRef?: React.RefObject<QAPanelRef | null>;
+  getBots?: () => BotInput[];
+  getRoomState?: () => unknown;
 };
 
 const SCENARIOS: { id: Scenario; label: string }[] = [
