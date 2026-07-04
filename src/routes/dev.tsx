@@ -6,6 +6,7 @@ import { lockAnswer } from "@/lib/game.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { newId } from "@/lib/player-session";
 import { QAPanel } from "@/components/dev/QAPanel";
+import { RunnerPanel } from "@/components/dev/RunnerPanel";
 
 export const Route = createFileRoute("/dev")({
   head: () => ({
@@ -101,12 +102,12 @@ function DevPage() {
   );
 
   // Spawn N bots
-  const spawnAll = useCallback(async () => {
+  const spawnAll = useCallback(async (n?: number) => {
     if (!roomCode) return;
-    // Clear existing
+    const target = typeof n === "number" ? n : count;
     setBots([]);
     lastQRef.current = "";
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < target; i++) {
       await spawnBot(i);
     }
   }, [roomCode, count, spawnBot]);
@@ -263,7 +264,7 @@ function DevPage() {
           </label>
 
           <button
-            onClick={spawnAll}
+            onClick={() => void spawnAll()}
             disabled={!ready}
             className="rounded bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black disabled:opacity-40"
           >
@@ -330,6 +331,14 @@ function DevPage() {
 
         {/* QA harness */}
         <QAPanel roomCode={roomCode} roomPhase={roomPhase} />
+
+        {/* Automated runner */}
+        <RunnerPanel
+          roomCode={roomCode}
+          hostIframe={iframeRef.current}
+          spawnBots={async (n) => { await spawnAll(n); }}
+          botCount={count}
+        />
       </div>
     </main>
   );
