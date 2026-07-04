@@ -134,6 +134,7 @@ function DevPage() {
         .eq("id", roomId)
         .maybeSingle();
       if (!room) return;
+      roomStateRef.current = room;
       setRoomPhase(room.phase ?? "");
 
       if (
