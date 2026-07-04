@@ -126,7 +126,7 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount, qaRef, 
   );
 
 
-  const onRun = useCallback(async () => {
+  const onRun = useCallback(async (post = false) => {
     if (running) return;
     enableDebugBus();
     setBatch(null);
@@ -134,7 +134,7 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount, qaRef, 
     const ac = new AbortController();
     abortRef.current = ac;
     try {
-      const rep = await runOne(scenario, ac.signal, false);
+      const rep = await runOne(scenario, ac.signal, post);
       setReport(rep);
     } finally {
       setRunning(false);
