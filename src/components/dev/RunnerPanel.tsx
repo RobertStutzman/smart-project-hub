@@ -82,7 +82,7 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount, qaRef, 
   );
 
   const runOne = useCallback(
-    async (which: Scenario, signal: AbortSignal) => {
+    async (which: Scenario, signal: AbortSignal, post = false) => {
       setSteps([]);
       setReport(null);
       const recorder = startRecorder({
@@ -117,6 +117,9 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount, qaRef, 
         saveHistory(next);
         return next;
       });
+      if (post && window.opener) {
+        try { window.opener.postMessage({ type: "qa-report", artifact }, "*"); } catch {}
+      }
       return rep!;
     },
     [botCount, spawnBots, sendToHost, getBots, getRoomState, qaRef],
