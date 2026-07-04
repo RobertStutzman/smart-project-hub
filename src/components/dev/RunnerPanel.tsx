@@ -227,32 +227,87 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
         )}
       </div>
 
-      <div className="flex-1 overflow-auto">
-        {steps.length === 0 ? (
-          <div className="p-4 text-center text-xs text-zinc-500">
-            Click Run to drive a full game automatically. Uses the bot count above.
+      {batch ? (
+        <div className="flex-1 overflow-auto">
+          <div className="border-b border-zinc-800 px-3 py-2 text-[10px] uppercase tracking-wider text-zinc-400">
+            Batch summary — {batch.iterations} iter × {SCENARIOS.length} scenarios
+            {batch.current && (
+              <span className="ml-2 text-blue-300">
+                running {batch.current.scenario} (iter {batch.current.iter})
+              </span>
+            )}
           </div>
-        ) : (
-          <ul className="divide-y divide-zinc-900">
-            {steps.map((s) => (
-              <li key={s.id} className="flex items-start gap-2 px-3 py-2 text-[11px]">
-                <StepDot status={s.status} />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-medium text-zinc-100">{s.label}</div>
-                  {s.detail && (
-                    <div className={`truncate text-[10px] ${s.status === "fail" ? "text-red-300" : "text-zinc-500"}`}>
-                      {s.detail}
-                    </div>
+          <table className="w-full text-[11px]">
+            <thead className="text-[10px] uppercase text-zinc-500">
+              <tr>
+                <th className="px-3 py-1 text-left font-normal">Scenario</th>
+                <th className="px-2 py-1 text-right font-normal">Pass</th>
+                <th className="px-2 py-1 text-right font-normal">Fail</th>
+                <th className="px-3 py-1 text-right font-normal">Rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {SCENARIOS.map((s) => {
+                const c = batch.results[s.id];
+                const rate = c.runs > 0 ? Math.round((c.passes / c.runs) * 100) : 0;
+                const cls = c.runs === 0 ? "text-zinc-500" : rate === 100 ? "text-emerald-300" : rate >= 50 ? "text-amber-300" : "text-red-300";
+                return (
+                  <tr key={s.id} className="border-t border-zinc-900">
+                    <td className="px-3 py-1 truncate">{s.label}</td>
+                    <td className="px-2 py-1 text-right font-mono text-emerald-300">{c.passes}</td>
+                    <td className="px-2 py-1 text-right font-mono text-red-300">{c.fails}</td>
+                    <td className={`px-3 py-1 text-right font-mono ${cls}`}>{c.runs > 0 ? `${rate}%` : "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {SCENARIOS.some((s) => batch.results[s.id].failedSteps.length > 0) && (
+            <div className="border-t border-zinc-800 px-3 py-2 text-[10px] text-zinc-400">
+              <div className="mb-1 uppercase tracking-wider text-zinc-500">Failing steps</div>
+              <ul className="space-y-1">
+                {SCENARIOS.map((s) => {
+                  const uniq = [...new Set(batch.results[s.id].failedSteps)];
+                  if (uniq.length === 0) return null;
+                  return (
+                    <li key={s.id}>
+                      <span className="text-zinc-300">{s.label}:</span>{" "}
+                      <span className="text-red-300">{uniq.join(", ")}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex-1 overflow-auto">
+          {steps.length === 0 ? (
+            <div className="p-4 text-center text-xs text-zinc-500">
+              Click Run to drive one scenario, or Batch to sweep every scenario N times.
+            </div>
+          ) : (
+            <ul className="divide-y divide-zinc-900">
+              {steps.map((s) => (
+                <li key={s.id} className="flex items-start gap-2 px-3 py-2 text-[11px]">
+                  <StepDot status={s.status} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium text-zinc-100">{s.label}</div>
+                    {s.detail && (
+                      <div className={`truncate text-[10px] ${s.status === "fail" ? "text-red-300" : "text-zinc-500"}`}>
+                        {s.detail}
+                      </div>
+                    )}
+                  </div>
+                  {s.elapsedMs != null && (
+                    <span className="font-mono text-[10px] text-zinc-500">{s.elapsedMs}ms</span>
                   )}
-                </div>
-                {s.elapsedMs != null && (
-                  <span className="font-mono text-[10px] text-zinc-500">{s.elapsedMs}ms</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </aside>
   );
 }
