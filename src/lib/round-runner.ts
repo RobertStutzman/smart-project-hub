@@ -141,18 +141,24 @@ export async function runScenario(opts: Options): Promise<RunnerReport> {
       8000,
       abortSignal,
     );
-    if (!lobby) { rec.fail("reset", "Never saw phase.change=lobby within 8s"); throw new Error("lobby timeout"); }
-    rec.pass("reset");
+    if (!lobby) { rec.fail("reset", "Never saw phase.change=lobby within 8s"); }
+    else rec.pass("reset");
 
-    // ── 2. Lobby ambience must fire ──────────────────────────────────
+    // ── 2. Lobby ambience must fire (or skip if autoplay blocked) ────
     rec.begin("ambience", "Lobby crowd ambience starts within 5s");
+    let ambBlocked = false;
+    const offBlocked = subscribeDebugBus((e) => {
+      if (e.type === "ambience.blocked") ambBlocked = true;
+    });
     const amb = await waitForEvent(
       (e) => e.type === "ambience.start" && (e.layer === "crowd" || e.layer === "chatter"),
       5000,
       abortSignal,
     );
-    if (!amb) rec.fail("ambience", "No ambience.start event within 5s (crowd file blocked or silent?)");
-    else rec.pass("ambience", `${(amb as { layer: string }).layer} started`);
+    offBlocked();
+    if (amb) rec.pass("ambience", `${(amb as { layer: string }).layer} started`);
+    else if (ambBlocked) rec.skip("ambience", "autoplay blocked — click the host iframe (or use Prime audio)");
+    else rec.fail("ambience", "No ambience.start event within 5s (crowd file blocked or silent?)");
 
     if (scenario === "lobbyStress") {
       // Repeat new-room + ambience check twice more, then stop.
