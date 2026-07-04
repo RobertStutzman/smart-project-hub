@@ -22,11 +22,16 @@ const SCENARIOS: { id: Scenario; label: string }[] = [
   { id: "audienceHandoff", label: "Audience noise handoff" },
 ];
 
+type BatchCell = { runs: number; passes: number; fails: number; failedSteps: string[] };
+type BatchState = { iterations: number; current?: { scenario: Scenario; iter: number }; results: Record<string, BatchCell> };
+
 export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props) {
   const [scenario, setScenario] = useState<Scenario>("full3Round");
   const [steps, setSteps] = useState<Step[]>([]);
   const [running, setRunning] = useState(false);
   const [report, setReport] = useState<RunnerReport | null>(null);
+  const [iterations, setIterations] = useState(3);
+  const [batch, setBatch] = useState<BatchState | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const sendToHost = useCallback(
@@ -36,30 +41,75 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
     [hostIframe],
   );
 
-  const onRun = useCallback(async () => {
-    if (running) return;
-    enableDebugBus();
-    setSteps([]);
-    setReport(null);
-    setRunning(true);
-    const ac = new AbortController();
-    abortRef.current = ac;
-    try {
-      const rep = await runScenario({
-        scenario,
+  const runOne = useCallback(
+    async (which: Scenario, signal: AbortSignal) => {
+      setSteps([]);
+      setReport(null);
+      return runScenario({
+        scenario: which,
         botCount,
         spawnBots,
         sendToHost,
         onStepsChange: setSteps,
         onDone: setReport,
-        abortSignal: ac.signal,
+        abortSignal: signal,
       });
+    },
+    [botCount, spawnBots, sendToHost],
+  );
+
+  const onRun = useCallback(async () => {
+    if (running) return;
+    enableDebugBus();
+    setBatch(null);
+    setRunning(true);
+    const ac = new AbortController();
+    abortRef.current = ac;
+    try {
+      const rep = await runOne(scenario, ac.signal);
       setReport(rep);
     } finally {
       setRunning(false);
       abortRef.current = null;
     }
-  }, [running, scenario, botCount, spawnBots, sendToHost]);
+  }, [running, scenario, runOne]);
+
+  const onBatch = useCallback(async () => {
+    if (running) return;
+    enableDebugBus();
+    const n = Math.max(1, Math.min(20, iterations));
+    const empty: Record<string, BatchCell> = {};
+    for (const s of SCENARIOS) empty[s.id] = { runs: 0, passes: 0, fails: 0, failedSteps: [] };
+    setBatch({ iterations: n, results: empty });
+    setRunning(true);
+    const ac = new AbortController();
+    abortRef.current = ac;
+    try {
+      for (let i = 1; i <= n; i++) {
+        for (const s of SCENARIOS) {
+          if (ac.signal.aborted) break;
+          setBatch((prev) => prev && { ...prev, current: { scenario: s.id, iter: i } });
+          const rep = await runOne(s.id, ac.signal);
+          setBatch((prev) => {
+            if (!prev) return prev;
+            const cell = { ...prev.results[s.id] };
+            cell.runs += 1;
+            if (rep.passed) cell.passes += 1;
+            else {
+              cell.fails += 1;
+              for (const st of rep.steps) if (st.status === "fail") cell.failedSteps.push(st.label);
+            }
+            return { ...prev, results: { ...prev.results, [s.id]: cell } };
+          });
+        }
+        if (ac.signal.aborted) break;
+      }
+    } finally {
+      setBatch((prev) => prev && { ...prev, current: undefined });
+      setRunning(false);
+      abortRef.current = null;
+    }
+  }, [running, iterations, runOne]);
 
   const onStop = useCallback(() => {
     abortRef.current?.abort();
