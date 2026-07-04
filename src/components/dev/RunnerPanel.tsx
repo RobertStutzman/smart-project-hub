@@ -163,6 +163,36 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
     abortRef.current?.abort();
   }, []);
 
+  const primeAudio = useCallback(() => {
+    // Force-focus the host iframe and simulate a click there so any
+    // pending autoplay-blocked ambience retries fire.
+    const win = hostIframe?.contentWindow;
+    try { hostIframe?.focus(); } catch {}
+    try {
+      win?.postMessage({ type: "parent:prime-audio" }, "*");
+    } catch {}
+    // Fallback: synthesize a pointerdown on the iframe body (same origin).
+    try {
+      const doc = win?.document;
+      if (doc?.body) {
+        const evt = new PointerEvent("pointerdown", { bubbles: true });
+        doc.body.dispatchEvent(evt);
+      }
+    } catch {}
+  }, [hostIframe]);
+
+  const downloadJson = useCallback(() => {
+    const art = lastArtifactRef.current;
+    if (!art) return;
+    const blob = new Blob([JSON.stringify(art, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `qa-${art.scenario}-${new Date(art.savedAt).toISOString().replace(/[:.]/g, "-")}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, []);
+
   const copyReport = useCallback(async () => {
     if (batch) {
       const lines: string[] = [`# QA batch — ${batch.iterations} iterations`];
@@ -173,17 +203,56 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
       try { await navigator.clipboard.writeText(lines.join("\n")); } catch {}
       return;
     }
+    const art = lastArtifactRef.current;
     const r = report ?? { scenario, passed: false, startedAt: 0, endedAt: 0, steps };
     const lines = [
       `# QA Runner report — ${r.scenario}`,
       `passed: ${r.passed}`,
       "",
+      "## Steps",
       ...r.steps.map(
         (s) => `[${s.status.padEnd(7)}] ${s.label}${s.detail ? "  — " + s.detail : ""}${s.elapsedMs != null ? `  (${s.elapsedMs}ms)` : ""}`,
       ),
     ];
+    if (art) {
+      if (art.data.fetchErrors.length) {
+        lines.push("", "## Network errors");
+        for (const f of art.data.fetchErrors) {
+          lines.push(`- ${f.method} ${f.url} → ${f.status} (${f.durationMs}ms)${f.body ? " · " + f.body.slice(0, 120) : ""}`);
+        }
+      }
+      if (art.data.consoleEntries.length) {
+        lines.push("", "## Console");
+        for (const c of art.data.consoleEntries.slice(-15)) {
+          lines.push(`- [${c.level}] ${c.text}`);
+        }
+      }
+      lines.push("", `_(events: ${art.data.events.length}, autoplayBlocked: ${art.data.autoplayBlocked})_`);
+    }
     try { await navigator.clipboard.writeText(lines.join("\n")); } catch {}
   }, [batch, report, scenario, steps]);
+
+  // Deep-link auto-run: /dev?run=full3Round[&batch=3]
+  const autoRanRef = useRef(false);
+  useEffect(() => {
+    if (autoRanRef.current) return;
+    if (!roomCode) return; // wait until room exists
+    const params = new URLSearchParams(window.location.search);
+    const runParam = params.get("run") as Scenario | null;
+    const batchParam = params.get("batch");
+    if (!runParam && !batchParam) return;
+    autoRanRef.current = true;
+    if (batchParam) {
+      const n = Math.max(1, Math.min(20, Number(batchParam) || 1));
+      setIterations(n);
+      window.setTimeout(() => void onBatch(), 500);
+    } else if (runParam && SCENARIOS.some((s) => s.id === runParam)) {
+      setScenario(runParam);
+      window.setTimeout(() => void onRun(), 500);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomCode]);
+
 
   const canRun = !!roomCode && !running;
 
