@@ -368,7 +368,54 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
         )}
       </div>
 
-      {batch ? (
+      {showHistory ? (
+        <div className="flex-1 overflow-auto">
+          <div className="border-b border-zinc-800 px-3 py-2 text-[10px] uppercase tracking-wider text-zinc-400">
+            Run history (last {HISTORY_MAX})
+            <button
+              onClick={() => { setHistory([]); saveHistory([]); }}
+              className="float-right text-red-300 hover:underline"
+            >
+              clear
+            </button>
+          </div>
+          {history.length === 0 ? (
+            <div className="p-4 text-center text-xs text-zinc-500">No runs yet.</div>
+          ) : (
+            <ul className="divide-y divide-zinc-900">
+              {history.map((h, i) => {
+                const fails = h.report.steps.filter((s) => s.status === "fail").length;
+                return (
+                  <li key={i} className="flex items-center gap-2 px-3 py-2 text-[11px]">
+                    <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${h.report.passed ? "bg-emerald-500" : "bg-red-500"}`} />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium text-zinc-100">{h.scenario}</div>
+                      <div className="truncate text-[10px] text-zinc-500">
+                        {new Date(h.savedAt).toLocaleTimeString()} · {h.data.events.length} events
+                        {h.data.fetchErrors.length ? ` · ${h.data.fetchErrors.length} net err` : ""}
+                        {h.data.autoplayBlocked ? " · autoplay blocked" : ""}
+                      </div>
+                    </div>
+                    {fails > 0 && <span className="font-mono text-[10px] text-red-300">{fails} fail</span>}
+                    <button
+                      onClick={() => {
+                        lastArtifactRef.current = h;
+                        setReport(h.report);
+                        setSteps(h.report.steps);
+                        setBatch(null);
+                        setShowHistory(false);
+                      }}
+                      className="rounded border border-zinc-700 px-2 py-0.5 text-[10px] text-zinc-200 hover:bg-zinc-900"
+                    >
+                      load
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      ) : batch ? (
         <div className="flex-1 overflow-auto">
           <div className="border-b border-zinc-800 px-3 py-2 text-[10px] uppercase tracking-wider text-zinc-400">
             Batch summary — {batch.iterations} iter × {SCENARIOS.length} scenarios
