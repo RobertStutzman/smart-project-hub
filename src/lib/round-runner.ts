@@ -290,8 +290,9 @@ export async function runScenario(opts: Options): Promise<RunnerReport> {
     const intro = await waitForEvent(
       (e) => e.type === "phase.change" && e.phase === "intro",
       8000, abortSignal);
-    if (!intro) { rec.fail("start", "Intro phase never fired"); throw new Error("intro"); }
-    rec.pass("start");
+    let introFired = !!intro;
+    if (!intro) rec.fail("start", "Intro phase never fired");
+    else rec.pass("start");
 
     // ── 5. Per-round loop ─────────────────────────────────────────────
     for (let r = 1; r <= rounds; r++) {
