@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   runScenario,
   type RunnerReport,
@@ -6,6 +6,7 @@ import {
   type Step,
 } from "@/lib/round-runner";
 import { enableDebugBus } from "@/lib/debug-bus";
+import { startRecorder, type RecorderData } from "@/lib/run-recorder";
 
 type Props = {
   roomCode: string;
@@ -25,6 +26,30 @@ const SCENARIOS: { id: Scenario; label: string }[] = [
 type BatchCell = { runs: number; passes: number; fails: number; failedSteps: string[] };
 type BatchState = { iterations: number; current?: { scenario: Scenario; iter: number }; results: Record<string, BatchCell> };
 
+type RunArtifact = {
+  scenario: Scenario;
+  report: RunnerReport;
+  data: RecorderData;
+  savedAt: number;
+};
+
+const HISTORY_KEY = "btd.qa.history.v1";
+const HISTORY_MAX = 10;
+
+function loadHistory(): RunArtifact[] {
+  try {
+    const raw = window.localStorage.getItem(HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as RunArtifact[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+function saveHistory(items: RunArtifact[]) {
+  try {
+    window.localStorage.setItem(HISTORY_KEY, JSON.stringify(items.slice(0, HISTORY_MAX)));
+  } catch { /* quota — ignore */ }
+}
+
 export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props) {
   const [scenario, setScenario] = useState<Scenario>("full3Round");
   const [steps, setSteps] = useState<Step[]>([]);
@@ -32,7 +57,10 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
   const [report, setReport] = useState<RunnerReport | null>(null);
   const [iterations, setIterations] = useState(3);
   const [batch, setBatch] = useState<BatchState | null>(null);
+  const [history, setHistory] = useState<RunArtifact[]>(() => loadHistory());
+  const [showHistory, setShowHistory] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const lastArtifactRef = useRef<RunArtifact | null>(null);
 
   const sendToHost = useCallback(
     (msg: { type: string } & Record<string, unknown>) => {
@@ -45,18 +73,38 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
     async (which: Scenario, signal: AbortSignal) => {
       setSteps([]);
       setReport(null);
-      return runScenario({
+      const recorder = startRecorder();
+      let rep: RunnerReport | null = null;
+      try {
+        rep = await runScenario({
+          scenario: which,
+          botCount,
+          spawnBots,
+          sendToHost,
+          onStepsChange: setSteps,
+          onDone: setReport,
+          abortSignal: signal,
+        });
+      } finally {
+        recorder.stop();
+      }
+      const artifact: RunArtifact = {
         scenario: which,
-        botCount,
-        spawnBots,
-        sendToHost,
-        onStepsChange: setSteps,
-        onDone: setReport,
-        abortSignal: signal,
+        report: rep!,
+        data: recorder.data,
+        savedAt: Date.now(),
+      };
+      lastArtifactRef.current = artifact;
+      setHistory((prev) => {
+        const next = [artifact, ...prev].slice(0, HISTORY_MAX);
+        saveHistory(next);
+        return next;
       });
+      return rep!;
     },
     [botCount, spawnBots, sendToHost],
   );
+
 
   const onRun = useCallback(async () => {
     if (running) return;
@@ -115,6 +163,36 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
     abortRef.current?.abort();
   }, []);
 
+  const primeAudio = useCallback(() => {
+    // Force-focus the host iframe and simulate a click there so any
+    // pending autoplay-blocked ambience retries fire.
+    const win = hostIframe?.contentWindow;
+    try { hostIframe?.focus(); } catch {}
+    try {
+      win?.postMessage({ type: "parent:prime-audio" }, "*");
+    } catch {}
+    // Fallback: synthesize a pointerdown on the iframe body (same origin).
+    try {
+      const doc = win?.document;
+      if (doc?.body) {
+        const evt = new PointerEvent("pointerdown", { bubbles: true });
+        doc.body.dispatchEvent(evt);
+      }
+    } catch {}
+  }, [hostIframe]);
+
+  const downloadJson = useCallback(() => {
+    const art = lastArtifactRef.current;
+    if (!art) return;
+    const blob = new Blob([JSON.stringify(art, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `qa-${art.scenario}-${new Date(art.savedAt).toISOString().replace(/[:.]/g, "-")}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, []);
+
   const copyReport = useCallback(async () => {
     if (batch) {
       const lines: string[] = [`# QA batch — ${batch.iterations} iterations`];
@@ -125,17 +203,56 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
       try { await navigator.clipboard.writeText(lines.join("\n")); } catch {}
       return;
     }
+    const art = lastArtifactRef.current;
     const r = report ?? { scenario, passed: false, startedAt: 0, endedAt: 0, steps };
     const lines = [
       `# QA Runner report — ${r.scenario}`,
       `passed: ${r.passed}`,
       "",
+      "## Steps",
       ...r.steps.map(
         (s) => `[${s.status.padEnd(7)}] ${s.label}${s.detail ? "  — " + s.detail : ""}${s.elapsedMs != null ? `  (${s.elapsedMs}ms)` : ""}`,
       ),
     ];
+    if (art) {
+      if (art.data.fetchErrors.length) {
+        lines.push("", "## Network errors");
+        for (const f of art.data.fetchErrors) {
+          lines.push(`- ${f.method} ${f.url} → ${f.status} (${f.durationMs}ms)${f.body ? " · " + f.body.slice(0, 120) : ""}`);
+        }
+      }
+      if (art.data.consoleEntries.length) {
+        lines.push("", "## Console");
+        for (const c of art.data.consoleEntries.slice(-15)) {
+          lines.push(`- [${c.level}] ${c.text}`);
+        }
+      }
+      lines.push("", `_(events: ${art.data.events.length}, autoplayBlocked: ${art.data.autoplayBlocked})_`);
+    }
     try { await navigator.clipboard.writeText(lines.join("\n")); } catch {}
   }, [batch, report, scenario, steps]);
+
+  // Deep-link auto-run: /dev?run=full3Round[&batch=3]
+  const autoRanRef = useRef(false);
+  useEffect(() => {
+    if (autoRanRef.current) return;
+    if (!roomCode) return; // wait until room exists
+    const params = new URLSearchParams(window.location.search);
+    const runParam = params.get("run") as Scenario | null;
+    const batchParam = params.get("batch");
+    if (!runParam && !batchParam) return;
+    autoRanRef.current = true;
+    if (batchParam) {
+      const n = Math.max(1, Math.min(20, Number(batchParam) || 1));
+      setIterations(n);
+      window.setTimeout(() => void onBatch(), 500);
+    } else if (runParam && SCENARIOS.some((s) => s.id === runParam)) {
+      setScenario(runParam);
+      window.setTimeout(() => void onRun(), 500);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomCode]);
+
 
   const canRun = !!roomCode && !running;
 
@@ -189,6 +306,30 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
           >
             ⧉ Copy
           </button>
+          <button
+            onClick={downloadJson}
+            disabled={!lastArtifactRef.current}
+            title="Download full JSON report (events, network, console)"
+            className="rounded border border-zinc-700 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-900 disabled:opacity-40"
+          >
+            ⬇ JSON
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={primeAudio}
+            className="flex-1 rounded border border-blue-500/60 px-2 py-1 text-[11px] text-blue-300 hover:bg-blue-500/10"
+            title="Focus the host iframe and dispatch a click so autoplay-blocked audio can start"
+          >
+            🔊 Prime audio
+          </button>
+          <button
+            onClick={() => setShowHistory((s) => !s)}
+            className="rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300 hover:bg-zinc-900"
+          >
+            {showHistory ? "Hide" : "History"} ({history.length})
+          </button>
         </div>
 
         <div className="mt-1 flex items-center gap-2 border-t border-zinc-800 pt-2">
@@ -227,7 +368,54 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
         )}
       </div>
 
-      {batch ? (
+      {showHistory ? (
+        <div className="flex-1 overflow-auto">
+          <div className="border-b border-zinc-800 px-3 py-2 text-[10px] uppercase tracking-wider text-zinc-400">
+            Run history (last {HISTORY_MAX})
+            <button
+              onClick={() => { setHistory([]); saveHistory([]); }}
+              className="float-right text-red-300 hover:underline"
+            >
+              clear
+            </button>
+          </div>
+          {history.length === 0 ? (
+            <div className="p-4 text-center text-xs text-zinc-500">No runs yet.</div>
+          ) : (
+            <ul className="divide-y divide-zinc-900">
+              {history.map((h, i) => {
+                const fails = h.report.steps.filter((s) => s.status === "fail").length;
+                return (
+                  <li key={i} className="flex items-center gap-2 px-3 py-2 text-[11px]">
+                    <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${h.report.passed ? "bg-emerald-500" : "bg-red-500"}`} />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium text-zinc-100">{h.scenario}</div>
+                      <div className="truncate text-[10px] text-zinc-500">
+                        {new Date(h.savedAt).toLocaleTimeString()} · {h.data.events.length} events
+                        {h.data.fetchErrors.length ? ` · ${h.data.fetchErrors.length} net err` : ""}
+                        {h.data.autoplayBlocked ? " · autoplay blocked" : ""}
+                      </div>
+                    </div>
+                    {fails > 0 && <span className="font-mono text-[10px] text-red-300">{fails} fail</span>}
+                    <button
+                      onClick={() => {
+                        lastArtifactRef.current = h;
+                        setReport(h.report);
+                        setSteps(h.report.steps);
+                        setBatch(null);
+                        setShowHistory(false);
+                      }}
+                      className="rounded border border-zinc-700 px-2 py-0.5 text-[10px] text-zinc-200 hover:bg-zinc-900"
+                    >
+                      load
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      ) : batch ? (
         <div className="flex-1 overflow-auto">
           <div className="border-b border-zinc-800 px-3 py-2 text-[10px] uppercase tracking-wider text-zinc-400">
             Batch summary — {batch.iterations} iter × {SCENARIOS.length} scenarios

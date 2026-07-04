@@ -141,18 +141,24 @@ export async function runScenario(opts: Options): Promise<RunnerReport> {
       8000,
       abortSignal,
     );
-    if (!lobby) { rec.fail("reset", "Never saw phase.change=lobby within 8s"); throw new Error("lobby timeout"); }
-    rec.pass("reset");
+    if (!lobby) { rec.fail("reset", "Never saw phase.change=lobby within 8s"); }
+    else rec.pass("reset");
 
-    // ── 2. Lobby ambience must fire ──────────────────────────────────
+    // ── 2. Lobby ambience must fire (or skip if autoplay blocked) ────
     rec.begin("ambience", "Lobby crowd ambience starts within 5s");
+    let ambBlocked = false;
+    const offBlocked = subscribeDebugBus((e) => {
+      if (e.type === "ambience.blocked") ambBlocked = true;
+    });
     const amb = await waitForEvent(
       (e) => e.type === "ambience.start" && (e.layer === "crowd" || e.layer === "chatter"),
       5000,
       abortSignal,
     );
-    if (!amb) rec.fail("ambience", "No ambience.start event within 5s (crowd file blocked or silent?)");
-    else rec.pass("ambience", `${(amb as { layer: string }).layer} started`);
+    offBlocked();
+    if (amb) rec.pass("ambience", `${(amb as { layer: string }).layer} started`);
+    else if (ambBlocked) rec.skip("ambience", "autoplay blocked — click the host iframe (or use Prime audio)");
+    else rec.fail("ambience", "No ambience.start event within 5s (crowd file blocked or silent?)");
 
     if (scenario === "lobbyStress") {
       // Repeat new-room + ambience check twice more, then stop.
@@ -216,7 +222,14 @@ export async function runScenario(opts: Options): Promise<RunnerReport> {
       const intro = await waitForEvent(
         (e) => e.type === "phase.change" && e.phase === "intro",
         8000, abortSignal);
-      if (!intro) { offHandoff(); rec.fail("start", "intro never fired"); throw new Error("intro"); }
+      if (!intro) {
+        offHandoff();
+        rec.fail("start", "intro never fired");
+        const endedAt = Date.now();
+        const report: RunnerReport = { scenario, passed: false, startedAt, endedAt, steps: rec.steps };
+        onDone(report);
+        return report;
+      }
       const introAt = intro.t;
       rec.pass("start", `+${Math.round(performance.now() - startAt)}ms`);
 
@@ -284,11 +297,12 @@ export async function runScenario(opts: Options): Promise<RunnerReport> {
     const intro = await waitForEvent(
       (e) => e.type === "phase.change" && e.phase === "intro",
       8000, abortSignal);
-    if (!intro) { rec.fail("start", "Intro phase never fired"); throw new Error("intro"); }
-    rec.pass("start");
+    let introFired = !!intro;
+    if (!intro) rec.fail("start", "Intro phase never fired");
+    else rec.pass("start");
 
     // ── 5. Per-round loop ─────────────────────────────────────────────
-    for (let r = 1; r <= rounds; r++) {
+    for (let r = 1; r <= rounds && introFired; r++) {
       const isFinalRound = r === rounds && scenario !== "lightning";
       const rlabel = scenario === "lightning" && r === rounds ? "final" : `${r}`;
 
