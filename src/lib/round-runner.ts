@@ -52,9 +52,11 @@ class StepRecorder {
   steps: Step[] = [];
   private startedAt = new Map<string, number>();
   private onChange: (s: Step[]) => void;
+  private recorder?: Recorder;
 
-  constructor(onChange: (s: Step[]) => void) {
+  constructor(onChange: (s: Step[]) => void, recorder?: Recorder) {
     this.onChange = onChange;
+    this.recorder = recorder;
   }
 
   begin(id: string, label: string) {
@@ -76,7 +78,10 @@ class StepRecorder {
     this.onChange([...this.steps]);
   }
 
-  fail(id: string, detail: string) { this.end(id, "fail", detail); }
+  fail(id: string, detail: string) {
+    const tail = this.recorder?.data.events.slice(-8).map((e) => `${e.type}@${e.t}`).join(", ") ?? "";
+    this.end(id, "fail", tail ? `${detail} | tail: ${tail}` : detail);
+  }
   pass(id: string, detail?: string) { this.end(id, "pass", detail); }
   skip(id: string, detail?: string) { this.end(id, "skipped", detail); }
 }
