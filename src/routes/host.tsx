@@ -878,7 +878,15 @@ function HostPage() {
     persistEnabled(next);
   }
 
+  // Ref so the message-listener effect (registered once) always dispatches
+  // to the latest actuallyStart closure — otherwise it sees room=null forever.
+  const actuallyStartRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    actuallyStartRef.current = () => { void actuallyStart(); };
+  });
+
   async function actuallyStart() {
+
     if (!room) return;
     play("whoosh");
     // Hard-stop every lobby audio source before flipping the phase, so a
