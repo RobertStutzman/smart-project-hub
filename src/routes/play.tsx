@@ -29,7 +29,36 @@ export const Route = createFileRoute("/play")({
     ],
   }),
   component: PlayPage,
+  errorComponent: PlayRouteError,
 });
+
+function PlayRouteError({ error, reset }: { error: Error; reset: () => void }) {
+  console.error(error);
+  return (
+    <main className="grid min-h-screen place-items-center bg-zinc-950 px-6 text-amber-50">
+      <div className="max-w-sm text-center">
+        <h1 className="font-display text-3xl font-black text-amber-200">Controller didn’t load</h1>
+        <p className="mt-3 text-sm text-amber-100/75">
+          Refresh this page. If it still fails, go back to join and enter the game PIN again.
+        </p>
+        <div className="mt-6 flex justify-center gap-3">
+          <button
+            onClick={reset}
+            className="rounded-full bg-amber-300 px-5 py-3 text-sm font-bold uppercase tracking-wider text-amber-950"
+          >
+            Try again
+          </button>
+          <a
+            href="/join"
+            className="rounded-full border border-amber-300/30 px-5 py-3 text-sm font-bold uppercase tracking-wider text-amber-100"
+          >
+            Rejoin
+          </a>
+        </div>
+      </div>
+    </main>
+  );
+}
 
 type RoomState = {
   id: string;
