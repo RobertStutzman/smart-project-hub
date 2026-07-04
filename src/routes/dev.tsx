@@ -331,6 +331,14 @@ function DevPage() {
 
         {/* QA harness */}
         <QAPanel roomCode={roomCode} roomPhase={roomPhase} />
+
+        {/* Automated runner */}
+        <RunnerPanel
+          roomCode={roomCode}
+          hostIframe={iframeRef.current}
+          spawnBots={async (n) => { await spawnAll(n); }}
+          botCount={count}
+        />
       </div>
     </main>
   );
