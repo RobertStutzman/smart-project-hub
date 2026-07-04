@@ -13,6 +13,7 @@
 // user would (buttons -> setPhase server fns).
 
 import { subscribeDebugBus, type StampedEvent } from "@/lib/debug-bus";
+import { type Recorder } from "@/lib/run-recorder";
 
 export type StepStatus = "pending" | "running" | "pass" | "fail" | "skipped";
 
