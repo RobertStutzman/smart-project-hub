@@ -184,10 +184,32 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
           </button>
           <button
             onClick={copyReport}
-            disabled={steps.length === 0}
+            disabled={steps.length === 0 && !batch}
             className="rounded border border-zinc-700 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-900 disabled:opacity-40"
           >
             ⧉ Copy
+          </button>
+        </div>
+
+        <div className="mt-1 flex items-center gap-2 border-t border-zinc-800 pt-2">
+          <label className="flex items-center gap-1">
+            <span className="text-zinc-400">Iter</span>
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={iterations}
+              disabled={running}
+              onChange={(e) => setIterations(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+              className="w-14 rounded border border-zinc-700 bg-zinc-900 px-2 py-1 outline-none focus:border-zinc-500 disabled:opacity-40"
+            />
+          </label>
+          <button
+            onClick={onBatch}
+            disabled={!canRun}
+            className="flex-1 rounded bg-amber-500 px-3 py-1.5 text-xs font-semibold text-black disabled:opacity-40"
+          >
+            ⚡ Batch run all
           </button>
         </div>
 
