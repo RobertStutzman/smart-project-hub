@@ -1,65 +1,50 @@
-# Fix answer changes + gate /dev + batch workflow
+# Fix: batch runner hang at "Send parent:start-game and observe intro phase"
 
-## Context — why this regressed
+## Root cause (single bug, all scenarios)
 
-Commit `bd0a858` (2026-06-18, a multi-file "Changes" commit that also wired up the glitch-round auto-activate) added an `already_locked` short-circuit to `lockAnswer` under the mistaken belief it was needed to prevent an "everyone gets it right after eliminations" cheat. That cheat was already impossible: `lockAnswer` rejects any tile in `dropped_indexes` (L1320-1322), and streak fairness is already enforced by `current_first_answer` in `scoreRound` (L567-585). The lockout was unnecessary and broke the core Drop Trivia mechanic. This plan reverts it.
+`src/routes/host.tsx` registers its `window` message listener in a `useEffect` with dep array `[createRoomFn]` (L395). The effect only runs once. Its `onMsg` closure captures `actuallyStart`, which in turn closes over `room` — and on first render `room` is `null`.
 
-## 1. Restore "change your answer" behavior
+When the QA runner posts `parent:start-game`, the handler invokes that stale `actuallyStart`. The very first line is `if (!room) return;` (L880). Silent bail. No `restartGame`, no `setPhase("intro")`, no phase change ever fires — so the runner's `waitForEvent(phase.change=intro)` times out at 8s, then `climax` waits another 60s, then the next scenario resets and hits the same wall. That's the entire 15-minute batch.
 
-Players re-tap tiles freely until (a) time runs out, or (b) their current tile is auto-dropped. Only **Final Answer** stays locked-on-first-pick.
+Evidence:
+- Artifact `data.events` never contains `phase: "intro"` — only repeated `phase: "lobby"`.
+- Network log during the hang shows only `heartbeatHost` polling — zero `restartGame` / `setPhase` calls. If `actuallyStart` had run, both would appear.
+- `parent:new-room` works (bots joined the room in the same run) because that handler creates a fresh room via `createRoomFn` and doesn't depend on stale `room`.
 
-### Changes
+## Fix
 
-**`src/lib/game.functions.ts` — `lockAnswer` handler (~L1304-1359)**
-- Remove the `already_locked` early return.
-- Restore: `firstAnswer = existing?.current_first_answer ?? data.answerIndex` so `current_first_answer` is set once, on the first pick, and preserved on every re-pick.
-- Continue rejecting: wrong phase, dropped tile, before `question_started_at`, past `question_duration_ms`.
-- `current_answer` and `current_answer_locked_at` update on every valid call.
+`src/routes/host.tsx`, the message-listener `useEffect` block (~L346-395):
 
-**`src/routes/play.tsx` (~L388-389)**
-- Remove the client early return `if (me?.current_answer !== null …) return;` so tapping a different tile fires a new `lockAnswer`.
-- Keep the "your pick got dropped, clear it" flow (L264-279).
-- Tiles stay visually enabled while `phase === "question"` and time remains.
+Add a ref that always tracks the latest `actuallyStart`, and dispatch through it.
 
-**Untouched (correctly locked):** `lockFinalAnswer`, `submitWager`, `submitAsymEntry`, `submitAsymVote`.
+```tsx
+// Sits alongside the existing function declaration.
+const actuallyStartRef = useRef<() => void>(() => {});
+useEffect(() => { actuallyStartRef.current = () => { void actuallyStart(); }; });
 
-### Acceptance
-- Sandbox: pick A, then pick B → DB shows `current_answer = B`, `current_first_answer = A`.
-- Streak advances only when `current_first_answer === correct`.
-- Re-tapping a dropped tile still errors "That answer was eliminated".
-- After the timer, re-taps error "Time's up".
+// Inside the parent:start-game branch:
+if (data?.type === "parent:start-game") {
+  try { window.parent?.postMessage({ type: "host:start-ack" }, "*"); } catch {}
+  actuallyStartRef.current();
+  return;
+}
+```
 
-## 2. Password-gate `/dev` only
+Why a ref and not a dep-array fix: the listener effect intentionally registers once (adding/removing a `window` listener on every `room` change is churn we don't want, and would drop in-flight messages during re-registration). A ref keeps one stable listener while always calling the current `actuallyStart`.
 
-Shared-password gate on the QA harness so `/dev` stays hidden on the live site. Password: `Bigben0919!`. Follows `tanstack-shared-password-gate`.
+`parent:new-room` stays as-is — it doesn't depend on stale `room`.
 
-### Changes
-- On approval, call `secrets--add_secret` for `SITE_PASSWORD = Bigben0919!` and `SESSION_SECRET` = 32+ char random.
-- New `src/lib/dev-gate.functions.ts` — `unlockDev`, `lockDev`, `requireDevUnlocked` server fns. `useSession` cookie `dev-gate`, 7-day maxAge, httpOnly + secure + sameSite=lax. Hashed `timingSafeEqual` password compare.
-- New `src/routes/dev.unlock.tsx` — minimal password form; on success `router.navigate({ to: "/dev" })`.
-- `src/routes/dev.tsx` — `beforeLoad` calls `requireDevUnlocked`; on failure `throw redirect({ to: "/dev/unlock" })`. Small "Lock" button in dev header.
-
-Public routes (`/`, `/host`, `/play`, `/lobby`, …) unaffected.
-
-### Acceptance
-- `/dev` without cookie → redirects to `/dev/unlock`.
-- Wrong password → generic error, no cookie set.
-- Correct password → cookie set, redirect to `/dev`, 7-day persistence per device.
-- `/dev/unlock` is public (no gate loop).
-
-## 3. Batch-test workflow (confirmation, no code)
-
-- **"Add X to batch test"** → I extend `src/lib/round-runner.ts` (or relevant harness) with the step/assertion/scenario and expose any toggle in `RunnerPanel` if needed.
-- **JSON drop** → paste the `RunArtifact` JSON (from `RunnerPanel`'s `?post=1` postMessage or the "Download report" button on `/dev`). I read `events` tail, `logs` (console.error + 4xx/5xx), `snapshots.bots`, `snapshots.room`, `snapshots.assertions`, diagnose, propose the fix, apply on your approval.
-
-Nothing to build for this item.
+## Acceptance
+- Re-run any batch scenario on `/dev`: after `Spawn 4 bots`, `parent:start-game` produces a `restartGame` + `setPhase(intro)` POST pair in the network tab, and the runner observes `phase.change=intro` within 8s.
+- Batch of 5 scenarios × 3 iterations completes in the expected ~5-8 min rather than hanging 15+ min.
+- No regression to the Start button on `/host` (still calls `actuallyStart` directly via `handleStartClick`).
 
 ## Non-goals
-- No changes to `lockFinalAnswer`, wager, asym.
-- No changes to scoring math or streak rules.
-- No gating of `/admin` or public routes.
-- No new batch-test scenarios in this pass.
+- No change to `actuallyStart` itself, `restartGameFn`, or `setPhaseFn`.
+- No change to the runner (`round-runner.ts`) — its `waitForEvent(intro)` was correct all along; it just wasn't getting the event.
+- Not touching the `parent:new-room` handler.
+- Ambience autoplay skip (the sandbox `ambience.blocked` in this artifact) is expected without a user gesture and is already handled by the runner via `Prime audio`. Not in scope.
 
 ## Technical notes
-- `lockAnswer` becomes "upsert of current pick, preserve first pick". `current_first_answer` is the fairness anchor; never overwrite on re-picks.
-- Gate uses `useSession` from `@tanstack/react-start/server`. `SITE_PASSWORD` is server-only — never `VITE_`-prefixed.
+- The ref pattern (assign in a bare `useEffect` with no deps) is React's canonical way to bridge a stable listener to an ever-changing callback. It fires on every render, so the ref always points at the latest closure.
+- `actuallyStartRef.current` is intentionally void-returning; the handler doesn't await it (the runner is watching the phase.change stream, not the RPC).
