@@ -62,7 +62,7 @@ function saveHistory(items: RunArtifact[]) {
   } catch { /* quota — ignore */ }
 }
 
-export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props) {
+export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount, qaRef, getBots, getRoomState }: Props) {
   const [scenario, setScenario] = useState<Scenario>("full3Round");
   const [steps, setSteps] = useState<Step[]>([]);
   const [running, setRunning] = useState(false);
