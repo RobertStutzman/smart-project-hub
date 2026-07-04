@@ -3,17 +3,26 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { joinRoom } from "@/lib/rooms.functions";
 import { lockAnswer } from "@/lib/game.functions";
+import { requireDevUnlocked, lockDev } from "@/lib/dev-gate.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { newId } from "@/lib/player-session";
 import { QAPanel, type QAPanelRef } from "@/components/dev/QAPanel";
 import { RunnerPanel } from "@/components/dev/RunnerPanel";
 
 export const Route = createFileRoute("/dev")({
+  ssr: false,
+  beforeLoad: async () => {
+    await requireDevUnlocked();
+  },
   head: () => ({
-    meta: [{ title: "Dev playground — Beat the Drop" }],
+    meta: [
+      { title: "Dev playground — Beat the Drop" },
+      { name: "robots", content: "noindex,nofollow" },
+    ],
   }),
   component: DevPage,
 });
+
 
 const NAMES = [
   "Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot",
