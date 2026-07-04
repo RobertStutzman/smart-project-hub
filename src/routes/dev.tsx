@@ -5,7 +5,7 @@ import { joinRoom } from "@/lib/rooms.functions";
 import { lockAnswer } from "@/lib/game.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { newId } from "@/lib/player-session";
-import { QAPanel } from "@/components/dev/QAPanel";
+import { QAPanel, type QAPanelRef } from "@/components/dev/QAPanel";
 import { RunnerPanel } from "@/components/dev/RunnerPanel";
 
 export const Route = createFileRoute("/dev")({
