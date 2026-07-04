@@ -26,6 +26,30 @@ const SCENARIOS: { id: Scenario; label: string }[] = [
 type BatchCell = { runs: number; passes: number; fails: number; failedSteps: string[] };
 type BatchState = { iterations: number; current?: { scenario: Scenario; iter: number }; results: Record<string, BatchCell> };
 
+type RunArtifact = {
+  scenario: Scenario;
+  report: RunnerReport;
+  data: RecorderData;
+  savedAt: number;
+};
+
+const HISTORY_KEY = "btd.qa.history.v1";
+const HISTORY_MAX = 10;
+
+function loadHistory(): RunArtifact[] {
+  try {
+    const raw = window.localStorage.getItem(HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as RunArtifact[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+function saveHistory(items: RunArtifact[]) {
+  try {
+    window.localStorage.setItem(HISTORY_KEY, JSON.stringify(items.slice(0, HISTORY_MAX)));
+  } catch { /* quota — ignore */ }
+}
+
 export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props) {
   const [scenario, setScenario] = useState<Scenario>("full3Round");
   const [steps, setSteps] = useState<Step[]>([]);
