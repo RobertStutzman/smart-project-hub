@@ -264,7 +264,7 @@ function DevPage() {
           </label>
 
           <button
-            onClick={spawnAll}
+            onClick={() => void spawnAll()}
             disabled={!ready}
             className="rounded bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black disabled:opacity-40"
           >
