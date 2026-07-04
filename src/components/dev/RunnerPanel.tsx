@@ -306,7 +306,7 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount, qaRef, 
 
         <div className="flex items-center gap-2">
           <button
-            onClick={onRun}
+            onClick={() => onRun()}
             disabled={!canRun}
             className="flex-1 rounded bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black disabled:opacity-40"
           >
