@@ -3,17 +3,12 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { joinRoom } from "@/lib/rooms.functions";
 import { lockAnswer } from "@/lib/game.functions";
-import { requireDevUnlocked, lockDev } from "@/lib/dev-gate.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { newId } from "@/lib/player-session";
 import { QAPanel, type QAPanelRef } from "@/components/dev/QAPanel";
 import { RunnerPanel } from "@/components/dev/RunnerPanel";
 
 export const Route = createFileRoute("/dev")({
-  ssr: false,
-  beforeLoad: async () => {
-    await requireDevUnlocked();
-  },
   head: () => ({
     meta: [
       { title: "Dev playground — Beat the Drop" },
@@ -48,7 +43,6 @@ type Bot = {
 function DevPage() {
   const joinFn = useServerFn(joinRoom);
   const lockFn = useServerFn(lockAnswer);
-  const lockDevFn = useServerFn(lockDev);
 
 
   const [roomCode, setRoomCode] = useState<string>("");
@@ -303,16 +297,6 @@ function DevPage() {
             className="rounded border border-amber-500/60 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-500/10"
           >
             🔄 New room
-          </button>
-          <button
-            onClick={async () => {
-              await lockDevFn({ data: undefined as never });
-              window.location.href = "/dev/unlock";
-            }}
-            className="rounded border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400 hover:bg-zinc-900"
-            title="Lock the dev gate on this device"
-          >
-            🔒 Lock
           </button>
 
         </div>
