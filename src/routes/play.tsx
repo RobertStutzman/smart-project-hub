@@ -385,8 +385,9 @@ function PlayPage() {
 
   const pick = async (i: 0 | 1 | 2 | 3) => {
     if (!session) return;
-    // Locking is final — ignore re-picks once we already have an answer.
-    if (me?.current_answer !== null && me?.current_answer !== undefined) return;
+    // Re-picks allowed until time expires or the tile is auto-dropped.
+    // First pick is preserved server-side for streak fairness.
+
     Haptics.tap();
     const correctIdx = room?.current_correct_index;
     const isWrong =
