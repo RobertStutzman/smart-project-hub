@@ -24,7 +24,7 @@ export type Step = {
   elapsedMs?: number;
 };
 
-export type Scenario = "full3Round" | "lightning" | "finalOnly" | "lobbyStress";
+export type Scenario = "full3Round" | "lightning" | "finalOnly" | "lobbyStress" | "audienceHandoff";
 
 export type RunnerReport = {
   scenario: Scenario;
@@ -177,6 +177,98 @@ export async function runScenario(opts: Options): Promise<RunnerReport> {
       onDone(report);
       return report;
     }
+
+    if (scenario === "audienceHandoff") {
+      // The crowd must keep playing across the lobby → intro handoff and
+      // then stop (or duck) exactly when gameplay begins.
+      rec.begin("hold-lobby", "Crowd stays active for 4s in lobby (no premature stop)");
+      let earlyStop: StampedEvent | null = null;
+      let offHold = subscribeDebugBus((e) => {
+        if (e.type === "ambience.stop" && (e.layer === "crowd" || e.layer === "all")) {
+          if (!earlyStop) earlyStop = e;
+        }
+      });
+      await sleep(4000, abortSignal);
+      offHold();
+      if (earlyStop) rec.fail("hold-lobby", `ambience.stop layer=${(earlyStop as { layer: string }).layer} fired in lobby`);
+      else rec.pass("hold-lobby");
+
+      // Optional: throw a couple bots in so the lobby feels real.
+      rec.begin("bots", `Spawn ${Math.min(botCount, 3)} bots`);
+      try { await spawnBots(Math.min(botCount, 3)); rec.pass("bots"); }
+      catch (e) { rec.fail("bots", (e as Error).message); }
+      await sleep(800, abortSignal);
+
+      // Track events across the handoff so we can measure timing precisely.
+      const handoffEvents: StampedEvent[] = [];
+      const offHandoff = subscribeDebugBus((e) => {
+        if (
+          e.type === "ambience.stop" ||
+          e.type === "ambience.start" ||
+          e.type === "music.start" ||
+          e.type === "phase.change"
+        ) handoffEvents.push(e);
+      });
+
+      rec.begin("start", "parent:start-game → phase.change=intro");
+      const startAt = performance.now();
+      emit("parent:start-game");
+      const intro = await waitForEvent(
+        (e) => e.type === "phase.change" && e.phase === "intro",
+        8000, abortSignal);
+      if (!intro) { offHandoff(); rec.fail("start", "intro never fired"); throw new Error("intro"); }
+      const introAt = intro.t;
+      rec.pass("start", `+${Math.round(performance.now() - startAt)}ms`);
+
+      // Crowd must stop or music must start within 3s of the intro phase.
+      rec.begin("duck", "Crowd stops (or music starts) within 3s of gameplay start");
+      const deadline = Date.now() + 3500;
+      let duckEvt: StampedEvent | null = null;
+      while (Date.now() < deadline && !duckEvt) {
+        const found = handoffEvents.find(
+          (e) =>
+            e.t >= introAt &&
+            (
+              (e.type === "ambience.stop" && (e.layer === "crowd" || e.layer === "all")) ||
+              e.type === "music.start"
+            ),
+        );
+        if (found) { duckEvt = found; break; }
+        await sleep(150, abortSignal);
+      }
+      if (!duckEvt) rec.fail("duck", "no ambience.stop(crowd|all) or music.start after intro");
+      else {
+        const dt = duckEvt.t - introAt;
+        rec.pass("duck", `${duckEvt.type} ${(duckEvt as { layer?: string; mode?: string }).layer ?? (duckEvt as { mode?: string }).mode ?? ""} at +${dt}ms`);
+      }
+
+      // And crowd must NOT restart during question phase.
+      rec.begin("silent", "Crowd stays silenced through the first question");
+      const q = await waitForEvent((e) => e.type === "question.show", 30000, abortSignal);
+      offHandoff();
+      if (!q) rec.fail("silent", "question.show never fired");
+      else {
+        const restarted = handoffEvents.find(
+          (e) =>
+            e.type === "ambience.start" &&
+            e.layer === "crowd" &&
+            e.t > introAt &&
+            e.t <= q.t + 500,
+        );
+        restarted
+          ? rec.fail("silent", `crowd restarted at +${restarted.t - introAt}ms after intro`)
+          : rec.pass("silent");
+      }
+
+      const endedAt = Date.now();
+      const report: RunnerReport = {
+        scenario, passed: rec.steps.every((s) => s.status === "pass" || s.status === "skipped"),
+        startedAt, endedAt, steps: rec.steps,
+      };
+      onDone(report);
+      return report;
+    }
+
 
     // ── 3. Spawn bots ─────────────────────────────────────────────────
     rec.begin("bots", `Spawn ${botCount} bots into the lobby`);

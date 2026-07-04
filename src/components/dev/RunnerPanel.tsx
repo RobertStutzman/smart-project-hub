@@ -19,6 +19,7 @@ const SCENARIOS: { id: Scenario; label: string }[] = [
   { id: "lightning", label: "Lightning round focus" },
   { id: "finalOnly", label: "Final round only" },
   { id: "lobbyStress", label: "Lobby stress (×3)" },
+  { id: "audienceHandoff", label: "Audience noise handoff" },
 ];
 
 export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props) {
