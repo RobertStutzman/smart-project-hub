@@ -295,7 +295,7 @@ export async function runScenario(opts: Options): Promise<RunnerReport> {
     else rec.pass("start");
 
     // ── 5. Per-round loop ─────────────────────────────────────────────
-    for (let r = 1; r <= rounds; r++) {
+    for (let r = 1; r <= rounds && introFired; r++) {
       const isFinalRound = r === rounds && scenario !== "lightning";
       const rlabel = scenario === "lightning" && r === rounds ? "final" : `${r}`;
 
