@@ -57,7 +57,10 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
   const [report, setReport] = useState<RunnerReport | null>(null);
   const [iterations, setIterations] = useState(3);
   const [batch, setBatch] = useState<BatchState | null>(null);
+  const [history, setHistory] = useState<RunArtifact[]>(() => loadHistory());
+  const [showHistory, setShowHistory] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const lastArtifactRef = useRef<RunArtifact | null>(null);
 
   const sendToHost = useCallback(
     (msg: { type: string } & Record<string, unknown>) => {
@@ -70,18 +73,38 @@ export function RunnerPanel({ roomCode, hostIframe, spawnBots, botCount }: Props
     async (which: Scenario, signal: AbortSignal) => {
       setSteps([]);
       setReport(null);
-      return runScenario({
+      const recorder = startRecorder();
+      let rep: RunnerReport | null = null;
+      try {
+        rep = await runScenario({
+          scenario: which,
+          botCount,
+          spawnBots,
+          sendToHost,
+          onStepsChange: setSteps,
+          onDone: setReport,
+          abortSignal: signal,
+        });
+      } finally {
+        recorder.stop();
+      }
+      const artifact: RunArtifact = {
         scenario: which,
-        botCount,
-        spawnBots,
-        sendToHost,
-        onStepsChange: setSteps,
-        onDone: setReport,
-        abortSignal: signal,
+        report: rep!,
+        data: recorder.data,
+        savedAt: Date.now(),
+      };
+      lastArtifactRef.current = artifact;
+      setHistory((prev) => {
+        const next = [artifact, ...prev].slice(0, HISTORY_MAX);
+        saveHistory(next);
+        return next;
       });
+      return rep!;
     },
     [botCount, spawnBots, sendToHost],
   );
+
 
   const onRun = useCallback(async () => {
     if (running) return;
