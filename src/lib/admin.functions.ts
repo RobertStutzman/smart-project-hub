@@ -32,12 +32,26 @@ export const listQuestions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
-    const { data, error } = await supabaseAdmin
+    const PAGE = 1000;
+    const first = await supabaseAdmin
       .from("questions")
       .select("*")
-      .order("created_at", { ascending: false });
-    if (error) throw new Error(error.message);
-    return { questions: data ?? [] };
+      .order("created_at", { ascending: false })
+      .range(0, PAGE - 1);
+    if (first.error) throw new Error(first.error.message);
+    const all = [...(first.data ?? [])];
+    while (all.length > 0 && all.length % PAGE === 0) {
+      const next = await supabaseAdmin
+        .from("questions")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .range(all.length, all.length + PAGE - 1);
+      if (next.error) throw new Error(next.error.message);
+      const batch = next.data ?? [];
+      all.push(...batch);
+      if (batch.length < PAGE) break;
+    }
+    return { questions: all, total: all.length };
   });
 
 const DIFFICULTY = z.enum(["easy", "medium", "hard", "impossible"]);
