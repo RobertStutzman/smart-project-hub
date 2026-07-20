@@ -1,19 +1,22 @@
-## Verify the live QR/join flow works end-to-end
+# Admin question list is capped at 1000 (server-side)
 
-I'll run a full check against the **published** site (droptrivia.app), not local, to confirm the customer path works before touching anything else. No code changes in this plan — verification only.
+## What's actually happening
+- DB has **3,847 questions** — imports are working.
+- `listQuestions` in `src/lib/admin.functions.ts` does `.select("*").order("created_at", desc)` with no range/pagination. PostgREST silently caps that response at 1,000 rows, so the admin table never shows more than 1,000 no matter how many you add.
+- The header text `All questions (1000)` comes from `questions.length` on the client — it's the page size, not the true total.
 
-### Steps
+## Fix
 
-1. **Published host page loads** — Open `https://droptrivia.app/host`, confirm room code + QR render, capture screenshot.
-2. **QR target is correct** — Read the QR's encoded URL, confirm it points to `https://droptrivia.app/join?code=XXXX` (not localhost, not preview host).
-3. **Join page loads from QR URL** — Open that exact URL in a fresh browser context, confirm nickname form renders (no "This page didn't load").
-4. **Join submits successfully** — Enter a nickname, submit, confirm redirect to `/play` with no crash.
-5. **Play page renders** — Confirm the player lands on `/play` and sees the waiting/game UI.
-6. **Host sees the player** — Back on `/host`, confirm player count incremented.
-7. **Report results** — Screenshots + pass/fail for each step. If anything fails, I'll show the exact error before proposing a fix.
+Two small changes, admin-only:
 
-### Non-goals
+1. **`src/lib/admin.functions.ts` — `listQuestions`**
+   - Fetch in chunks of 1000 using `.range(from, to)` in a loop until fewer than 1000 rows come back, then concatenate. Return `{ questions, total }`.
+   - Also return an exact `count` via a `head: true, count: "exact"` query so the UI can show the true total even before all pages arrive.
 
-- No code changes.
-- No `/dev` work.
-- No republish unless step 1–6 reveals a bug that requires it.
+2. **`src/routes/_authenticated/admin.tsx`**
+   - Use the new `total` (or `count`) in the `All questions (N)` header instead of `questions.length`.
+   - No UI redesign; table keeps rendering the full array (it's already virtualized-friendly enough at a few thousand rows).
+
+## Out of scope
+- No changes to CSV import limits, generation, or any gameplay code.
+- No pagination UI redesign — can add later if the flat list gets sluggish past ~10k.
