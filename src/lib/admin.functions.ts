@@ -33,12 +33,7 @@ export const listQuestions = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
     const PAGE = 1000;
-    type QRow = Awaited<
-      ReturnType<typeof supabaseAdmin.from<"questions">>
-    > extends never
-      ? never
-      : Record<string, unknown>;
-    const all: QRow[] = [];
+    const all: unknown[] = [];
     for (let from = 0; ; from += PAGE) {
       const { data, error } = await supabaseAdmin
         .from("questions")
@@ -46,11 +41,11 @@ export const listQuestions = createServerFn({ method: "GET" })
         .order("created_at", { ascending: false })
         .range(from, from + PAGE - 1);
       if (error) throw new Error(error.message);
-      const batch = (data ?? []) as QRow[];
+      const batch = data ?? [];
       all.push(...batch);
       if (batch.length < PAGE) break;
     }
-    return { questions: all, total: all.length };
+    return { questions: all as never, total: all.length };
   });
 
 const DIFFICULTY = z.enum(["easy", "medium", "hard", "impossible"]);
