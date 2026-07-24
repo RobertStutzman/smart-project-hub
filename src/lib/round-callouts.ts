@@ -163,6 +163,8 @@ export const ALL_ROUND_CALLOUTS: string[] = (() => {
   for (let r = 1; r <= 4; r++) {
     out.push(`Standings after round ${r}.`);
   }
+  out.push(...EXTRA_ROUND_CALLOUTS);
+  out.push(...ALL_CATEGORY_CALLOUTS);
   return out;
 })();
 
