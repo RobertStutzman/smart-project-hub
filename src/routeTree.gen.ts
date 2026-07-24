@@ -9,75 +9,39 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as PreviewQuestionRouteImport } from './routes/preview-question'
-import { Route as PreviewIntroRouteImport } from './routes/preview-intro'
-import { Route as PlayRouteImport } from './routes/play'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as JoinRouteImport } from './routes/join'
-import { Route as HostRouteImport } from './routes/host'
-import { Route as HRouteImport } from './routes/h'
-import { Route as DevRouteImport } from './routes/dev'
-import { Route as CustomRouteImport } from './routes/custom'
-import { Route as AudienceRouteImport } from './routes/audience'
-import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as SettingsStreamerRouteImport } from './routes/settings.streamer'
-import { Route as SettingsAdultRouteImport } from './routes/settings.adult'
-import { Route as ResultsRoomIdRouteImport } from './routes/results.$roomId'
-import { Route as LegalTermsRouteImport } from './routes/legal.terms'
-import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
-import { Route as LegalContactRouteImport } from './routes/legal.contact'
-import { Route as CustomOrderRouteImport } from './routes/custom.order'
-import { Route as AuthenticatedAdminSoundsRouteImport } from './routes/_authenticated/admin-sounds'
-import { Route as AuthenticatedAdminQuestionsRouteImport } from './routes/_authenticated/admin-questions'
-import { Route as AuthenticatedAdminCustomRouteImport } from './routes/_authenticated/admin-custom'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as AudienceRouteImport } from './routes/audience'
+import { Route as CustomRouteImport } from './routes/custom'
+import { Route as DevRouteImport } from './routes/dev'
+import { Route as HRouteImport } from './routes/h'
+import { Route as HostRouteImport } from './routes/host'
+import { Route as JoinRouteImport } from './routes/join'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as PlayRouteImport } from './routes/play'
+import { Route as PreviewIntroRouteImport } from './routes/preview-intro'
+import { Route as PreviewQuestionRouteImport } from './routes/preview-question'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
-import { Route as ApiPublicHooksQuestionQualityAlertRouteImport } from './routes/api/public/hooks/question-quality-alert'
+import { Route as AuthenticatedAdminCustomRouteImport } from './routes/_authenticated/admin-custom'
+import { Route as AuthenticatedAdminQuestionsRouteImport } from './routes/_authenticated/admin-questions'
+import { Route as AuthenticatedAdminSoundsRouteImport } from './routes/_authenticated/admin-sounds'
+import { Route as CustomOrderRouteImport } from './routes/custom.order'
+import { Route as LegalContactRouteImport } from './routes/legal.contact'
+import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
+import { Route as LegalTermsRouteImport } from './routes/legal.terms'
+import { Route as ResultsRoomIdRouteImport } from './routes/results.$roomId'
+import { Route as SettingsAdultRouteImport } from './routes/settings.adult'
+import { Route as SettingsStreamerRouteImport } from './routes/settings.streamer'
 import { Route as ApiPublicHooksCleanupAvatarsRouteImport } from './routes/api/public/hooks/cleanup-avatars'
+import { Route as ApiPublicHooksQuestionQualityAlertRouteImport } from './routes/api/public/hooks/question-quality-alert'
 
-const PreviewQuestionRoute = PreviewQuestionRouteImport.update({
-  id: '/preview-question',
-  path: '/preview-question',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PreviewIntroRoute = PreviewIntroRouteImport.update({
-  id: '/preview-intro',
-  path: '/preview-intro',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PlayRoute = PlayRouteImport.update({
-  id: '/play',
-  path: '/play',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const JoinRoute = JoinRouteImport.update({
-  id: '/join',
-  path: '/join',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HostRoute = HostRouteImport.update({
-  id: '/host',
-  path: '/host',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HRoute = HRouteImport.update({
-  id: '/h',
-  path: '/h',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DevRoute = DevRouteImport.update({
-  id: '/dev',
-  path: '/dev',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CustomRoute = CustomRouteImport.update({
-  id: '/custom',
-  path: '/custom',
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AudienceRoute = AudienceRouteImport.update({
@@ -85,54 +49,60 @@ const AudienceRoute = AudienceRouteImport.update({
   path: '/audience',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRoute = AuthenticatedRouteImport.update({
-  id: '/_authenticated',
+const CustomRoute = CustomRouteImport.update({
+  id: '/custom',
+  path: '/custom',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const DevRoute = DevRouteImport.update({
+  id: '/dev',
+  path: '/dev',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsStreamerRoute = SettingsStreamerRouteImport.update({
-  id: '/settings/streamer',
-  path: '/settings/streamer',
+const HRoute = HRouteImport.update({
+  id: '/h',
+  path: '/h',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsAdultRoute = SettingsAdultRouteImport.update({
-  id: '/settings/adult',
-  path: '/settings/adult',
+const HostRoute = HostRouteImport.update({
+  id: '/host',
+  path: '/host',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ResultsRoomIdRoute = ResultsRoomIdRouteImport.update({
-  id: '/results/$roomId',
-  path: '/results/$roomId',
+const JoinRoute = JoinRouteImport.update({
+  id: '/join',
+  path: '/join',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LegalTermsRoute = LegalTermsRouteImport.update({
-  id: '/legal/terms',
-  path: '/legal/terms',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
-  id: '/legal/privacy',
-  path: '/legal/privacy',
+const PlayRoute = PlayRouteImport.update({
+  id: '/play',
+  path: '/play',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LegalContactRoute = LegalContactRouteImport.update({
-  id: '/legal/contact',
-  path: '/legal/contact',
+const PreviewIntroRoute = PreviewIntroRouteImport.update({
+  id: '/preview-intro',
+  path: '/preview-intro',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CustomOrderRoute = CustomOrderRouteImport.update({
-  id: '/order',
-  path: '/order',
-  getParentRoute: () => CustomRoute,
+const PreviewQuestionRoute = PreviewQuestionRouteImport.update({
+  id: '/preview-question',
+  path: '/preview-question',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedAdminSoundsRoute =
-  AuthenticatedAdminSoundsRouteImport.update({
-    id: '/admin-sounds',
-    path: '/admin-sounds',
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAdminCustomRoute =
+  AuthenticatedAdminCustomRouteImport.update({
+    id: '/admin-custom',
+    path: '/admin-custom',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedAdminQuestionsRoute =
@@ -141,27 +111,57 @@ const AuthenticatedAdminQuestionsRoute =
     path: '/admin-questions',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedAdminCustomRoute =
-  AuthenticatedAdminCustomRouteImport.update({
-    id: '/admin-custom',
-    path: '/admin-custom',
+const AuthenticatedAdminSoundsRoute =
+  AuthenticatedAdminSoundsRouteImport.update({
+    id: '/admin-sounds',
+    path: '/admin-sounds',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => AuthenticatedRoute,
+const CustomOrderRoute = CustomOrderRouteImport.update({
+  id: '/order',
+  path: '/order',
+  getParentRoute: () => CustomRoute,
 } as any)
-const ApiPublicHooksQuestionQualityAlertRoute =
-  ApiPublicHooksQuestionQualityAlertRouteImport.update({
-    id: '/api/public/hooks/question-quality-alert',
-    path: '/api/public/hooks/question-quality-alert',
-    getParentRoute: () => rootRouteImport,
-  } as any)
+const LegalContactRoute = LegalContactRouteImport.update({
+  id: '/legal/contact',
+  path: '/legal/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
+  id: '/legal/privacy',
+  path: '/legal/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalTermsRoute = LegalTermsRouteImport.update({
+  id: '/legal/terms',
+  path: '/legal/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResultsRoomIdRoute = ResultsRoomIdRouteImport.update({
+  id: '/results/$roomId',
+  path: '/results/$roomId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsAdultRoute = SettingsAdultRouteImport.update({
+  id: '/settings/adult',
+  path: '/settings/adult',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsStreamerRoute = SettingsStreamerRouteImport.update({
+  id: '/settings/streamer',
+  path: '/settings/streamer',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksCleanupAvatarsRoute =
   ApiPublicHooksCleanupAvatarsRouteImport.update({
     id: '/api/public/hooks/cleanup-avatars',
     path: '/api/public/hooks/cleanup-avatars',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksQuestionQualityAlertRoute =
+  ApiPublicHooksQuestionQualityAlertRouteImport.update({
+    id: '/api/public/hooks/question-quality-alert',
+    path: '/api/public/hooks/question-quality-alert',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -352,74 +352,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/preview-question': {
-      id: '/preview-question'
-      path: '/preview-question'
-      fullPath: '/preview-question'
-      preLoaderRoute: typeof PreviewQuestionRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/preview-intro': {
-      id: '/preview-intro'
-      path: '/preview-intro'
-      fullPath: '/preview-intro'
-      preLoaderRoute: typeof PreviewIntroRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/play': {
-      id: '/play'
-      path: '/play'
-      fullPath: '/play'
-      preLoaderRoute: typeof PlayRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/join': {
-      id: '/join'
-      path: '/join'
-      fullPath: '/join'
-      preLoaderRoute: typeof JoinRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/host': {
-      id: '/host'
-      path: '/host'
-      fullPath: '/host'
-      preLoaderRoute: typeof HostRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/h': {
-      id: '/h'
-      path: '/h'
-      fullPath: '/h'
-      preLoaderRoute: typeof HRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dev': {
-      id: '/dev'
-      path: '/dev'
-      fullPath: '/dev'
-      preLoaderRoute: typeof DevRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/custom': {
-      id: '/custom'
-      path: '/custom'
-      fullPath: '/custom'
-      preLoaderRoute: typeof CustomRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/audience': {
-      id: '/audience'
-      path: '/audience'
-      fullPath: '/audience'
-      preLoaderRoute: typeof AudienceRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -429,74 +366,81 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/audience': {
+      id: '/audience'
+      path: '/audience'
+      fullPath: '/audience'
+      preLoaderRoute: typeof AudienceRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings/streamer': {
-      id: '/settings/streamer'
-      path: '/settings/streamer'
-      fullPath: '/settings/streamer'
-      preLoaderRoute: typeof SettingsStreamerRouteImport
+    '/custom': {
+      id: '/custom'
+      path: '/custom'
+      fullPath: '/custom'
+      preLoaderRoute: typeof CustomRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings/adult': {
-      id: '/settings/adult'
-      path: '/settings/adult'
-      fullPath: '/settings/adult'
-      preLoaderRoute: typeof SettingsAdultRouteImport
+    '/dev': {
+      id: '/dev'
+      path: '/dev'
+      fullPath: '/dev'
+      preLoaderRoute: typeof DevRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/results/$roomId': {
-      id: '/results/$roomId'
-      path: '/results/$roomId'
-      fullPath: '/results/$roomId'
-      preLoaderRoute: typeof ResultsRoomIdRouteImport
+    '/h': {
+      id: '/h'
+      path: '/h'
+      fullPath: '/h'
+      preLoaderRoute: typeof HRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/legal/terms': {
-      id: '/legal/terms'
-      path: '/legal/terms'
-      fullPath: '/legal/terms'
-      preLoaderRoute: typeof LegalTermsRouteImport
+    '/host': {
+      id: '/host'
+      path: '/host'
+      fullPath: '/host'
+      preLoaderRoute: typeof HostRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/legal/privacy': {
-      id: '/legal/privacy'
-      path: '/legal/privacy'
-      fullPath: '/legal/privacy'
-      preLoaderRoute: typeof LegalPrivacyRouteImport
+    '/join': {
+      id: '/join'
+      path: '/join'
+      fullPath: '/join'
+      preLoaderRoute: typeof JoinRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/legal/contact': {
-      id: '/legal/contact'
-      path: '/legal/contact'
-      fullPath: '/legal/contact'
-      preLoaderRoute: typeof LegalContactRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/custom/order': {
-      id: '/custom/order'
-      path: '/order'
-      fullPath: '/custom/order'
-      preLoaderRoute: typeof CustomOrderRouteImport
-      parentRoute: typeof CustomRoute
+    '/play': {
+      id: '/play'
+      path: '/play'
+      fullPath: '/play'
+      preLoaderRoute: typeof PlayRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/admin-sounds': {
-      id: '/_authenticated/admin-sounds'
-      path: '/admin-sounds'
-      fullPath: '/admin-sounds'
-      preLoaderRoute: typeof AuthenticatedAdminSoundsRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/preview-intro': {
+      id: '/preview-intro'
+      path: '/preview-intro'
+      fullPath: '/preview-intro'
+      preLoaderRoute: typeof PreviewIntroRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/admin-questions': {
-      id: '/_authenticated/admin-questions'
-      path: '/admin-questions'
-      fullPath: '/admin-questions'
-      preLoaderRoute: typeof AuthenticatedAdminQuestionsRouteImport
+    '/preview-question': {
+      id: '/preview-question'
+      path: '/preview-question'
+      fullPath: '/preview-question'
+      preLoaderRoute: typeof PreviewQuestionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/admin-custom': {
@@ -506,18 +450,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminCustomRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/admin': {
-      id: '/_authenticated/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+    '/_authenticated/admin-questions': {
+      id: '/_authenticated/admin-questions'
+      path: '/admin-questions'
+      fullPath: '/admin-questions'
+      preLoaderRoute: typeof AuthenticatedAdminQuestionsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/api/public/hooks/question-quality-alert': {
-      id: '/api/public/hooks/question-quality-alert'
-      path: '/api/public/hooks/question-quality-alert'
-      fullPath: '/api/public/hooks/question-quality-alert'
-      preLoaderRoute: typeof ApiPublicHooksQuestionQualityAlertRouteImport
+    '/_authenticated/admin-sounds': {
+      id: '/_authenticated/admin-sounds'
+      path: '/admin-sounds'
+      fullPath: '/admin-sounds'
+      preLoaderRoute: typeof AuthenticatedAdminSoundsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/custom/order': {
+      id: '/custom/order'
+      path: '/order'
+      fullPath: '/custom/order'
+      preLoaderRoute: typeof CustomOrderRouteImport
+      parentRoute: typeof CustomRoute
+    }
+    '/legal/contact': {
+      id: '/legal/contact'
+      path: '/legal/contact'
+      fullPath: '/legal/contact'
+      preLoaderRoute: typeof LegalContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/privacy': {
+      id: '/legal/privacy'
+      path: '/legal/privacy'
+      fullPath: '/legal/privacy'
+      preLoaderRoute: typeof LegalPrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/terms': {
+      id: '/legal/terms'
+      path: '/legal/terms'
+      fullPath: '/legal/terms'
+      preLoaderRoute: typeof LegalTermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/results/$roomId': {
+      id: '/results/$roomId'
+      path: '/results/$roomId'
+      fullPath: '/results/$roomId'
+      preLoaderRoute: typeof ResultsRoomIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/adult': {
+      id: '/settings/adult'
+      path: '/settings/adult'
+      fullPath: '/settings/adult'
+      preLoaderRoute: typeof SettingsAdultRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/streamer': {
+      id: '/settings/streamer'
+      path: '/settings/streamer'
+      fullPath: '/settings/streamer'
+      preLoaderRoute: typeof SettingsStreamerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/cleanup-avatars': {
@@ -525,6 +518,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/hooks/cleanup-avatars'
       fullPath: '/api/public/hooks/cleanup-avatars'
       preLoaderRoute: typeof ApiPublicHooksCleanupAvatarsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/question-quality-alert': {
+      id: '/api/public/hooks/question-quality-alert'
+      path: '/api/public/hooks/question-quality-alert'
+      fullPath: '/api/public/hooks/question-quality-alert'
+      preLoaderRoute: typeof ApiPublicHooksQuestionQualityAlertRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
