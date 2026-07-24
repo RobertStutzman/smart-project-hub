@@ -161,6 +161,7 @@ export const WELCOME_INTROS: string[] = [
   "Welcome in to Beat the Drop, where the questions hit harder than the punchlines.",
   "It's showtime on Beat the Drop. The only thing dropping faster is your dignity.",
   "Beat the Drop. The trivia game your group chat will argue about for days.",
+  ...EXTRA_WELCOME_INTROS,
 ];
 
 export function pickWelcomeIntro(): string {
