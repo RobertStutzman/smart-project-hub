@@ -133,14 +133,18 @@ export function getCategoryTease(
   difficulty: string | null | undefined,
   seed: number,
 ): string {
+  const { pickFresh } = require("@/lib/no-repeat") as typeof import("@/lib/no-repeat");
   const catPool = category && CATEGORY_TEASES[category] ? CATEGORY_TEASES[category] : GENERIC_TEASES;
   const diffPool = difficulty && DIFFICULTY_REACTIONS[difficulty]
     ? DIFFICULTY_REACTIONS[difficulty]
     : null;
   // 50/50 category vs difficulty reaction (when both present); otherwise use whichever exists.
-  const pool = diffPool && seed % 2 === 0 ? diffPool : catPool;
-  const idx = Math.abs(seed) % pool.length;
-  return pool[idx];
+  const useDiff = !!(diffPool && seed % 2 === 0);
+  const pool = useDiff ? (diffPool as string[]) : catPool;
+  const key = useDiff
+    ? `cat-tease:diff:${difficulty}`
+    : `cat-tease:cat:${category ?? "_"}`;
+  return pickFresh(key, pool, { seed });
 }
 
 /** Every string the tease system can return — baked once, replayed forever. */
