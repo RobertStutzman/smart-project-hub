@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { FUNNY_SOUND_IDS } from "@/lib/funny-sound-ids";
+import { computeTeamStandings } from "@/lib/team-standings";
 
 async function assignFunnySoundId(roomId: string): Promise<string> {
   const { data: used } = await supabaseAdmin
@@ -209,33 +210,11 @@ export const joinRoom = createServerFn({ method: "POST" })
 
     const funnySoundId = await assignFunnySoundId(room.id);
 
-    // Ensure the display nickname is unique within the room. A different
-    // session with the same name gets a numeric suffix so leaderboard, roasts,
-    // and saboteur callouts stay unambiguous. Case-insensitive.
-    let finalNickname = data.nickname.trim();
-    {
-      const { data: sameName } = await supabaseAdmin
-        .from("players")
-        .select("nickname")
-        .eq("room_id", room.id);
-      const taken = new Set(
-        (sameName ?? []).map((r) => (r.nickname ?? "").toLowerCase()),
-      );
-      if (taken.has(finalNickname.toLowerCase())) {
-        // Trim base so a "…20" suffix can still fit in the 20-char column.
-        const base = finalNickname.slice(0, 17).replace(/\s+$/, "");
-        let n = 2;
-        while (taken.has(finalNickname.toLowerCase())) {
-          finalNickname = `${base} ${n++}`;
-        }
-      }
-    }
-
     const { data: player, error: playerErr } = await supabaseAdmin
       .from("players")
       .insert({
         room_id: room.id,
-        nickname: finalNickname,
+        nickname: data.nickname,
         session_id: data.sessionId,
         team,
         funny_sound_id: funnySoundId,
@@ -270,18 +249,23 @@ export const toggleTeamMode = createServerFn({ method: "POST" })
       .eq("id", room.id);
 
     if (data.enabled) {
-      // Auto-assign existing non-audience players alternating red/blue
+      // Auto-assign existing non-audience players alternating red/blue.
+      // Batched into two `.in()` writes (one per team) instead of one update
+      // per player so a large lobby doesn't fan out into N round-trips.
       const { data: players } = await supabaseAdmin
         .from("players")
         .select("id")
         .eq("room_id", room.id)
         .eq("is_audience", false)
         .order("created_at", { ascending: true });
-      for (let i = 0; i < (players ?? []).length; i++) {
-        await supabaseAdmin
-          .from("players")
-          .update({ team: i % 2 === 0 ? "red" : "blue" })
-          .eq("id", (players ?? [])[i].id);
+      const list = players ?? [];
+      const redIds = list.filter((_, i) => i % 2 === 0).map((p) => p.id);
+      const blueIds = list.filter((_, i) => i % 2 === 1).map((p) => p.id);
+      if (redIds.length > 0) {
+        await supabaseAdmin.from("players").update({ team: "red" }).in("id", redIds);
+      }
+      if (blueIds.length > 0) {
+        await supabaseAdmin.from("players").update({ team: "blue" }).in("id", blueIds);
       }
     } else {
       await supabaseAdmin
@@ -292,6 +276,38 @@ export const toggleTeamMode = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+
+/**
+ * Authoritative team standings for a room. The results screen computes these
+ * client-side for display, but the host live view and any announcer callout
+ * ("Red team pulls ahead!") should read this so everyone agrees on the winner.
+ * Winner is decided by average points per player (see team-standings.ts).
+ */
+export const getTeamStandings = createServerFn({ method: "GET" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const { data: room } = await supabaseAdmin
+      .from("rooms")
+      .select("id, team_mode")
+      .eq("room_code", data.roomCode)
+      .maybeSingle();
+    if (!room) throw new Error("Room not found");
+    if (!(room as { team_mode?: boolean }).team_mode) {
+      return { teamMode: false as const, standings: null };
+    }
+    const { data: players } = await supabaseAdmin
+      .from("players")
+      .select("team, score, is_audience")
+      .eq("room_id", room.id);
+    const standings = computeTeamStandings(
+      (players ?? []) as { team: "red" | "blue" | null; score: number; is_audience: boolean }[],
+    );
+    return { teamMode: true as const, standings };
+  });
 
 export const heartbeatPlayer = createServerFn({ method: "POST" })
   .inputValidator(
