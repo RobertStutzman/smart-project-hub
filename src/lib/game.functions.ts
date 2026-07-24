@@ -636,6 +636,15 @@ export const endQuestion = createServerFn({ method: "POST" })
       if (u) u.current_round_fastest = true;
     }
 
+    // First Blood and Heist both rewrite already-computed scores. They assume
+    // they run on a clean `updates` array, so they must be mutually exclusive.
+    // wildcard is a single value per round, so they can't both be true today —
+    // this assert makes that assumption explicit and fails loudly if a future
+    // change allows overlap.
+    if (isFirstBlood && isHeist) {
+      throw new Error("First Blood and Heist cannot both be active in one round");
+    }
+
     // First Blood: only the fastest correct player keeps their points; all
     // other correct answers get zeroed (we leave penalties from wrong answers
     // intact). Recompute total score to drop the now-stripped points.
@@ -644,8 +653,11 @@ export const endQuestion = createServerFn({ method: "POST" })
         if (u.last_answer_correct === true && u.id !== fastestPlayerId) {
           const orig = (players ?? []).find((x) => x.id === u.id);
           const prevTotal = orig?.score ?? 0;
+          // Strip this round's points: total = pre-round total + 0 for this round.
+          // Computed from the pre-round score explicitly so it doesn't depend on
+          // any earlier mutation of u.score.
           u.current_round_score = 0;
-          u.score = Math.max(0, prevTotal);
+          u.score = Math.max(0, prevTotal + 0);
         }
       }
     }
@@ -672,10 +684,26 @@ export const endQuestion = createServerFn({ method: "POST" })
       }
     }
 
+    // Compare-and-swap reveal: flip phase question → reveal atomically. Only
+    // the first concurrent caller matches; any second caller sees zero rows
+    // and bails BEFORE touching player scores.
+    const { data: revealed, error: revealErr } = await supabaseAdmin
+      .from("rooms")
+      .update({ phase: "reveal", current_correct_index: correctIdx })
+      .eq("id", room.id)
+      .eq("phase", "question")
+      .select("id");
+    if (revealErr) throw new Error(revealErr.message);
+    if (!revealed || revealed.length === 0) {
+      // Another call already scored + revealed this question.
+      return { ok: false, alreadyScored: true };
+    }
+
+    // Tally round-level stats and build per-player row payloads.
     let qAnswered = 0;
     let qCorrect = 0;
     let qResponseMs = 0;
-    for (const u of updates) {
+    const playerWrites = updates.map((u) => {
       const orig = (players ?? []).find((x) => x.id === u.id);
       const fastestCount =
         (orig?.fastest_count ?? 0) + (u.current_round_fastest ? 1 : 0);
@@ -687,9 +715,9 @@ export const endQuestion = createServerFn({ method: "POST" })
           : null;
         if (lockedMs !== null && lockedMs >= 0) qResponseMs += lockedMs;
       }
-      await supabaseAdmin
-        .from("players")
-        .update({
+      return {
+        id: u.id,
+        payload: {
           score: u.score,
           current_round_score: u.current_round_score,
           streak_count: u.streak_count,
@@ -703,8 +731,20 @@ export const endQuestion = createServerFn({ method: "POST" })
           total_response_ms: u.total_response_ms,
           answered_count: u.answered_count,
           fastest_count: fastestCount,
-        })
-        .eq("id", u.id);
+        },
+      };
+    });
+
+    // Parallel per-player writes — one round-trip instead of N sequential ones.
+    // We keep individual `.update().eq("id", ...)` so NOT NULL columns like
+    // room_id / session_id are never touched (upsert would require restating them).
+    const writeResults = await Promise.all(
+      playerWrites.map((w) =>
+        supabaseAdmin.from("players").update(w.payload).eq("id", w.id),
+      ),
+    );
+    for (const r of writeResults) {
+      if (r.error) throw new Error(r.error.message);
     }
 
     if (qAnswered > 0 && room.current_question_id) {
@@ -724,12 +764,6 @@ export const endQuestion = createServerFn({ method: "POST" })
           .eq("id", room.current_question_id);
       }
     }
-
-    // Reveal: now safe to expose the correct answer publicly.
-    await supabaseAdmin
-      .from("rooms")
-      .update({ phase: "reveal", current_correct_index: correctIdx })
-      .eq("id", room.id);
 
     return { ok: true };
   });
