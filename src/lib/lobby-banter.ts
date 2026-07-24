@@ -39,6 +39,7 @@ const IDLE_EMPTY: string[] = [
   "Cool, cool, cool. Just me and the void.",
   "If a trivia host hosts in an empty room, does anyone get roasted?",
   "Calling all humans. This is not a drill. Or maybe it is. I'm bored.",
+  ...EXTRA_IDLE_EMPTY,
 ];
 
 const IDLE_LOW: string[] = [
@@ -51,6 +52,7 @@ const IDLE_LOW: string[] = [
   "{count} so far. Quality over quantity, right? Right?",
   "Look at you, {count} strong. A small but mighty army.",
   "{count} brave enough to show up. Respect. Sort of.",
+  ...EXTRA_IDLE_LOW,
 ];
 
 const IDLE_MID: string[] = [
@@ -63,6 +65,7 @@ const IDLE_MID: string[] = [
   "We're at {count}. Tell that one friend who always claims to be smart.",
   "{count} players warming up. I see at least two of you Googling already.",
   "{count} ready to rumble. Or stand awkwardly. Same thing here.",
+  ...EXTRA_IDLE_MID,
 ];
 
 const IDLE_HIGH: string[] = [
@@ -75,6 +78,7 @@ const IDLE_HIGH: string[] = [
   "{count} players. The lobby is full. The egos are fuller.",
   "{count} in. I have not seen a crowd this hyped since the last fire drill.",
   "{count} contestants. Choose your enemies wisely.",
+  ...EXTRA_IDLE_HIGH,
 ];
 
 const IDLE_GENERIC: string[] = [
@@ -91,6 +95,7 @@ const IDLE_GENERIC: string[] = [
   "Whoever's debating between two nicknames — they're both bad. Pick one.",
   "I can hear you scrolling. Pick the dumb one. Commit.",
   "Final boarding call. Doors closing soonish. Eventually. Hopefully.",
+  ...EXTRA_IDLE_GENERIC,
 ];
 
 // Lines that explicitly nudge people to scan / type the code. Only mixed in
@@ -99,6 +104,7 @@ const IDLE_GENERIC: string[] = [
 const IDLE_JOIN_NUDGE: string[] = [
   "Come on, the code is right there — {code}. Four letters. You got this.",
   "The code is {code}. Yes, still. It hasn't changed in the last ten seconds.",
+  ...EXTRA_IDLE_JOIN_NUDGE,
 ];
 
 
