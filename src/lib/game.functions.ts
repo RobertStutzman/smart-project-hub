@@ -129,6 +129,31 @@ export const nextQuestion = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const room = await getRoomByHost(data.roomCode, data.hostSessionId);
 
+    // Advance guard: only advance from a settled phase, and claim the advance
+    // with a compare-and-swap so a double-tap / timer race can't run twice.
+    // Every code path below sets a concrete phase before returning, so the
+    // transient "advancing" value never sticks under normal execution.
+    const ADVANCEABLE = new Set([
+      "reveal",
+      "leaderboard",
+      "lobby",
+      "intro",
+      "asym_reveal",
+      "final_reveal",
+    ]);
+    if (!ADVANCEABLE.has(room.phase as string)) {
+      return { ok: false, reason: "not-advanceable" as const };
+    }
+    const { data: advClaim } = await supabaseAdmin
+      .from("rooms")
+      .update({ phase: "advancing" })
+      .eq("id", room.id)
+      .eq("phase", room.phase)
+      .select("id");
+    if (!advClaim || advClaim.length === 0) {
+      return { ok: false, reason: "already-advancing" as const };
+    }
+
     // ── Asymmetry round (one per game, slots 8–17) ───────────────────────
     // Pick & persist slot+format on first invocation. Then, when the next
     // round would land on that slot AND we haven't consumed the format yet,
