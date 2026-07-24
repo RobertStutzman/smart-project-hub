@@ -135,8 +135,6 @@ export function getCategoryTease(
   difficulty: string | null | undefined,
   seed: number,
 ): string {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _ = seed;
   const catPool = category && CATEGORY_TEASES[category] ? CATEGORY_TEASES[category] : GENERIC_TEASES;
   const diffPool = difficulty && DIFFICULTY_REACTIONS[difficulty]
     ? DIFFICULTY_REACTIONS[difficulty]
