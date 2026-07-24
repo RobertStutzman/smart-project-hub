@@ -129,6 +129,31 @@ export const nextQuestion = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const room = await getRoomByHost(data.roomCode, data.hostSessionId);
 
+    // Advance guard: only advance from a settled phase, and claim the advance
+    // with a compare-and-swap so a double-tap / timer race can't run twice.
+    // Every code path below sets a concrete phase before returning, so the
+    // transient "advancing" value never sticks under normal execution.
+    const ADVANCEABLE = new Set([
+      "reveal",
+      "leaderboard",
+      "lobby",
+      "intro",
+      "asym_reveal",
+      "final_reveal",
+    ]);
+    if (!ADVANCEABLE.has(room.phase as string)) {
+      return { ok: false, reason: "not-advanceable" as const };
+    }
+    const { data: advClaim } = await supabaseAdmin
+      .from("rooms")
+      .update({ phase: "advancing" })
+      .eq("id", room.id)
+      .eq("phase", room.phase)
+      .select("id");
+    if (!advClaim || advClaim.length === 0) {
+      return { ok: false, reason: "already-advancing" as const };
+    }
+
     // ── Asymmetry round (one per game, slots 8–17) ───────────────────────
     // Pick & persist slot+format on first invocation. Then, when the next
     // round would land on that slot AND we haven't consumed the format yet,
@@ -232,8 +257,12 @@ export const nextQuestion = createServerFn({ method: "POST" })
     const { data: used } = await supabaseAdmin
       .from("room_questions")
       .select("question_id")
-      .eq("room_id", room.id);
-    const usedIds = (used ?? []).map((r) => r.question_id);
+      .eq("room_id", room.id)
+      .order("asked_at", { ascending: true });
+    // Cap the NOT IN list — an unbounded exclusion eventually blows the
+    // query-string length limit. Recent repeats are what players notice.
+    const RECENT_USED_CAP = 60;
+    const usedIds = (used ?? []).map((r) => r.question_id).slice(-RECENT_USED_CAP);
 
     // Pick difficulty to keep an even spread across the game without a predictable order.
     // Strategy: count how many of each difficulty we've already asked this room, then
@@ -896,8 +925,10 @@ export const startFinalRound = createServerFn({ method: "POST" })
     const { data: used } = await supabaseAdmin
       .from("room_questions")
       .select("question_id")
-      .eq("room_id", room.id);
-    const usedIds = (used ?? []).map((r) => r.question_id);
+      .eq("room_id", room.id)
+      .order("asked_at", { ascending: true });
+    const RECENT_USED_CAP = 60;
+    const usedIds = (used ?? []).map((r) => r.question_id).slice(-RECENT_USED_CAP);
 
     let q: {
       id: string;
@@ -1096,6 +1127,11 @@ export const scoreFinalRound = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const room = await getRoomByHost(data.roomCode, data.hostSessionId);
+    // Re-entry guard: only score while still in final_question. Prevents the
+    // final wagers being applied twice (which decides the whole game).
+    if (room.phase !== "final_question") {
+      return { ok: false, alreadyScored: true };
+    }
     const correctIdx = await getSecretCorrectIndex(room.id);
     if (correctIdx === null || correctIdx === undefined) {
       throw new Error("No final question set");
@@ -1106,34 +1142,49 @@ export const scoreFinalRound = createServerFn({ method: "POST" })
       .eq("room_id", room.id)
       .eq("is_audience", false);
 
-    for (const p of players ?? []) {
-      const wager = p.final_wager ?? 0;
-      const picked = p.final_answer;
-      const isCorrect = picked === correctIdx;
-      const boost = (p as { comeback_bonus?: boolean }).comeback_bonus ? 1.5 : 1;
-      const delta = picked === null || picked === undefined
-        ? -wager
-        : isCorrect
-          ? Math.round(wager * boost)
-          : -wager;
-      const newScore = Math.max(0, (p.score ?? 0) + delta);
-      await supabaseAdmin
-        .from("players")
-        .update({
-          score: newScore,
-          current_round_score: delta,
-          last_answer_correct: picked === null || picked === undefined ? false : isCorrect,
-          answered_count: (p.answered_count ?? 0) + (picked !== null && picked !== undefined ? 1 : 0),
-          correct_count: (p.correct_count ?? 0) + (isCorrect ? 1 : 0),
-          wrong_count: (p.wrong_count ?? 0) + (!isCorrect && picked !== null && picked !== undefined ? 1 : 0),
-        })
-        .eq("id", p.id);
-    }
-
-    await supabaseAdmin
+    // Compare-and-swap: claim the reveal transition before touching scores.
+    const { data: claimed, error: claimErr } = await supabaseAdmin
       .from("rooms")
       .update({ phase: "final_reveal", current_correct_index: correctIdx })
-      .eq("id", room.id);
+      .eq("id", room.id)
+      .eq("phase", "final_question")
+      .select("id");
+    if (claimErr) throw new Error(claimErr.message);
+    if (!claimed || claimed.length === 0) {
+      return { ok: false, alreadyScored: true };
+    }
+
+    const finalRows = (players ?? []).map((p) => {
+      // Re-clamp wager at scoring time against the current score, in case
+      // anything adjusted the score between wager-lock and here.
+      const wager = Math.min(p.final_wager ?? 0, Math.max(0, p.score ?? 0));
+      const picked = p.final_answer;
+      const answered = picked !== null && picked !== undefined;
+      const isCorrect = answered && picked === correctIdx;
+      const boost = (p as { comeback_bonus?: boolean }).comeback_bonus ? 1.5 : 1;
+      const delta = !answered ? -wager : isCorrect ? Math.round(wager * boost) : -wager;
+      return {
+        id: p.id,
+        payload: {
+          score: Math.max(0, (p.score ?? 0) + delta),
+          current_round_score: delta,
+          last_answer_correct: answered ? isCorrect : false,
+          answered_count: (p.answered_count ?? 0) + (answered ? 1 : 0),
+          correct_count: (p.correct_count ?? 0) + (isCorrect ? 1 : 0),
+          wrong_count: (p.wrong_count ?? 0) + (!isCorrect && answered ? 1 : 0),
+        },
+      };
+    });
+
+    const writeResults = await Promise.all(
+      finalRows.map((r) =>
+        supabaseAdmin.from("players").update(r.payload).eq("id", r.id),
+      ),
+    );
+    for (const r of writeResults) {
+      if (r.error) throw new Error(r.error.message);
+    }
+
     return { ok: true };
   });
 
@@ -1195,8 +1246,10 @@ export const startSuddenDeath = createServerFn({ method: "POST" })
     const { data: used } = await supabaseAdmin
       .from("room_questions")
       .select("question_id")
-      .eq("room_id", room.id);
-    const usedIds = (used ?? []).map((r) => r.question_id);
+      .eq("room_id", room.id)
+      .order("asked_at", { ascending: true });
+    const RECENT_USED_CAP = 60;
+    const usedIds = (used ?? []).map((r) => r.question_id).slice(-RECENT_USED_CAP);
 
     let q: {
       id: string;
@@ -1314,11 +1367,13 @@ export const resolveSuddenDeath = createServerFn({ method: "POST" })
       return { ok: true, resolved: false, stillTied: cohort };
     }
 
+    const SUDDEN_DEATH_TIE_WINDOW_MS = 150; // photo-finish band; locked_at is network-jittered
     const fastest = correct[0];
+    const fastestMs = new Date(fastest.current_answer_locked_at!).getTime();
     const ties = correct.filter(
       (c) =>
-        new Date(c.current_answer_locked_at!).getTime() ===
-        new Date(fastest.current_answer_locked_at!).getTime(),
+        new Date(c.current_answer_locked_at!).getTime() - fastestMs <=
+        SUDDEN_DEATH_TIE_WINDOW_MS,
     );
 
     if (ties.length === 1) {
