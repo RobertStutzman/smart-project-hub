@@ -742,6 +742,23 @@ function personaSlot(moment: string, idx: number) {
 import { ALL_ROUND_CALLOUTS } from "./round-callouts";
 export const ROUND_CALLOUTS: string[] = ALL_ROUND_CALLOUTS;
 
+async function getExistingPersonaLabels(): Promise<Set<string>> {
+  const labels = new Set<string>();
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabaseAdmin
+      .from("sound_clips")
+      .select("label")
+      .eq("category", PERSONA_CATEGORY)
+      .eq("is_active", true)
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    for (const row of data ?? []) labels.add((row.label as string) ?? "");
+    if (!data || data.length < pageSize) break;
+  }
+  return labels;
+}
+
 export const generatePersonaPack = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
