@@ -1,23 +1,7 @@
-## Plan
+## Move "Custom trivia for your party" off the home page
 
-1. **Make Vox catchphrase baking resumable**
-   - Change the catchphrase baker so it processes a small batch at a time instead of trying all remaining lines in one long server call.
-   - Keep the existing “skip already baked” behavior so it can be clicked/restarted safely.
+Remove the amber CTA button from `src/routes/index.tsx` (lines 134-139) and add a discreet "Custom pack" link to `src/components/LegalFooter.tsx` alongside Terms / Privacy / Contact.
 
-2. **Add progress + failure visibility in Admin Sounds**
-   - Update the Vox catchphrase button flow to loop through batches, similar to the question voiceover baker.
-   - Show live progress like `Baking catchphrases… 35 / 268`.
-   - Show a concise error count and keep going when individual lines fail.
+Result: home page focuses on Host / Join. Custom ordering still reachable via `/custom` from the footer on every page (and directly by URL). No changes to `/custom` itself.
 
-3. **Make “remaining 268” actually finish**
-   - Add a server-side `limit` option for Vox baking, defaulting to a safe small batch.
-   - Return `generated`, `skipped`, `errors`, `remaining`, and `total` so the UI knows whether to continue.
-   - Avoid one huge request that can timeout before the final catchphrases are saved.
-
-4. **Improve error reporting without touching other systems**
-   - Surface the first few failed line names/messages in the toast instead of a giant hidden failure.
-   - Do not change gameplay audio, question voiceover baking, scoring, security findings, or database schema.
-
-5. **Verify**
-   - Run the relevant TypeScript check automatically after implementation.
-   - If possible, test the baker endpoint behavior with a very small batch size so we can confirm it returns progress instead of hanging.
+If you'd rather it live somewhere else (e.g. inside `/join` under the code entry, or on a new `/settings` hub), say the word and I'll swap the destination.
