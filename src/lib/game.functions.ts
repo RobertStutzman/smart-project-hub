@@ -1864,6 +1864,21 @@ async function finalizeAsymReveal(
   fmt: "crowd_pleaser" | "two_truths" | "hot_take" | "finish_sentence",
   roomRow: Record<string, unknown>,
 ) {
+  // Claim the transition BEFORE scoring so a double-fire (host refresh, two
+  // tabs, auto-advance racing manual advance) can't double-apply deltas.
+  const fromPhase = (roomRow as { phase?: string }).phase;
+  const endsAt = new Date(Date.now() + ASYM_REVEAL_MS).toISOString();
+  const { data: claimed, error: claimErr } = await supabaseAdmin
+    .from("rooms")
+    .update({ phase: "asym_reveal", asym_phase_ends_at: endsAt })
+    .eq("id", roomId)
+    .eq("phase", fromPhase ?? "")
+    .select("id");
+  if (claimErr) throw new Error(claimErr.message);
+  if (!claimed || claimed.length === 0) {
+    return { ok: false as const, alreadyScored: true as const };
+  }
+
   const { data: live } = await supabaseAdmin
     .from("players")
     .select("id, session_id, score, current_round_score")
@@ -1881,26 +1896,19 @@ async function finalizeAsymReveal(
     null;
   const deltas = computeAsymDeltas(fmt, sessionIds, source, subs, votes);
 
-  // Persist scores
-  for (const p of live ?? []) {
-    const delta = deltas[p.session_id] ?? 0;
-    await supabaseAdmin
-      .from("players")
-      .update({
-        score: (p.score ?? 0) + delta,
-        current_round_score: delta,
-        last_answer_correct: delta > 0,
-      })
-      .eq("id", p.id);
-  }
+  await Promise.all(
+    (live ?? []).map((p) => {
+      const delta = deltas[p.session_id] ?? 0;
+      return supabaseAdmin
+        .from("players")
+        .update({
+          score: (p.score ?? 0) + delta,
+          current_round_score: delta,
+          last_answer_correct: delta > 0,
+        })
+        .eq("id", p.id);
+    }),
+  );
 
-  const endsAt = new Date(Date.now() + ASYM_REVEAL_MS).toISOString();
-  await supabaseAdmin
-    .from("rooms")
-    .update({
-      phase: "asym_reveal",
-      asym_phase_ends_at: endsAt,
-    })
-    .eq("id", roomId);
   return { ok: true, phase: "asym_reveal", deltas };
 }
