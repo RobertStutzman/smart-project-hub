@@ -3,6 +3,7 @@
 // Lines are intentionally short so the browser speechSynthesis voice
 // (or a pre-baked TTS file) reads them in under ~3 seconds.
 import { LINES_ADULT } from "@/lib/host-persona.adult";
+import { EXTRA_LINES } from "@/lib/host-persona.extra";
 
 export const HOST_NAME = "Donnie Drop";
 
@@ -27,7 +28,7 @@ type Moment =
   | "last_to_lock"      // last live player to lock answer
   | "random_jab";       // generic name-roast for a quiet player
 
-export const LINES: Record<Moment, string[]> = {
+const BASE_LINES: Record<Moment, string[]> = {
   intro_hype: [
     "Buckle up. The drop is coming.",
     "Fingers on buzzers. Egos at the door.",
@@ -770,6 +771,15 @@ export const LINES: Record<Moment, string[]> = {
     "Plotting in silence. Or napping.",
   ],
 };
+
+// Merge base pools with extras so the persona baker (which reads LINES)
+// picks up the expanded catalog without needing per-key edits above.
+export const LINES: Record<Moment, string[]> = Object.fromEntries(
+  (Object.keys(BASE_LINES) as Moment[]).map((k) => [
+    k,
+    [...BASE_LINES[k], ...(EXTRA_LINES[k] ?? [])],
+  ]),
+) as Record<Moment, string[]>;
 
 /** Pick a deterministic-feeling line for a moment, with seed for variety. */
 export function pickLine(moment: Moment, seed: string | number = Date.now()): string {

@@ -2,6 +2,8 @@
 // Content rules:
 //   - F-bombs, shit, asshole, bullshit, dick, balls, horny, crude metaphors: yes.
 //   - No slurs, no minors, no real-person targeting, nothing non-consensual.
+import { EXTRA_LINES_ADULT } from "@/lib/host-persona.extra.adult";
+
 
 type Moment =
   | "intro_hype"
@@ -24,7 +26,7 @@ type Moment =
   | "last_to_lock"
   | "random_jab";
 
-export const LINES_ADULT: Record<Moment, string[]> = {
+const BASE_LINES_ADULT: Record<Moment, string[]> = {
   intro_hype: [
     "Buckle the fuck up. The drop is coming.",
     "Fingers on buzzers. Egos at the door. Pants optional.",
