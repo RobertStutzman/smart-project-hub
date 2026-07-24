@@ -208,7 +208,9 @@ function EventsPanel({
       const errorSuffix = totalErrors
         ? ` · ${totalErrors} errors${latestErrors.length ? `: ${latestErrors.join("; ")}` : ""}`
         : "";
-      toast.success(`Done! Baked ${totalGenerated} Vox catchphrases${errorSuffix}.`, { id: toastId });
+      const doneMessage = `Done! Baked ${totalGenerated} Vox catchphrases${errorSuffix}.`;
+      if (totalErrors) toast.warning(doneMessage, { id: toastId });
+      else toast.success(doneMessage, { id: toastId });
       await loadPersonaStats();
       await onChange();
     } catch (err) {
