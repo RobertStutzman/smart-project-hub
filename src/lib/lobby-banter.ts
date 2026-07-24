@@ -126,22 +126,23 @@ export function pickLobbyLine(
 ): { spoken: string; raw: string } {
   if (isAdultMode()) return pickLobbyLineAdult(history, count, code);
   let pool: string[];
-  if (count === 0) pool = [...IDLE_EMPTY, ...IDLE_JOIN_NUDGE, ...IDLE_GENERIC];
-  else if (count <= 2) pool = [...IDLE_LOW, ...IDLE_GENERIC];
-  else if (count <= 5) pool = [...IDLE_MID, ...IDLE_GENERIC];
-  else pool = [...IDLE_HIGH, ...IDLE_GENERIC];
+  let bucket: string;
+  if (count === 0) { pool = [...IDLE_EMPTY, ...IDLE_JOIN_NUDGE, ...IDLE_GENERIC]; bucket = "empty"; }
+  else if (count <= 2) { pool = [...IDLE_LOW, ...IDLE_GENERIC]; bucket = "low"; }
+  else if (count <= 5) { pool = [...IDLE_MID, ...IDLE_GENERIC]; bucket = "mid"; }
+  else { pool = [...IDLE_HIGH, ...IDLE_GENERIC]; bucket = "high"; }
 
-
-  const recent = new Set(history.slice(-3));
-  const fresh = pool.filter((l) => !recent.has(l));
-  const choices = fresh.length > 0 ? fresh : pool;
-  const raw = choices[Math.floor(Math.random() * choices.length)];
+  // Seed the shared no-repeat window with the caller's recent-history
+  // entries so both sources of memory agree.
+  const key = `lobby:idle:${bucket}`;
+  for (const h of history.slice(-3)) markUsed(key, h);
+  const raw = pickFresh(key, pool);
   return { spoken: fill(raw, count, code), raw };
 }
 
 export function pickOpener(): string {
   if (isAdultMode()) return pickOpenerAdult();
-  return OPENER_LINES[Math.floor(Math.random() * OPENER_LINES.length)];
+  return pickFresh("lobby:opener", OPENER_LINES);
 }
 
 // Full "welcome to the show" intros spoken by The Elf at the top of the
@@ -167,5 +168,5 @@ export const WELCOME_INTROS: string[] = [
 
 export function pickWelcomeIntro(): string {
   if (isAdultMode()) return pickWelcomeIntroAdult();
-  return WELCOME_INTROS[Math.floor(Math.random() * WELCOME_INTROS.length)];
+  return pickFresh("lobby:welcome-intro", WELCOME_INTROS);
 }
