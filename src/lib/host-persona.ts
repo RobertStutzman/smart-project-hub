@@ -814,7 +814,7 @@ export const WELCOME_BACK_LINES: string[] = [
 ];
 
 export function pickWelcomeBack(): string {
-  return WELCOME_BACK_LINES[Math.floor(Math.random() * WELCOME_BACK_LINES.length)];
+  return pickFresh("host-persona:welcome-back", WELCOME_BACK_LINES);
 }
 
 
