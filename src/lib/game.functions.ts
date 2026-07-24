@@ -1840,7 +1840,7 @@ export const advanceAsymPhase = createServerFn({ method: "POST" })
     }
 
     if (room.phase === "asym_reveal") {
-      await supabaseAdmin
+      const { data: moved } = await supabaseAdmin
         .from("rooms")
         .update({
           phase: "leaderboard",
@@ -1852,7 +1852,12 @@ export const advanceAsymPhase = createServerFn({ method: "POST" })
           asym_phase_ends_at: null,
           asym_phase_started_at: null,
         })
-        .eq("id", room.id);
+        .eq("id", room.id)
+        .eq("phase", "asym_reveal")
+        .select("id");
+      if (!moved || moved.length === 0) {
+        return { ok: false as const, alreadyAdvanced: true as const };
+      }
       return { ok: true, phase: "leaderboard" };
     }
 
