@@ -11,6 +11,7 @@ import { pickLine, speakPersona } from "@/lib/host-persona";
 import { speakAsElf, playVoiceUrl } from "@/lib/elf-voice";
 import { speakPersonaLine } from "@/lib/announcer.functions";
 import { pickTemplateAdult } from "@/lib/persona-live.adult";
+import { pickFresh, markUsed, resetNoRepeat } from "@/lib/no-repeat";
 
 export type LiveMoment =
   | "first_blood"
