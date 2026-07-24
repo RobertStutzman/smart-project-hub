@@ -786,22 +786,19 @@ export const LINES: Record<Moment, string[]> = Object.fromEntries(
 export function pickLine(moment: Moment, seed: string | number = Date.now()): string {
   // Adult mode swaps the pool; everything else is identical.
   let pool: string[] = LINES[moment];
+  let adult = false;
   if (typeof window !== "undefined") {
     try {
       if (window.sessionStorage.getItem("btd-adult-mode") === "1") {
         pool = LINES_ADULT[moment] ?? pool;
+        adult = true;
       }
     } catch {
       /* fall back */
     }
   }
-  const dailyBucket = Math.floor(Date.now() / (1000 * 60 * 30));
-  const base =
-    typeof seed === "string"
-      ? seed.length * 131 + seed.charCodeAt(0) * 17 + (seed.charCodeAt(seed.length - 1) ?? 0)
-      : Math.floor(seed);
-  const idx = Math.abs(base + dailyBucket) % pool.length;
-  return pool[idx];
+  const key = `host-persona:${adult ? "a" : "s"}:${moment}`;
+  return pickFresh(key, pool, { seed });
 }
 
 
