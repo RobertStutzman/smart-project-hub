@@ -1246,8 +1246,10 @@ export const startSuddenDeath = createServerFn({ method: "POST" })
     const { data: used } = await supabaseAdmin
       .from("room_questions")
       .select("question_id")
-      .eq("room_id", room.id);
-    const usedIds = (used ?? []).map((r) => r.question_id);
+      .eq("room_id", room.id)
+      .order("asked_at", { ascending: true });
+    const RECENT_USED_CAP = 60;
+    const usedIds = (used ?? []).map((r) => r.question_id).slice(-RECENT_USED_CAP);
 
     let q: {
       id: string;
