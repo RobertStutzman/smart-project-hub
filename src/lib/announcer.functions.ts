@@ -742,19 +742,43 @@ function personaSlot(moment: string, idx: number) {
 import { ALL_ROUND_CALLOUTS } from "./round-callouts";
 export const ROUND_CALLOUTS: string[] = ALL_ROUND_CALLOUTS;
 
+async function getExistingPersonaLabels(): Promise<Set<string>> {
+  const labels = new Set<string>();
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabaseAdmin
+      .from("sound_clips")
+      .select("label")
+      .eq("category", PERSONA_CATEGORY)
+      .eq("is_active", true)
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    for (const row of data ?? []) labels.add((row.label as string) ?? "");
+    if (!data || data.length < pageSize) break;
+  }
+  return labels;
+}
+
 export const generatePersonaPack = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
-    (input: unknown) => z.object({ force: z.boolean().optional() }).optional().parse(input) ?? {},
+    (input: unknown) => z.object({
+      force: z.boolean().optional(),
+      limit: z.number().int().min(1).max(50).optional(),
+      excludeSlots: z.array(z.string()).max(500).optional(),
+    }).optional().parse(input) ?? {},
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
     await ensurePersonaFolder();
     const force = data?.force ?? false;
+    const limit = data?.limit ?? 20;
+    const excludedSlots = new Set(data?.excludeSlots ?? []);
 
     const generated: string[] = [];
     const skipped: string[] = [];
     const errors: string[] = [];
+    const failedSlots: string[] = [];
     const flat: { slot: string; text: string }[] = [];
     for (const [moment, lines] of Object.entries(PERSONA_LINES)) {
       lines.forEach((text, idx) => {
@@ -766,21 +790,13 @@ export const generatePersonaPack = createServerFn({ method: "POST" })
     });
 
     // Skip lines already baked unless forced.
-    const existingLabels = new Set<string>();
-    if (!force) {
-      const { data: rows } = await supabaseAdmin
-        .from("sound_clips")
-        .select("label")
-        .eq("category", PERSONA_CATEGORY)
-        .eq("is_active", true);
-      for (const r of rows ?? []) existingLabels.add((r.label as string) ?? "");
-    }
+    const existingLabels = force ? new Set<string>() : await getExistingPersonaLabels();
+    const pending = (force ? flat : flat.filter((item) => !existingLabels.has(item.text))).filter(
+      (item) => !excludedSlots.has(item.slot),
+    );
+    const batch = pending.slice(0, limit);
 
-    for (const item of flat) {
-      if (!force && existingLabels.has(item.text)) {
-        skipped.push(item.slot);
-        continue;
-      }
+    for (const item of batch) {
       try {
         const audio = await generateTTS(item.text, {
           stability: 0.2,
@@ -815,14 +831,20 @@ export const generatePersonaPack = createServerFn({ method: "POST" })
         await new Promise((r) => setTimeout(r, 200));
       } catch (e) {
         errors.push(`${item.slot}: ${(e as Error).message}`);
+        failedSlots.push(item.slot);
       }
     }
+
+    if (!force) skipped.push(...flat.filter((item) => existingLabels.has(item.text)).map((item) => item.slot));
 
     return {
       generated: generated.length,
       skipped: skipped.length,
       errors,
       total: flat.length,
+      processed: batch.length,
+      remaining: Math.max(0, pending.length - generated.length),
+      failedSlots,
     };
   });
 
