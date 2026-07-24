@@ -154,6 +154,7 @@ function EventsPanel({
   const personaStatsFn = useServerFn(getPersonaPackStats);
   const [generating, setGenerating] = useState(false);
   const [generatingPersona, setGeneratingPersona] = useState(false);
+  const [personaProgress, setPersonaProgress] = useState<string | null>(null);
   const [personaStats, setPersonaStats] = useState<{ total: number; baked: number } | null>(null);
 
   async function loadPersonaStats() {
@@ -177,20 +178,43 @@ function EventsPanel({
       : `Pre-bake the Vox catchphrases (host hype lines, not question reads)? Already-baked are skipped. Calls ElevenLabs once per missing line. ~1 minute.`;
     if (!window.confirm(msg)) return;
     setGeneratingPersona(true);
+    const remaining = missing ?? 0;
+    const toastId = toast.loading(`Baking catchphrases… 0 / ${remaining}`);
+    setPersonaProgress(`Baking catchphrases… 0 / ${remaining}`);
     try {
-      const res = await generatePersonaFn({ data: {} });
-      if (res.errors.length) {
-        toast.warning(
-          `Baked ${res.generated}/${res.total} (${res.skipped} skipped). Errors: ${res.errors.join("; ")}`,
-        );
-      } else {
-        toast.success(`Baked ${res.generated} Vox catchphrases (${res.skipped} already done)`);
+      let totalGenerated = 0;
+      let totalErrors = 0;
+      let latestErrors: string[] = [];
+      const failedSlots = new Set<string>();
+      let safety = 0;
+
+      while (safety++ < 200) {
+        const res = await generatePersonaFn({
+          data: { limit: 20, excludeSlots: Array.from(failedSlots) },
+        });
+        totalGenerated += res.generated;
+        totalErrors += res.errors.length;
+        latestErrors = res.errors.slice(0, 3);
+        for (const slot of res.failedSlots) failedSlots.add(slot);
+
+        const done = Math.min(remaining, totalGenerated + failedSlots.size);
+        const progress = `Baking catchphrases… ${done} / ${remaining}${totalErrors ? ` · ${totalErrors} errors` : ""}`;
+        setPersonaProgress(progress);
+        toast.loading(progress, { id: toastId });
+
+        if (res.processed === 0 || res.remaining === 0) break;
       }
+
+      const errorSuffix = totalErrors
+        ? ` · ${totalErrors} errors${latestErrors.length ? `: ${latestErrors.join("; ")}` : ""}`
+        : "";
+      toast.success(`Done! Baked ${totalGenerated} Vox catchphrases${errorSuffix}.`, { id: toastId });
       await loadPersonaStats();
       await onChange();
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error((err as Error).message, { id: toastId });
     } finally {
+      setPersonaProgress(null);
       setGeneratingPersona(false);
     }
   }
@@ -248,7 +272,7 @@ function EventsPanel({
             className="rounded-full bg-amber-600 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-amber-400/30 transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {generatingPersona
-              ? "🎭 Baking catchphrases…"
+              ? personaProgress ?? "🎭 Baking catchphrases…"
               : personaStats
                 ? personaStats.baked >= personaStats.total
                   ? `🎭 Vox catchphrases fully baked (${personaStats.baked}/${personaStats.total}) — re-bake?`
