@@ -5,6 +5,8 @@
 // Kept short (~4–10 words) so they queue and clear before the question
 // TTS starts.
 
+import { pickFresh } from "@/lib/no-repeat";
+
 const GENERIC_TEASES: string[] = [
   "Category live. Focus up.",
   "Fresh category. New pain.",
@@ -138,9 +140,12 @@ export function getCategoryTease(
     ? DIFFICULTY_REACTIONS[difficulty]
     : null;
   // 50/50 category vs difficulty reaction (when both present); otherwise use whichever exists.
-  const pool = diffPool && seed % 2 === 0 ? diffPool : catPool;
-  const idx = Math.abs(seed) % pool.length;
-  return pool[idx];
+  const useDiff = !!(diffPool && seed % 2 === 0);
+  const pool = useDiff ? (diffPool as string[]) : catPool;
+  const key = useDiff
+    ? `cat-tease:diff:${difficulty}`
+    : `cat-tease:cat:${category ?? "_"}`;
+  return pickFresh(key, pool, { seed });
 }
 
 /** Every string the tease system can return — baked once, replayed forever. */

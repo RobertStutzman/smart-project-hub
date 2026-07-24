@@ -11,6 +11,7 @@ import { pickLine, speakPersona } from "@/lib/host-persona";
 import { speakAsElf, playVoiceUrl } from "@/lib/elf-voice";
 import { speakPersonaLine } from "@/lib/announcer.functions";
 import { pickTemplateAdult } from "@/lib/persona-live.adult";
+import { pickFresh, markUsed, resetNoRepeat } from "@/lib/no-repeat";
 
 export type LiveMoment =
   | "first_blood"
@@ -59,6 +60,8 @@ export function setLiveRoomId(roomId: string | null) {
 
 export function resetLiveCap(roomId: string) {
   callCountByRoom.set(roomId, 0);
+  // New game = clear persona-live memory so the fresh room can hear any line.
+  resetNoRepeat("persona-live:");
 }
 
 function currentTier(): 1 | 2 | 3 {
@@ -315,16 +318,28 @@ const FALLBACK_MOMENT: Record<LiveMoment, Parameters<typeof pickLine>[0]> = {
 };
 
 function pickTemplate(ctx: PersonaContext): string {
+  let adult = false;
   if (typeof window !== "undefined") {
     try {
       if (window.sessionStorage.getItem("btd-adult-mode") === "1") {
-        return pickTemplateAdult(ctx);
+        adult = true;
       }
     } catch { /* fall back */ }
   }
+  if (adult) return pickTemplateAdult(ctx);
   const pool = TEMPLATES[ctx.moment];
-  const seed = (ctx.nickname.length * 31 + (ctx.roundNumber ?? 0) * 7 + (ctx.streak ?? 0)) >>> 0;
-  return pool[seed % pool.length](ctx);
+  // Pick a template *index* that hasn't fired recently for this moment,
+  // then materialize the sentence with the current context.
+  const indexPool = pool.map((_, i) => String(i));
+  const key = `persona-live:${ctx.moment}`;
+  const seed = ctx.nickname.length * 31 + (ctx.roundNumber ?? 0) * 7 + (ctx.streak ?? 0);
+  const chosen = pickFresh(key, indexPool, { seed });
+  const idx = Number(chosen);
+  const line = pool[idx](ctx);
+  // Also record the rendered line so identical sentences from different
+  // templates (rare, but possible) don't stack.
+  markUsed(`${key}:rendered`, line);
+  return line;
 }
 
 // --- Main entrypoint ------------------------------------------------------
