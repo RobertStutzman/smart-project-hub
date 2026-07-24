@@ -575,6 +575,7 @@ export const endQuestion = createServerFn({ method: "POST" })
         const firstWasCorrect =
           (p as { current_first_answer?: number | null }).current_first_answer === correctIdx;
 
+        const rawBase = base;
         if (nextStreak >= 3 && firstWasCorrect) base = Math.round(base * STREAK_BONUS);
         if (rubberIds.has(p.id)) base = Math.round(base * 1.25); // rubber-banding (hidden)
         if (pending2x) {
@@ -585,6 +586,9 @@ export const endQuestion = createServerFn({ method: "POST" })
         if (isDoubleOrNothing) base *= 2;
         if (isUnderdog && underdogId === p.id) base *= 2;
         if (isSuddenDrop) base = Math.round(base * SUDDEN_DROP_MULTIPLIER);
+        // Cap the stacked multiplier so comeback mechanics can't produce a
+        // score that looks like a bug (e.g. underdog + rubber-band + 2x = ~5x).
+        base = Math.min(base, rawBase * MAX_ROUND_MULTIPLIER);
         roundScore = base;
         if (firstWasCorrect) {
           nextStreak += 1;
