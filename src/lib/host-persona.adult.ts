@@ -769,3 +769,10 @@ const BASE_LINES_ADULT: Record<Moment, string[]> = {
     "Plotting in silence. Or napping. Probably napping.",
   ],
 };
+
+export const LINES_ADULT: Record<Moment, string[]> = Object.fromEntries(
+  (Object.keys(BASE_LINES_ADULT) as Moment[]).map((k) => [
+    k,
+    [...BASE_LINES_ADULT[k], ...(EXTRA_LINES_ADULT[k] ?? [])],
+  ]),
+) as Record<Moment, string[]>;
