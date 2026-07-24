@@ -6,6 +6,16 @@ import {
   pickOpenerAdult,
   pickWelcomeIntroAdult,
 } from "@/lib/lobby-banter.adult";
+import {
+  EXTRA_OPENER_LINES,
+  EXTRA_IDLE_EMPTY,
+  EXTRA_IDLE_LOW,
+  EXTRA_IDLE_MID,
+  EXTRA_IDLE_HIGH,
+  EXTRA_IDLE_GENERIC,
+  EXTRA_IDLE_JOIN_NUDGE,
+  EXTRA_WELCOME_INTROS,
+} from "@/lib/lobby-banter.extra";
 
 export const OPENER_LINES: string[] = [
   "Scan the QR code on screen, or type the four-letter code to join.",
@@ -13,6 +23,7 @@ export const OPENER_LINES: string[] = [
   "Phones up: scan the QR, or type the code. That's your ticket in.",
   "Grab your phone, scan that QR code, and hop in the lobby.",
   "Scan the code on screen — QR or four letters, your call.",
+  ...EXTRA_OPENER_LINES,
 ];
 
 const IDLE_EMPTY: string[] = [
