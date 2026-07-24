@@ -16,6 +16,7 @@ import {
   EXTRA_IDLE_JOIN_NUDGE,
   EXTRA_WELCOME_INTROS,
 } from "@/lib/lobby-banter.extra";
+import { pickFresh, markUsed } from "@/lib/no-repeat";
 
 export const OPENER_LINES: string[] = [
   "Scan the QR code on screen, or type the four-letter code to join.",
