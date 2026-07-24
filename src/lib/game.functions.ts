@@ -1334,11 +1334,13 @@ export const resolveSuddenDeath = createServerFn({ method: "POST" })
       return { ok: true, resolved: false, stillTied: cohort };
     }
 
+    const SUDDEN_DEATH_TIE_WINDOW_MS = 150; // photo-finish band; locked_at is network-jittered
     const fastest = correct[0];
+    const fastestMs = new Date(fastest.current_answer_locked_at!).getTime();
     const ties = correct.filter(
       (c) =>
-        new Date(c.current_answer_locked_at!).getTime() ===
-        new Date(fastest.current_answer_locked_at!).getTime(),
+        new Date(c.current_answer_locked_at!).getTime() - fastestMs <=
+        SUDDEN_DEATH_TIE_WINDOW_MS,
     );
 
     if (ties.length === 1) {
