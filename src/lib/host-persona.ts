@@ -4,6 +4,7 @@
 // (or a pre-baked TTS file) reads them in under ~3 seconds.
 import { LINES_ADULT } from "@/lib/host-persona.adult";
 import { EXTRA_LINES } from "@/lib/host-persona.extra";
+import { pickFresh } from "@/lib/no-repeat";
 
 export const HOST_NAME = "Donnie Drop";
 
