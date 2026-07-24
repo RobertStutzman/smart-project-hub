@@ -131,12 +131,8 @@ function LandingPage() {
           </Link>
         </div>
 
-        <Link
-          to="/custom"
-          className="mt-6 inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-400/10 px-5 py-2 text-sm font-bold uppercase tracking-widest text-amber-200 transition hover:bg-amber-400/20"
-        >
-          ✨ Custom trivia for your party →
-        </Link>
+
+
 
 
 
