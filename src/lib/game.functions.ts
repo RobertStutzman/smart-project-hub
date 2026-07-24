@@ -1782,13 +1782,21 @@ export const submitAsymVote = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { data: room } = await supabaseAdmin
       .from("rooms")
-      .select("id, phase, asym_votes, asym_source_session_id, asym_format")
+      .select("id, phase, asym_votes, asym_source_session_id, asym_format, asym_submissions")
       .eq("room_code", data.roomCode)
       .maybeSingle();
     if (!room) throw new Error("Room not found");
     if (room.phase !== "asym_vote") throw new Error("Not in vote phase");
     if (typeof data.vote === "string" && data.vote === data.sessionId) {
       throw new Error("Cannot vote for yourself");
+    }
+    if (typeof data.vote === "string") {
+      const subs = (room.asym_submissions as Record<string, unknown> | null) ?? {};
+      const validTargets = new Set<string>(Object.keys(subs));
+      if (room.asym_source_session_id) validTargets.add(room.asym_source_session_id as string);
+      if (!validTargets.has(data.vote)) {
+        throw new Error("Vote target not in this round");
+      }
     }
     const votes = (room.asym_votes as Record<string, string | number> | null) ?? {};
     votes[data.sessionId] = data.vote;
