@@ -778,6 +778,7 @@ export const generatePersonaPack = createServerFn({ method: "POST" })
     const generated: string[] = [];
     const skipped: string[] = [];
     const errors: string[] = [];
+    const failedSlots: string[] = [];
     const flat: { slot: string; text: string }[] = [];
     for (const [moment, lines] of Object.entries(PERSONA_LINES)) {
       lines.forEach((text, idx) => {
@@ -830,6 +831,7 @@ export const generatePersonaPack = createServerFn({ method: "POST" })
         await new Promise((r) => setTimeout(r, 200));
       } catch (e) {
         errors.push(`${item.slot}: ${(e as Error).message}`);
+        failedSlots.push(item.slot);
       }
     }
 
@@ -842,6 +844,7 @@ export const generatePersonaPack = createServerFn({ method: "POST" })
       total: flat.length,
       processed: batch.length,
       remaining: Math.max(0, pending.length - generated.length),
+      failedSlots,
     };
   });
 
