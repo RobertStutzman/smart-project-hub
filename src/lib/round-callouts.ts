@@ -119,6 +119,9 @@ export function getRoundCallout({
  * Every possible string getRoundCallout can produce. Used by
  * generatePersonaPack to bake the TTS once.
  */
+import { EXTRA_ROUND_CALLOUTS } from "@/lib/round-callouts.extra";
+import { ALL_CATEGORY_CALLOUTS } from "@/lib/category-callouts";
+
 export const ALL_ROUND_CALLOUTS: string[] = (() => {
   const out: string[] = [];
   // Round 1 opener (q=1)
@@ -160,6 +163,8 @@ export const ALL_ROUND_CALLOUTS: string[] = (() => {
   for (let r = 1; r <= 4; r++) {
     out.push(`Standings after round ${r}.`);
   }
+  out.push(...EXTRA_ROUND_CALLOUTS);
+  out.push(...ALL_CATEGORY_CALLOUTS);
   return out;
 })();
 
