@@ -72,12 +72,13 @@ function wildcardLines(kind: WildcardKind, q: number): string[] {
   return wildcardPrefixes(q).map((p) => `${p} ${tail}`);
 }
 
-// --- Deterministic picker ---
+// --- Deterministic picker (with anti-repetition memory) ---
 
-function pick<T>(pool: T[], seed: number): T {
+import { pickFresh } from "@/lib/no-repeat";
+
+function pick<T extends string>(key: string, pool: T[], seed: number): T {
   if (pool.length === 0) throw new Error("empty pool");
-  const idx = ((seed % pool.length) + pool.length) % pool.length;
-  return pool[idx];
+  return pickFresh(key, pool, { seed });
 }
 
 export interface RoundCalloutInput {
@@ -102,17 +103,17 @@ export function getRoundCallout({
 
   // Wildcard slot — Q5 of any non-final round
   if (qInRound === 5 && wildcard) {
-    return pick(wildcardLines(wildcard, q), q);
+    return pick(`round-callouts:wc:${wildcard}`, wildcardLines(wildcard, q), q);
   }
 
   // Round opener — Q1 of any round
   if (qInRound === 1) {
     const pool = roundIdx === 1 ? ROUND1_OPENERS : roundNOpeners(roundIdx, q);
-    return pick(pool, q);
+    return pick(`round-callouts:open:${roundIdx}`, pool, q);
   }
 
   // Mid-round Q2–Q4 (absolute number spoken)
-  return pick(midRoundLines(q), q);
+  return pick(`round-callouts:mid:${q}`, midRoundLines(q), q);
 }
 
 /**
