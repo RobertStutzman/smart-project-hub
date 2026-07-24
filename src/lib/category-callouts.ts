@@ -5,6 +5,8 @@
 // Kept short (~4–10 words) so they queue and clear before the question
 // TTS starts.
 
+import { pickFresh } from "@/lib/no-repeat";
+
 const GENERIC_TEASES: string[] = [
   "Category live. Focus up.",
   "Fresh category. New pain.",
