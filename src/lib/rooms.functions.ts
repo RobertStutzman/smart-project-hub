@@ -209,11 +209,33 @@ export const joinRoom = createServerFn({ method: "POST" })
 
     const funnySoundId = await assignFunnySoundId(room.id);
 
+    // Ensure the display nickname is unique within the room. A different
+    // session with the same name gets a numeric suffix so leaderboard, roasts,
+    // and saboteur callouts stay unambiguous. Case-insensitive.
+    let finalNickname = data.nickname.trim();
+    {
+      const { data: sameName } = await supabaseAdmin
+        .from("players")
+        .select("nickname")
+        .eq("room_id", room.id);
+      const taken = new Set(
+        (sameName ?? []).map((r) => (r.nickname ?? "").toLowerCase()),
+      );
+      if (taken.has(finalNickname.toLowerCase())) {
+        // Trim base so a "…20" suffix can still fit in the 20-char column.
+        const base = finalNickname.slice(0, 17).replace(/\s+$/, "");
+        let n = 2;
+        while (taken.has(finalNickname.toLowerCase())) {
+          finalNickname = `${base} ${n++}`;
+        }
+      }
+    }
+
     const { data: player, error: playerErr } = await supabaseAdmin
       .from("players")
       .insert({
         room_id: room.id,
-        nickname: data.nickname,
+        nickname: finalNickname,
         session_id: data.sessionId,
         team,
         funny_sound_id: funnySoundId,
