@@ -107,6 +107,7 @@ const LIGHTNING_MULTIPLIER = 2;
 const SUDDEN_DROP_DURATION_MS = 12000;
 const SUDDEN_DROP_MULTIPLIER = 1.5;
 const HEIST_STEAL = 50;
+const MAX_ROUND_MULTIPLIER = 3; // ceiling on stacked correct-answer multipliers
 /** Extra delay before question_started_at when a wildcard explainer must play first. */
 const WILDCARD_INTRO_PAD_MS = 7000;
 
