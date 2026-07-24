@@ -440,6 +440,10 @@ export const endQuestion = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const room = await getRoomByHost(data.roomCode, data.hostSessionId);
     if (!room.question_started_at) return { ok: false };
+    // Re-entry guard: only score while the room is still in the question phase.
+    // Prevents double-scoring from host refresh / two tabs / timer+manual race.
+    if (room.phase !== "question") return { ok: false, alreadyScored: true };
+
 
     const isRoast = room.wildcard === "roast";
     const isSaboteur = room.wildcard === "saboteur";
