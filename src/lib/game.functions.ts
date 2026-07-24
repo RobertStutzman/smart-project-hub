@@ -537,8 +537,10 @@ export const endQuestion = createServerFn({ method: "POST" })
         : null;
 
       if (isRoast) {
-        // Roast: winner +500, no penalties, no streak changes
+        // Roast: winner +500, no penalties, no streak changes. Still count the
+        // vote as an answer for participation stats (correctness stays null).
         correct = null;
+        if (typeof picked === "number") answered += 1;
         if (roastWinnerSessionId && p.session_id === roastWinnerSessionId) {
           roundScore = 500;
         }
@@ -552,6 +554,7 @@ export const endQuestion = createServerFn({ method: "POST" })
           roundScore = trickedCount * 200;
         }
         correct = null;
+        if (typeof picked === "number") answered += 1;
       } else if (picked === null || picked === undefined) {
         correct = null;
         nextStreak = 0;
