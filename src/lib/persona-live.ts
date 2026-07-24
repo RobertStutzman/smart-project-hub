@@ -60,6 +60,8 @@ export function setLiveRoomId(roomId: string | null) {
 
 export function resetLiveCap(roomId: string) {
   callCountByRoom.set(roomId, 0);
+  // New game = clear persona-live memory so the fresh room can hear any line.
+  resetNoRepeat("persona-live:");
 }
 
 function currentTier(): 1 | 2 | 3 {
