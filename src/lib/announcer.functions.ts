@@ -765,6 +765,7 @@ export const generatePersonaPack = createServerFn({ method: "POST" })
     (input: unknown) => z.object({
       force: z.boolean().optional(),
       limit: z.number().int().min(1).max(50).optional(),
+      excludeSlots: z.array(z.string()).max(500).optional(),
     }).optional().parse(input) ?? {},
   )
   .handler(async ({ data, context }) => {
@@ -772,6 +773,7 @@ export const generatePersonaPack = createServerFn({ method: "POST" })
     await ensurePersonaFolder();
     const force = data?.force ?? false;
     const limit = data?.limit ?? 20;
+    const excludedSlots = new Set(data?.excludeSlots ?? []);
 
     const generated: string[] = [];
     const skipped: string[] = [];
@@ -788,7 +790,9 @@ export const generatePersonaPack = createServerFn({ method: "POST" })
 
     // Skip lines already baked unless forced.
     const existingLabels = force ? new Set<string>() : await getExistingPersonaLabels();
-    const pending = force ? flat : flat.filter((item) => !existingLabels.has(item.text));
+    const pending = (force ? flat : flat.filter((item) => !existingLabels.has(item.text))).filter(
+      (item) => !excludedSlots.has(item.slot),
+    );
     const batch = pending.slice(0, limit);
 
     for (const item of batch) {
