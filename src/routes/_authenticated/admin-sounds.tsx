@@ -309,6 +309,56 @@ function EventsPanel({
     }
   }
 
+  async function handleGeneratePersonaAdultFemale() {
+    const totalF = personaAdultStats?.totalFemale ?? 0;
+    const bakedF = personaAdultStats?.bakedFemale ?? 0;
+    const missing = Math.max(0, totalF - bakedF);
+    const msg = missing > 0
+      ? `Bake ${missing} missing SASHA (adult female co-host) line${missing === 1 ? "" : "s"}? Uses ElevenLabs Jessica voice. Already-baked lines are skipped. Takes several minutes.`
+      : `Re-bake Sasha co-host lines? Uses ElevenLabs Jessica voice.`;
+    if (!window.confirm(msg)) return;
+    setGeneratingPersonaAdultFemale(true);
+    const remaining = missing || totalF;
+    const toastId = toast.loading(`Baking Sasha catchphrases… 0 / ${remaining}`);
+    setPersonaAdultFemaleProgress(`Baking Sasha catchphrases… 0 / ${remaining}`);
+    try {
+      let totalGenerated = 0;
+      let totalErrors = 0;
+      let latestErrors: string[] = [];
+      const failedSlots = new Set<string>();
+      let safety = 0;
+      while (safety++ < 200) {
+        const res = await generatePersonaAdultFemaleFn({
+          data: { limit: 20, excludeSlots: Array.from(failedSlots) },
+        });
+        totalGenerated += res.generated;
+        totalErrors += res.errors.length;
+        latestErrors = res.errors.slice(0, 3);
+        for (const slot of res.failedSlots) failedSlots.add(slot);
+        const done = Math.min(remaining, totalGenerated + failedSlots.size);
+        const progress = `Baking Sasha catchphrases… ${done} / ${remaining}${totalErrors ? ` · ${totalErrors} errors` : ""}`;
+        setPersonaAdultFemaleProgress(progress);
+        toast.loading(progress, { id: toastId });
+        if (res.processed === 0 || res.remaining === 0) break;
+      }
+      const errorSuffix = totalErrors
+        ? ` · ${totalErrors} errors${latestErrors.length ? `: ${latestErrors.join("; ")}` : ""}`
+        : "";
+      const doneMessage = `Done! Baked ${totalGenerated} Sasha lines${errorSuffix}.`;
+      if (totalErrors) toast.warning(doneMessage, { id: toastId });
+      else toast.success(doneMessage, { id: toastId });
+      await loadPersonaAdultStats();
+      await onChange();
+    } catch (err) {
+      toast.error((err as Error).message, { id: toastId });
+    } finally {
+      setPersonaAdultFemaleProgress(null);
+      setGeneratingPersonaAdultFemale(false);
+    }
+  }
+
+
+
 
 
   async function handleAssign(event: SoundEvent, clipId: string | null) {
