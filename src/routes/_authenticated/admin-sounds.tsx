@@ -31,6 +31,7 @@ import {
   getExplanationTTSStats,
   getPersonaPackAdultStats,
   getPersonaPackStats,
+  resetPersonaPackAdult,
   getQuestionTTSStats,
   getTTSCacheStats,
   previewAnnouncerLine,
