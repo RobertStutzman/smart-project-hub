@@ -293,6 +293,10 @@ export const nextQuestion = createServerFn({ method: "POST" })
       const enabled = (room as { enabled_categories?: string[] | null }).enabled_categories;
       if (useEnabledCategories && enabled && enabled.length > 0)
         qQuery = qQuery.in("category", enabled);
+      // Hard-gate: unless the host has explicitly enabled "Adults Only",
+      // never draw from it — not even through the "any category" fallback.
+      const adultsAllowed = !!enabled && enabled.includes("Adults Only");
+      if (!adultsAllowed) qQuery = qQuery.neq("category", "Adults Only");
       if (difficulty) qQuery = qQuery.eq("difficulty", difficulty);
       if (usedIds.length > 0) qQuery = qQuery.not("id", "in", `(${usedIds.join(",")})`);
       // Global rotation: least-used first, then oldest-used (nulls = never used → top).
@@ -302,6 +306,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
         .limit(12);
       return data ?? [];
     }
+
 
 
     // Prefer staying inside the host's enabled set; fall back to all categories
