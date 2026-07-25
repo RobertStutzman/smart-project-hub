@@ -37,7 +37,14 @@ import { useHostStageMode } from "@/hooks/useHostStageMode";
 import { useHostHotkeys } from "@/hooks/useHostHotkeys";
 
 import { useWakeLock } from "@/hooks/use-wake-lock";
-import { isAdultMode } from "@/lib/adult-mode";
+import {
+  isAdultMode,
+  getContentRating,
+  setContentRating,
+  subscribeContentRating,
+  clearAdultMode,
+  type ContentRating,
+} from "@/lib/adult-mode";
 
 
 export const Route = createFileRoute("/host")({
@@ -123,6 +130,20 @@ function HostPage() {
   const [hasExplanationTts, setHasExplanationTts] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [customPackTitle, setCustomPackTitle] = useState<string | null>(null);
+  const [rating, setRatingState] = useState<ContentRating | null>(null);
+  const [maConfirmOpen, setMaConfirmOpen] = useState(false);
+  const [maAgeOk, setMaAgeOk] = useState(false);
+  const [maTosOk, setMaTosOk] = useState(false);
+
+  // On lobby mount, force-clear any stale MA rating from a previous game.
+  // Every new game requires an explicit rating pick so adult content can
+  // never leak into a family session that inherited a flag.
+  useEffect(() => {
+    clearAdultMode();
+    setRatingState(null);
+    const unsub = subscribeContentRating((r) => setRatingState(r));
+    return () => { unsub(); };
+  }, []);
   
   
   
@@ -870,7 +891,7 @@ function HostPage() {
 
   const livePlayers = players.filter((p) => !p.is_audience);
   const audienceMembers = players.filter((p) => p.is_audience);
-  const canStart = !!room && livePlayers.length > 0;
+  const canStart = !!room && livePlayers.length > 0 && rating !== null;
   const availableCategories = allCategories.filter((c) => c.count > 0);
   const mixLabel = enabledCats.size === 0 || enabledCats.size === availableCategories.length
     ? `🎲 Surprise Mix · all ${availableCategories.length || ""} categories`.trim()
@@ -1113,6 +1134,58 @@ function HostPage() {
             </AnimatePresence>
           </div>
 
+          {/* Content rating — REQUIRED per game so adult content can never
+              leak into a fresh session that inherited a stale flag. */}
+          <div className="flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.25em] text-white/60">
+              <span>Content Rating</span>
+              {rating === null && livePlayers.length > 0 && (
+                <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[9px] text-amber-200">
+                  Pick one to start
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {([
+                { id: "pg" as const,   emoji: "👨‍👩‍👧", label: "PG",    sub: "Family" },
+                { id: "pg13" as const, emoji: "🎓",       label: "PG-13", sub: "Teens+" },
+                { id: "ma" as const,   emoji: "🔞",       label: "MA 18+", sub: "Adults only" },
+              ]).map((opt) => {
+                const active = rating === opt.id;
+                const isMA = opt.id === "ma";
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => {
+                      if (opt.id === "ma") {
+                        setMaAgeOk(false);
+                        setMaTosOk(false);
+                        setMaConfirmOpen(true);
+                      } else {
+                        setContentRating(opt.id);
+                      }
+                    }}
+                    className={`flex min-w-[92px] flex-col items-center gap-0.5 rounded-xl border px-3 py-2 text-xs font-bold transition ${
+                      active
+                        ? isMA
+                          ? "border-rose-400/70 bg-rose-500/20 text-rose-100 shadow-[0_0_20px_oklch(0.65_0.2_15/0.4)]"
+                          : "border-amber-300/70 bg-amber-300/15 text-amber-100 shadow-[0_0_20px_oklch(0.85_0.18_85/0.35)]"
+                        : "border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/[0.08]"
+                    }`}
+                  >
+                    <span className="text-lg leading-none" aria-hidden>{opt.emoji}</span>
+                    <span className="tracking-wider">{opt.label}</span>
+                    <span className="text-[9px] font-normal uppercase tracking-widest opacity-70">
+                      {opt.sub}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+
           <motion.button
             data-host-primary={canStart ? "true" : undefined}
             animate={canStart ? { scale: [1, 1.04, 1] } : { scale: 1 }}
@@ -1130,7 +1203,11 @@ function HostPage() {
           >
             {canStart
               ? "▶ Press OK to start the show"
-              : "Waiting for players…"}
+              : livePlayers.length === 0
+                ? "Waiting for players…"
+                : rating === null
+                  ? "Pick a content rating above ↑"
+                  : "Waiting…"}
           </motion.button>
 
           <div className="relative flex items-center justify-center">
@@ -1408,7 +1485,61 @@ function HostPage() {
         )}
       </AnimatePresence>
 
-      
+      {/* MA (18+) confirm modal — required before adult content can turn on. */}
+      {maConfirmOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6">
+          <div className="w-full max-w-md rounded-3xl border-2 border-red-500/70 bg-[oklch(0.10_0.02_270)] p-6 shadow-2xl">
+            <h3 className="text-xl font-black text-white">Enable MA · 18+ only</h3>
+            <p className="mt-3 text-sm text-white/70">
+              MA unleashes crude profanity, roasts, and sexual humor from the host and a female co-host. Not for kids,
+              not for the office, definitely not for family game night with grandma.
+            </p>
+            <label className="mt-5 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={maAgeOk}
+                onChange={(e) => setMaAgeOk(e.target.checked)}
+                className="mt-1 h-4 w-4 accent-red-500"
+              />
+              <span className="text-xs text-white/80">
+                I confirm I am <strong>18 years or older</strong> and that no minors are in the room.
+              </span>
+            </label>
+            <label className="mt-2 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={maTosOk}
+                onChange={(e) => setMaTosOk(e.target.checked)}
+                className="mt-1 h-4 w-4 accent-red-500"
+              />
+              <span className="text-xs text-white/80">
+                I accept full responsibility for who hears this content. MA auto-disables when the tab closes or the game ends.
+              </span>
+            </label>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => { setMaConfirmOpen(false); }}
+                className="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/80 hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!maAgeOk || !maTosOk) return;
+                  setContentRating("ma");
+                  setMaConfirmOpen(false);
+                }}
+                disabled={!maAgeOk || !maTosOk}
+                className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                I'm 18+, enable MA
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
 
     </main>
