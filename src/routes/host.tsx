@@ -1134,6 +1134,58 @@ function HostPage() {
             </AnimatePresence>
           </div>
 
+          {/* Content rating — REQUIRED per game so adult content can never
+              leak into a fresh session that inherited a stale flag. */}
+          <div className="flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.25em] text-white/60">
+              <span>Content Rating</span>
+              {rating === null && livePlayers.length > 0 && (
+                <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[9px] text-amber-200">
+                  Pick one to start
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {([
+                { id: "pg" as const,   emoji: "👨‍👩‍👧", label: "PG",    sub: "Family" },
+                { id: "pg13" as const, emoji: "🎓",       label: "PG-13", sub: "Teens+" },
+                { id: "ma" as const,   emoji: "🔞",       label: "MA 18+", sub: "Adults only" },
+              ]).map((opt) => {
+                const active = rating === opt.id;
+                const isMA = opt.id === "ma";
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => {
+                      if (opt.id === "ma") {
+                        setMaAgeOk(false);
+                        setMaTosOk(false);
+                        setMaConfirmOpen(true);
+                      } else {
+                        setContentRating(opt.id);
+                      }
+                    }}
+                    className={`flex min-w-[92px] flex-col items-center gap-0.5 rounded-xl border px-3 py-2 text-xs font-bold transition ${
+                      active
+                        ? isMA
+                          ? "border-rose-400/70 bg-rose-500/20 text-rose-100 shadow-[0_0_20px_oklch(0.65_0.2_15/0.4)]"
+                          : "border-amber-300/70 bg-amber-300/15 text-amber-100 shadow-[0_0_20px_oklch(0.85_0.18_85/0.35)]"
+                        : "border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/[0.08]"
+                    }`}
+                  >
+                    <span className="text-lg leading-none" aria-hidden>{opt.emoji}</span>
+                    <span className="tracking-wider">{opt.label}</span>
+                    <span className="text-[9px] font-normal uppercase tracking-widest opacity-70">
+                      {opt.sub}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+
           <motion.button
             data-host-primary={canStart ? "true" : undefined}
             animate={canStart ? { scale: [1, 1.04, 1] } : { scale: 1 }}
