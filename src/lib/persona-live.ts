@@ -10,6 +10,7 @@
 import { pickLine, pickPersonaLine, speakPersona } from "@/lib/host-persona";
 import { speakAsElf, playVoiceUrl } from "@/lib/elf-voice";
 import { speakPersonaLine } from "@/lib/announcer.functions";
+import { isAdultMode } from "@/lib/adult-mode";
 import { pickTemplateAdult } from "@/lib/persona-live.adult";
 import { pickFresh, markUsed, resetNoRepeat } from "@/lib/no-repeat";
 
@@ -318,15 +319,7 @@ const FALLBACK_MOMENT: Record<LiveMoment, Parameters<typeof pickLine>[0]> = {
 };
 
 function pickTemplate(ctx: PersonaContext): string {
-  let adult = false;
-  if (typeof window !== "undefined") {
-    try {
-      if (window.sessionStorage.getItem("btd-adult-mode") === "1") {
-        adult = true;
-      }
-    } catch { /* fall back */ }
-  }
-  if (adult) return pickTemplateAdult(ctx);
+  if (isAdultMode()) return pickTemplateAdult(ctx);
   const pool = TEMPLATES[ctx.moment];
   // Pick a template *index* that hasn't fired recently for this moment,
   // then materialize the sentence with the current context.

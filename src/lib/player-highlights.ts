@@ -7,6 +7,7 @@ import {
   BEST_VOX_ADULT,
   WORST_VOX_ADULT,
 } from "@/lib/player-highlights.adult";
+import { isAdultMode } from "@/lib/adult-mode";
 
 export type HighlightPlayer = {
   nickname: string;
@@ -150,8 +151,7 @@ function pick<T>(arr: T[], seedStr: string): T {
 }
 
 function isAdult(): boolean {
-  if (typeof window === "undefined") return false;
-  try { return window.sessionStorage.getItem("btd-adult-mode") === "1"; } catch { return false; }
+  return isAdultMode();
 }
 
 export function derivePlayerHighlights(p: HighlightPlayer): PlayerHighlights {

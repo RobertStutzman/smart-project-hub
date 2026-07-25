@@ -37,6 +37,7 @@ import { useHostStageMode } from "@/hooks/useHostStageMode";
 import { useHostHotkeys } from "@/hooks/useHostHotkeys";
 
 import { useWakeLock } from "@/hooks/use-wake-lock";
+import { isAdultMode } from "@/lib/adult-mode";
 
 
 export const Route = createFileRoute("/host")({
@@ -487,9 +488,7 @@ function HostPage() {
         setActiveRoomId(room.id);
         // Adult caches are only fetched when the user has opted into Adult
         // Mode via /settings/adult. Standard game stays fast and untouched.
-        const adultOn =
-          typeof window !== "undefined" &&
-          window.sessionStorage.getItem("btd-adult-mode") === "1";
+        const adultOn = isAdultMode();
         const [res, resAdult, resAdultF] = await Promise.all([
           getPersonaCacheMap().catch(() => null),
           adultOn ? getPersonaCacheMapAdult().catch(() => null) : Promise.resolve(null),

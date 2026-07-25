@@ -7,6 +7,8 @@
 // branch on isAdultMode() so toggling takes effect at the next callout.
 
 const KEY = "btd-adult-mode";
+const VERSION_KEY = "btd-adult-mode-version";
+const CURRENT_VERSION = "elf-v2";
 const EVENT = "btd-adult-mode-change";
 
 function readRaw(): string | null {
@@ -15,7 +17,12 @@ function readRaw(): string | null {
     // sessionStorage is primary. Fall back to localStorage purely so we can
     // proactively wipe any value left behind by older builds.
     const ss = window.sessionStorage.getItem(KEY);
-    if (ss !== null) return ss;
+    if (ss !== null) {
+      if (window.sessionStorage.getItem(VERSION_KEY) === CURRENT_VERSION) return ss;
+      window.sessionStorage.removeItem(KEY);
+      window.sessionStorage.removeItem(VERSION_KEY);
+      return null;
+    }
     const ls = window.localStorage.getItem(KEY);
     if (ls !== null) {
       try { window.localStorage.removeItem(KEY); } catch { /* ignore */ }
@@ -35,8 +42,10 @@ export function setAdultMode(on: boolean) {
   try {
     if (on) {
       window.sessionStorage.setItem(KEY, "1");
+      window.sessionStorage.setItem(VERSION_KEY, CURRENT_VERSION);
     } else {
       window.sessionStorage.removeItem(KEY);
+      window.sessionStorage.removeItem(VERSION_KEY);
     }
     try { window.localStorage.removeItem(KEY); } catch { /* ignore */ }
     window.dispatchEvent(new CustomEvent(EVENT, { detail: on }));
