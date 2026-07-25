@@ -196,6 +196,8 @@ function EventsPanel({
   const setEventFn = useServerFn(setEventAssignment);
   const generatePackFn = useServerFn(generateAnnouncerPack);
   const generateMusicPackFn = useServerFn(generateMusicPack);
+  const bakeEliminationSfxFn = useServerFn(bakeEliminationSfxPack);
+  const [bakingDropSfx, setBakingDropSfx] = useState(false);
   const generatePersonaFn = useServerFn(generatePersonaPack);
   const personaStatsFn = useServerFn(getPersonaPackStats);
   const generatePersonaAdultFn = useServerFn(generatePersonaPackAdult);
