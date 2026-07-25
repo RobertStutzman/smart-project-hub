@@ -58,7 +58,7 @@ const URL_PREFIX = "url::";
 // hundreds of dynamic lines (name-interpolated quips, habit callouts) across
 // sessions and only pay ElevenLabs the first time each unique string is
 // generated. URLs are signed for 7 days; the server re-signs on cache miss.
-const PERSIST_KEY = "btd:elf-url-cache:v1";
+const PERSIST_KEY = "btd:elf-url-cache:v2";
 const PERSIST_MAX = 300;
 type PersistEntry = { v: string; t: number }; // value, last-used timestamp
 let persistMap: Map<string, PersistEntry> | null = null;
@@ -151,7 +151,7 @@ async function fetchAudio(
     voice === "adult_female"
       ? `adult_female::${preset}::${text}`
       : voice === "adult"
-        ? `adult::${preset}::${text}`
+        ? `adult_elf_v2::${preset}::${text}`
         : `${preset}::${text}`;
   const hit = cacheGet(key);
   if (hit) {
