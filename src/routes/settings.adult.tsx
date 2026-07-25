@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { isAdultMode, setAdultMode } from "@/lib/adult-mode";
+import { isAdultMode, setContentRating } from "@/lib/adult-mode";
 
 export const Route = createFileRoute("/settings/adult")({
   head: () => ({
