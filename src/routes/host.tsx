@@ -1485,7 +1485,61 @@ function HostPage() {
         )}
       </AnimatePresence>
 
-      
+      {/* MA (18+) confirm modal — required before adult content can turn on. */}
+      {maConfirmOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-6">
+          <div className="w-full max-w-md rounded-3xl border-2 border-red-500/70 bg-[oklch(0.10_0.02_270)] p-6 shadow-2xl">
+            <h3 className="text-xl font-black text-white">Enable MA · 18+ only</h3>
+            <p className="mt-3 text-sm text-white/70">
+              MA unleashes crude profanity, roasts, and sexual humor from the host and a female co-host. Not for kids,
+              not for the office, definitely not for family game night with grandma.
+            </p>
+            <label className="mt-5 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={maAgeOk}
+                onChange={(e) => setMaAgeOk(e.target.checked)}
+                className="mt-1 h-4 w-4 accent-red-500"
+              />
+              <span className="text-xs text-white/80">
+                I confirm I am <strong>18 years or older</strong> and that no minors are in the room.
+              </span>
+            </label>
+            <label className="mt-2 flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={maTosOk}
+                onChange={(e) => setMaTosOk(e.target.checked)}
+                className="mt-1 h-4 w-4 accent-red-500"
+              />
+              <span className="text-xs text-white/80">
+                I accept full responsibility for who hears this content. MA auto-disables when the tab closes or the game ends.
+              </span>
+            </label>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => { setMaConfirmOpen(false); }}
+                className="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/80 hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!maAgeOk || !maTosOk) return;
+                  setContentRating("ma");
+                  setMaConfirmOpen(false);
+                }}
+                disabled={!maAgeOk || !maTosOk}
+                className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                I'm 18+, enable MA
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
 
     </main>
