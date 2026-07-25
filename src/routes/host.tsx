@@ -1374,30 +1374,33 @@ function HostPage() {
               </div>
 
               <div className="mb-5">
-
                 <div className="mb-2 flex items-center justify-between">
                   <h3 className="text-xs font-bold uppercase tracking-widest text-amber-200/80">
                     Categories
                   </h3>
-                  <div className="flex gap-2 text-[10px] uppercase tracking-widest">
-                    <button
-                      onClick={() => persistEnabled(new Set(availableCategories.map((c) => c.name)))}
-                      className="text-white/60 hover:text-amber-200"
-                    >
-                      All
-                    </button>
-                    <span className="text-white/20">·</span>
-                    <button
-                      onClick={() => persistEnabled(new Set())}
-                      className="text-white/60 hover:text-amber-200"
-                    >
-                      None
-                    </button>
-                  </div>
+                  <span className="text-[10px] uppercase tracking-widest text-white/40">
+                    {enabledCats.size}/{availableCategories.length} on
+                  </span>
                 </div>
                 <p className="mb-2 text-[11px] leading-snug text-white/50">
-                  Questions are pulled at random from whatever's checked. Leave them all on for the full Surprise Mix.
+                  Questions are pulled at random from whatever's checked. Tap a category to toggle it.
                 </p>
+                <div className="mb-3 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => persistEnabled(new Set(availableCategories.filter((c) => rating === "ma" || c.name !== "Adults Only").map((c) => c.name)))}
+                    className="rounded-lg border border-amber-300/50 bg-amber-300/10 px-3 py-2 text-xs font-bold uppercase tracking-wider text-amber-100 transition hover:bg-amber-300/25"
+                  >
+                    ✓ Select all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => persistEnabled(new Set())}
+                    className="rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-xs font-bold uppercase tracking-wider text-white/70 transition hover:bg-white/10"
+                  >
+                    ✕ Clear all
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   {allCategories.length === 0 ? (
                     <div className="col-span-2 rounded-lg border border-dashed border-white/10 p-3 text-xs text-white/40">
@@ -1407,21 +1410,31 @@ function HostPage() {
                     allCategories.map((c) => {
                       const checked = enabledCats.has(c.name);
                       const empty = c.count === 0;
+                      const isAdultCat = c.name === "Adults Only";
+                      const adultLocked = isAdultCat && rating !== "ma";
+                      const disabled = empty || adultLocked;
+                      const title = empty
+                        ? "No questions in this category yet. Add some on /admin."
+                        : adultLocked
+                          ? "🔒 Requires MA 18+ rating — pick MA above to unlock."
+                          : undefined;
                       return (
                         <button
                           key={c.name}
-                          onClick={() => { if (!empty) toggleCategory(c.name); }}
-                          disabled={empty}
-                          title={empty ? "No questions in this category yet. Add some on /admin." : undefined}
+                          onClick={() => { if (!disabled) toggleCategory(c.name); }}
+                          disabled={disabled}
+                          title={title}
                           className={`relative flex items-center gap-2 rounded-lg border p-2 text-left transition ${
                             empty
                               ? "cursor-not-allowed border-white/5 bg-white/[0.02] text-white/30"
-                              : checked
-                                ? "border-amber-300/60 bg-amber-300/15 text-amber-100"
-                                : "border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/10"
+                              : adultLocked
+                                ? "cursor-not-allowed border-rose-400/20 bg-rose-950/20 text-rose-200/40"
+                                : checked
+                                  ? "border-amber-300/60 bg-amber-300/15 text-amber-100"
+                                  : "border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/10"
                           }`}
                         >
-                          <span className="text-lg leading-none">{emojiForCategory(c.name)}</span>
+                          <span className="text-lg leading-none">{adultLocked ? "🔒" : emojiForCategory(c.name)}</span>
                           <span className="flex-1 text-xs font-semibold leading-tight">{c.name}</span>
                           <span className="text-[10px] text-white/40">{empty ? "empty" : c.count}</span>
                         </button>
@@ -1429,7 +1442,14 @@ function HostPage() {
                     })
                   )}
                 </div>
+                {rating !== "ma" && allCategories.some((c) => c.name === "Adults Only") ? (
+                  <p className="mt-2 text-[10px] leading-snug text-rose-200/50">
+                    🔞 Adults Only is locked until the MA 18+ rating is selected above.
+                  </p>
+                ) : null}
               </div>
+
+
 
 
               <div className="mb-5">
