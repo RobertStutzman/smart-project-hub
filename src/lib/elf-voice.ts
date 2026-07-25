@@ -335,6 +335,8 @@ function playUrl(
 }
 
 export interface SpeakOptions {
+  /** Override the voice pool. Defaults to the adult-mode sessionStorage flag. */
+  voice?: "standard" | "adult";
   preset?: Preset;
   volume?: number;
   /** If true, interrupt anything currently playing. Default: queue behind. */
