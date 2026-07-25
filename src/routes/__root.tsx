@@ -213,12 +213,28 @@ function RootComponent() {
     window.addEventListener("pointerdown", tryUnlock, true);
     window.addEventListener("keydown", tryUnlock, true);
     window.addEventListener("touchstart", tryUnlock, true);
+
+    // Auto-recover from Vite preload failures (stale hashed chunk after
+    // deploy). One-shot via sessionStorage so we never loop.
+    const onPreloadError = (e: Event) => {
+      e.preventDefault();
+      const already = window.sessionStorage.getItem(RELOAD_FLAG) === "1";
+      if (already) return;
+      try { window.sessionStorage.setItem(RELOAD_FLAG, "1"); } catch {}
+      window.location.reload();
+    };
+    window.addEventListener("vite:preloadError", onPreloadError);
+    // Clear the guard once the app has successfully hydrated a fresh build.
+    try { window.sessionStorage.removeItem(RELOAD_FLAG); } catch {}
+
     return () => {
       window.removeEventListener("pointerdown", tryUnlock, true);
       window.removeEventListener("keydown", tryUnlock, true);
       window.removeEventListener("touchstart", tryUnlock, true);
+      window.removeEventListener("vite:preloadError", onPreloadError);
     };
   }, []);
+
 
   // Load DB-backed category metadata (emoji + off-by-default flags) once on
   // mount. Lets new categories added via the Gemini importer show their real
