@@ -582,14 +582,30 @@ function EventsPanel({
       setGeneratingMusic(true);
       setSafeBakeProgress("Safe Mode: generating music pack…");
       toast.loading("Safe Mode: generating music pack…", { id: toastId });
-      const music = await retryTransient(() => generateMusicPackFn());
+      const musicFailed = new Set<string>();
+      let musicGenerated = 0;
+      let musicTotal = 0;
+      safety = 0;
+      while (safety++ < 20) {
+        const r = await retryTransient(() =>
+          generateMusicPackFn({ data: { limit: 1, excludeSlots: Array.from(musicFailed) } }),
+        );
+        musicGenerated += r.generated.length;
+        musicTotal = r.total;
+        rememberErrors(r.errors);
+        for (const slot of r.failedSlots) musicFailed.add(slot);
+        const msg = `Safe Mode: Standard ${standardGenerated} · Adult ${adultGenerated} · Sasha ${sashaGenerated} · Music ${musicGenerated}/${r.total}${totalErrors ? ` · ${totalErrors} errors` : ""}`;
+        setSafeBakeProgress(msg);
+        toast.loading(msg, { id: toastId });
+        if (r.processed === 0 || r.remaining === 0) break;
+        await sleep(750);
+      }
       setGeneratingMusic(false);
-      rememberErrors(music.errors);
 
       const suffix = totalErrors
         ? ` · ${totalErrors} errors${latestErrors.length ? `: ${latestErrors.join("; ")}` : ""}`
         : "";
-      const done = `Safe Mode done: ${standardGenerated} standard, ${adultGenerated} adult, ${sashaGenerated} Sasha, ${music.generated.length}/${music.total} music tracks${suffix}.`;
+      const done = `Safe Mode done: ${standardGenerated} standard, ${adultGenerated} adult, ${sashaGenerated} Sasha, ${musicGenerated}/${musicTotal} music tracks${suffix}.`;
       if (totalErrors) toast.warning(done, { id: toastId });
       else toast.success(done, { id: toastId });
       await onChange();
@@ -630,13 +646,31 @@ function EventsPanel({
       return;
     setGeneratingMusic(true);
     try {
-      const res = await retryTransient(() => generateMusicPackFn());
-      if (res.errors.length) {
+      const failedSlots = new Set<string>();
+      const errors: string[] = [];
+      let generated = 0;
+      let total = 0;
+      const toastId = toast.loading("Generating music pack… 0 / 8");
+      let safety = 0;
+      while (safety++ < 20) {
+        const res = await retryTransient(() =>
+          generateMusicPackFn({ data: { limit: 1, excludeSlots: Array.from(failedSlots) } }),
+        );
+        generated += res.generated.length;
+        total = res.total;
+        errors.push(...res.errors);
+        for (const slot of res.failedSlots) failedSlots.add(slot);
+        toast.loading(`Generating music pack… ${generated} / ${res.total}${errors.length ? ` · ${errors.length} errors` : ""}`, { id: toastId });
+        if (res.processed === 0 || res.remaining === 0) break;
+        await sleep(750);
+      }
+      if (errors.length) {
         toast.warning(
-          `Generated ${res.generated.length}/${res.total}. Errors: ${res.errors.join("; ")}`,
+          `Generated ${generated}/${total}. Errors: ${errors.slice(0, 4).join("; ")}`,
+          { id: toastId },
         );
       } else {
-        toast.success(`Generated ${res.generated.length} music tracks`);
+        toast.success(`Generated ${generated} music tracks`, { id: toastId });
       }
       await onChange();
     } catch (err) {
