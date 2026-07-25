@@ -25,7 +25,7 @@ function AdultSettingsPage() {
 
   function handleToggle() {
     if (enabled) {
-      setAdultMode(false);
+      setContentRating("pg");
       setEnabled(false);
       return;
     }
@@ -36,7 +36,7 @@ function AdultSettingsPage() {
 
   function confirm() {
     if (!ageOk || !tosOk) return;
-    setAdultMode(true);
+    setContentRating("ma");
     setEnabled(true);
     setConfirming(false);
   }
