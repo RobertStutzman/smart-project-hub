@@ -1287,6 +1287,38 @@ export const getPersonaCacheMapAdult = createServerFn({ method: "GET" })
     return { map };
   });
 
+export const resetPersonaPackAdult = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    // Delete all sound_clips rows for the adult male persona pack.
+    const { error: delRowsErr } = await supabaseAdmin
+      .from("sound_clips")
+      .delete()
+      .eq("category", PERSONA_CATEGORY_ADULT);
+    if (delRowsErr) throw new Error(delRowsErr.message);
+    // Wipe storage folder persona-adult/*.
+    let removed = 0;
+    let offset = 0;
+    // Supabase list is paginated; walk it.
+    while (true) {
+      const { data: files, error: listErr } = await supabaseAdmin.storage
+        .from("question-media")
+        .list("persona-adult", { limit: 1000, offset });
+      if (listErr) throw new Error(listErr.message);
+      if (!files || files.length === 0) break;
+      const paths = files.map((f) => `persona-adult/${f.name}`);
+      const { error: rmErr } = await supabaseAdmin.storage
+        .from("question-media")
+        .remove(paths);
+      if (rmErr) throw new Error(rmErr.message);
+      removed += paths.length;
+      if (files.length < 1000) break;
+      offset += files.length;
+    }
+    return { removed };
+  });
+
 // ──────────────────────────────────────────────────────────────────────────
 // Female co-host (Sasha) adult persona pack — Jessica voice, separate
 // storage/category so male + female packs never collide.
