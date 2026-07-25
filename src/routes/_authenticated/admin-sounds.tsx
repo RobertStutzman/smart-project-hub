@@ -551,6 +551,14 @@ function EventsPanel({
             🗑️ Reset adult pack (old voice)
           </button>
           <button
+            onClick={() => void handlePrebakeAllElf()}
+            disabled={generatingPersona || generatingPersonaAdult}
+            className="rounded-full bg-gradient-to-r from-orange-600 to-red-600 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-orange-400/40 transition hover:from-orange-500 hover:to-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+            title="Wipe old adult voice + bake every missing standard & adult Elf line"
+          >
+            🔥 Pre-bake ALL Elf content
+          </button>
+          <button
             onClick={() => void handleGeneratePersonaAdultFemale()}
             disabled={generatingPersonaAdultFemale}
             className="rounded-full bg-rose-700 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-rose-400/30 transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
