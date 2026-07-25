@@ -29,7 +29,7 @@ import { TwitchPanel } from "./TwitchPanel";
 import { AIRoast } from "./AIRoast";
 import { IntroStage } from "./IntroStage";
 import { CreditsStage } from "./CreditsStage";
-import { pickLine, speakPersona } from "@/lib/host-persona";
+import { pickLine, pickPersonaLine, speakPersona } from "@/lib/host-persona";
 import { playVoiceUrl, speakAsElf } from "@/lib/elf-voice";
 import { pickExplainer, type Wildcard } from "@/lib/wildcards";
 import {

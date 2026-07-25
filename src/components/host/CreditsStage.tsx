@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
-import { HOST_NAME, pickLine, speakPersona } from "@/lib/host-persona";
+import { HOST_NAME, pickLine, pickPersonaLine, speakPersona } from "@/lib/host-persona";
 import { play, playCreditsMusic, stopCreditsMusic } from "@/lib/sound-engine";
 import { pickAwardRoast, type AwardKey } from "@/lib/credits-awards";
 import { derivePlayerHighlights, pickHighlightVox } from "@/lib/player-highlights";
