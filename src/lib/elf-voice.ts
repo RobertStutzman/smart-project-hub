@@ -3,6 +3,7 @@
 // cache, then live ElevenLabs TTS as last resort. Single-line queue so lines
 // never overlap.
 import { speakPersonaLine } from "@/lib/announcer.functions";
+import { isAdultMode as isAdultModeEnabled } from "@/lib/adult-mode";
 
 type Preset = "hype" | "calm";
 type Voice = "standard" | "adult" | "adult_female";
@@ -36,16 +37,6 @@ export function initPersonaCacheAdult(map: Record<string, string>) {
 export function initPersonaCacheAdultFemale(map: Record<string, string>) {
   for (const [text, url] of Object.entries(map)) {
     urlCacheAdultFemale.set(text, url);
-  }
-}
-
-/** Read the current adult-mode flag from sessionStorage. Client-only. */
-function isAdultMode(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.sessionStorage.getItem("btd-adult-mode") === "1";
-  } catch {
-    return false;
   }
 }
 
@@ -458,7 +449,7 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
   const volume = opts.volume ?? 1.0;
   const priority = opts.priority ?? 1;
   const deadline = opts.deadline;
-  const voice: Voice = opts.voice ?? (isAdultMode() ? "adult" : "standard");
+  const voice: Voice = opts.voice ?? (isAdultModeEnabled() ? "adult" : "standard");
 
   // Debug-bus emit (no-op unless QA harness is listening)
   void import("@/lib/debug-bus").then(({ emitDebug }) =>

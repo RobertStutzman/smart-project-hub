@@ -5,6 +5,7 @@
 import { LINES_ADULT, ADULT_FLIRT_NAMES } from "@/lib/host-persona.adult";
 import { EXTRA_LINES } from "@/lib/host-persona.extra";
 import { LINES_SASHA_ADULT, ADULT_FLIRT_GUY_NAMES } from "@/lib/host-persona.sasha.adult";
+import { isAdultMode } from "@/lib/adult-mode";
 import { pickFresh } from "@/lib/no-repeat";
 
 export const HOST_NAME = "Donnie Drop";
@@ -798,21 +799,15 @@ export function pickPersonaLine(
   let pool: string[] = LINES[moment];
   let voice: PersonaVoice = "standard";
   let adult = false;
-  if (typeof window !== "undefined") {
-    try {
-      if (window.sessionStorage.getItem("btd-adult-mode") === "1") {
-        adult = true;
-        const sashaPool = LINES_SASHA_ADULT[moment];
-        if (sashaPool && sashaPool.length > 0 && Math.random() < SASHA_INTERJECT_ODDS) {
-          pool = sashaPool;
-          voice = "adult_female";
-        } else {
-          pool = LINES_ADULT[moment] ?? pool;
-          voice = "adult";
-        }
-      }
-    } catch {
-      /* fall back */
+  if (isAdultMode()) {
+    adult = true;
+    const sashaPool = LINES_SASHA_ADULT[moment];
+    if (sashaPool && sashaPool.length > 0 && Math.random() < SASHA_INTERJECT_ODDS) {
+      pool = sashaPool;
+      voice = "adult_female";
+    } else {
+      pool = LINES_ADULT[moment] ?? pool;
+      voice = "adult";
     }
   }
   const voiceTag = voice === "adult_female" ? "af" : voice === "adult" ? "a" : "s";
