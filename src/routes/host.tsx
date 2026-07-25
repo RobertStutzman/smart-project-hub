@@ -868,38 +868,6 @@ function HostPage() {
     }
   }
 
-  if (room && roomPhase !== "lobby") {
-    return (
-      <main className="fixed inset-0 overflow-hidden">
-        <HostGameStage room={room} />
-        <AudienceFeed />
-        <Chyron />
-        <AchievementToast />
-        <InstantReplay />
-
-
-
-        <div className="fixed right-4 top-4 z-50 flex gap-2">
-
-          {!isFullscreen && (
-            <button
-              onClick={toggleFullscreen}
-              className="rounded-full border border-white/20 bg-black/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-white shadow-lg backdrop-blur transition hover:bg-black/80"
-              title="Fullscreen (F)"
-            >
-              ⛶ Fullscreen
-            </button>
-          )}
-          <button
-            onClick={endAndStartNewRoom}
-            className="rounded-full border border-white/20 bg-black/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-white shadow-lg backdrop-blur transition hover:bg-black/80"
-          >
-            End · new room
-          </button>
-        </div>
-      </main>
-    );
-  }
 
 
 
@@ -1008,6 +976,38 @@ function HostPage() {
     actuallyStart();
   }
 
+  // Early return MUST come after every hook above (React hooks rule).
+  // Moving it here fixes "Rendered fewer hooks than expected" when phase
+  // flipped from lobby → intro and the two hooks between the old early
+  // return and this point stopped being called.
+  if (room && roomPhase !== "lobby") {
+    return (
+      <main className="fixed inset-0 overflow-hidden">
+        <HostGameStage room={room} />
+        <AudienceFeed />
+        <Chyron />
+        <AchievementToast />
+        <InstantReplay />
+        <div className="fixed right-4 top-4 z-50 flex gap-2">
+          {!isFullscreen && (
+            <button
+              onClick={toggleFullscreen}
+              className="rounded-full border border-white/20 bg-black/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-white shadow-lg backdrop-blur transition hover:bg-black/80"
+              title="Fullscreen (F)"
+            >
+              ⛶ Fullscreen
+            </button>
+          )}
+          <button
+            onClick={endAndStartNewRoom}
+            className="rounded-full border border-white/20 bg-black/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-white shadow-lg backdrop-blur transition hover:bg-black/80"
+          >
+            End · new room
+          </button>
+        </div>
+      </main>
+    );
+  }
 
 
   return (
