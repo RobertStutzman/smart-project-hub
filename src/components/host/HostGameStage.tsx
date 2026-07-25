@@ -821,7 +821,8 @@ export function HostGameStage({ room }: Props) {
           streak: topStreaker.streak_count ?? 3,
         });
       } else {
-        void speakPersona(pickLine(moment, qid));
+        const picked = pickPersonaLine(moment, qid);
+        void speakPersona(picked.text, { voice: picked.voice });
       }
     }, 900);
     // Perfect-round achievement: everyone answered correctly.
