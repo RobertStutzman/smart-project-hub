@@ -442,6 +442,7 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
   const volume = opts.volume ?? 1.0;
   const priority = opts.priority ?? 1;
   const deadline = opts.deadline;
+  const voice: "standard" | "adult" = opts.voice ?? (isAdultMode() ? "adult" : "standard");
 
   // Debug-bus emit (no-op unless QA harness is listening)
   void import("@/lib/debug-bus").then(({ emitDebug }) =>
@@ -455,14 +456,14 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
     const isAlive = () => generation === myGen;
     if (!isAlive()) return;
     if (deadline !== undefined && Date.now() > deadline) return;
-    // 1. Pre-baked URL (free, instant)
-    const baked = urlCache.get(text);
+    // 1. Pre-baked URL (free, instant) — voice-specific
+    const baked = voice === "adult" ? urlCacheAdult.get(text) : urlCache.get(text);
     if (baked) {
       await playUrl(baked, volume);
       return;
     }
     // 2. URL/base64 from cache or live ElevenLabs
-    const res = await fetchAudio(text, preset);
+    const res = await fetchAudio(text, preset, voice);
     if (!isAlive()) return;
     if (deadline !== undefined && Date.now() > deadline) return;
     if (!res || res.kind === "skipped") return;
