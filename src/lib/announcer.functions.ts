@@ -276,27 +276,36 @@ async function generateTTS(
 ): Promise<ArrayBuffer> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) throw new Error("ELEVENLABS_API_KEY not configured");
-  const res = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
-    {
-      method: "POST",
-      headers: {
-        "xi-api-key": apiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        text,
-        model_id: "eleven_multilingual_v2",
-        voice_settings: {
-          stability: voiceSettings?.stability ?? 0.2,
-          similarity_boost: voiceSettings?.similarity_boost ?? 0.75,
-          style: voiceSettings?.style ?? 0.9,
-          use_speaker_boost: voiceSettings?.use_speaker_boost ?? true,
-          speed: voiceSettings?.speed ?? 1.0,
-        },
-      }),
+  const body = JSON.stringify({
+    text,
+    model_id: "eleven_multilingual_v2",
+    voice_settings: {
+      stability: voiceSettings?.stability ?? 0.2,
+      similarity_boost: voiceSettings?.similarity_boost ?? 0.75,
+      style: voiceSettings?.style ?? 0.9,
+      use_speaker_boost: voiceSettings?.use_speaker_boost ?? true,
+      speed: voiceSettings?.speed ?? 1.0,
     },
-  );
+  });
+
+  let res: Response | undefined;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    res = await fetch(
+      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
+      {
+        method: "POST",
+        headers: {
+          "xi-api-key": apiKey,
+          "Content-Type": "application/json",
+        },
+        body,
+      },
+    );
+    if (![408, 429, 500, 502, 503, 504].includes(res.status)) break;
+    if (attempt < 2) await new Promise((r) => setTimeout(r, 1_000 * (attempt + 1)));
+  }
+
+  if (!res) throw new Error("ElevenLabs TTS request did not start");
   if (!res.ok) {
     const err = await res.text();
     throw new Error(`ElevenLabs TTS failed (${res.status}): ${err.slice(0, 200)}`);
@@ -982,7 +991,7 @@ export const generatePersonaPack = createServerFn({ method: "POST" })
   .inputValidator(
     (input: unknown) => z.object({
       force: z.boolean().optional(),
-      limit: z.number().int().min(1).max(50).optional(),
+      limit: z.number().int().min(1).max(25).optional(),
       excludeSlots: z.array(z.string()).max(500).optional(),
     }).optional().parse(input) ?? {},
   )
@@ -990,7 +999,7 @@ export const generatePersonaPack = createServerFn({ method: "POST" })
     await assertAdmin(context.userId);
     await ensurePersonaFolder();
     const force = data?.force ?? false;
-    const limit = data?.limit ?? 20;
+    const limit = data?.limit ?? 8;
     const excludedSlots = new Set(data?.excludeSlots ?? []);
 
     const generated: string[] = [];
@@ -1046,7 +1055,7 @@ export const generatePersonaPack = createServerFn({ method: "POST" })
         });
         if (insErr) throw new Error(insErr.message);
         generated.push(item.slot);
-        await new Promise((r) => setTimeout(r, 200));
+        await new Promise((r) => setTimeout(r, 500));
       } catch (e) {
         errors.push(`${item.slot}: ${(e as Error).message}`);
         failedSlots.push(item.slot);
@@ -1144,7 +1153,7 @@ export const generatePersonaPackAdult = createServerFn({ method: "POST" })
   .inputValidator(
     (input: unknown) => z.object({
       force: z.boolean().optional(),
-      limit: z.number().int().min(1).max(50).optional(),
+      limit: z.number().int().min(1).max(25).optional(),
       excludeSlots: z.array(z.string()).max(2000).optional(),
     }).optional().parse(input) ?? {},
   )
@@ -1152,7 +1161,7 @@ export const generatePersonaPackAdult = createServerFn({ method: "POST" })
     await assertAdmin(context.userId);
     await ensurePersonaFolderAdult();
     const force = data?.force ?? false;
-    const limit = data?.limit ?? 20;
+    const limit = data?.limit ?? 8;
     const excludedSlots = new Set(data?.excludeSlots ?? []);
 
     const generated: string[] = [];
@@ -1216,7 +1225,7 @@ export const generatePersonaPackAdult = createServerFn({ method: "POST" })
         });
         if (insErr) throw new Error(insErr.message);
         generated.push(item.slot);
-        await new Promise((r) => setTimeout(r, 200));
+        await new Promise((r) => setTimeout(r, 500));
       } catch (e) {
         errors.push(`${item.slot}: ${(e as Error).message}`);
         failedSlots.push(item.slot);
@@ -1366,7 +1375,7 @@ export const generatePersonaPackAdultFemale = createServerFn({ method: "POST" })
   .inputValidator(
     (input: unknown) => z.object({
       force: z.boolean().optional(),
-      limit: z.number().int().min(1).max(50).optional(),
+      limit: z.number().int().min(1).max(25).optional(),
       excludeSlots: z.array(z.string()).max(2000).optional(),
     }).optional().parse(input) ?? {},
   )
@@ -1374,7 +1383,7 @@ export const generatePersonaPackAdultFemale = createServerFn({ method: "POST" })
     await assertAdmin(context.userId);
     await ensurePersonaFolderAdultFemale();
     const force = data?.force ?? false;
-    const limit = data?.limit ?? 20;
+    const limit = data?.limit ?? 8;
     const excludedSlots = new Set(data?.excludeSlots ?? []);
 
     const generated: string[] = [];
@@ -1437,7 +1446,7 @@ export const generatePersonaPackAdultFemale = createServerFn({ method: "POST" })
         });
         if (insErr) throw new Error(insErr.message);
         generated.push(item.slot);
-        await new Promise((r) => setTimeout(r, 200));
+        await new Promise((r) => setTimeout(r, 500));
       } catch (e) {
         errors.push(`${item.slot}: ${(e as Error).message}`);
         failedSlots.push(item.slot);
