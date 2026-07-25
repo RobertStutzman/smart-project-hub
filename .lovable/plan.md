@@ -1,27 +1,42 @@
-## Fix: Adult mode uses the original host voice
+## Goal
+- Adult Mode = same Elf voice + raunchier lines. Zero Bill anywhere.
+- Standard game is untouched unless the user opts into Adult Mode via `/settings/adult`.
+- Pre-bake all Elf content (standard + adult male pool) so credits burn now and playback is instant.
 
-You're right — Bill was a lame swap. The original host (The Elf, `e79twtVS2278lVZZQiAD`) stays as the main announcer in adult mode too, just delivering the raunchy lines. Sasha (Jessica) remains as the occasional female co-host interjection.
+## Changes
 
-### Changes
+### 1. Kill Bill, everywhere
+- Remove any lingering `ADULT_VOICE_ID` / Bill (`pqHfZKP75CvOlQylNhV4`) references in `src/lib/announcer.functions.ts` and `src/lib/elf-voice.ts` (comments and any dead code).
+- Adult male announcer voice is hardcoded to Elf (`e79twtVS2278lVZZQiAD`) in every code path — live TTS and bake.
 
-1. **`src/lib/announcer.functions.ts`**
-   - Delete the `ADULT_VOICE_ID` (Bill) constant.
-   - In `generateTTS` voice selection: `"adult"` → use `VOICE_ID` (The Elf), same as standard. Only `"adult_female"` uses Jessica.
-   - `generatePersonaPackAdult` bakes with `VOICE_ID` instead of Bill.
+### 2. Purge old Bill audio automatically
+- On admin load (or via a one-click button), run `resetPersonaPackAdult` to wipe every `Persona Adult` row + `persona-adult/*` file, then re-bake in Elf.
+- Namespace the fresh adult pack (`persona-adult-elf/` folder + `Persona Adult (Elf)` category) so we can never re-load a leftover Bill clip even if some file survives.
 
-2. **Re-bake required**
-   - Existing adult catchphrases are baked in Bill's voice and stored under `persona-adult/` with hashes keyed by `adult::...`. After the code change, the cache keys still resolve to those same files, so old Bill audio would keep playing.
-   - Plan will: delete existing `PERSONA_CATEGORY_ADULT` rows from `sound_clips` and the `persona-adult/` storage folder so a fresh bake regenerates everything in The Elf's voice. (One-shot admin cleanup — done via a new `resetPersonaPackAdult` server fn triggered by a button in `/admin-sounds`, or run inline if you'd rather I just wipe on next bake.)
+### 3. Pre-bake all Elf content now
+Trigger these bakes in sequence from the admin page so credits burn without extra clicks:
+- Standard Vox catchphrases (Elf voice) — full pool.
+- Adult Vox catchphrases (Elf voice) — full raunchy pool including `{flirtName}` variants.
+- Skip Sasha (Jessica) unless you want it — she's untouched.
 
-3. **No changes to**
-   - Sasha / female co-host (Jessica stays).
-   - Line content in `host-persona.adult.ts`, `host-persona.xl.adult.ts`, `host-persona.flirty.adult.ts`.
-   - Adult-mode toggle, entry points, or client cache wiring.
+Add a new admin button: **"🔥 Pre-bake ALL Elf content"** that runs standard bake → reset adult → adult bake in order, with progress toasts.
 
-### Question before I build
+### 4. Keep standard game identical
+- Standard players load `initPersonaCache` (Elf standard pack) exactly as today.
+- Adult cache map only loads/plays when `sessionStorage['btd-adult-mode'] === '1'`.
+- No changes to line pools, room state, question flow, or scoring.
 
-For the existing Bill-voiced adult clips already baked, do you want:
-- **(a)** Add a "Reset adult pack" button in admin-sounds so you click it once, then re-bake — safest.
-- **(b)** Auto-wipe on the next bake — simpler, no extra button.
+### 5. Safety net
+- If an adult line has no baked clip yet (e.g. new line added later), fall back to live Elf TTS instead of silent failure or standard-voice clip.
 
-Default is (a) unless you say otherwise.
+## Files touched
+- `src/lib/announcer.functions.ts` — remove Bill refs, namespace new adult folder/category, add combined `prebakeAllElfContent` server fn.
+- `src/lib/elf-voice.ts` — remove Bill comment, gate adult cache load behind adult-mode check, add live-TTS fallback on adult cache miss.
+- `src/routes/_authenticated/admin-sounds.tsx` — add "🔥 Pre-bake ALL Elf content" button; update reset copy.
+- `src/routes/host.tsx` — only call `initPersonaCacheAdult` when adult mode is on.
+
+## Result
+- Standard game: unchanged, Elf voice, standard lines.
+- Adult Mode toggle on: same Elf voice, raunchier lines + occasional Sasha.
+- Bill: gone from code, DB, and storage.
+- All Elf audio pre-baked so live TTS is a rare fallback.
