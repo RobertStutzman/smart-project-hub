@@ -593,6 +593,7 @@ function EventsPanel({
         musicGenerated += r.generated.length;
         musicTotal = r.total;
         rememberErrors(r.errors);
+        for (const slot of r.generated) musicFailed.add(slot);
         for (const slot of r.failedSlots) musicFailed.add(slot);
         const msg = `Safe Mode: Standard ${standardGenerated} · Adult ${adultGenerated} · Sasha ${sashaGenerated} · Music ${musicGenerated}/${r.total}${totalErrors ? ` · ${totalErrors} errors` : ""}`;
         setSafeBakeProgress(msg);
@@ -659,6 +660,7 @@ function EventsPanel({
         generated += res.generated.length;
         total = res.total;
         errors.push(...res.errors);
+        for (const slot of res.generated) failedSlots.add(slot);
         for (const slot of res.failedSlots) failedSlots.add(slot);
         toast.loading(`Generating music pack… ${generated} / ${res.total}${errors.length ? ` · ${errors.length} errors` : ""}`, { id: toastId });
         if (res.processed === 0 || res.remaining === 0) break;
