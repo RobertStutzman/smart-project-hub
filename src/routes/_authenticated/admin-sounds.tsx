@@ -241,6 +241,58 @@ function EventsPanel({
     }
   }
 
+  async function handleGeneratePersonaAdult() {
+    const missing = personaAdultStats ? personaAdultStats.total - personaAdultStats.baked : null;
+    const msg = missing != null
+      ? `Bake ${missing} missing ADULT Vox catchphrase${missing === 1 ? "" : "s"}? These use a distinct ElevenLabs voice (Bill — gravelly, older) for adult/party mode. Already-baked lines are skipped. Calls ElevenLabs — takes several minutes.`
+      : `Pre-bake the ADULT Vox catchphrases (party-mode host voice). Already-baked are skipped. Calls ElevenLabs once per missing line.`;
+    if (!window.confirm(msg)) return;
+    setGeneratingPersonaAdult(true);
+    const remaining = missing ?? 0;
+    const toastId = toast.loading(`Baking ADULT catchphrases… 0 / ${remaining}`);
+    setPersonaAdultProgress(`Baking ADULT catchphrases… 0 / ${remaining}`);
+    try {
+      let totalGenerated = 0;
+      let totalErrors = 0;
+      let latestErrors: string[] = [];
+      const failedSlots = new Set<string>();
+      let safety = 0;
+
+      while (safety++ < 200) {
+        const res = await generatePersonaAdultFn({
+          data: { limit: 20, excludeSlots: Array.from(failedSlots) },
+        });
+        totalGenerated += res.generated;
+        totalErrors += res.errors.length;
+        latestErrors = res.errors.slice(0, 3);
+        for (const slot of res.failedSlots) failedSlots.add(slot);
+
+        const done = Math.min(remaining, totalGenerated + failedSlots.size);
+        const progress = `Baking ADULT catchphrases… ${done} / ${remaining}${totalErrors ? ` · ${totalErrors} errors` : ""}`;
+        setPersonaAdultProgress(progress);
+        toast.loading(progress, { id: toastId });
+
+        if (res.processed === 0 || res.remaining === 0) break;
+      }
+
+      const errorSuffix = totalErrors
+        ? ` · ${totalErrors} errors${latestErrors.length ? `: ${latestErrors.join("; ")}` : ""}`
+        : "";
+      const doneMessage = `Done! Baked ${totalGenerated} ADULT Vox catchphrases${errorSuffix}.`;
+      if (totalErrors) toast.warning(doneMessage, { id: toastId });
+      else toast.success(doneMessage, { id: toastId });
+      await loadPersonaAdultStats();
+      await onChange();
+    } catch (err) {
+      toast.error((err as Error).message, { id: toastId });
+    } finally {
+      setPersonaAdultProgress(null);
+      setGeneratingPersonaAdult(false);
+    }
+  }
+
+
+
   async function handleAssign(event: SoundEvent, clipId: string | null) {
     try {
       await setEventFn({ data: { event, clip_id: clipId } });
