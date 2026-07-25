@@ -311,6 +311,24 @@ function EventsPanel({
     }
   }
 
+  async function handleResetPersonaAdult() {
+    if (
+      !window.confirm(
+        "Wipe all baked ADULT Vox catchphrases? They were baked in the old (Bill) voice. After reset, click 'Bake ADULT Vox' again to regenerate in the main host voice. This cannot be undone.",
+      )
+    )
+      return;
+    const toastId = toast.loading("Wiping old adult voice pack…");
+    try {
+      const res = await resetPersonaAdultFn();
+      toast.success(`Removed ${res.removed} old adult clips. Re-bake now.`, { id: toastId });
+      await loadPersonaAdultStats();
+      await onChange();
+    } catch (err) {
+      toast.error((err as Error).message, { id: toastId });
+    }
+  }
+
   async function handleGeneratePersonaAdultFemale() {
     const totalF = personaAdultStats?.totalFemale ?? 0;
     const bakedF = personaAdultStats?.bakedFemale ?? 0;
