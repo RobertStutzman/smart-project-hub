@@ -328,7 +328,8 @@ function EventsPanel({
       <p className="mt-1 text-sm text-muted-foreground">
         Empty events fall back to the built-in synth sounds. The AI pack uses
         ElevenLabs to create a hype game-show host voice + lobby music in one
-        click.
+        click. The music pack generates 8 unique tracks and auto-assigns them to
+        lobby, round intro, correct/wrong/reveal, leaderboard, final, and victory.
       </p>
       <p className="mt-2 text-xs text-amber-700">
         🎭 Catchphrases = host hype lines ("Lock in!", "Fingers on buzzers!", round transitions). To narrate the actual trivia questions, use the <strong>Question voiceovers</strong> panel below.
