@@ -5,11 +5,14 @@
 import { speakPersonaLine } from "@/lib/announcer.functions";
 
 type Preset = "hype" | "calm";
+type Voice = "standard" | "adult" | "adult_female";
 
 // text → signed storage URL (pre-baked persona pack). Seeded once per session.
 const urlCache = new Map<string, string>();
-// Same, but for the adult/party-mode persona pack (different voice).
+// Same, but for the adult/party-mode male persona pack (Bill voice).
 const urlCacheAdult = new Map<string, string>();
+// Adult-mode female co-host pack (Jessica voice).
+const urlCacheAdultFemale = new Map<string, string>();
 
 // Active game room (set by HostGameStage). Threaded to the server so the
 // per-game ElevenLabs call cap can charge the right room.
@@ -27,6 +30,12 @@ export function initPersonaCache(map: Record<string, string>) {
 export function initPersonaCacheAdult(map: Record<string, string>) {
   for (const [text, url] of Object.entries(map)) {
     urlCacheAdult.set(text, url);
+  }
+}
+
+export function initPersonaCacheAdultFemale(map: Record<string, string>) {
+  for (const [text, url] of Object.entries(map)) {
+    urlCacheAdultFemale.set(text, url);
   }
 }
 
@@ -136,9 +145,14 @@ type FetchResult =
 async function fetchAudio(
   text: string,
   preset: Preset,
-  voice: "standard" | "adult" = "standard",
+  voice: Voice = "standard",
 ): Promise<FetchResult> {
-  const key = voice === "adult" ? `adult::${preset}::${text}` : `${preset}::${text}`;
+  const key =
+    voice === "adult_female"
+      ? `adult_female::${preset}::${text}`
+      : voice === "adult"
+        ? `adult::${preset}::${text}`
+        : `${preset}::${text}`;
   const hit = cacheGet(key);
   if (hit) {
     return hit.startsWith(URL_PREFIX)
@@ -336,7 +350,7 @@ function playUrl(
 
 export interface SpeakOptions {
   /** Override the voice pool. Defaults to the adult-mode sessionStorage flag. */
-  voice?: "standard" | "adult";
+  voice?: Voice;
   preset?: Preset;
   volume?: number;
   /** If true, interrupt anything currently playing. Default: queue behind. */
@@ -444,7 +458,7 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
   const volume = opts.volume ?? 1.0;
   const priority = opts.priority ?? 1;
   const deadline = opts.deadline;
-  const voice: "standard" | "adult" = opts.voice ?? (isAdultMode() ? "adult" : "standard");
+  const voice: Voice = opts.voice ?? (isAdultMode() ? "adult" : "standard");
 
   // Debug-bus emit (no-op unless QA harness is listening)
   void import("@/lib/debug-bus").then(({ emitDebug }) =>
@@ -459,7 +473,12 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
     if (!isAlive()) return;
     if (deadline !== undefined && Date.now() > deadline) return;
     // 1. Pre-baked URL (free, instant) — voice-specific
-    const baked = voice === "adult" ? urlCacheAdult.get(text) : urlCache.get(text);
+    const baked =
+      voice === "adult_female"
+        ? urlCacheAdultFemale.get(text)
+        : voice === "adult"
+          ? urlCacheAdult.get(text)
+          : urlCache.get(text);
     if (baked) {
       await playUrl(baked, volume);
       return;

@@ -4,16 +4,21 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { LINES as PERSONA_LINES } from "@/lib/host-persona";
 import { LINES_ADULT as PERSONA_LINES_ADULT, ADULT_FLIRT_NAMES } from "@/lib/host-persona.adult";
+import { LINES_SASHA_ADULT, ADULT_FLIRT_GUY_NAMES } from "@/lib/host-persona.sasha.adult";
 
 // The Elf — deep, energetic hype-man (Jackbox-style host)
 const VOICE_ID = "e79twtVS2278lVZZQiAD";
 // Bill — gravelly older-man voice for the adult/party mode announcer
 const ADULT_VOICE_ID = "pqHfZKP75CvOlQylNhV4";
+// Jessica — sultry, confident female voice for the adult co-host Sasha
+const ADULT_FEMALE_VOICE_ID = "cgSgspJ2msm6clMCkdW9";
 const FOLDER = "Announcer";
 const PERSONA_FOLDER = "Persona";
 const PERSONA_CATEGORY = "Persona";
 const PERSONA_FOLDER_ADULT = "Persona Adult";
 const PERSONA_CATEGORY_ADULT = "Persona Adult";
+const PERSONA_FOLDER_ADULT_FEMALE = "Persona Adult Female";
+const PERSONA_CATEGORY_ADULT_FEMALE = "Persona Adult Female";
 
 type ScriptLine = {
   slot: string;
@@ -576,9 +581,18 @@ function getTtsCap(): number {
   return Number.isFinite(n) && n > 0 ? n : TTS_DEFAULT_CAP;
 }
 
-function hashTtsKey(preset: string, text: string, voice: "standard" | "adult" = "standard"): string {
+function hashTtsKey(
+  preset: string,
+  text: string,
+  voice: "standard" | "adult" | "adult_female" = "standard",
+): string {
   // Keep the standard-voice hash byte-identical so existing cache entries still resolve.
-  const seed = voice === "adult" ? `adult::${preset}::${text}` : `${preset}::${text}`;
+  const seed =
+    voice === "adult_female"
+      ? `adult_female::${preset}::${text}`
+      : voice === "adult"
+        ? `adult::${preset}::${text}`
+        : `${preset}::${text}`;
   return createHash("sha256").update(seed).digest("hex");
 }
 
@@ -607,7 +621,7 @@ export const speakPersonaLine = createServerFn({ method: "POST" })
     z.object({
       text: z.string().min(1).max(600),
       preset: z.enum(["hype", "calm"]).optional(),
-      voice: z.enum(["standard", "adult"]).optional(),
+      voice: z.enum(["standard", "adult", "adult_female"]).optional(),
       roomId: z.string().uuid().optional(),
     }).parse,
   )
@@ -669,7 +683,13 @@ export const speakPersonaLine = createServerFn({ method: "POST" })
     let audio: ArrayBuffer;
     try {
       const settings = PERSONA_PRESETS[preset];
-      audio = await generateTTS(text, settings, voice === "adult" ? ADULT_VOICE_ID : VOICE_ID);
+      const voiceId =
+        voice === "adult_female"
+          ? ADULT_FEMALE_VOICE_ID
+          : voice === "adult"
+            ? ADULT_VOICE_ID
+            : VOICE_ID;
+      audio = await generateTTS(text, settings, voiceId);
     } catch (err) {
       void logTtsCall({ room_id: roomId, preset, text_hash: hash, char_count: charCount, outcome: "error" });
       throw err;
@@ -1223,12 +1243,31 @@ export const getPersonaPackAdultStats = createServerFn({ method: "GET" })
         total += text.includes("{flirtName}") ? ADULT_FLIRT_NAMES.length : 1;
       }
     }
+    let totalFemale = 0;
+    for (const lines of Object.values(LINES_SASHA_ADULT)) {
+      if (!lines) continue;
+      for (const text of lines) {
+        totalFemale += text.includes("{flirtGuyName}") ? ADULT_FLIRT_GUY_NAMES.length : 1;
+      }
+    }
     const { count: baked } = await supabaseAdmin
       .from("sound_clips")
       .select("id", { count: "exact", head: true })
       .eq("category", PERSONA_CATEGORY_ADULT)
       .eq("is_active", true);
-    return { total, baked: baked ?? 0 };
+    const { count: bakedFemale } = await supabaseAdmin
+      .from("sound_clips")
+      .select("id", { count: "exact", head: true })
+      .eq("category", PERSONA_CATEGORY_ADULT_FEMALE)
+      .eq("is_active", true);
+    return {
+      total: total + totalFemale,
+      baked: (baked ?? 0) + (bakedFemale ?? 0),
+      totalMale: total,
+      bakedMale: baked ?? 0,
+      totalFemale,
+      bakedFemale: bakedFemale ?? 0,
+    };
   });
 
 export const getPersonaCacheMapAdult = createServerFn({ method: "GET" })
@@ -1237,6 +1276,155 @@ export const getPersonaCacheMapAdult = createServerFn({ method: "GET" })
       .from("sound_clips")
       .select("label, storage_path")
       .eq("category", PERSONA_CATEGORY_ADULT)
+      .eq("is_active", true);
+    if (error) return { map: {} as Record<string, string> };
+
+    const map: Record<string, string> = {};
+    for (const row of data ?? []) {
+      const { data: signed } = await supabaseAdmin.storage
+        .from("question-media")
+        .createSignedUrl(row.storage_path, 60 * 60 * 24 * 7);
+      if (signed?.signedUrl) {
+        map[row.label] = signed.signedUrl;
+      }
+    }
+    return { map };
+  });
+
+// ──────────────────────────────────────────────────────────────────────────
+// Female co-host (Sasha) adult persona pack — Jessica voice, separate
+// storage/category so male + female packs never collide.
+// ──────────────────────────────────────────────────────────────────────────
+
+async function ensurePersonaFolderAdultFemale() {
+  const { data } = await supabaseAdmin
+    .from("sound_folders")
+    .select("id")
+    .eq("name", PERSONA_FOLDER_ADULT_FEMALE)
+    .maybeSingle();
+  if (!data) {
+    await supabaseAdmin
+      .from("sound_folders")
+      .insert({ name: PERSONA_FOLDER_ADULT_FEMALE, sort_order: 4 });
+  }
+}
+
+async function getExistingPersonaLabelsAdultFemale(): Promise<Set<string>> {
+  const labels = new Set<string>();
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabaseAdmin
+      .from("sound_clips")
+      .select("label")
+      .eq("category", PERSONA_CATEGORY_ADULT_FEMALE)
+      .eq("is_active", true)
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    for (const row of data ?? []) labels.add((row.label as string) ?? "");
+    if (!data || data.length < pageSize) break;
+  }
+  return labels;
+}
+
+export const generatePersonaPackAdultFemale = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: unknown) => z.object({
+      force: z.boolean().optional(),
+      limit: z.number().int().min(1).max(50).optional(),
+      excludeSlots: z.array(z.string()).max(2000).optional(),
+    }).optional().parse(input) ?? {},
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    await ensurePersonaFolderAdultFemale();
+    const force = data?.force ?? false;
+    const limit = data?.limit ?? 20;
+    const excludedSlots = new Set(data?.excludeSlots ?? []);
+
+    const generated: string[] = [];
+    const errors: string[] = [];
+    const failedSlots: string[] = [];
+    const flat: { slot: string; text: string }[] = [];
+    for (const [moment, lines] of Object.entries(LINES_SASHA_ADULT)) {
+      if (!lines) continue;
+      lines.forEach((text, idx) => {
+        if (text.includes("{flirtGuyName}")) {
+          ADULT_FLIRT_GUY_NAMES.forEach((name, nIdx) => {
+            const resolved = text.replace(/\{flirtGuyName\}/g, name);
+            flat.push({ slot: `persona_adult_f_${moment}_${idx}_n${nIdx}`, text: resolved });
+          });
+        } else {
+          flat.push({ slot: `persona_adult_f_${moment}_${idx}`, text });
+        }
+      });
+    }
+
+    const existingLabels = force ? new Set<string>() : await getExistingPersonaLabelsAdultFemale();
+    const pending = (force ? flat : flat.filter((item) => !existingLabels.has(item.text))).filter(
+      (item) => !excludedSlots.has(item.slot),
+    );
+    const batch = pending.slice(0, limit);
+
+    for (const item of batch) {
+      try {
+        const audio = await generateTTS(
+          item.text,
+          {
+            stability: 0.35,
+            similarity_boost: 0.8,
+            style: 0.7,
+            use_speaker_boost: true,
+            speed: 1.0,
+          },
+          ADULT_FEMALE_VOICE_ID,
+        );
+        const path = `persona-adult-female/${item.slot}.mp3`;
+        const { error: upErr } = await supabaseAdmin.storage
+          .from("question-media")
+          .upload(path, new Uint8Array(audio), {
+            contentType: "audio/mpeg",
+            upsert: true,
+          });
+        if (upErr) throw new Error(upErr.message);
+
+        await supabaseAdmin.from("sound_clips").delete().eq("storage_path", path);
+        const { error: insErr } = await supabaseAdmin.from("sound_clips").insert({
+          slot: PERSONA_FOLDER_ADULT_FEMALE,
+          category: PERSONA_CATEGORY_ADULT_FEMALE,
+          label: item.text,
+          storage_path: path,
+          original_filename: `${item.slot}.mp3`,
+          is_active: true,
+          audience_visible: false,
+          volume: 1.0,
+          loop: false,
+        });
+        if (insErr) throw new Error(insErr.message);
+        generated.push(item.slot);
+        await new Promise((r) => setTimeout(r, 200));
+      } catch (e) {
+        errors.push(`${item.slot}: ${(e as Error).message}`);
+        failedSlots.push(item.slot);
+      }
+    }
+
+    return {
+      generated: generated.length,
+      errors,
+      total: flat.length,
+      processed: batch.length,
+      remaining: Math.max(0, pending.length - generated.length),
+      failedSlots,
+    };
+  });
+
+export const getPersonaCacheMapAdultFemale = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { data, error } = await supabaseAdmin
+      .from("sound_clips")
+      .select("label, storage_path")
+      .eq("category", PERSONA_CATEGORY_ADULT_FEMALE)
       .eq("is_active", true);
     if (error) return { map: {} as Record<string, string> };
 

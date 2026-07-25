@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
-import { HOST_NAME, pickLine, speakPersona } from "@/lib/host-persona";
+import { HOST_NAME, pickLine, pickPersonaLine, speakPersona } from "@/lib/host-persona";
 import { play, playCreditsMusic, stopCreditsMusic } from "@/lib/sound-engine";
 import { pickAwardRoast, type AwardKey } from "@/lib/credits-awards";
 import { derivePlayerHighlights, pickHighlightVox } from "@/lib/player-highlights";
@@ -270,7 +270,8 @@ export function CreditsStage({ players, wrongPicks, onPlayAgain }: Props) {
     // Delay music start so it doesn't collide with the victory sting
     // that fires on phase=ended right before credits mount.
     const musicTimer = window.setTimeout(() => playCreditsMusic(0.22), 700);
-    speakPersona(pickLine("credits_open", live.length), { interrupt: true });
+    const opener = pickPersonaLine("credits_open", live.length);
+    speakPersona(opener.text, { interrupt: true, voice: opener.voice });
 
     // Schedule a Vox roast per award, paced so they don't overlap.
     // Skip the champion (it overlaps the opening line); start at +6s.

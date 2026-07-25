@@ -7,7 +7,7 @@
 // All output is funneled through the shared voice queue in `elf-voice.ts`
 // so personalized lines never overlap question reads, DYK, or each other.
 
-import { pickLine, speakPersona } from "@/lib/host-persona";
+import { pickLine, pickPersonaLine, speakPersona } from "@/lib/host-persona";
 import { speakAsElf, playVoiceUrl } from "@/lib/elf-voice";
 import { speakPersonaLine } from "@/lib/announcer.functions";
 import { pickTemplateAdult } from "@/lib/persona-live.adult";
@@ -379,7 +379,8 @@ export async function speakAboutPlayer(
       if (deadline !== undefined && Date.now() > deadline) return;
       if (res && "skipped" in res && res.skipped) {
         // Server-side cap hit — fall back to tier 3
-        await speakPersona(pickLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname), { priority, deadline });
+        const picked = pickPersonaLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname);
+        await speakPersona(picked.text, { priority, deadline, voice: picked.voice });
         return;
       }
       if (res && "audioUrl" in res && res.audioUrl) {
@@ -392,7 +393,10 @@ export async function speakAboutPlayer(
         return;
       }
       // No audio came back — degrade gracefully
-      await speakPersona(pickLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname), { priority, deadline });
+      {
+        const picked = pickPersonaLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname);
+        await speakPersona(picked.text, { priority, deadline, voice: picked.voice });
+      }
       return;
     }
 
@@ -401,19 +405,25 @@ export async function speakAboutPlayer(
       // server cache, so repeats of the same nickname are free after the
       // first call.
       const namePrefix = `${ctx.nickname}!`;
-      const baked = pickLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname);
+      const picked = pickPersonaLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname);
       // Speak as two queued lines so they play back-to-back without overlap.
+      // Name prefix uses the main host voice; baked line uses whichever
+      // voice pickPersonaLine picked (may be Sasha).
       await speakAsElf(namePrefix, { preset: "hype", priority, deadline });
-      await speakAsElf(baked, { preset: "hype", priority, deadline });
+      await speakAsElf(picked.text, { preset: "hype", priority, deadline, voice: picked.voice });
       return;
     }
 
     // Tier 3: 100% baked, no name
-    await speakPersona(pickLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname), { priority, deadline });
+    {
+      const picked = pickPersonaLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname);
+      await speakPersona(picked.text, { priority, deadline, voice: picked.voice });
+    }
   } catch {
     // Never crash the game on a voice line failure
     try {
-      await speakPersona(pickLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname));
+      const picked = pickPersonaLine(FALLBACK_MOMENT[ctx.moment], ctx.nickname);
+      await speakPersona(picked.text, { voice: picked.voice });
     } catch {
       /* swallow */
     }

@@ -27,6 +27,7 @@ import {
   generateMusicPack,
   generatePersonaPack,
   generatePersonaPackAdult,
+  generatePersonaPackAdultFemale,
   getExplanationTTSStats,
   getPersonaPackAdultStats,
   getPersonaPackStats,
@@ -157,6 +158,7 @@ function EventsPanel({
   const generatePersonaFn = useServerFn(generatePersonaPack);
   const personaStatsFn = useServerFn(getPersonaPackStats);
   const generatePersonaAdultFn = useServerFn(generatePersonaPackAdult);
+  const generatePersonaAdultFemaleFn = useServerFn(generatePersonaPackAdultFemale);
   const personaStatsAdultFn = useServerFn(getPersonaPackAdultStats);
   const [generating, setGenerating] = useState(false);
   const [generatingMusic, setGeneratingMusic] = useState(false);
@@ -165,7 +167,16 @@ function EventsPanel({
   const [personaStats, setPersonaStats] = useState<{ total: number; baked: number } | null>(null);
   const [generatingPersonaAdult, setGeneratingPersonaAdult] = useState(false);
   const [personaAdultProgress, setPersonaAdultProgress] = useState<string | null>(null);
-  const [personaAdultStats, setPersonaAdultStats] = useState<{ total: number; baked: number } | null>(null);
+  const [personaAdultStats, setPersonaAdultStats] = useState<{
+    total: number;
+    baked: number;
+    totalMale?: number;
+    bakedMale?: number;
+    totalFemale?: number;
+    bakedFemale?: number;
+  } | null>(null);
+  const [generatingPersonaAdultFemale, setGeneratingPersonaAdultFemale] = useState(false);
+  const [personaAdultFemaleProgress, setPersonaAdultFemaleProgress] = useState<string | null>(null);
 
   async function loadPersonaStats() {
     try {
@@ -179,7 +190,14 @@ function EventsPanel({
   async function loadPersonaAdultStats() {
     try {
       const s = await personaStatsAdultFn();
-      setPersonaAdultStats({ total: s.total, baked: s.baked });
+      setPersonaAdultStats({
+        total: s.total,
+        baked: s.baked,
+        totalMale: s.totalMale,
+        bakedMale: s.bakedMale,
+        totalFemale: s.totalFemale,
+        bakedFemale: s.bakedFemale,
+      });
     } catch {
       // non-fatal
     }
@@ -291,6 +309,56 @@ function EventsPanel({
     }
   }
 
+  async function handleGeneratePersonaAdultFemale() {
+    const totalF = personaAdultStats?.totalFemale ?? 0;
+    const bakedF = personaAdultStats?.bakedFemale ?? 0;
+    const missing = Math.max(0, totalF - bakedF);
+    const msg = missing > 0
+      ? `Bake ${missing} missing SASHA (adult female co-host) line${missing === 1 ? "" : "s"}? Uses ElevenLabs Jessica voice. Already-baked lines are skipped. Takes several minutes.`
+      : `Re-bake Sasha co-host lines? Uses ElevenLabs Jessica voice.`;
+    if (!window.confirm(msg)) return;
+    setGeneratingPersonaAdultFemale(true);
+    const remaining = missing || totalF;
+    const toastId = toast.loading(`Baking Sasha catchphrases… 0 / ${remaining}`);
+    setPersonaAdultFemaleProgress(`Baking Sasha catchphrases… 0 / ${remaining}`);
+    try {
+      let totalGenerated = 0;
+      let totalErrors = 0;
+      let latestErrors: string[] = [];
+      const failedSlots = new Set<string>();
+      let safety = 0;
+      while (safety++ < 200) {
+        const res = await generatePersonaAdultFemaleFn({
+          data: { limit: 20, excludeSlots: Array.from(failedSlots) },
+        });
+        totalGenerated += res.generated;
+        totalErrors += res.errors.length;
+        latestErrors = res.errors.slice(0, 3);
+        for (const slot of res.failedSlots) failedSlots.add(slot);
+        const done = Math.min(remaining, totalGenerated + failedSlots.size);
+        const progress = `Baking Sasha catchphrases… ${done} / ${remaining}${totalErrors ? ` · ${totalErrors} errors` : ""}`;
+        setPersonaAdultFemaleProgress(progress);
+        toast.loading(progress, { id: toastId });
+        if (res.processed === 0 || res.remaining === 0) break;
+      }
+      const errorSuffix = totalErrors
+        ? ` · ${totalErrors} errors${latestErrors.length ? `: ${latestErrors.join("; ")}` : ""}`
+        : "";
+      const doneMessage = `Done! Baked ${totalGenerated} Sasha lines${errorSuffix}.`;
+      if (totalErrors) toast.warning(doneMessage, { id: toastId });
+      else toast.success(doneMessage, { id: toastId });
+      await loadPersonaAdultStats();
+      await onChange();
+    } catch (err) {
+      toast.error((err as Error).message, { id: toastId });
+    } finally {
+      setPersonaAdultFemaleProgress(null);
+      setGeneratingPersonaAdultFemale(false);
+    }
+  }
+
+
+
 
 
   async function handleAssign(event: SoundEvent, clipId: string | null) {
@@ -397,6 +465,19 @@ function EventsPanel({
                   ? `🥃 ADULT Vox fully baked (${personaAdultStats.baked}/${personaAdultStats.total}) — re-bake?`
                   : `🥃 Bake ${personaAdultStats.total - personaAdultStats.baked} missing ADULT Vox line${personaAdultStats.total - personaAdultStats.baked === 1 ? "" : "s"} (${personaAdultStats.baked}/${personaAdultStats.total} done)`
                 : "🥃 Bake ADULT Vox catchphrases"}
+          </button>
+          <button
+            onClick={() => void handleGeneratePersonaAdultFemale()}
+            disabled={generatingPersonaAdultFemale}
+            className="rounded-full bg-rose-700 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-rose-400/30 transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {generatingPersonaAdultFemale
+              ? personaAdultFemaleProgress ?? "💋 Baking Sasha co-host…"
+              : personaAdultStats && personaAdultStats.totalFemale != null
+                ? (personaAdultStats.bakedFemale ?? 0) >= (personaAdultStats.totalFemale ?? 0)
+                  ? `💋 Sasha fully baked (${personaAdultStats.bakedFemale}/${personaAdultStats.totalFemale}) — re-bake?`
+                  : `💋 Bake ${(personaAdultStats.totalFemale ?? 0) - (personaAdultStats.bakedFemale ?? 0)} missing Sasha line${(personaAdultStats.totalFemale ?? 0) - (personaAdultStats.bakedFemale ?? 0) === 1 ? "" : "s"} (${personaAdultStats.bakedFemale}/${personaAdultStats.totalFemale} done)`
+                : "💋 Bake Sasha (adult female co-host)"}
           </button>
           <button
             onClick={() => void handleGenerate()}

@@ -478,20 +478,22 @@ function HostPage() {
     void (async () => {
       try {
         const [
-          { getPersonaCacheMap, getPersonaCacheMapAdult },
-          { initPersonaCache, initPersonaCacheAdult, setActiveRoomId },
+          { getPersonaCacheMap, getPersonaCacheMapAdult, getPersonaCacheMapAdultFemale },
+          { initPersonaCache, initPersonaCacheAdult, initPersonaCacheAdultFemale, setActiveRoomId },
         ] = await Promise.all([
           import("@/lib/announcer.functions"),
           import("@/lib/elf-voice"),
         ]);
         setActiveRoomId(room.id);
-        const [res, resAdult] = await Promise.all([
+        const [res, resAdult, resAdultF] = await Promise.all([
           getPersonaCacheMap().catch(() => null),
           getPersonaCacheMapAdult().catch(() => null),
+          getPersonaCacheMapAdultFemale().catch(() => null),
         ]);
         if (cancelled) return;
         if (res?.map) initPersonaCache(res.map);
         if (resAdult?.map) initPersonaCacheAdult(resAdult.map);
+        if (resAdultF?.map) initPersonaCacheAdultFemale(resAdultF.map);
       } catch {
         /* silent — falls back to live TTS */
       }
