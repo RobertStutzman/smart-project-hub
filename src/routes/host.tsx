@@ -13,6 +13,8 @@ import {
   setDifficultyMode,
   setEnabledCategories,
   setRoomConfig,
+  setRoomContentRating,
+
   toggleTeamMode,
 } from "@/lib/rooms.functions";
 
@@ -102,6 +104,8 @@ function HostPage() {
   const listCategoriesFn = useServerFn(listCategories);
   const setEnabledCategoriesFn = useServerFn(setEnabledCategories);
   const setDifficultyModeFn = useServerFn(setDifficultyMode);
+  const setRoomContentRatingFn = useServerFn(setRoomContentRating);
+
 
   const setConfigFn = useServerFn(setRoomConfig);
   const toggleTeamModeFn = useServerFn(toggleTeamMode);
