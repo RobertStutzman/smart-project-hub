@@ -148,6 +148,99 @@ const LOBBY_MUSIC: {
   loop: true,
 };
 
+const MUSIC_FOLDER = "Music";
+
+const MUSIC_PACK: {
+  slot: string;
+  label: string;
+  event: "lobby_music" | "round_intro" | "correct" | "wrong" | "reveal" | "leaderboard" | "final" | "victory";
+  prompt: string;
+  durationMs: number;
+  volume: number;
+  loop: boolean;
+}[] = [
+  {
+    slot: "lobby_music_loop",
+    label: "Lobby music loop",
+    event: "lobby_music",
+    prompt:
+      "Loud, high-energy TV game show theme, big brass stabs, funky bass, hand claps, retro synth hits, crowd hype, anticipation building, 120 BPM, loopable, instrumental, no vocals, prime-time television production",
+    durationMs: 45000,
+    volume: 0.7,
+    loop: true,
+  },
+  {
+    slot: "round_intro_sting",
+    label: "Round intro sting",
+    event: "round_intro",
+    prompt:
+      "Dramatic game show round intro sting, orchestral brass swell, building tension, clock ticking, bright cymbal crash, instrumental, no vocals, 6 seconds",
+    durationMs: 6000,
+    volume: 0.85,
+    loop: false,
+  },
+  {
+    slot: "correct_answer_sting",
+    label: "Correct answer sting",
+    event: "correct",
+    prompt:
+      "Bright, celebratory game show correct answer sting, major key brass fanfare, sparkling synth, triumphant, short, instrumental, no vocals, 4 seconds",
+    durationMs: 4000,
+    volume: 0.85,
+    loop: false,
+  },
+  {
+    slot: "wrong_answer_sting",
+    label: "Wrong answer sting",
+    event: "wrong",
+    prompt:
+      "Dramatic game show wrong answer sting, low brass descending, tense strings, sudden stop, comedic disappointment, instrumental, no vocals, 4 seconds",
+    durationMs: 4000,
+    volume: 0.85,
+    loop: false,
+  },
+  {
+    slot: "reveal_sting",
+    label: "Answer reveal sting",
+    event: "reveal",
+    prompt:
+      "Suspenseful answer reveal sting, tight drum roll, orchestral hit, bright resolution, instrumental, no vocals, 5 seconds",
+    durationMs: 5000,
+    volume: 0.85,
+    loop: false,
+  },
+  {
+    slot: "leaderboard_sting",
+    label: "Leaderboard sting",
+    event: "leaderboard",
+    prompt:
+      "Upbeat game show leaderboard reveal sting, funky bass, confident brass, crowd cheers, instrumental, no vocals, 6 seconds",
+    durationMs: 6000,
+    volume: 0.85,
+    loop: false,
+  },
+  {
+    slot: "final_round_sting",
+    label: "Final round intro",
+    event: "final",
+    prompt:
+      "Epic game show final round intro, dark cinematic orchestra, rising tension, big impact, high stakes, instrumental, no vocals, 10 seconds",
+    durationMs: 10000,
+    volume: 0.9,
+    loop: false,
+  },
+  {
+    slot: "victory_fanfare",
+    label: "Victory fanfare",
+    event: "victory",
+    prompt:
+      "Triumphant game show victory fanfare, soaring brass, confetti, cheering crowd, loopable celebration, instrumental, no vocals, 20 seconds",
+    durationMs: 20000,
+    volume: 0.9,
+    loop: true,
+  },
+];
+
 async function assertAdmin(userId: string) {
   const { data, error } = await supabaseAdmin
     .from("user_roles")
