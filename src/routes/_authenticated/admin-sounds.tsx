@@ -176,8 +176,18 @@ function EventsPanel({
     }
   }
 
+  async function loadPersonaAdultStats() {
+    try {
+      const s = await personaStatsAdultFn();
+      setPersonaAdultStats({ total: s.total, baked: s.baked });
+    } catch {
+      // non-fatal
+    }
+  }
+
   useEffect(() => {
     void loadPersonaStats();
+    void loadPersonaAdultStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
