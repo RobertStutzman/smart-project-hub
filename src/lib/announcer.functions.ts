@@ -148,6 +148,99 @@ const LOBBY_MUSIC: {
   loop: true,
 };
 
+const MUSIC_FOLDER = "Music";
+
+const MUSIC_PACK: {
+  slot: string;
+  label: string;
+  event: "lobby_music" | "round_intro" | "correct" | "wrong" | "reveal" | "leaderboard" | "final" | "victory";
+  prompt: string;
+  durationMs: number;
+  volume: number;
+  loop: boolean;
+}[] = [
+  {
+    slot: "lobby_music_loop",
+    label: "Lobby music loop",
+    event: "lobby_music",
+    prompt:
+      "Loud, high-energy TV game show theme, big brass stabs, funky bass, hand claps, retro synth hits, crowd hype, anticipation building, 120 BPM, loopable, instrumental, no vocals, prime-time television production",
+    durationMs: 45000,
+    volume: 0.7,
+    loop: true,
+  },
+  {
+    slot: "round_intro_sting",
+    label: "Round intro sting",
+    event: "round_intro",
+    prompt:
+      "Dramatic game show round intro sting, orchestral brass swell, building tension, clock ticking, bright cymbal crash, instrumental, no vocals, 6 seconds",
+    durationMs: 6000,
+    volume: 0.85,
+    loop: false,
+  },
+  {
+    slot: "correct_answer_sting",
+    label: "Correct answer sting",
+    event: "correct",
+    prompt:
+      "Bright, celebratory game show correct answer sting, major key brass fanfare, sparkling synth, triumphant, short, instrumental, no vocals, 4 seconds",
+    durationMs: 4000,
+    volume: 0.85,
+    loop: false,
+  },
+  {
+    slot: "wrong_answer_sting",
+    label: "Wrong answer sting",
+    event: "wrong",
+    prompt:
+      "Dramatic game show wrong answer sting, low brass descending, tense strings, sudden stop, comedic disappointment, instrumental, no vocals, 4 seconds",
+    durationMs: 4000,
+    volume: 0.85,
+    loop: false,
+  },
+  {
+    slot: "reveal_sting",
+    label: "Answer reveal sting",
+    event: "reveal",
+    prompt:
+      "Suspenseful answer reveal sting, tight drum roll, orchestral hit, bright resolution, instrumental, no vocals, 5 seconds",
+    durationMs: 5000,
+    volume: 0.85,
+    loop: false,
+  },
+  {
+    slot: "leaderboard_sting",
+    label: "Leaderboard sting",
+    event: "leaderboard",
+    prompt:
+      "Upbeat game show leaderboard reveal sting, funky bass, confident brass, crowd cheers, instrumental, no vocals, 6 seconds",
+    durationMs: 6000,
+    volume: 0.85,
+    loop: false,
+  },
+  {
+    slot: "final_round_sting",
+    label: "Final round intro",
+    event: "final",
+    prompt:
+      "Epic game show final round intro, dark cinematic orchestra, rising tension, big impact, high stakes, instrumental, no vocals, 10 seconds",
+    durationMs: 10000,
+    volume: 0.9,
+    loop: false,
+  },
+  {
+    slot: "victory_fanfare",
+    label: "Victory fanfare",
+    event: "victory",
+    prompt:
+      "Triumphant game show victory fanfare, soaring brass, confetti, cheering crowd, loopable celebration, instrumental, no vocals, 20 seconds",
+    durationMs: 20000,
+    volume: 0.9,
+    loop: true,
+  },
+];
+
 async function assertAdmin(userId: string) {
   const { data, error } = await supabaseAdmin
     .from("user_roles")
@@ -298,6 +391,102 @@ async function upsertClip(args: {
     }
   }
 }
+
+async function ensureMusicFolder() {
+  const { data } = await supabaseAdmin
+    .from("sound_folders")
+    .select("id")
+    .eq("name", MUSIC_FOLDER)
+    .maybeSingle();
+  if (!data) {
+    await supabaseAdmin
+      .from("sound_folders")
+      .insert({ name: MUSIC_FOLDER, sort_order: 2 });
+  }
+}
+
+async function upsertMusicClip(args: {
+  slot: string;
+  label: string;
+  audio: ArrayBuffer;
+  volume: number;
+  loop: boolean;
+  event: "lobby_music" | "round_intro" | "correct" | "wrong" | "reveal" | "leaderboard" | "final" | "victory";
+}) {
+  const path = `music/${args.slot}.mp3`;
+  const bytes = new Uint8Array(args.audio);
+
+  const { error: upErr } = await supabaseAdmin.storage
+    .from("question-media")
+    .upload(path, bytes, {
+      contentType: "audio/mpeg",
+      upsert: true,
+    });
+  if (upErr) throw new Error(`Upload failed for ${args.slot}: ${upErr.message}`);
+
+  await supabaseAdmin.from("sound_clips").delete().eq("storage_path", path);
+  const { data: inserted, error: insErr } = await supabaseAdmin
+    .from("sound_clips")
+    .insert({
+      slot: MUSIC_FOLDER,
+      category: MUSIC_FOLDER,
+      label: args.label,
+      storage_path: path,
+      original_filename: `${args.slot}.mp3`,
+      is_active: true,
+      audience_visible: false,
+      volume: args.volume,
+      loop: args.loop,
+    })
+    .select("id")
+    .single();
+  if (insErr) throw new Error(`Insert failed for ${args.slot}: ${insErr.message}`);
+
+  if (inserted) {
+    const patch = {
+      clip_id: inserted.id,
+      volume: args.volume,
+      loop: args.loop,
+      updated_at: new Date().toISOString(),
+    };
+    await supabaseAdmin
+      .from("sound_event_assignments")
+      .upsert({ event: args.event, ...patch }, { onConflict: "event" });
+  }
+}
+
+export const generateMusicPack = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    await ensureMusicFolder();
+
+    const generated: string[] = [];
+    const errors: string[] = [];
+
+    for (const track of MUSIC_PACK) {
+      try {
+        const audio = await generateMusic(track.prompt, track.durationMs);
+        await upsertMusicClip({
+          slot: track.slot,
+          label: track.label,
+          audio,
+          volume: track.volume,
+          loop: track.loop,
+          event: track.event,
+        });
+        generated.push(track.slot);
+      } catch (e) {
+        errors.push(`${track.slot}: ${(e as Error).message}`);
+      }
+    }
+
+    return {
+      generated,
+      errors,
+      total: MUSIC_PACK.length,
+    };
+  });
 
 export const generateAnnouncerPack = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

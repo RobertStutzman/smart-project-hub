@@ -24,6 +24,7 @@ import {
   bakeAllQuestionTTS,
   bakeAllExplanationTTS,
   generateAnnouncerPack,
+  generateMusicPack,
   generatePersonaPack,
   getExplanationTTSStats,
   getPersonaPackStats,
@@ -150,9 +151,11 @@ function EventsPanel({
 }) {
   const setEventFn = useServerFn(setEventAssignment);
   const generatePackFn = useServerFn(generateAnnouncerPack);
+  const generateMusicPackFn = useServerFn(generateMusicPack);
   const generatePersonaFn = useServerFn(generatePersonaPack);
   const personaStatsFn = useServerFn(getPersonaPackStats);
   const [generating, setGenerating] = useState(false);
+  const [generatingMusic, setGeneratingMusic] = useState(false);
   const [generatingPersona, setGeneratingPersona] = useState(false);
   const [personaProgress, setPersonaProgress] = useState<string | null>(null);
   const [personaStats, setPersonaStats] = useState<{ total: number; baked: number } | null>(null);
@@ -231,6 +234,31 @@ function EventsPanel({
     }
   }
 
+  async function handleGenerateMusicPack() {
+    if (
+      !window.confirm(
+        "Generate the FULL AI music pack? This calls ElevenLabs Music 8 separate times (lobby loop, round intro, correct/wrong/reveal stings, leaderboard, final, victory fanfare) and auto-assigns each to its game event. Takes 4-6 minutes.",
+      )
+    )
+      return;
+    setGeneratingMusic(true);
+    try {
+      const res = await generateMusicPackFn();
+      if (res.errors.length) {
+        toast.warning(
+          `Generated ${res.generated.length}/${res.total}. Errors: ${res.errors.join("; ")}`,
+        );
+      } else {
+        toast.success(`Generated ${res.generated.length} music tracks`);
+      }
+      await onChange();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setGeneratingMusic(false);
+    }
+  }
+
   async function handleGenerate() {
     if (
       !window.confirm(
@@ -269,6 +297,13 @@ function EventsPanel({
         </div>
         <div className="flex flex-wrap gap-2">
           <button
+            onClick={() => void handleGenerateMusicPack()}
+            disabled={generatingMusic}
+            className="rounded-full bg-cyan-600 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-cyan-400/30 transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {generatingMusic ? "🎵 Generating music pack… (4-6 min)" : "🎵 Generate AI music pack (8 tracks)"}
+          </button>
+          <button
             onClick={() => void handleGeneratePersona()}
             disabled={generatingPersona}
             className="rounded-full bg-amber-600 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-amber-400/30 transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
@@ -293,7 +328,8 @@ function EventsPanel({
       <p className="mt-1 text-sm text-muted-foreground">
         Empty events fall back to the built-in synth sounds. The AI pack uses
         ElevenLabs to create a hype game-show host voice + lobby music in one
-        click.
+        click. The music pack generates 8 unique tracks and auto-assigns them to
+        lobby, round intro, correct/wrong/reveal, leaderboard, final, and victory.
       </p>
       <p className="mt-2 text-xs text-amber-700">
         🎭 Catchphrases = host hype lines ("Lock in!", "Fingers on buzzers!", round transitions). To narrate the actual trivia questions, use the <strong>Question voiceovers</strong> panel below.
