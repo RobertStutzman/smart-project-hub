@@ -1,52 +1,76 @@
-## Problem
 
-Adult-mode lines ("dipshit", "getting laid", etc.) are playing during the intro even though Adult Mode is supposed to be an explicit opt-in. A family could start a game and get slammed with R-rated content. We need a hard gate at game start so the host explicitly picks a rating before any Vox line plays.
+# Category picker cleanup + adult-content hard gate
 
-## Goal
+Three changes, all lobby-facing.
 
-Force an explicit **rating selection** at the start of every game/room. Until the host picks one, no persona lines play. Default is family-safe.
+---
 
-## Ratings
+## 1. Make "All / None" obviously clickable
 
-- **PG** — default. Standard Elf pool only. Zero profanity, zero innuendo. Safe for kids.
-- **PG-13** — Standard Elf pool + a mild-sass subset (light teasing, "heck", "dang", roasts without profanity or sexual content). No Sasha.
-- **MA (18+)** — Full adult pool (raunchy Elf + Sasha interjections). Requires the existing age/terms double-confirm.
+Current state (`src/routes/host.tsx:1376-1397`): "All" and "None" are tiny `text-white/60` text links next to the "Categories" heading — easy to miss.
 
-## UX
+Change:
+- Convert them into two proper pill buttons above the category grid, full width row, amber outline + hover fill, matching the visual weight of the category chips themselves.
+- Label them `✓ Select all` and `✕ Clear all` with a small count indicator like `(24 categories)`.
+- Keep placement (right above the grid) so the mental model stays the same.
 
-1. **Room lobby (host.tsx)**: Add a required "Content rating" selector card at the top of the lobby, above Start Game. Three big buttons: PG / PG-13 / MA 18+. Selection is required before "Start Game" enables.
-2. **MA button** routes through the existing `/settings/adult` confirm flow (age + terms) before it can be selected. If they back out, rating falls back to PG.
-3. **Persistence**: Rating is stored per-room (Firestore room doc field `contentRating`) so every connected player/host uses the same pool — not just the host's sessionStorage. Also mirrored to sessionStorage for the host's local persona picker.
-4. **Visible badge**: Show current rating as a small chip in the host header during the game so it's obvious what mode you're in.
-5. **Footer link** to `/settings/adult` stays, but it no longer directly controls in-game content — it just pre-authorizes the MA option.
+No behavior change — same `persistEnabled(...)` calls.
 
-## Line-pool wiring
+---
 
-- `src/lib/host-persona.ts` `pickPersonaLine`: replace the binary `isAdultMode()` check with a 3-way `getContentRating()` returning `'pg' | 'pg13' | 'ma'`. Pool selection:
-  - `pg` → `LINES` (standard) only, filtered to remove any tagged `sass:medium+`
-  - `pg13` → `LINES` (standard, full)
-  - `ma` → `LINES_ADULT` + Sasha rolls
-- Same 3-way switch in `persona-live.ts`, `player-highlights.ts`, `lobby-banter.ts`.
-- `src/lib/adult-mode.ts` becomes `content-rating.ts` (keep old export as a shim returning `rating === 'ma'` for back-compat with any missed call site). Versioned key stays so any lingering `btd-adult-mode=1` from testing does NOT auto-promote to MA — user must re-pick.
+## 2. Hard-gate Adults Only questions behind MA rating
 
-## Cache
+The Vox line pools are already correctly gated (audit confirmed every `isAdultMode()` call defaults to the safe pool when rating is `pg`/`pg13`/unset). **But the question pool itself is not gated** — both "Adults Only" categories have `off_by_default = false` in `category_meta`, so on a fresh room they're checked by default and R-rated questions can be drawn even when the host picked PG.
 
-- `elf-voice.ts` cache namespacing already keys on voice; no change needed. PG-13 uses the same baked standard Elf clips as PG (it's a filter, not a new bake).
-- MA still uses the `persona-adult-elf` namespace already in place.
+Fix:
+- In the host lobby, when the effective rating is `pg` or `pg13` (or unset), the Adults Only category chip is:
+  - forced OFF,
+  - visually locked (lock icon, muted styling, disabled),
+  - tooltip: "Requires MA 18+ rating".
+- When the host switches to MA (after the age/terms modal), the chip unlocks and can be toggled.
+- Belt-and-suspenders in `src/lib/category-utils.ts` (or the fetch layer): filter Adults Only out of the enabled set at question-draw time whenever `effectiveRating() !== "ma"`, so a stale sessionStorage or race can't leak an adult question.
+- Set `off_by_default = true` on both Adults Only rows in `category_meta` via migration so the default state is opt-in.
 
-## Backstop
+---
 
-Until a rating is chosen, `speakPersona` / `pickPersonaLine` short-circuit and return silent (or fall back to a single neutral "Let's go!" line). This guarantees no adult line ever plays before the host picks.
+## 3. Consolidate 49 categories → 15
 
-## Files to change
+Current live counts (49 distinct values, several duplicates and micro-categories):
 
-- `src/lib/adult-mode.ts` — expand to `getContentRating()` / `setContentRating()`, keep `isAdultMode()` shim.
-- `src/lib/host-persona.ts` — 3-way pool selection in `pickPersonaLine`; add PG filter.
-- `src/lib/persona-live.ts`, `src/lib/player-highlights.ts`, `src/lib/lobby-banter.ts` — use `getContentRating()`.
-- `src/routes/host.tsx` — rating selector card in lobby, gate Start Game, persist rating on room doc, show header chip, initialize adult cache only when `ma`.
-- `src/routes/settings.adult.tsx` — on confirm, set rating to `ma` (instead of just the boolean flag) and return to `/host`.
-- Firestore room doc — new `contentRating` field, read by player views if they also play persona audio.
+Proposed consolidation mapping (destructive `UPDATE questions SET category = ...` in a single migration, plus rebuild of `category_meta`):
 
-## Open question
+| Final category (emoji)          | Merged from                                                                                                    |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 🧠 General Knowledge            | General Knowledge, Funny Facts, Gross facts, Bar Trivia                                                        |
+| 🧒 Kids                         | Kids, 80's kids                                                                                                 |
+| 💸 Adulting                     | Adulting                                                                                                        |
+| 🎬 Movies                       | Movies, Movie Sci-Fi, All things Hollywood, Famous Hollywood Movies, Popular Movies, Comedy Classics, Bad Movies / So Bad It's Good, Twilight Saga |
+| 🎵 Music                        | Music, 80's Music, Song Lyrics, Broadway & Musicals, Movies & Music (music half)                                |
+| 📺 TV & Pop Culture             | Pop Culture, 2000s Pop Culture, 90s Nostalgia, Celebrity Gossip, Internet & Memes, TV Shows                     |
+| 🏟️ Sports                      | Sports, Pittsburgh Sports, MLB & NHL                                                                            |
+| 🌍 Geography & Travel           | Geography, Travel & Landmarks                                                                                   |
+| 📜 History                      | History, World History                                                                                          |
+| 🔬 Science & Nature             | Science, Science & Nature, Animals & Nature                                                                     |
+| 💻 Tech & Games                 | Technology, Video Games                                                                                          |
+| 🍔 Food & Drink                 | Food & Drink, Fast Food & Junk Food, Booze & Cocktails                                                          |
+| 🎨 Arts & Literature            | Art & Culture, Literature                                                                                        |
+| 🎉 Lifestyle & Holidays         | Holidays & Traditions, Cars & Transportation, True Crime                                                        |
+| 📖 Chapter & Verse              | Chapter & Verse                                                                                                  |
+| 😈 Adults Only *(MA gated)*     | Adults Only, adults Only                                                                                        |
 
-Should I also tag existing standard lines with a `sass` level so PG can strip the spicier-but-clean burns (e.g. "you got dumpstered")? Or is standard-as-is fine for PG and PG-13 is identical to PG? Cheapest path: PG === PG-13 === standard pool, MA === adult pool — two ratings, not three. Let me know which you want before I build.
+Migration steps:
+1. `UPDATE questions SET category = <target>` per group above (case-insensitive match on "adults only").
+2. Wipe `category_meta` and re-seed with the 16 rows, with `off_by_default = true` only on `Adults Only`.
+3. `list_question_categories()` RPC continues to work unchanged (still groups by column).
+
+Note on `Movies & Music`: only 49 rows — I'd spot-check whether each row leans movie or music and split, but that's a manual review. Default is to fold the whole thing into Movies (safer for now); tell me if you want me to spot-split instead.
+
+---
+
+## Confirmations needed before I build
+
+1. **Consolidation mapping** above OK, or want me to change any groupings? (This is destructive — question rows get relabeled permanently.)
+2. **Movies & Music (49 rows)**: fold into Movies (default), fold into Music, or leave standalone?
+3. **`off_by_default` on the new set**: only Adults Only defaults off? Or also default-off `Chapter & Verse` (religious)?
+
+Say "go" with any tweaks and I'll execute all three changes in one pass.
