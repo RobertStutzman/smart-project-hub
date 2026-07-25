@@ -297,6 +297,10 @@ export const nextQuestion = createServerFn({ method: "POST" })
       // never draw from it — not even through the "any category" fallback.
       const adultsAllowed = !!enabled && enabled.includes("Adults Only");
       if (!adultsAllowed) qQuery = qQuery.neq("category", "Adults Only");
+      // Rating gate: PG → PG only. PG-13 → PG + PG-13. MA → all.
+      const rating = (room as { content_rating?: string | null }).content_rating ?? "pg13";
+      const ratingAllow = rating === "pg" ? ["pg"] : rating === "ma" ? ["pg", "pg13", "ma"] : ["pg", "pg13"];
+      qQuery = qQuery.in("content_rating", ratingAllow);
       if (difficulty) qQuery = qQuery.eq("difficulty", difficulty);
       if (usedIds.length > 0) qQuery = qQuery.not("id", "in", `(${usedIds.join(",")})`);
       // Global rotation: least-used first, then oldest-used (nulls = never used → top).
@@ -306,6 +310,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
         .limit(12);
       return data ?? [];
     }
+
 
 
 
