@@ -964,32 +964,37 @@ function HostPage() {
   });
 
   async function actuallyStart() {
-
     if (!room) return;
-    play("whoosh");
-    // Hard-stop every lobby audio source before flipping the phase, so a
-    // mid-flight "still waiting" / join callout can't leak into IntroStage.
+    const step = (name: string) => console.info("[start]", name);
     try {
-      const { cancelElfSpeech } = await import("@/lib/elf-voice");
-      cancelElfSpeech();
-    } catch {}
-    stopMusic();
-    joinQueueRef.current = [];
-    try {
-      const win = window as unknown as { __btdWelcomedRooms?: Set<string> };
-      win.__btdWelcomedRooms?.delete(room.id);
-    } catch {}
-    try {
-      // Always reset per-game state before launching, so a stale row from a
-      // previous ended game can't bump round_number into the final-round range.
+      step("whoosh");
+      play("whoosh");
+      step("cancel-elf");
+      try {
+        const { cancelElfSpeech } = await import("@/lib/elf-voice");
+        cancelElfSpeech();
+      } catch (e) { console.warn("[start] cancel-elf failed", e); }
+      step("stop-music");
+      stopMusic();
+      joinQueueRef.current = [];
+      try {
+        const win = window as unknown as { __btdWelcomedRooms?: Set<string> };
+        win.__btdWelcomedRooms?.delete(room.id);
+      } catch {}
+      step("restartGame");
       await restartGameFn({
         data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
       });
+      step("setPhase:intro");
       await setPhaseFn({
         data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, phase: "intro" },
       });
+      step("done");
     } catch (e) {
-      setError((e as Error).message);
+      const msg = (e as Error)?.message || String(e);
+      console.error("[start] failed", e);
+      setError(msg);
+      toast.error(`Couldn't start: ${msg}`, { duration: 8000 });
     }
   }
 
