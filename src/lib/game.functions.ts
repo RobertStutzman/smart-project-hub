@@ -958,10 +958,14 @@ export const startFinalRound = createServerFn({ method: "POST" })
       const enabled = (room as { enabled_categories?: string[] | null }).enabled_categories;
       if (attempt.useCategory && enabled && enabled.length > 0)
         qQuery = qQuery.in("category", enabled);
+      // Hard-gate Adults Only unless explicitly enabled for this room.
+      const adultsAllowed = !!enabled && enabled.includes("Adults Only");
+      if (!adultsAllowed) qQuery = qQuery.neq("category", "Adults Only");
       if (attempt.difficulties)
         qQuery = qQuery.in("difficulty", attempt.difficulties);
       if (usedIds.length > 0)
         qQuery = qQuery.not("id", "in", `(${usedIds.join(",")})`);
+
       // Global rotation: least-used first, then oldest-used.
       const { data: candidates } = await qQuery
         .order("times_used", { ascending: true })
