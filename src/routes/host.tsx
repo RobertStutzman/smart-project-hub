@@ -485,10 +485,15 @@ function HostPage() {
           import("@/lib/elf-voice"),
         ]);
         setActiveRoomId(room.id);
+        // Adult caches are only fetched when the user has opted into Adult
+        // Mode via /settings/adult. Standard game stays fast and untouched.
+        const adultOn =
+          typeof window !== "undefined" &&
+          window.sessionStorage.getItem("btd-adult-mode") === "1";
         const [res, resAdult, resAdultF] = await Promise.all([
           getPersonaCacheMap().catch(() => null),
-          getPersonaCacheMapAdult().catch(() => null),
-          getPersonaCacheMapAdultFemale().catch(() => null),
+          adultOn ? getPersonaCacheMapAdult().catch(() => null) : Promise.resolve(null),
+          adultOn ? getPersonaCacheMapAdultFemale().catch(() => null) : Promise.resolve(null),
         ]);
         if (cancelled) return;
         if (res?.map) initPersonaCache(res.map);

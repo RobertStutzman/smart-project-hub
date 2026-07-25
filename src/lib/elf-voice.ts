@@ -9,7 +9,7 @@ type Voice = "standard" | "adult" | "adult_female";
 
 // text → signed storage URL (pre-baked persona pack). Seeded once per session.
 const urlCache = new Map<string, string>();
-// Same, but for the adult/party-mode male persona pack (Bill voice).
+// Same, but for the adult/party-mode male persona pack (Elf voice + raunchy pool).
 const urlCacheAdult = new Map<string, string>();
 // Adult-mode female co-host pack (Jessica voice).
 const urlCacheAdultFemale = new Map<string, string>();

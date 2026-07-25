@@ -264,8 +264,8 @@ function EventsPanel({
   async function handleGeneratePersonaAdult() {
     const missing = personaAdultStats ? personaAdultStats.total - personaAdultStats.baked : null;
     const msg = missing != null
-      ? `Bake ${missing} missing ADULT Vox catchphrase${missing === 1 ? "" : "s"}? These use a distinct ElevenLabs voice (Bill — gravelly, older) for adult/party mode. Already-baked lines are skipped. Calls ElevenLabs — takes several minutes.`
-      : `Pre-bake the ADULT Vox catchphrases (party-mode host voice). Already-baked are skipped. Calls ElevenLabs once per missing line.`;
+      ? `Bake ${missing} missing ADULT Vox catchphrase${missing === 1 ? "" : "s"}? Uses the SAME Elf voice as standard — only the raunchy line pool changes. Already-baked lines are skipped. Calls ElevenLabs — takes several minutes.`
+      : `Pre-bake the ADULT Vox catchphrases (raunchy Elf lines, adult mode only). Already-baked are skipped. Calls ElevenLabs once per missing line.`;
     if (!window.confirm(msg)) return;
     setGeneratingPersonaAdult(true);
     const remaining = missing ?? 0;
@@ -314,7 +314,7 @@ function EventsPanel({
   async function handleResetPersonaAdult() {
     if (
       !window.confirm(
-        "Wipe all baked ADULT Vox catchphrases? They were baked in the old (Bill) voice. After reset, click 'Bake ADULT Vox' again to regenerate in the main host voice. This cannot be undone.",
+        "Wipe all baked ADULT Vox catchphrases? Any that were baked in the old (wrong) voice will be purged so re-bakes regenerate them in the main Elf voice. This cannot be undone.",
       )
     )
       return;
@@ -326,6 +326,63 @@ function EventsPanel({
       await onChange();
     } catch (err) {
       toast.error((err as Error).message, { id: toastId });
+    }
+  }
+
+  async function handlePrebakeAllElf() {
+    if (
+      !window.confirm(
+        "🔥 Pre-bake ALL Elf content?\n\nThis will:\n 1. Wipe any old (wrong-voice) ADULT clips\n 2. Bake every missing STANDARD Vox line in Elf's voice\n 3. Bake every missing ADULT Vox line in Elf's voice\n\nBurns credits. Takes several minutes. Sasha (female co-host) is NOT included — bake her separately.",
+      )
+    )
+      return;
+    const toastId = toast.loading("🔥 Wiping old adult clips…");
+    try {
+      const res = await resetPersonaAdultFn();
+      toast.loading(`Wiped ${res.removed} old clips. Baking standard Vox…`, { id: toastId });
+
+      // Standard Vox — loop until drained
+      setGeneratingPersona(true);
+      let stdGen = 0;
+      let stdSafety = 0;
+      const stdFailed = new Set<string>();
+      while (stdSafety++ < 400) {
+        const r = await generatePersonaFn({ data: { limit: 20, excludeSlots: Array.from(stdFailed) } });
+        stdGen += r.generated;
+        for (const s of r.failedSlots) stdFailed.add(s);
+        setPersonaProgress(`Standard Vox baked: ${stdGen}`);
+        toast.loading(`Standard Vox baked: ${stdGen}. Adult next…`, { id: toastId });
+        if (r.processed === 0 || r.remaining === 0) break;
+      }
+      setGeneratingPersona(false);
+      setPersonaProgress(null);
+      await loadPersonaStats();
+
+      // Adult Vox — loop until drained
+      setGeneratingPersonaAdult(true);
+      let adGen = 0;
+      let adSafety = 0;
+      const adFailed = new Set<string>();
+      while (adSafety++ < 400) {
+        const r = await generatePersonaAdultFn({ data: { limit: 20, excludeSlots: Array.from(adFailed) } });
+        adGen += r.generated;
+        for (const s of r.failedSlots) adFailed.add(s);
+        setPersonaAdultProgress(`Adult Vox baked: ${adGen}`);
+        toast.loading(`Standard: ${stdGen} · Adult: ${adGen}`, { id: toastId });
+        if (r.processed === 0 || r.remaining === 0) break;
+      }
+      setGeneratingPersonaAdult(false);
+      setPersonaAdultProgress(null);
+      await loadPersonaAdultStats();
+
+      toast.success(`🔥 Done! Baked ${stdGen} standard + ${adGen} adult Elf lines.`, { id: toastId });
+      await onChange();
+    } catch (err) {
+      toast.error((err as Error).message, { id: toastId });
+      setGeneratingPersona(false);
+      setGeneratingPersonaAdult(false);
+      setPersonaProgress(null);
+      setPersonaAdultProgress(null);
     }
   }
 
@@ -492,6 +549,14 @@ function EventsPanel({
             title="Delete all old adult clips (baked in wrong voice) so you can re-bake in the main host voice"
           >
             🗑️ Reset adult pack (old voice)
+          </button>
+          <button
+            onClick={() => void handlePrebakeAllElf()}
+            disabled={generatingPersona || generatingPersonaAdult}
+            className="rounded-full bg-gradient-to-r from-orange-600 to-red-600 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-orange-400/40 transition hover:from-orange-500 hover:to-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+            title="Wipe old adult voice + bake every missing standard & adult Elf line"
+          >
+            🔥 Pre-bake ALL Elf content
           </button>
           <button
             onClick={() => void handleGeneratePersonaAdultFemale()}
