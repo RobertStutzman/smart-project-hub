@@ -1203,7 +1203,11 @@ function HostPage() {
           >
             {canStart
               ? "▶ Press OK to start the show"
-              : "Waiting for players…"}
+              : livePlayers.length === 0
+                ? "Waiting for players…"
+                : rating === null
+                  ? "Pick a content rating above ↑"
+                  : "Waiting…"}
           </motion.button>
 
           <div className="relative flex items-center justify-center">
