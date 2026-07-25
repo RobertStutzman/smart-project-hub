@@ -24,6 +24,7 @@ import {
   bakeAllQuestionTTS,
   bakeAllExplanationTTS,
   generateAnnouncerPack,
+  generateMusicPack,
   generatePersonaPack,
   getExplanationTTSStats,
   getPersonaPackStats,
