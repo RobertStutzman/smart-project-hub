@@ -8,6 +8,8 @@ type Preset = "hype" | "calm";
 
 // text → signed storage URL (pre-baked persona pack). Seeded once per session.
 const urlCache = new Map<string, string>();
+// Same, but for the adult/party-mode persona pack (different voice).
+const urlCacheAdult = new Map<string, string>();
 
 // Active game room (set by HostGameStage). Threaded to the server so the
 // per-game ElevenLabs call cap can charge the right room.
@@ -19,6 +21,22 @@ export function setActiveRoomId(roomId: string | null) {
 export function initPersonaCache(map: Record<string, string>) {
   for (const [text, url] of Object.entries(map)) {
     urlCache.set(text, url);
+  }
+}
+
+export function initPersonaCacheAdult(map: Record<string, string>) {
+  for (const [text, url] of Object.entries(map)) {
+    urlCacheAdult.set(text, url);
+  }
+}
+
+/** Read the current adult-mode flag from sessionStorage. Client-only. */
+function isAdultMode(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.sessionStorage.getItem("btd-adult-mode") === "1";
+  } catch {
+    return false;
   }
 }
 
