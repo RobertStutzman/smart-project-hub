@@ -25,6 +25,7 @@ import {
   bakeAllExplanationTTS,
   generateAnnouncerPack,
   generateMusicPack,
+  bakeEliminationSfxPack,
   generatePersonaPack,
   generatePersonaPackAdult,
   generatePersonaPackAdultFemale,
