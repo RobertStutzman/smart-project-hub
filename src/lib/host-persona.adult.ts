@@ -4,7 +4,9 @@
 //   - No slurs, no minors, no real-person targeting, nothing non-consensual.
 import { EXTRA_LINES_ADULT } from "@/lib/host-persona.extra.adult";
 import { FLIRTY_LINES_ADULT } from "@/lib/host-persona.flirty.adult";
+import { XL_LINES_ADULT } from "@/lib/host-persona.xl.adult";
 export { ADULT_FLIRT_NAMES } from "@/lib/host-persona.flirty.adult";
+
 
 
 type Moment =
@@ -779,6 +781,7 @@ export const LINES_ADULT: Record<Moment, string[]> = Object.fromEntries(
       ...BASE_LINES_ADULT[k],
       ...(EXTRA_LINES_ADULT[k] ?? []),
       ...(FLIRTY_LINES_ADULT[k] ?? []),
+      ...(XL_LINES_ADULT[k] ?? []),
     ],
   ]),
 ) as Record<Moment, string[]>;
