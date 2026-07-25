@@ -607,13 +607,15 @@ export const speakPersonaLine = createServerFn({ method: "POST" })
     z.object({
       text: z.string().min(1).max(600),
       preset: z.enum(["hype", "calm"]).optional(),
+      voice: z.enum(["standard", "adult"]).optional(),
       roomId: z.string().uuid().optional(),
     }).parse,
   )
   .handler(async ({ data }) => {
     const preset = data.preset ?? "hype";
+    const voice = data.voice ?? "standard";
     const text = data.text;
-    const hash = hashTtsKey(preset, text);
+    const hash = hashTtsKey(preset, text, voice);
     const charCount = text.length;
     const roomId = data.roomId ?? null;
 
