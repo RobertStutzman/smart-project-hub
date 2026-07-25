@@ -487,6 +487,13 @@ function EventsPanel({
                 : "🥃 Bake ADULT Vox catchphrases"}
           </button>
           <button
+            onClick={() => void handleResetPersonaAdult()}
+            className="rounded-full bg-red-800 px-4 py-2 text-xs font-bold text-white shadow-md ring-1 ring-red-400/30 transition hover:bg-red-700"
+            title="Delete all old adult clips (baked in wrong voice) so you can re-bake in the main host voice"
+          >
+            🗑️ Reset adult pack (old voice)
+          </button>
+          <button
             onClick={() => void handleGeneratePersonaAdultFemale()}
             disabled={generatingPersonaAdultFemale}
             className="rounded-full bg-rose-700 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-rose-400/30 transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
