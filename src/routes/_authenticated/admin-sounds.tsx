@@ -156,11 +156,16 @@ function EventsPanel({
   const generateMusicPackFn = useServerFn(generateMusicPack);
   const generatePersonaFn = useServerFn(generatePersonaPack);
   const personaStatsFn = useServerFn(getPersonaPackStats);
+  const generatePersonaAdultFn = useServerFn(generatePersonaPackAdult);
+  const personaStatsAdultFn = useServerFn(getPersonaPackAdultStats);
   const [generating, setGenerating] = useState(false);
   const [generatingMusic, setGeneratingMusic] = useState(false);
   const [generatingPersona, setGeneratingPersona] = useState(false);
   const [personaProgress, setPersonaProgress] = useState<string | null>(null);
   const [personaStats, setPersonaStats] = useState<{ total: number; baked: number } | null>(null);
+  const [generatingPersonaAdult, setGeneratingPersonaAdult] = useState(false);
+  const [personaAdultProgress, setPersonaAdultProgress] = useState<string | null>(null);
+  const [personaAdultStats, setPersonaAdultStats] = useState<{ total: number; baked: number } | null>(null);
 
   async function loadPersonaStats() {
     try {
