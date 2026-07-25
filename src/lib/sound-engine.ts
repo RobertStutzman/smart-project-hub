@@ -214,7 +214,10 @@ function playInner(sfx: Sfx) {
       sweep(200, 60, 0.4, "square", 0.09);
       break;
     case "drop":
-      sweep(800, 80, 0.6, "sawtooth", 0.25);
+      // Cinematic sub-thump fallback (used until premium ElevenLabs bank
+      // loads). Deep, short, no cheesy sawtooth "bing".
+      sweep(95, 45, 0.22, "sine", 0.32);
+      sweep(55, 32, 0.28, "sine", 0.2, 0.01);
       break;
     case "tick": {
       if (!playTickClip("tick", 0.7)) {
