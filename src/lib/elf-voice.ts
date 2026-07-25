@@ -133,8 +133,12 @@ type FetchResult =
   | { kind: "skipped" }
   | null;
 
-async function fetchAudio(text: string, preset: Preset): Promise<FetchResult> {
-  const key = `${preset}::${text}`;
+async function fetchAudio(
+  text: string,
+  preset: Preset,
+  voice: "standard" | "adult" = "standard",
+): Promise<FetchResult> {
+  const key = voice === "adult" ? `adult::${preset}::${text}` : `${preset}::${text}`;
   const hit = cacheGet(key);
   if (hit) {
     return hit.startsWith(URL_PREFIX)
@@ -143,7 +147,7 @@ async function fetchAudio(text: string, preset: Preset): Promise<FetchResult> {
   }
   try {
     const res = await speakPersonaLine({
-      data: { text, preset, roomId: activeRoomId ?? undefined },
+      data: { text, preset, voice, roomId: activeRoomId ?? undefined },
     });
     if (res && "skipped" in res && res.skipped) return { kind: "skipped" };
     if (res && "audioUrl" in res && res.audioUrl) {
