@@ -1101,9 +1101,10 @@ export const getPersonaCacheMap = createServerFn({ method: "GET" })
 
 
 // ──────────────────────────────────────────────────────────────────────────
-// Adult / party-mode persona pack — mirrors the Vox pack but with a distinct
-// ElevenLabs voice (Bill) and the adult catchphrase pool.
+// Adult / party-mode persona pack — SAME Elf voice as standard, only the
+// line pool changes (raunchier scripts + flirt-name variants).
 // ──────────────────────────────────────────────────────────────────────────
+
 
 async function ensurePersonaFolderAdult() {
   const { data } = await supabaseAdmin
