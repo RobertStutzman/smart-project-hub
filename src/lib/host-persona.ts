@@ -2,7 +2,7 @@
 // Catchphrases used by HostGameStage to react to game moments.
 // Lines are intentionally short so the browser speechSynthesis voice
 // (or a pre-baked TTS file) reads them in under ~3 seconds.
-import { LINES_ADULT } from "@/lib/host-persona.adult";
+import { LINES_ADULT, ADULT_FLIRT_NAMES } from "@/lib/host-persona.adult";
 import { EXTRA_LINES } from "@/lib/host-persona.extra";
 import { pickFresh } from "@/lib/no-repeat";
 
@@ -798,7 +798,15 @@ export function pickLine(moment: Moment, seed: string | number = Date.now()): st
     }
   }
   const key = `host-persona:${adult ? "a" : "s"}:${moment}`;
-  return pickFresh(key, pool, { seed });
+  const raw = pickFresh(key, pool, { seed });
+  // Adult-mode {flirtName} substitution — pick a random flirt name. Baker
+  // pre-generates one audio file per (line × name) combo so the resolved
+  // string matches a baked entry exactly.
+  if (adult && raw.includes("{flirtName}")) {
+    const name = ADULT_FLIRT_NAMES[Math.floor(Math.random() * ADULT_FLIRT_NAMES.length)];
+    return raw.replace(/\{flirtName\}/g, name);
+  }
+  return raw;
 }
 
 
