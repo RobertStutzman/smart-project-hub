@@ -37,7 +37,14 @@ import { useHostStageMode } from "@/hooks/useHostStageMode";
 import { useHostHotkeys } from "@/hooks/useHostHotkeys";
 
 import { useWakeLock } from "@/hooks/use-wake-lock";
-import { isAdultMode } from "@/lib/adult-mode";
+import {
+  isAdultMode,
+  getContentRating,
+  setContentRating,
+  subscribeContentRating,
+  clearAdultMode,
+  type ContentRating,
+} from "@/lib/adult-mode";
 
 
 export const Route = createFileRoute("/host")({
