@@ -1218,7 +1218,11 @@ export const getPersonaPackAdultStats = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
     let total = 0;
-    for (const lines of Object.values(PERSONA_LINES_ADULT)) total += lines.length;
+    for (const lines of Object.values(PERSONA_LINES_ADULT)) {
+      for (const text of lines) {
+        total += text.includes("{flirtName}") ? ADULT_FLIRT_NAMES.length : 1;
+      }
+    }
     const { count: baked } = await supabaseAdmin
       .from("sound_clips")
       .select("id", { count: "exact", head: true })
