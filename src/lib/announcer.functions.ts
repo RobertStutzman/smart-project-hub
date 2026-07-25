@@ -17,7 +17,6 @@ const PERSONA_FOLDER = "Persona";
 const PERSONA_CATEGORY = "Persona";
 const PERSONA_FOLDER_ADULT = "Persona Adult Elf";
 const PERSONA_CATEGORY_ADULT = "Persona Adult Elf";
-const PERSONA_FOLDER_ADULT_LEGACY = "Persona Adult";
 const PERSONA_CATEGORY_ADULT_LEGACY = "Persona Adult";
 const PERSONA_FOLDER_ADULT_FEMALE = "Persona Adult Female";
 const PERSONA_CATEGORY_ADULT_FEMALE = "Persona Adult Female";
