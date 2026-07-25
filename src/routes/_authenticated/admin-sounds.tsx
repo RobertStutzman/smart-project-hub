@@ -234,6 +234,31 @@ function EventsPanel({
     }
   }
 
+  async function handleGenerateMusicPack() {
+    if (
+      !window.confirm(
+        "Generate the FULL AI music pack? This calls ElevenLabs Music 8 separate times (lobby loop, round intro, correct/wrong/reveal stings, leaderboard, final, victory fanfare) and auto-assigns each to its game event. Takes 4-6 minutes.",
+      )
+    )
+      return;
+    setGeneratingMusic(true);
+    try {
+      const res = await generateMusicPackFn();
+      if (res.errors.length) {
+        toast.warning(
+          `Generated ${res.generated.length}/${res.total}. Errors: ${res.errors.join("; ")}`,
+        );
+      } else {
+        toast.success(`Generated ${res.generated.length} music tracks`);
+      }
+      await onChange();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setGeneratingMusic(false);
+    }
+  }
+
   async function handleGenerate() {
     if (
       !window.confirm(
