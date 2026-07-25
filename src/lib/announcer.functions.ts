@@ -316,17 +316,25 @@ async function generateTTS(
 async function generateMusic(prompt: string, durationMs = 30000): Promise<ArrayBuffer> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) throw new Error("ELEVENLABS_API_KEY not configured");
-  const res = await fetch(`https://api.elevenlabs.io/v1/music`, {
-    method: "POST",
-    headers: {
-      "xi-api-key": apiKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      prompt,
-      music_length_ms: durationMs,
-    }),
+  const body = JSON.stringify({
+    prompt,
+    duration_seconds: Math.max(1, Math.round(durationMs / 1000)),
   });
+  let res: Response | undefined;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    res = await fetch(`https://api.elevenlabs.io/v1/music`, {
+      method: "POST",
+      headers: {
+        "xi-api-key": apiKey,
+        "Content-Type": "application/json",
+      },
+      body,
+    });
+    if (![408, 429, 500, 502, 503, 504].includes(res.status)) break;
+    if (attempt < 2) await new Promise((r) => setTimeout(r, 1_000 * (attempt + 1)));
+  }
+
+  if (!res) throw new Error("ElevenLabs Music request did not start");
   if (!res.ok) {
     const err = await res.text();
     throw new Error(`ElevenLabs Music failed (${res.status}): ${err.slice(0, 200)}`);
@@ -478,14 +486,24 @@ async function upsertMusicClip(args: {
 
 export const generateMusicPack = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator(
+    (input: unknown) => z.object({
+      limit: z.number().int().min(1).max(MUSIC_PACK.length).optional(),
+      excludeSlots: z.array(z.string()).max(MUSIC_PACK.length).optional(),
+    }).optional().parse(input) ?? {},
+  )
+  .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
     await ensureMusicFolder();
 
     const generated: string[] = [];
     const errors: string[] = [];
+    const failedSlots: string[] = [];
+    const excluded = new Set(data?.excludeSlots ?? []);
+    const limit = data?.limit ?? MUSIC_PACK.length;
+    const pending = MUSIC_PACK.filter((track) => !excluded.has(track.slot));
 
-    for (const track of MUSIC_PACK) {
+    for (const track of pending.slice(0, limit)) {
       try {
         const audio = await generateMusic(track.prompt, track.durationMs);
         await upsertMusicClip({
@@ -499,6 +517,7 @@ export const generateMusicPack = createServerFn({ method: "POST" })
         generated.push(track.slot);
       } catch (e) {
         errors.push(`${track.slot}: ${(e as Error).message}`);
+        failedSlots.push(track.slot);
       }
     }
 
@@ -506,6 +525,9 @@ export const generateMusicPack = createServerFn({ method: "POST" })
       generated,
       errors,
       total: MUSIC_PACK.length,
+      processed: Math.min(limit, pending.length),
+      remaining: Math.max(0, pending.length - generated.length),
+      failedSlots,
     };
   });
 
