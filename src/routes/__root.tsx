@@ -254,7 +254,17 @@ function RootComponent() {
       try { window.sessionStorage.setItem(RELOAD_FLAG, "1"); } catch {}
       window.location.reload();
     };
+    const onUnhandledRejection = (e: PromiseRejectionEvent) => {
+      const msg = (e.reason as { message?: string } | undefined)?.message ?? String(e.reason ?? "");
+      if (!STALE_CHUNK_RE.test(msg)) return;
+      e.preventDefault();
+      const already = window.sessionStorage.getItem(RELOAD_FLAG) === "1";
+      if (already) return;
+      try { window.sessionStorage.setItem(RELOAD_FLAG, "1"); } catch {}
+      window.location.reload();
+    };
     window.addEventListener("vite:preloadError", onPreloadError);
+    window.addEventListener("unhandledrejection", onUnhandledRejection);
     // Clear the guard once the app has successfully hydrated a fresh build.
     try { window.sessionStorage.removeItem(RELOAD_FLAG); } catch {}
 
@@ -263,6 +273,7 @@ function RootComponent() {
       window.removeEventListener("keydown", tryUnlock, true);
       window.removeEventListener("touchstart", tryUnlock, true);
       window.removeEventListener("vite:preloadError", onPreloadError);
+      window.removeEventListener("unhandledrejection", onUnhandledRejection);
     };
   }, []);
 
