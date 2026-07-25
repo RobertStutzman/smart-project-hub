@@ -1892,50 +1892,72 @@ export function HostGameStage({ room }: Props) {
   }
 
   // lobby — show start button overlay
+  if (state.phase === "lobby") {
+    return (
+      <div className="grid h-full place-items-center p-8">
+        <div className="flex flex-col items-center gap-4">
+          <button
+            data-host-primary="true"
+            onClick={() => {
+              play("whoosh");
+              setPhaseFn({
+                data: {
+                  roomCode: room.roomCode,
+                  hostSessionId: room.hostSessionId,
+                  phase: "intro",
+                },
+              }).catch(() => {});
+            }}
+            className="rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-10 py-5 font-display text-xl font-black uppercase tracking-wider text-amber-950 shadow-[0_0_50px_oklch(0.85_0.18_85/0.55)] transition hover:scale-[1.03]"
+          >
+            🎬 Start the show
+          </button>
+          <button
+            onClick={() => {
+              play("whoosh");
+              nextQuestionFn({
+                data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
+              }).catch(() => {});
+            }}
+            className="text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground"
+          >
+            Skip intro · jump straight to question
+          </button>
+          <button
+            onClick={() =>
+              setPhaseFn({
+                data: {
+                  roomCode: room.roomCode,
+                  hostSessionId: room.hostSessionId,
+                  phase: "leaderboard",
+                },
+              }).catch(() => {})
+            }
+            className="text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground"
+          >
+            Show leaderboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Transient phases (e.g. "advancing" during nextQuestion's compare-and-swap):
+  // render a quiet placeholder instead of the lobby CTA so "Start the show"
+  // never flashes between questions.
   return (
-    <div className="grid h-full place-items-center p-8">
-      <div className="flex flex-col items-center gap-4">
-        <button
-          data-host-primary="true"
-          onClick={() => {
-            play("whoosh");
-            setPhaseFn({
-              data: {
-                roomCode: room.roomCode,
-                hostSessionId: room.hostSessionId,
-                phase: "intro",
-              },
-            }).catch(() => {});
-          }}
-          className="rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-10 py-5 font-display text-xl font-black uppercase tracking-wider text-amber-950 shadow-[0_0_50px_oklch(0.85_0.18_85/0.55)] transition hover:scale-[1.03]"
-        >
-          🎬 Start the show
-        </button>
-        <button
-          onClick={() => {
-            play("whoosh");
-            nextQuestionFn({
-              data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId },
-            }).catch(() => {});
-          }}
-          className="text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground"
-        >
-          Skip intro · jump straight to question
-        </button>
-        <button
-          onClick={() =>
-            setPhaseFn({
-              data: {
-                roomCode: room.roomCode,
-                hostSessionId: room.hostSessionId,
-                phase: "leaderboard",
-              },
-            }).catch(() => {})
-          }
-          className="text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground"
-        >
-          Show leaderboard
-        </button>
+    <div
+      className="grid h-full place-items-center p-8 text-white"
+      style={{
+        background:
+          "radial-gradient(ellipse 90% 60% at 50% 30%, oklch(0.22 0.04 270 / 0.95), oklch(0.08 0.02 270) 75%)",
+      }}
+    >
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-300/30 border-t-amber-300" />
+        <div className="text-[11px] font-bold uppercase tracking-[0.4em] text-amber-200/80">
+          Loading next question…
+        </div>
       </div>
     </div>
   );
