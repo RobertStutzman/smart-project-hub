@@ -467,6 +467,18 @@ function EventsPanel({
                 : "🥃 Bake ADULT Vox catchphrases"}
           </button>
           <button
+            onClick={() => void handleGeneratePersonaAdultFemale()}
+            disabled={generatingPersonaAdultFemale}
+            className="rounded-full bg-rose-700 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-rose-400/30 transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {generatingPersonaAdultFemale
+              ? personaAdultFemaleProgress ?? "💋 Baking Sasha co-host…"
+              : personaAdultStats && personaAdultStats.totalFemale != null
+                ? (personaAdultStats.bakedFemale ?? 0) >= (personaAdultStats.totalFemale ?? 0)
+                  ? `💋 Sasha fully baked (${personaAdultStats.bakedFemale}/${personaAdultStats.totalFemale}) — re-bake?`
+                  : `💋 Bake ${(personaAdultStats.totalFemale ?? 0) - (personaAdultStats.bakedFemale ?? 0)} missing Sasha line${(personaAdultStats.totalFemale ?? 0) - (personaAdultStats.bakedFemale ?? 0) === 1 ? "" : "s"} (${personaAdultStats.bakedFemale}/${personaAdultStats.totalFemale} done)`
+                : "💋 Bake Sasha (adult female co-host)"}
+          <button
             onClick={() => void handleGenerate()}
             disabled={generating}
             className="rounded-full bg-pink-600 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-pink-400/30 transition hover:bg-pink-500 disabled:cursor-not-allowed disabled:opacity-60"
