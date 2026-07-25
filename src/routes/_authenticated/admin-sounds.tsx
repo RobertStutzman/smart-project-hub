@@ -151,9 +151,11 @@ function EventsPanel({
 }) {
   const setEventFn = useServerFn(setEventAssignment);
   const generatePackFn = useServerFn(generateAnnouncerPack);
+  const generateMusicPackFn = useServerFn(generateMusicPack);
   const generatePersonaFn = useServerFn(generatePersonaPack);
   const personaStatsFn = useServerFn(getPersonaPackStats);
   const [generating, setGenerating] = useState(false);
+  const [generatingMusic, setGeneratingMusic] = useState(false);
   const [generatingPersona, setGeneratingPersona] = useState(false);
   const [personaProgress, setPersonaProgress] = useState<string | null>(null);
   const [personaStats, setPersonaStats] = useState<{ total: number; baked: number } | null>(null);
