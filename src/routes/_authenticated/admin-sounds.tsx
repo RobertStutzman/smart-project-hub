@@ -160,6 +160,7 @@ function EventsPanel({
   const personaStatsFn = useServerFn(getPersonaPackStats);
   const generatePersonaAdultFn = useServerFn(generatePersonaPackAdult);
   const generatePersonaAdultFemaleFn = useServerFn(generatePersonaPackAdultFemale);
+  const resetPersonaAdultFn = useServerFn(resetPersonaPackAdult);
   const personaStatsAdultFn = useServerFn(getPersonaPackAdultStats);
   const [generating, setGenerating] = useState(false);
   const [generatingMusic, setGeneratingMusic] = useState(false);
