@@ -392,6 +392,102 @@ async function upsertClip(args: {
   }
 }
 
+async function ensureMusicFolder() {
+  const { data } = await supabaseAdmin
+    .from("sound_folders")
+    .select("id")
+    .eq("name", MUSIC_FOLDER)
+    .maybeSingle();
+  if (!data) {
+    await supabaseAdmin
+      .from("sound_folders")
+      .insert({ name: MUSIC_FOLDER, sort_order: 2 });
+  }
+}
+
+async function upsertMusicClip(args: {
+  slot: string;
+  label: string;
+  audio: ArrayBuffer;
+  volume: number;
+  loop: boolean;
+  event: "lobby_music" | "round_intro" | "correct" | "wrong" | "reveal" | "leaderboard" | "final" | "victory";
+}) {
+  const path = `music/${args.slot}.mp3`;
+  const bytes = new Uint8Array(args.audio);
+
+  const { error: upErr } = await supabaseAdmin.storage
+    .from("question-media")
+    .upload(path, bytes, {
+      contentType: "audio/mpeg",
+      upsert: true,
+    });
+  if (upErr) throw new Error(`Upload failed for ${args.slot}: ${upErr.message}`);
+
+  await supabaseAdmin.from("sound_clips").delete().eq("storage_path", path);
+  const { data: inserted, error: insErr } = await supabaseAdmin
+    .from("sound_clips")
+    .insert({
+      slot: MUSIC_FOLDER,
+      category: MUSIC_FOLDER,
+      label: args.label,
+      storage_path: path,
+      original_filename: `${args.slot}.mp3`,
+      is_active: true,
+      audience_visible: false,
+      volume: args.volume,
+      loop: args.loop,
+    })
+    .select("id")
+    .single();
+  if (insErr) throw new Error(`Insert failed for ${args.slot}: ${insErr.message}`);
+
+  if (inserted) {
+    const patch = {
+      clip_id: inserted.id,
+      volume: args.volume,
+      loop: args.loop,
+      updated_at: new Date().toISOString(),
+    };
+    await supabaseAdmin
+      .from("sound_event_assignments")
+      .upsert({ event: args.event, ...patch }, { onConflict: "event" });
+  }
+}
+
+export const generateMusicPack = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    await ensureMusicFolder();
+
+    const generated: string[] = [];
+    const errors: string[] = [];
+
+    for (const track of MUSIC_PACK) {
+      try {
+        const audio = await generateMusic(track.prompt, track.durationMs);
+        await upsertMusicClip({
+          slot: track.slot,
+          label: track.label,
+          audio,
+          volume: track.volume,
+          loop: track.loop,
+          event: track.event,
+        });
+        generated.push(track.slot);
+      } catch (e) {
+        errors.push(`${track.slot}: ${(e as Error).message}`);
+      }
+    }
+
+    return {
+      generated,
+      errors,
+      total: MUSIC_PACK.length,
+    };
+  });
+
 export const generateAnnouncerPack = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
