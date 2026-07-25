@@ -1,4 +1,5 @@
 import { createStart, createMiddleware } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 
 import { renderErrorPage } from "./lib/error-page";
 import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
@@ -7,6 +8,15 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
     return await next();
   } catch (error) {
+    const request = getRequest();
+    const isServerFunctionRequest =
+      request?.headers.get("x-tsr-serverfn") === "true" ||
+      request?.headers.get("accept")?.includes("application/x-tss-framed");
+
+    if (isServerFunctionRequest) {
+      throw error;
+    }
+
     if (error != null && typeof error === "object" && "statusCode" in error) {
       throw error;
     }
