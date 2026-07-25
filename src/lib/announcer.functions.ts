@@ -1085,6 +1085,164 @@ export const getPersonaCacheMap = createServerFn({ method: "GET" })
 
 
 // ──────────────────────────────────────────────────────────────────────────
+// Adult / party-mode persona pack — mirrors the Vox pack but with a distinct
+// ElevenLabs voice (Bill) and the adult catchphrase pool.
+// ──────────────────────────────────────────────────────────────────────────
+
+async function ensurePersonaFolderAdult() {
+  const { data } = await supabaseAdmin
+    .from("sound_folders")
+    .select("id")
+    .eq("name", PERSONA_FOLDER_ADULT)
+    .maybeSingle();
+  if (!data) {
+    await supabaseAdmin
+      .from("sound_folders")
+      .insert({ name: PERSONA_FOLDER_ADULT, sort_order: 3 });
+  }
+}
+
+async function getExistingPersonaLabelsAdult(): Promise<Set<string>> {
+  const labels = new Set<string>();
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabaseAdmin
+      .from("sound_clips")
+      .select("label")
+      .eq("category", PERSONA_CATEGORY_ADULT)
+      .eq("is_active", true)
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    for (const row of data ?? []) labels.add((row.label as string) ?? "");
+    if (!data || data.length < pageSize) break;
+  }
+  return labels;
+}
+
+export const generatePersonaPackAdult = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: unknown) => z.object({
+      force: z.boolean().optional(),
+      limit: z.number().int().min(1).max(50).optional(),
+      excludeSlots: z.array(z.string()).max(2000).optional(),
+    }).optional().parse(input) ?? {},
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    await ensurePersonaFolderAdult();
+    const force = data?.force ?? false;
+    const limit = data?.limit ?? 20;
+    const excludedSlots = new Set(data?.excludeSlots ?? []);
+
+    const generated: string[] = [];
+    const errors: string[] = [];
+    const failedSlots: string[] = [];
+    const flat: { slot: string; text: string }[] = [];
+    for (const [moment, lines] of Object.entries(PERSONA_LINES_ADULT)) {
+      lines.forEach((text, idx) => {
+        flat.push({ slot: `persona_adult_${moment}_${idx}`, text });
+      });
+    }
+
+    const existingLabels = force ? new Set<string>() : await getExistingPersonaLabelsAdult();
+    const pending = (force ? flat : flat.filter((item) => !existingLabels.has(item.text))).filter(
+      (item) => !excludedSlots.has(item.slot),
+    );
+    const batch = pending.slice(0, limit);
+
+    for (const item of batch) {
+      try {
+        const audio = await generateTTS(
+          item.text,
+          {
+            stability: 0.25,
+            similarity_boost: 0.8,
+            style: 0.85,
+            use_speaker_boost: true,
+            speed: 1.0,
+          },
+          ADULT_VOICE_ID,
+        );
+        const path = `persona-adult/${item.slot}.mp3`;
+        const { error: upErr } = await supabaseAdmin.storage
+          .from("question-media")
+          .upload(path, new Uint8Array(audio), {
+            contentType: "audio/mpeg",
+            upsert: true,
+          });
+        if (upErr) throw new Error(upErr.message);
+
+        await supabaseAdmin.from("sound_clips").delete().eq("storage_path", path);
+        const { error: insErr } = await supabaseAdmin.from("sound_clips").insert({
+          slot: PERSONA_FOLDER_ADULT,
+          category: PERSONA_CATEGORY_ADULT,
+          label: item.text,
+          storage_path: path,
+          original_filename: `${item.slot}.mp3`,
+          is_active: true,
+          audience_visible: false,
+          volume: 1.0,
+          loop: false,
+        });
+        if (insErr) throw new Error(insErr.message);
+        generated.push(item.slot);
+        await new Promise((r) => setTimeout(r, 200));
+      } catch (e) {
+        errors.push(`${item.slot}: ${(e as Error).message}`);
+        failedSlots.push(item.slot);
+      }
+    }
+
+    return {
+      generated: generated.length,
+      errors,
+      total: flat.length,
+      processed: batch.length,
+      remaining: Math.max(0, pending.length - generated.length),
+      failedSlots,
+    };
+  });
+
+export const getPersonaPackAdultStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    let total = 0;
+    for (const lines of Object.values(PERSONA_LINES_ADULT)) total += lines.length;
+    const { count: baked } = await supabaseAdmin
+      .from("sound_clips")
+      .select("id", { count: "exact", head: true })
+      .eq("category", PERSONA_CATEGORY_ADULT)
+      .eq("is_active", true);
+    return { total, baked: baked ?? 0 };
+  });
+
+export const getPersonaCacheMapAdult = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { data, error } = await supabaseAdmin
+      .from("sound_clips")
+      .select("label, storage_path")
+      .eq("category", PERSONA_CATEGORY_ADULT)
+      .eq("is_active", true);
+    if (error) return { map: {} as Record<string, string> };
+
+    const map: Record<string, string> = {};
+    for (const row of data ?? []) {
+      const { data: signed } = await supabaseAdmin.storage
+        .from("question-media")
+        .createSignedUrl(row.storage_path, 60 * 60 * 24 * 7);
+      if (signed?.signedUrl) {
+        map[row.label] = signed.signedUrl;
+      }
+    }
+    return { map };
+  });
+
+
+
+
+// ──────────────────────────────────────────────────────────────────────────
 // Question voiceovers — pre-bake The Elf reading each question's prompt
 // ──────────────────────────────────────────────────────────────────────────
 
