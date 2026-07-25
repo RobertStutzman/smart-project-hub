@@ -966,10 +966,14 @@ export const startFinalRound = createServerFn({ method: "POST" })
       // Hard-gate Adults Only unless explicitly enabled for this room.
       const adultsAllowed = !!enabled && enabled.includes("Adults Only");
       if (!adultsAllowed) qQuery = qQuery.neq("category", "Adults Only");
+      const rating = (room as { content_rating?: string | null }).content_rating ?? "pg13";
+      const ratingAllow = rating === "pg" ? ["pg"] : rating === "ma" ? ["pg", "pg13", "ma"] : ["pg", "pg13"];
+      qQuery = qQuery.in("content_rating", ratingAllow);
       if (attempt.difficulties)
         qQuery = qQuery.in("difficulty", attempt.difficulties);
       if (usedIds.length > 0)
         qQuery = qQuery.not("id", "in", `(${usedIds.join(",")})`);
+
 
       // Global rotation: least-used first, then oldest-used.
       const { data: candidates } = await qQuery
@@ -1279,8 +1283,13 @@ export const startSuddenDeath = createServerFn({ method: "POST" })
     ];
     for (const attempt of attempts) {
       let qQuery = supabaseAdmin.from("questions").select("*");
+      const rating = (room as { content_rating?: string | null }).content_rating ?? "pg13";
+      const ratingAllow = rating === "pg" ? ["pg"] : rating === "ma" ? ["pg", "pg13", "ma"] : ["pg", "pg13"];
+      qQuery = qQuery.in("content_rating", ratingAllow);
+      qQuery = qQuery.neq("category", "Adults Only");
       if (attempt.difficulties) qQuery = qQuery.in("difficulty", attempt.difficulties);
       if (usedIds.length > 0) qQuery = qQuery.not("id", "in", `(${usedIds.join(",")})`);
+
       const { data: pool } = await qQuery
         .order("times_used", { ascending: true })
         .order("last_used_at", { ascending: true, nullsFirst: true })
