@@ -6,10 +6,10 @@ import { LINES as PERSONA_LINES } from "@/lib/host-persona";
 import { LINES_ADULT as PERSONA_LINES_ADULT, ADULT_FLIRT_NAMES } from "@/lib/host-persona.adult";
 import { LINES_SASHA_ADULT, ADULT_FLIRT_GUY_NAMES } from "@/lib/host-persona.sasha.adult";
 
-// The Elf — deep, energetic hype-man (Jackbox-style host)
+// The Elf — deep, energetic hype-man (Jackbox-style host).
+// Adult mode uses the SAME voice as standard — only the line pool changes
+// (raunchier scripts). Sasha co-host uses the female voice below.
 const VOICE_ID = "e79twtVS2278lVZZQiAD";
-// Bill — gravelly older-man voice for the adult/party mode announcer
-const ADULT_VOICE_ID = "pqHfZKP75CvOlQylNhV4";
 // Jessica — sultry, confident female voice for the adult co-host Sasha
 const ADULT_FEMALE_VOICE_ID = "cgSgspJ2msm6clMCkdW9";
 const FOLDER = "Announcer";
