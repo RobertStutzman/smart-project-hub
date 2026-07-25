@@ -456,8 +456,11 @@ function HostPage() {
         const { getActiveSounds } = await import("@/lib/sounds.functions");
         const res = await getActiveSounds();
         if (cancelled) return;
-        const { loadCustomEvents } = await import("@/lib/sound-engine");
+        const { loadCustomEvents, loadPremiumDropBank } = await import("@/lib/sound-engine");
         loadCustomEvents(res.events as never);
+        if (Array.isArray((res as { drops?: unknown }).drops)) {
+          loadPremiumDropBank((res as { drops: { url: string; volume?: number }[] }).drops);
+        }
       } catch {
         /* ignore — fall back to synth */
       }

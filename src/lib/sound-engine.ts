@@ -214,7 +214,10 @@ function playInner(sfx: Sfx) {
       sweep(200, 60, 0.4, "square", 0.09);
       break;
     case "drop":
-      sweep(800, 80, 0.6, "sawtooth", 0.25);
+      // Cinematic sub-thump fallback (used until premium ElevenLabs bank
+      // loads). Deep, short, no cheesy sawtooth "bing".
+      sweep(95, 45, 0.22, "sine", 0.32);
+      sweep(55, 32, 0.28, "sine", 0.2);
       break;
     case "tick": {
       if (!playTickClip("tick", 0.7)) {
@@ -844,14 +847,27 @@ import dropSplash from "@/assets/audio/drop-splash.mp3.asset.json";
 import dropElectric from "@/assets/audio/drop-electric.mp3.asset.json";
 
 type DropClip = { url: string; weight: number; volume: number };
-const DROP_BANK: DropClip[] = [
-  { url: dropThud.url, weight: 3, volume: 0.9 },
-  { url: dropGlass.url, weight: 3, volume: 0.85 },
-  { url: dropTrapdoor.url, weight: 3, volume: 0.9 },
-  { url: dropElectric.url, weight: 2, volume: 0.8 },
+const BUILTIN_DROP_BANK: DropClip[] = [
+  { url: dropThud.url, weight: 1, volume: 0.9 },
+  { url: dropGlass.url, weight: 1, volume: 0.85 },
+  { url: dropTrapdoor.url, weight: 1, volume: 0.9 },
+  { url: dropElectric.url, weight: 1, volume: 0.8 },
   { url: dropAnvil.url, weight: 1, volume: 0.85 },
   { url: dropSplash.url, weight: 1, volume: 0.85 },
 ];
+// Premium ElevenLabs cinematic drops loaded at runtime; when present they
+// dominate the random pool and the legacy clips are downgraded.
+let PREMIUM_DROP_BANK: DropClip[] = [];
+let DROP_BANK: DropClip[] = BUILTIN_DROP_BANK;
+
+export function loadPremiumDropBank(urls: { url: string; volume?: number }[]) {
+  PREMIUM_DROP_BANK = urls
+    .filter((u) => canUseAudioUrl(u.url))
+    .map((u) => ({ url: u.url, weight: 4, volume: u.volume ?? 0.9 }));
+  DROP_BANK = PREMIUM_DROP_BANK.length > 0
+    ? [...PREMIUM_DROP_BANK, ...BUILTIN_DROP_BANK]
+    : BUILTIN_DROP_BANK;
+}
 let lastDropUrl: string | null = null;
 
 export function playRandomDrop() {

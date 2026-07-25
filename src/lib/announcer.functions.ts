@@ -342,6 +342,97 @@ async function generateMusic(prompt: string, durationMs = 30000): Promise<ArrayB
   return res.arrayBuffer();
 }
 
+async function generateSfx(prompt: string, durationSec = 2.5): Promise<ArrayBuffer> {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) throw new Error("ELEVENLABS_API_KEY not configured");
+  const body = JSON.stringify({
+    text: prompt,
+    duration_seconds: Math.max(0.5, Math.min(22, durationSec)),
+    prompt_influence: 0.6,
+  });
+  let res: Response | undefined;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    res = await fetch(`https://api.elevenlabs.io/v1/sound-generation`, {
+      method: "POST",
+      headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
+      body,
+    });
+    if (![408, 429, 500, 502, 503, 504].includes(res.status)) break;
+    if (attempt < 2) await new Promise((r) => setTimeout(r, 1_000 * (attempt + 1)));
+  }
+  if (!res) throw new Error("ElevenLabs SFX request did not start");
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`ElevenLabs SFX failed (${res.status}): ${err.slice(0, 200)}`);
+  }
+  return res.arrayBuffer();
+}
+
+const DROP_SFX_FOLDER = "Drop SFX";
+const DROP_SFX_PACK: { slot: string; label: string; prompt: string; durationSec: number; volume: number }[] = [
+  { slot: "drop_sub_thunk", label: "Sub Thunk", prompt: "Deep cinematic sub-bass thunk impact, short, movie trailer style, punchy, no music", durationSec: 1.8, volume: 0.9 },
+  { slot: "drop_glass_shatter", label: "Glass Shatter", prompt: "Sharp glass shatter with low sub impact, cinematic, quick, no reverb tail", durationSec: 2.2, volume: 0.85 },
+  { slot: "drop_metal_slam", label: "Metal Slam", prompt: "Heavy metal door slam with sub-bass drop, industrial, cinematic", durationSec: 2.0, volume: 0.85 },
+  { slot: "drop_laser_zap", label: "Laser Zap", prompt: "Sci-fi laser zap disintegration, quick descending pitch, futuristic, punchy", durationSec: 1.5, volume: 0.75 },
+  { slot: "drop_boulder_crash", label: "Boulder Crash", prompt: "Massive boulder crash, rubble tumbling, deep low-end impact, cinematic", durationSec: 2.5, volume: 0.85 },
+  { slot: "drop_vault_close", label: "Vault Close", prompt: "Heavy bank vault door closing with deep bass thud and mechanical lock", durationSec: 2.5, volume: 0.8 },
+  { slot: "drop_thunder_crack", label: "Thunder Crack", prompt: "Sharp thunder crack with low rolling rumble, short and punchy, cinematic", durationSec: 2.5, volume: 0.85 },
+  { slot: "drop_arcade_zap", label: "Arcade Zap", prompt: "Retro arcade game-over zap with descending 8-bit bloop and sub thud", durationSec: 1.6, volume: 0.8 },
+];
+
+async function upsertDropSfxClip(args: { slot: string; label: string; audio: ArrayBuffer; volume: number }) {
+  const path = `drop-sfx/${args.slot}.mp3`;
+  const bytes = new Uint8Array(args.audio);
+  const { error: upErr } = await supabaseAdmin.storage
+    .from("question-media")
+    .upload(path, bytes, { contentType: "audio/mpeg", upsert: true });
+  if (upErr) throw new Error(`Upload failed for ${args.slot}: ${upErr.message}`);
+  await supabaseAdmin.from("sound_clips").delete().eq("storage_path", path);
+  const { error: insErr } = await supabaseAdmin.from("sound_clips").insert({
+    slot: DROP_SFX_FOLDER,
+    category: DROP_SFX_FOLDER,
+    label: args.label,
+    storage_path: path,
+    original_filename: `${args.slot}.mp3`,
+    is_active: true,
+    audience_visible: false,
+    volume: args.volume,
+    loop: false,
+  });
+  if (insErr) throw new Error(`Insert failed for ${args.slot}: ${insErr.message}`);
+}
+
+async function ensureDropSfxFolder() {
+  const { data } = await supabaseAdmin
+    .from("sound_folders")
+    .select("id")
+    .eq("name", DROP_SFX_FOLDER)
+    .maybeSingle();
+  if (!data) {
+    await supabaseAdmin.from("sound_folders").insert({ name: DROP_SFX_FOLDER, sort_order: 3 });
+  }
+}
+
+export const bakeEliminationSfxPack = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    await ensureDropSfxFolder();
+    const generated: string[] = [];
+    const errors: string[] = [];
+    for (const sfx of DROP_SFX_PACK) {
+      try {
+        const audio = await generateSfx(sfx.prompt, sfx.durationSec);
+        await upsertDropSfxClip({ slot: sfx.slot, label: sfx.label, audio, volume: sfx.volume });
+        generated.push(sfx.slot);
+      } catch (e) {
+        errors.push(`${sfx.slot}: ${(e as Error).message}`);
+      }
+    }
+    return { generated, errors, total: DROP_SFX_PACK.length };
+  });
+
+
 async function ensureFolder() {
   const { data } = await supabaseAdmin
     .from("sound_folders")

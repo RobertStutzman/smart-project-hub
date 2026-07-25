@@ -376,6 +376,15 @@ export const getActiveSounds = createServerFn({ method: "GET" }).handler(
       welcomes.push({ url, volume: 0.95, label: c.label });
     }
 
-    return { events, audience, welcomes };
+    // Premium elimination drop SFX (ElevenLabs-baked)
+    const drops: { url: string; volume: number; label: string }[] = [];
+    for (const c of clips ?? []) {
+      if (c.category !== "Drop SFX") continue;
+      const url = await signPath(c.storage_path);
+      if (!url) continue;
+      drops.push({ url, volume: 0.9, label: c.label });
+    }
+
+    return { events, audience, welcomes, drops };
   },
 );

@@ -25,6 +25,7 @@ import {
   bakeAllExplanationTTS,
   generateAnnouncerPack,
   generateMusicPack,
+  bakeEliminationSfxPack,
   generatePersonaPack,
   generatePersonaPackAdult,
   generatePersonaPackAdultFemale,
@@ -195,6 +196,8 @@ function EventsPanel({
   const setEventFn = useServerFn(setEventAssignment);
   const generatePackFn = useServerFn(generateAnnouncerPack);
   const generateMusicPackFn = useServerFn(generateMusicPack);
+  const bakeEliminationSfxFn = useServerFn(bakeEliminationSfxPack);
+  const [bakingDropSfx, setBakingDropSfx] = useState(false);
   const generatePersonaFn = useServerFn(generatePersonaPack);
   const personaStatsFn = useServerFn(getPersonaPackStats);
   const generatePersonaAdultFn = useServerFn(generatePersonaPackAdult);
@@ -732,7 +735,28 @@ function EventsPanel({
             disabled={anyBakeRunning}
             className="rounded-full bg-cyan-600 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-cyan-400/30 transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {generatingMusic ? "🎵 Generating music pack… (4-6 min)" : "🎵 Generate AI music pack (8 tracks)"}
+          </button>
+          <button
+            onClick={async () => {
+              if (bakingDropSfx) return;
+              setBakingDropSfx(true);
+              try {
+                const res = await bakeEliminationSfxFn();
+                toast.success(
+                  `💥 Baked ${res.generated.length}/${res.total} elimination SFX${res.errors.length ? ` (${res.errors.length} failed)` : ""}`,
+                );
+                if (res.errors.length) console.warn("Drop SFX errors:", res.errors);
+              } catch (e) {
+                toast.error(`Failed: ${(e as Error).message}`);
+              } finally {
+                setBakingDropSfx(false);
+              }
+            }}
+            disabled={anyBakeRunning || bakingDropSfx}
+            className="rounded-full bg-rose-600 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-rose-400/30 transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
+            title="Generate 8 cinematic ElevenLabs elimination SFX (sub thunks, glass shatters, laser zaps, etc.) — replaces the cheesy bing"
+          >
+            {bakingDropSfx ? "💥 Baking premium SFX…" : "💥 Bake premium elimination SFX (8)"}
           </button>
           <button
             onClick={() => void handleGeneratePersona()}
