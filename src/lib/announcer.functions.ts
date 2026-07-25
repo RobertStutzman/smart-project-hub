@@ -266,11 +266,12 @@ async function generateTTS(
     use_speaker_boost?: boolean;
     speed?: number;
   },
+  voiceId: string = VOICE_ID,
 ): Promise<ArrayBuffer> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) throw new Error("ELEVENLABS_API_KEY not configured");
   const res = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}?output_format=mp3_44100_128`,
+    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
     {
       method: "POST",
       headers: {
