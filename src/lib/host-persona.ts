@@ -4,6 +4,7 @@
 // (or a pre-baked TTS file) reads them in under ~3 seconds.
 import { LINES_ADULT, ADULT_FLIRT_NAMES } from "@/lib/host-persona.adult";
 import { EXTRA_LINES } from "@/lib/host-persona.extra";
+import { LINES_SASHA_ADULT, ADULT_FLIRT_GUY_NAMES } from "@/lib/host-persona.sasha.adult";
 import { pickFresh } from "@/lib/no-repeat";
 
 export const HOST_NAME = "Donnie Drop";
@@ -782,31 +783,58 @@ export const LINES: Record<Moment, string[]> = Object.fromEntries(
   ]),
 ) as Record<Moment, string[]>;
 
-/** Pick a deterministic-feeling line for a moment, with seed for variety. */
-export function pickLine(moment: Moment, seed: string | number = Date.now()): string {
-  // Adult mode swaps the pool; everything else is identical.
+export type PersonaVoice = "standard" | "adult" | "adult_female";
+
+/** Odds the female co-host (Sasha) interjects when adult mode is on AND
+ *  her pool has lines for the moment. Kept in the 10-15% range from spec. */
+const SASHA_INTERJECT_ODDS = 0.125;
+
+/** Pick a line and the voice that should speak it. Adult mode may
+ *  interject the female co-host on some moments. */
+export function pickPersonaLine(
+  moment: Moment,
+  seed: string | number = Date.now(),
+): { text: string; voice: PersonaVoice } {
   let pool: string[] = LINES[moment];
+  let voice: PersonaVoice = "standard";
   let adult = false;
   if (typeof window !== "undefined") {
     try {
       if (window.sessionStorage.getItem("btd-adult-mode") === "1") {
-        pool = LINES_ADULT[moment] ?? pool;
         adult = true;
+        const sashaPool = LINES_SASHA_ADULT[moment];
+        if (sashaPool && sashaPool.length > 0 && Math.random() < SASHA_INTERJECT_ODDS) {
+          pool = sashaPool;
+          voice = "adult_female";
+        } else {
+          pool = LINES_ADULT[moment] ?? pool;
+          voice = "adult";
+        }
       }
     } catch {
       /* fall back */
     }
   }
-  const key = `host-persona:${adult ? "a" : "s"}:${moment}`;
+  const voiceTag = voice === "adult_female" ? "af" : voice === "adult" ? "a" : "s";
+  const key = `host-persona:${voiceTag}:${moment}`;
   const raw = pickFresh(key, pool, { seed });
-  // Adult-mode {flirtName} substitution — pick a random flirt name. Baker
-  // pre-generates one audio file per (line × name) combo so the resolved
-  // string matches a baked entry exactly.
-  if (adult && raw.includes("{flirtName}")) {
+  let text = raw;
+  // Runtime token substitution — bake time expands the same tokens per name,
+  // so the resolved string always matches a pre-baked cache entry.
+  if (adult && text.includes("{flirtName}")) {
     const name = ADULT_FLIRT_NAMES[Math.floor(Math.random() * ADULT_FLIRT_NAMES.length)];
-    return raw.replace(/\{flirtName\}/g, name);
+    text = text.replace(/\{flirtName\}/g, name);
   }
-  return raw;
+  if (adult && text.includes("{flirtGuyName}")) {
+    const name = ADULT_FLIRT_GUY_NAMES[Math.floor(Math.random() * ADULT_FLIRT_GUY_NAMES.length)];
+    text = text.replace(/\{flirtGuyName\}/g, name);
+  }
+  return { text, voice };
+}
+
+/** Legacy string-only picker. Kept for callers that only need the text. */
+export function pickLine(moment: Moment, seed: string | number = Date.now()): string {
+  return pickPersonaLine(moment, seed).text;
 }
 
 
@@ -836,6 +864,7 @@ export function speakPersona(
     preset?: "hype" | "calm";
     priority?: 1 | 2;
     deadline?: number;
+    voice?: PersonaVoice;
   },
 ) {
   if (typeof window === "undefined") return;
@@ -848,6 +877,7 @@ export function speakPersona(
       preset: opts?.preset ?? "hype",
       priority: opts?.priority,
       deadline: opts?.deadline,
+      voice: opts?.voice,
     });
   });
 }
