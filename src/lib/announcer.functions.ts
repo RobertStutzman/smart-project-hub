@@ -684,11 +684,7 @@ export const speakPersonaLine = createServerFn({ method: "POST" })
     try {
       const settings = PERSONA_PRESETS[preset];
       const voiceId =
-        voice === "adult_female"
-          ? ADULT_FEMALE_VOICE_ID
-          : voice === "adult"
-            ? ADULT_VOICE_ID
-            : VOICE_ID;
+        voice === "adult_female" ? ADULT_FEMALE_VOICE_ID : VOICE_ID;
       audio = await generateTTS(text, settings, voiceId);
     } catch (err) {
       void logTtsCall({ room_id: roomId, preset, text_hash: hash, char_count: charCount, outcome: "error" });
@@ -1191,7 +1187,7 @@ export const generatePersonaPackAdult = createServerFn({ method: "POST" })
             use_speaker_boost: true,
             speed: 1.0,
           },
-          ADULT_VOICE_ID,
+          VOICE_ID,
         );
         const path = `persona-adult/${item.slot}.mp3`;
         const { error: upErr } = await supabaseAdmin.storage
