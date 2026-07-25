@@ -589,7 +589,7 @@ function hashTtsKey(
 ): string {
   // Keep the standard-voice hash byte-identical so existing cache entries still resolve.
   // Adult male moved to a fresh Elf-only namespace so stale wrong-voice clips
-  // generated under the old adult:: key are never reused.
+  // generated under the previous cache key are never reused.
   const seed =
     voice === "adult_female"
       ? `adult_female::${preset}::${text}`
