@@ -6,10 +6,10 @@ import { LINES as PERSONA_LINES } from "@/lib/host-persona";
 import { LINES_ADULT as PERSONA_LINES_ADULT, ADULT_FLIRT_NAMES } from "@/lib/host-persona.adult";
 import { LINES_SASHA_ADULT, ADULT_FLIRT_GUY_NAMES } from "@/lib/host-persona.sasha.adult";
 
-// The Elf — deep, energetic hype-man (Jackbox-style host)
+// The Elf — deep, energetic hype-man (Jackbox-style host).
+// Adult mode uses the SAME voice as standard — only the line pool changes
+// (raunchier scripts). Sasha co-host uses the female voice below.
 const VOICE_ID = "e79twtVS2278lVZZQiAD";
-// Bill — gravelly older-man voice for the adult/party mode announcer
-const ADULT_VOICE_ID = "pqHfZKP75CvOlQylNhV4";
 // Jessica — sultry, confident female voice for the adult co-host Sasha
 const ADULT_FEMALE_VOICE_ID = "cgSgspJ2msm6clMCkdW9";
 const FOLDER = "Announcer";
@@ -684,11 +684,7 @@ export const speakPersonaLine = createServerFn({ method: "POST" })
     try {
       const settings = PERSONA_PRESETS[preset];
       const voiceId =
-        voice === "adult_female"
-          ? ADULT_FEMALE_VOICE_ID
-          : voice === "adult"
-            ? ADULT_VOICE_ID
-            : VOICE_ID;
+        voice === "adult_female" ? ADULT_FEMALE_VOICE_ID : VOICE_ID;
       audio = await generateTTS(text, settings, voiceId);
     } catch (err) {
       void logTtsCall({ room_id: roomId, preset, text_hash: hash, char_count: charCount, outcome: "error" });
@@ -1191,7 +1187,7 @@ export const generatePersonaPackAdult = createServerFn({ method: "POST" })
             use_speaker_boost: true,
             speed: 1.0,
           },
-          ADULT_VOICE_ID,
+          VOICE_ID,
         );
         const path = `persona-adult/${item.slot}.mp3`;
         const { error: upErr } = await supabaseAdmin.storage
@@ -1289,6 +1285,38 @@ export const getPersonaCacheMapAdult = createServerFn({ method: "GET" })
       }
     }
     return { map };
+  });
+
+export const resetPersonaPackAdult = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    // Delete all sound_clips rows for the adult male persona pack.
+    const { error: delRowsErr } = await supabaseAdmin
+      .from("sound_clips")
+      .delete()
+      .eq("category", PERSONA_CATEGORY_ADULT);
+    if (delRowsErr) throw new Error(delRowsErr.message);
+    // Wipe storage folder persona-adult/*.
+    let removed = 0;
+    let offset = 0;
+    // Supabase list is paginated; walk it.
+    while (true) {
+      const { data: files, error: listErr } = await supabaseAdmin.storage
+        .from("question-media")
+        .list("persona-adult", { limit: 1000, offset });
+      if (listErr) throw new Error(listErr.message);
+      if (!files || files.length === 0) break;
+      const paths = files.map((f) => `persona-adult/${f.name}`);
+      const { error: rmErr } = await supabaseAdmin.storage
+        .from("question-media")
+        .remove(paths);
+      if (rmErr) throw new Error(rmErr.message);
+      removed += paths.length;
+      if (files.length < 1000) break;
+      offset += files.length;
+    }
+    return { removed };
   });
 
 // ──────────────────────────────────────────────────────────────────────────

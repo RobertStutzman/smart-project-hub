@@ -31,6 +31,7 @@ import {
   getExplanationTTSStats,
   getPersonaPackAdultStats,
   getPersonaPackStats,
+  resetPersonaPackAdult,
   getQuestionTTSStats,
   getTTSCacheStats,
   previewAnnouncerLine,
@@ -159,6 +160,7 @@ function EventsPanel({
   const personaStatsFn = useServerFn(getPersonaPackStats);
   const generatePersonaAdultFn = useServerFn(generatePersonaPackAdult);
   const generatePersonaAdultFemaleFn = useServerFn(generatePersonaPackAdultFemale);
+  const resetPersonaAdultFn = useServerFn(resetPersonaPackAdult);
   const personaStatsAdultFn = useServerFn(getPersonaPackAdultStats);
   const [generating, setGenerating] = useState(false);
   const [generatingMusic, setGeneratingMusic] = useState(false);
@@ -306,6 +308,24 @@ function EventsPanel({
     } finally {
       setPersonaAdultProgress(null);
       setGeneratingPersonaAdult(false);
+    }
+  }
+
+  async function handleResetPersonaAdult() {
+    if (
+      !window.confirm(
+        "Wipe all baked ADULT Vox catchphrases? They were baked in the old (Bill) voice. After reset, click 'Bake ADULT Vox' again to regenerate in the main host voice. This cannot be undone.",
+      )
+    )
+      return;
+    const toastId = toast.loading("Wiping old adult voice pack…");
+    try {
+      const res = await resetPersonaAdultFn();
+      toast.success(`Removed ${res.removed} old adult clips. Re-bake now.`, { id: toastId });
+      await loadPersonaAdultStats();
+      await onChange();
+    } catch (err) {
+      toast.error((err as Error).message, { id: toastId });
     }
   }
 
@@ -465,6 +485,13 @@ function EventsPanel({
                   ? `🥃 ADULT Vox fully baked (${personaAdultStats.baked}/${personaAdultStats.total}) — re-bake?`
                   : `🥃 Bake ${personaAdultStats.total - personaAdultStats.baked} missing ADULT Vox line${personaAdultStats.total - personaAdultStats.baked === 1 ? "" : "s"} (${personaAdultStats.baked}/${personaAdultStats.total} done)`
                 : "🥃 Bake ADULT Vox catchphrases"}
+          </button>
+          <button
+            onClick={() => void handleResetPersonaAdult()}
+            className="rounded-full bg-red-800 px-4 py-2 text-xs font-bold text-white shadow-md ring-1 ring-red-400/30 transition hover:bg-red-700"
+            title="Delete all old adult clips (baked in wrong voice) so you can re-bake in the main host voice"
+          >
+            🗑️ Reset adult pack (old voice)
           </button>
           <button
             onClick={() => void handleGeneratePersonaAdultFemale()}
