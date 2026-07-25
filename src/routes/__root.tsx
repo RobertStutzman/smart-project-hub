@@ -48,7 +48,7 @@ const STALE_CHUNK_RE =
 const RELOAD_FLAG = "btd-stale-chunk-reload";
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
+  console.error("[start-fail]", error);
   const router = useRouter();
 
   const isStaleChunk = STALE_CHUNK_RE.test(error?.message ?? "");
@@ -73,16 +73,41 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     ? "A new version was deployed"
     : "This page didn't load";
   const body = isStaleChunk && alreadyReloaded
-    ? "Tap Refresh to load the latest version."
+    ? "Tap Refresh to load the latest version. If it happens again, use Hard refresh to clear the cache."
     : isStaleChunk
       ? "Refreshing to pick up the latest version…"
-      : "Something went wrong on our end. You can try refreshing or head back home.";
+      : "Something went wrong on our end. The exact error is below — screenshot it if you're reporting a bug.";
+
+  async function hardRefresh() {
+    try { window.sessionStorage.removeItem(RELOAD_FLAG); } catch {}
+    try {
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+    } catch {}
+    try {
+      if ("serviceWorker" in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      }
+    } catch {}
+    // Cache-buster query param forces the browser to bypass its cached index.
+    const url = new URL(window.location.href);
+    url.searchParams.set("_r", String(Date.now()));
+    window.location.replace(url.toString());
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">{title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{body}</p>
+        {!isStaleChunk && error?.message ? (
+          <pre className="mt-4 max-h-40 overflow-auto rounded-md border border-border bg-muted/40 p-3 text-left text-[11px] leading-snug text-foreground/80 whitespace-pre-wrap break-words">
+            {error.name}: {error.message}
+          </pre>
+        ) : null}
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
@@ -97,6 +122,12 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             {isStaleChunk ? "Refresh" : "Try again"}
+          </button>
+          <button
+            onClick={hardRefresh}
+            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+          >
+            Hard refresh
           </button>
           <a
             href="/"
