@@ -264,8 +264,8 @@ function EventsPanel({
   async function handleGeneratePersonaAdult() {
     const missing = personaAdultStats ? personaAdultStats.total - personaAdultStats.baked : null;
     const msg = missing != null
-      ? `Bake ${missing} missing ADULT Vox catchphrase${missing === 1 ? "" : "s"}? These use a distinct ElevenLabs voice (Bill — gravelly, older) for adult/party mode. Already-baked lines are skipped. Calls ElevenLabs — takes several minutes.`
-      : `Pre-bake the ADULT Vox catchphrases (party-mode host voice). Already-baked are skipped. Calls ElevenLabs once per missing line.`;
+      ? `Bake ${missing} missing ADULT Vox catchphrase${missing === 1 ? "" : "s"}? Uses the SAME Elf voice as standard — only the raunchy line pool changes. Already-baked lines are skipped. Calls ElevenLabs — takes several minutes.`
+      : `Pre-bake the ADULT Vox catchphrases (raunchy Elf lines, adult mode only). Already-baked are skipped. Calls ElevenLabs once per missing line.`;
     if (!window.confirm(msg)) return;
     setGeneratingPersonaAdult(true);
     const remaining = missing ?? 0;
@@ -314,7 +314,7 @@ function EventsPanel({
   async function handleResetPersonaAdult() {
     if (
       !window.confirm(
-        "Wipe all baked ADULT Vox catchphrases? They were baked in the old (Bill) voice. After reset, click 'Bake ADULT Vox' again to regenerate in the main host voice. This cannot be undone.",
+        "Wipe all baked ADULT Vox catchphrases? Any that were baked in the old (wrong) voice will be purged so re-bakes regenerate them in the main Elf voice. This cannot be undone.",
       )
     )
       return;
