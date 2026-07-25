@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { LINES as PERSONA_LINES } from "@/lib/host-persona";
-import { LINES_ADULT as PERSONA_LINES_ADULT } from "@/lib/host-persona.adult";
+import { LINES_ADULT as PERSONA_LINES_ADULT, ADULT_FLIRT_NAMES } from "@/lib/host-persona.adult";
 
 // The Elf — deep, energetic hype-man (Jackbox-style host)
 const VOICE_ID = "e79twtVS2278lVZZQiAD";
@@ -1141,7 +1141,16 @@ export const generatePersonaPackAdult = createServerFn({ method: "POST" })
     const flat: { slot: string; text: string }[] = [];
     for (const [moment, lines] of Object.entries(PERSONA_LINES_ADULT)) {
       lines.forEach((text, idx) => {
-        flat.push({ slot: `persona_adult_${moment}_${idx}`, text });
+        if (text.includes("{flirtName}")) {
+          // Expand across the flirt-name list — one baked file per (line × name)
+          // so runtime substitution always resolves to a pre-baked entry.
+          ADULT_FLIRT_NAMES.forEach((name, nIdx) => {
+            const resolved = text.replace(/\{flirtName\}/g, name);
+            flat.push({ slot: `persona_adult_${moment}_${idx}_n${nIdx}`, text: resolved });
+          });
+        } else {
+          flat.push({ slot: `persona_adult_${moment}_${idx}`, text });
+        }
       });
     }
 
@@ -1209,7 +1218,11 @@ export const getPersonaPackAdultStats = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
     let total = 0;
-    for (const lines of Object.values(PERSONA_LINES_ADULT)) total += lines.length;
+    for (const lines of Object.values(PERSONA_LINES_ADULT)) {
+      for (const text of lines) {
+        total += text.includes("{flirtName}") ? ADULT_FLIRT_NAMES.length : 1;
+      }
+    }
     const { count: baked } = await supabaseAdmin
       .from("sound_clips")
       .select("id", { count: "exact", head: true })

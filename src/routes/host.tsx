@@ -1230,6 +1230,18 @@ function HostPage() {
                 </button>
               </div>
 
+              <Link
+                to="/settings/adult"
+                className="mb-5 flex items-center justify-between rounded-xl border border-rose-500/30 bg-rose-950/30 px-4 py-3 text-sm font-bold text-rose-200 transition hover:border-rose-400/60 hover:bg-rose-900/40"
+              >
+                <span>🔞 Adult Mode</span>
+                <span className="text-[10px] font-normal uppercase tracking-widest text-rose-300/70">
+                  R-rated host →
+                </span>
+              </Link>
+
+
+
               <div className="mb-5">
                 <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-amber-200/80">
                   Mode
