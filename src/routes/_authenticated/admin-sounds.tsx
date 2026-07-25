@@ -297,6 +297,13 @@ function EventsPanel({
         </div>
         <div className="flex flex-wrap gap-2">
           <button
+            onClick={() => void handleGenerateMusicPack()}
+            disabled={generatingMusic}
+            className="rounded-full bg-cyan-600 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-cyan-400/30 transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {generatingMusic ? "🎵 Generating music pack… (4-6 min)" : "🎵 Generate AI music pack (8 tracks)"}
+          </button>
+          <button
             onClick={() => void handleGeneratePersona()}
             disabled={generatingPersona}
             className="rounded-full bg-amber-600 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-amber-400/30 transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
