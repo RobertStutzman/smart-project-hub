@@ -130,6 +130,20 @@ function HostPage() {
   const [hasExplanationTts, setHasExplanationTts] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [customPackTitle, setCustomPackTitle] = useState<string | null>(null);
+  const [rating, setRatingState] = useState<ContentRating | null>(null);
+  const [maConfirmOpen, setMaConfirmOpen] = useState(false);
+  const [maAgeOk, setMaAgeOk] = useState(false);
+  const [maTosOk, setMaTosOk] = useState(false);
+
+  // On lobby mount, force-clear any stale MA rating from a previous game.
+  // Every new game requires an explicit rating pick so adult content can
+  // never leak into a family session that inherited a flag.
+  useEffect(() => {
+    clearAdultMode();
+    setRatingState(null);
+    const unsub = subscribeContentRating((r) => setRatingState(r));
+    return () => { unsub(); };
+  }, []);
   
   
   
