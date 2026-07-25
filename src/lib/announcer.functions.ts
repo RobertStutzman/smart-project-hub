@@ -576,8 +576,10 @@ function getTtsCap(): number {
   return Number.isFinite(n) && n > 0 ? n : TTS_DEFAULT_CAP;
 }
 
-function hashTtsKey(preset: string, text: string): string {
-  return createHash("sha256").update(`${preset}::${text}`).digest("hex");
+function hashTtsKey(preset: string, text: string, voice: "standard" | "adult" = "standard"): string {
+  // Keep the standard-voice hash byte-identical so existing cache entries still resolve.
+  const seed = voice === "adult" ? `adult::${preset}::${text}` : `${preset}::${text}`;
+  return createHash("sha256").update(seed).digest("hex");
 }
 
 async function logTtsCall(row: {
