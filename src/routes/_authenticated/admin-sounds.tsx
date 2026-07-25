@@ -27,6 +27,7 @@ import {
   generateMusicPack,
   generatePersonaPack,
   generatePersonaPackAdult,
+  generatePersonaPackAdultFemale,
   getExplanationTTSStats,
   getPersonaPackAdultStats,
   getPersonaPackStats,
@@ -157,6 +158,7 @@ function EventsPanel({
   const generatePersonaFn = useServerFn(generatePersonaPack);
   const personaStatsFn = useServerFn(getPersonaPackStats);
   const generatePersonaAdultFn = useServerFn(generatePersonaPackAdult);
+  const generatePersonaAdultFemaleFn = useServerFn(generatePersonaPackAdultFemale);
   const personaStatsAdultFn = useServerFn(getPersonaPackAdultStats);
   const [generating, setGenerating] = useState(false);
   const [generatingMusic, setGeneratingMusic] = useState(false);
@@ -165,7 +167,16 @@ function EventsPanel({
   const [personaStats, setPersonaStats] = useState<{ total: number; baked: number } | null>(null);
   const [generatingPersonaAdult, setGeneratingPersonaAdult] = useState(false);
   const [personaAdultProgress, setPersonaAdultProgress] = useState<string | null>(null);
-  const [personaAdultStats, setPersonaAdultStats] = useState<{ total: number; baked: number } | null>(null);
+  const [personaAdultStats, setPersonaAdultStats] = useState<{
+    total: number;
+    baked: number;
+    totalMale?: number;
+    bakedMale?: number;
+    totalFemale?: number;
+    bakedFemale?: number;
+  } | null>(null);
+  const [generatingPersonaAdultFemale, setGeneratingPersonaAdultFemale] = useState(false);
+  const [personaAdultFemaleProgress, setPersonaAdultFemaleProgress] = useState<string | null>(null);
 
   async function loadPersonaStats() {
     try {
@@ -179,7 +190,14 @@ function EventsPanel({
   async function loadPersonaAdultStats() {
     try {
       const s = await personaStatsAdultFn();
-      setPersonaAdultStats({ total: s.total, baked: s.baked });
+      setPersonaAdultStats({
+        total: s.total,
+        baked: s.baked,
+        totalMale: s.totalMale,
+        bakedMale: s.bakedMale,
+        totalFemale: s.totalFemale,
+        bakedFemale: s.bakedFemale,
+      });
     } catch {
       // non-fatal
     }
