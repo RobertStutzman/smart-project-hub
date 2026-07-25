@@ -891,7 +891,7 @@ function HostPage() {
 
   const livePlayers = players.filter((p) => !p.is_audience);
   const audienceMembers = players.filter((p) => p.is_audience);
-  const canStart = !!room && livePlayers.length > 0;
+  const canStart = !!room && livePlayers.length > 0 && rating !== null;
   const availableCategories = allCategories.filter((c) => c.count > 0);
   const mixLabel = enabledCats.size === 0 || enabledCats.size === availableCategories.length
     ? `🎲 Surprise Mix · all ${availableCategories.length || ""} categories`.trim()
