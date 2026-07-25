@@ -308,6 +308,7 @@ export type Database = {
       questions: {
         Row: {
           category: string
+          content_rating: string
           correct_answer: string
           created_at: string
           difficulty: string
@@ -333,6 +334,7 @@ export type Database = {
         }
         Insert: {
           category: string
+          content_rating?: string
           correct_answer: string
           created_at?: string
           difficulty?: string
@@ -358,6 +360,7 @@ export type Database = {
         }
         Update: {
           category?: string
+          content_rating?: string
           correct_answer?: string
           created_at?: string
           difficulty?: string
@@ -438,6 +441,7 @@ export type Database = {
           asym_source_session_id: string | null
           asym_submissions: Json | null
           asym_votes: Json | null
+          content_rating: string
           created_at: string
           current_answers: string[] | null
           current_category: string | null
@@ -484,6 +488,7 @@ export type Database = {
           asym_source_session_id?: string | null
           asym_submissions?: Json | null
           asym_votes?: Json | null
+          content_rating?: string
           created_at?: string
           current_answers?: string[] | null
           current_category?: string | null
@@ -530,6 +535,7 @@ export type Database = {
           asym_source_session_id?: string | null
           asym_submissions?: Json | null
           asym_votes?: Json | null
+          content_rating?: string
           created_at?: string
           current_answers?: string[] | null
           current_category?: string | null

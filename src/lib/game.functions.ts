@@ -297,6 +297,10 @@ export const nextQuestion = createServerFn({ method: "POST" })
       // never draw from it — not even through the "any category" fallback.
       const adultsAllowed = !!enabled && enabled.includes("Adults Only");
       if (!adultsAllowed) qQuery = qQuery.neq("category", "Adults Only");
+      // Rating gate: PG → PG only. PG-13 → PG + PG-13. MA → all.
+      const rating = (room as { content_rating?: string | null }).content_rating ?? "pg13";
+      const ratingAllow = rating === "pg" ? ["pg"] : rating === "ma" ? ["pg", "pg13", "ma"] : ["pg", "pg13"];
+      qQuery = qQuery.in("content_rating", ratingAllow);
       if (difficulty) qQuery = qQuery.eq("difficulty", difficulty);
       if (usedIds.length > 0) qQuery = qQuery.not("id", "in", `(${usedIds.join(",")})`);
       // Global rotation: least-used first, then oldest-used (nulls = never used → top).
@@ -306,6 +310,7 @@ export const nextQuestion = createServerFn({ method: "POST" })
         .limit(12);
       return data ?? [];
     }
+
 
 
 
@@ -961,10 +966,14 @@ export const startFinalRound = createServerFn({ method: "POST" })
       // Hard-gate Adults Only unless explicitly enabled for this room.
       const adultsAllowed = !!enabled && enabled.includes("Adults Only");
       if (!adultsAllowed) qQuery = qQuery.neq("category", "Adults Only");
+      const rating = (room as { content_rating?: string | null }).content_rating ?? "pg13";
+      const ratingAllow = rating === "pg" ? ["pg"] : rating === "ma" ? ["pg", "pg13", "ma"] : ["pg", "pg13"];
+      qQuery = qQuery.in("content_rating", ratingAllow);
       if (attempt.difficulties)
         qQuery = qQuery.in("difficulty", attempt.difficulties);
       if (usedIds.length > 0)
         qQuery = qQuery.not("id", "in", `(${usedIds.join(",")})`);
+
 
       // Global rotation: least-used first, then oldest-used.
       const { data: candidates } = await qQuery
@@ -1274,8 +1283,13 @@ export const startSuddenDeath = createServerFn({ method: "POST" })
     ];
     for (const attempt of attempts) {
       let qQuery = supabaseAdmin.from("questions").select("*");
+      const rating = (room as { content_rating?: string | null }).content_rating ?? "pg13";
+      const ratingAllow = rating === "pg" ? ["pg"] : rating === "ma" ? ["pg", "pg13", "ma"] : ["pg", "pg13"];
+      qQuery = qQuery.in("content_rating", ratingAllow);
+      qQuery = qQuery.neq("category", "Adults Only");
       if (attempt.difficulties) qQuery = qQuery.in("difficulty", attempt.difficulties);
       if (usedIds.length > 0) qQuery = qQuery.not("id", "in", `(${usedIds.join(",")})`);
+
       const { data: pool } = await qQuery
         .order("times_used", { ascending: true })
         .order("last_used_at", { ascending: true, nullsFirst: true })
