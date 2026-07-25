@@ -898,17 +898,26 @@ function HostPage() {
     : `🎲 Surprise Mix · ${enabledCats.size} of ${availableCategories.length} on`;
 
   function persistEnabled(next: Set<string>) {
-    setEnabledCats(next);
+    // Hard-gate: Adults Only can never be enabled unless the host picked MA.
+    // Belt-and-suspenders for the UI lock — a stale localStorage or a race
+    // can't leak an adult question into a PG game.
+    const filtered = new Set(next);
+    if (rating !== "ma") filtered.delete("Adults Only");
+    setEnabledCats(filtered);
     try {
-      window.localStorage.setItem(CATEGORIES_KEY, JSON.stringify(Array.from(next)));
+      window.localStorage.setItem(CATEGORIES_KEY, JSON.stringify(Array.from(filtered)));
     } catch {}
     if (room) {
-      const all = availableCategories.length > 0 && next.size === availableCategories.length;
+      // Only collapse to "all categories" (null) when MA is on — otherwise we
+      // must send the explicit list so the server excludes Adults Only.
+      const all = rating === "ma"
+        && availableCategories.length > 0
+        && filtered.size === availableCategories.length;
       setEnabledCategoriesFn({
         data: {
           roomCode: room.roomCode,
           hostSessionId: room.hostSessionId,
-          categories: all ? null : Array.from(next),
+          categories: all ? null : Array.from(filtered),
         },
       }).catch((e) => toast.error((e as Error).message));
     }
@@ -920,6 +929,18 @@ function HostPage() {
     else next.add(name);
     persistEnabled(next);
   }
+
+  // Whenever the rating drops from MA (or was never MA), strip Adults Only
+  // out of the enabled set so it can't linger from a prior selection.
+  useEffect(() => {
+    if (rating === "ma") return;
+    if (!enabledCats.has("Adults Only")) return;
+    const next = new Set(enabledCats);
+    next.delete("Adults Only");
+    persistEnabled(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rating]);
+
 
   // Ref so the message-listener effect (registered once) always dispatches
   // to the latest actuallyStart closure — otherwise it sees room=null forever.
