@@ -43,31 +43,60 @@ function NotFoundComponent() {
   );
 }
 
+const STALE_CHUNK_RE =
+  /Importing a module script failed|Failed to fetch dynamically imported module|Loading chunk .* failed|ChunkLoadError|Unable to preload/i;
+const RELOAD_FLAG = "btd-stale-chunk-reload";
+
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
+
+  const isStaleChunk = STALE_CHUNK_RE.test(error?.message ?? "");
+  const alreadyReloaded =
+    typeof window !== "undefined" && window.sessionStorage.getItem(RELOAD_FLAG) === "1";
+
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
 
+  // Auto-recover from stale-chunk errors (browser cached an old index-*.js
+  // whose split chunks no longer exist after a deploy). One-shot guard so
+  // we never enter a reload loop.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!isStaleChunk || alreadyReloaded) return;
+    try { window.sessionStorage.setItem(RELOAD_FLAG, "1"); } catch {}
+    window.location.reload();
+  }, [isStaleChunk, alreadyReloaded]);
+
+  const title = isStaleChunk && alreadyReloaded
+    ? "A new version was deployed"
+    : "This page didn't load";
+  const body = isStaleChunk && alreadyReloaded
+    ? "Tap Refresh to load the latest version."
+    : isStaleChunk
+      ? "Refreshing to pick up the latest version…"
+      : "Something went wrong on our end. You can try refreshing or head back home.";
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
-        </p>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">{title}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{body}</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
+              if (isStaleChunk) {
+                try { window.sessionStorage.removeItem(RELOAD_FLAG); } catch {}
+                window.location.reload();
+                return;
+              }
               router.invalidate();
               reset();
             }}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Try again
+            {isStaleChunk ? "Refresh" : "Try again"}
           </button>
           <a
             href="/"
@@ -80,6 +109,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     </div>
   );
 }
+
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
