@@ -478,6 +478,7 @@ function EventsPanel({
                   ? `💋 Sasha fully baked (${personaAdultStats.bakedFemale}/${personaAdultStats.totalFemale}) — re-bake?`
                   : `💋 Bake ${(personaAdultStats.totalFemale ?? 0) - (personaAdultStats.bakedFemale ?? 0)} missing Sasha line${(personaAdultStats.totalFemale ?? 0) - (personaAdultStats.bakedFemale ?? 0) === 1 ? "" : "s"} (${personaAdultStats.bakedFemale}/${personaAdultStats.totalFemale} done)`
                 : "💋 Bake Sasha (adult female co-host)"}
+          </button>
           <button
             onClick={() => void handleGenerate()}
             disabled={generating}
