@@ -60,6 +60,45 @@ const EVENT_LABELS: Record<SoundEvent, string> = {
   victory: "Victory / game over",
 };
 
+const SAFE_PERSONA_BATCH_LIMIT = 5;
+const TRANSIENT_ERROR_RE = /load failed|failed to fetch|network|timeout|timed out|429|408|500|502|503|504/i;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  return "Unknown error";
+}
+
+function friendlyBakeError(error: unknown): string {
+  const message = getErrorMessage(error);
+  if (/load failed/i.test(message)) {
+    return "The bake request dropped before the backend could answer. I split bakes into smaller batches now — try the Safe Mode button again, and it will retry transient drops.";
+  }
+  if (/unauthorized/i.test(message)) {
+    return "Your admin session expired. Sign in again, then return to this page.";
+  }
+  return message;
+}
+
+async function retryTransient<T>(operation: () => Promise<T>): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      const message = getErrorMessage(error);
+      if (!TRANSIENT_ERROR_RE.test(message) || attempt === 2) break;
+      await sleep(1_250 * (attempt + 1));
+    }
+  }
+  throw lastError;
+}
+
 function SoundsPage() {
   const listClipsFn = useServerFn(listSoundClips);
   const listFoldersFn = useServerFn(listFolders);
@@ -179,6 +218,16 @@ function EventsPanel({
   } | null>(null);
   const [generatingPersonaAdultFemale, setGeneratingPersonaAdultFemale] = useState(false);
   const [personaAdultFemaleProgress, setPersonaAdultFemaleProgress] = useState<string | null>(null);
+  const [safeBakeRunning, setSafeBakeRunning] = useState(false);
+  const [safeBakeProgress, setSafeBakeProgress] = useState<string | null>(null);
+
+  const anyBakeRunning =
+    generating ||
+    generatingMusic ||
+    generatingPersona ||
+    generatingPersonaAdult ||
+    generatingPersonaAdultFemale ||
+    safeBakeRunning;
 
   async function loadPersonaStats() {
     try {
@@ -229,9 +278,11 @@ function EventsPanel({
       let safety = 0;
 
       while (safety++ < 200) {
-        const res = await generatePersonaFn({
-          data: { limit: 20, excludeSlots: Array.from(failedSlots) },
-        });
+        const res = await retryTransient(() =>
+          generatePersonaFn({
+            data: { limit: SAFE_PERSONA_BATCH_LIMIT, excludeSlots: Array.from(failedSlots) },
+          }),
+        );
         totalGenerated += res.generated;
         totalErrors += res.errors.length;
         latestErrors = res.errors.slice(0, 3);
@@ -254,7 +305,7 @@ function EventsPanel({
       await loadPersonaStats();
       await onChange();
     } catch (err) {
-      toast.error((err as Error).message, { id: toastId });
+      toast.error(friendlyBakeError(err), { id: toastId });
     } finally {
       setPersonaProgress(null);
       setGeneratingPersona(false);
@@ -279,9 +330,11 @@ function EventsPanel({
       let safety = 0;
 
       while (safety++ < 200) {
-        const res = await generatePersonaAdultFn({
-          data: { limit: 20, excludeSlots: Array.from(failedSlots) },
-        });
+        const res = await retryTransient(() =>
+          generatePersonaAdultFn({
+            data: { limit: SAFE_PERSONA_BATCH_LIMIT, excludeSlots: Array.from(failedSlots) },
+          }),
+        );
         totalGenerated += res.generated;
         totalErrors += res.errors.length;
         latestErrors = res.errors.slice(0, 3);
@@ -304,7 +357,7 @@ function EventsPanel({
       await loadPersonaAdultStats();
       await onChange();
     } catch (err) {
-      toast.error((err as Error).message, { id: toastId });
+      toast.error(friendlyBakeError(err), { id: toastId });
     } finally {
       setPersonaAdultProgress(null);
       setGeneratingPersonaAdult(false);
@@ -320,12 +373,12 @@ function EventsPanel({
       return;
     const toastId = toast.loading("Wiping old adult voice pack…");
     try {
-      const res = await resetPersonaAdultFn();
+      const res = await retryTransient(() => resetPersonaAdultFn());
       toast.success(`Removed ${res.removed} old adult clips. Re-bake now.`, { id: toastId });
       await loadPersonaAdultStats();
       await onChange();
     } catch (err) {
-      toast.error((err as Error).message, { id: toastId });
+      toast.error(friendlyBakeError(err), { id: toastId });
     }
   }
 
@@ -347,7 +400,9 @@ function EventsPanel({
       let stdSafety = 0;
       const stdFailed = new Set<string>();
       while (stdSafety++ < 400) {
-        const r = await generatePersonaFn({ data: { limit: 20, excludeSlots: Array.from(stdFailed) } });
+        const r = await retryTransient(() =>
+          generatePersonaFn({ data: { limit: SAFE_PERSONA_BATCH_LIMIT, excludeSlots: Array.from(stdFailed) } }),
+        );
         stdGen += r.generated;
         for (const s of r.failedSlots) stdFailed.add(s);
         setPersonaProgress(`Standard Vox baked: ${stdGen}`);
@@ -364,7 +419,9 @@ function EventsPanel({
       let adSafety = 0;
       const adFailed = new Set<string>();
       while (adSafety++ < 400) {
-        const r = await generatePersonaAdultFn({ data: { limit: 20, excludeSlots: Array.from(adFailed) } });
+        const r = await retryTransient(() =>
+          generatePersonaAdultFn({ data: { limit: SAFE_PERSONA_BATCH_LIMIT, excludeSlots: Array.from(adFailed) } }),
+        );
         adGen += r.generated;
         for (const s of r.failedSlots) adFailed.add(s);
         setPersonaAdultProgress(`Adult Vox baked: ${adGen}`);
@@ -378,7 +435,7 @@ function EventsPanel({
       toast.success(`🔥 Done! Baked ${stdGen} standard + ${adGen} adult Elf lines.`, { id: toastId });
       await onChange();
     } catch (err) {
-      toast.error((err as Error).message, { id: toastId });
+      toast.error(friendlyBakeError(err), { id: toastId });
       setGeneratingPersona(false);
       setGeneratingPersonaAdult(false);
       setPersonaProgress(null);
@@ -405,9 +462,11 @@ function EventsPanel({
       const failedSlots = new Set<string>();
       let safety = 0;
       while (safety++ < 200) {
-        const res = await generatePersonaAdultFemaleFn({
-          data: { limit: 20, excludeSlots: Array.from(failedSlots) },
-        });
+        const res = await retryTransient(() =>
+          generatePersonaAdultFemaleFn({
+            data: { limit: SAFE_PERSONA_BATCH_LIMIT, excludeSlots: Array.from(failedSlots) },
+          }),
+        );
         totalGenerated += res.generated;
         totalErrors += res.errors.length;
         latestErrors = res.errors.slice(0, 3);
@@ -427,14 +486,128 @@ function EventsPanel({
       await loadPersonaAdultStats();
       await onChange();
     } catch (err) {
-      toast.error((err as Error).message, { id: toastId });
+      toast.error(friendlyBakeError(err), { id: toastId });
     } finally {
       setPersonaAdultFemaleProgress(null);
       setGeneratingPersonaAdultFemale(false);
     }
   }
+  async function handleSafeBakeEverything() {
+    if (
+      !window.confirm(
+        "Bake Everything in Safe Mode?\n\nThis runs one job at a time in small batches:\n 1. Standard Elf Vox\n 2. Adult-only Elf Vox\n 3. Sasha adult co-host\n 4. AI music pack\n\nDo NOT close this tab while it runs.",
+      )
+    )
+      return;
 
+    setSafeBakeRunning(true);
+    setGeneratingPersona(true);
+    setGeneratingPersonaAdult(false);
+    setGeneratingPersonaAdultFemale(false);
+    const toastId = toast.loading("Safe Mode: starting standard Elf Vox…");
+    const standardFailed = new Set<string>();
+    const adultFailed = new Set<string>();
+    const sashaFailed = new Set<string>();
+    let standardGenerated = 0;
+    let adultGenerated = 0;
+    let sashaGenerated = 0;
+    let totalErrors = 0;
+    const latestErrors: string[] = [];
 
+    const rememberErrors = (errors: string[]) => {
+      totalErrors += errors.length;
+      latestErrors.splice(0, latestErrors.length, ...errors.slice(0, 4));
+    };
+
+    try {
+      let safety = 0;
+      while (safety++ < 500) {
+        const r = await retryTransient(() =>
+          generatePersonaFn({ data: { limit: SAFE_PERSONA_BATCH_LIMIT, excludeSlots: Array.from(standardFailed) } }),
+        );
+        standardGenerated += r.generated;
+        rememberErrors(r.errors);
+        for (const slot of r.failedSlots) standardFailed.add(slot);
+        const msg = `Safe Mode: Standard Elf ${standardGenerated} baked${totalErrors ? ` · ${totalErrors} errors` : ""}`;
+        setPersonaProgress(msg);
+        setSafeBakeProgress(msg);
+        toast.loading(msg, { id: toastId });
+        if (r.processed === 0 || r.remaining === 0) break;
+        await sleep(750);
+      }
+      await loadPersonaStats();
+      setGeneratingPersona(false);
+      setPersonaProgress(null);
+
+      setGeneratingPersonaAdult(true);
+      safety = 0;
+      while (safety++ < 800) {
+        const r = await retryTransient(() =>
+          generatePersonaAdultFn({ data: { limit: SAFE_PERSONA_BATCH_LIMIT, excludeSlots: Array.from(adultFailed) } }),
+        );
+        adultGenerated += r.generated;
+        rememberErrors(r.errors);
+        for (const slot of r.failedSlots) adultFailed.add(slot);
+        const msg = `Safe Mode: Standard ${standardGenerated} · Adult Elf ${adultGenerated}${totalErrors ? ` · ${totalErrors} errors` : ""}`;
+        setPersonaAdultProgress(msg);
+        setSafeBakeProgress(msg);
+        toast.loading(msg, { id: toastId });
+        if (r.processed === 0 || r.remaining === 0) break;
+        await sleep(750);
+      }
+      setGeneratingPersonaAdult(false);
+      setPersonaAdultProgress(null);
+      await loadPersonaAdultStats();
+
+      setGeneratingPersonaAdultFemale(true);
+      safety = 0;
+      while (safety++ < 500) {
+        const r = await retryTransient(() =>
+          generatePersonaAdultFemaleFn({ data: { limit: SAFE_PERSONA_BATCH_LIMIT, excludeSlots: Array.from(sashaFailed) } }),
+        );
+        sashaGenerated += r.generated;
+        rememberErrors(r.errors);
+        for (const slot of r.failedSlots) sashaFailed.add(slot);
+        const msg = `Safe Mode: Standard ${standardGenerated} · Adult ${adultGenerated} · Sasha ${sashaGenerated}${totalErrors ? ` · ${totalErrors} errors` : ""}`;
+        setPersonaAdultFemaleProgress(msg);
+        setSafeBakeProgress(msg);
+        toast.loading(msg, { id: toastId });
+        if (r.processed === 0 || r.remaining === 0) break;
+        await sleep(750);
+      }
+      setGeneratingPersonaAdultFemale(false);
+      setPersonaAdultFemaleProgress(null);
+      await loadPersonaAdultStats();
+
+      setGeneratingMusic(true);
+      setSafeBakeProgress("Safe Mode: generating music pack…");
+      toast.loading("Safe Mode: generating music pack…", { id: toastId });
+      const music = await retryTransient(() => generateMusicPackFn());
+      setGeneratingMusic(false);
+      rememberErrors(music.errors);
+
+      const suffix = totalErrors
+        ? ` · ${totalErrors} errors${latestErrors.length ? `: ${latestErrors.join("; ")}` : ""}`
+        : "";
+      const done = `Safe Mode done: ${standardGenerated} standard, ${adultGenerated} adult, ${sashaGenerated} Sasha, ${music.generated.length}/${music.total} music tracks${suffix}.`;
+      if (totalErrors) toast.warning(done, { id: toastId });
+      else toast.success(done, { id: toastId });
+      await onChange();
+    } catch (err) {
+      toast.error(friendlyBakeError(err), { id: toastId });
+    } finally {
+      setSafeBakeRunning(false);
+      setSafeBakeProgress(null);
+      setGenerating(false);
+      setGeneratingMusic(false);
+      setGeneratingPersona(false);
+      setGeneratingPersonaAdult(false);
+      setGeneratingPersonaAdultFemale(false);
+      setPersonaProgress(null);
+      setPersonaAdultProgress(null);
+      setPersonaAdultFemaleProgress(null);
+    }
+  }
 
 
 
@@ -457,7 +630,7 @@ function EventsPanel({
       return;
     setGeneratingMusic(true);
     try {
-      const res = await generateMusicPackFn();
+      const res = await retryTransient(() => generateMusicPackFn());
       if (res.errors.length) {
         toast.warning(
           `Generated ${res.generated.length}/${res.total}. Errors: ${res.errors.join("; ")}`,
@@ -467,7 +640,7 @@ function EventsPanel({
       }
       await onChange();
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(friendlyBakeError(err));
     } finally {
       setGeneratingMusic(false);
     }
@@ -482,7 +655,7 @@ function EventsPanel({
       return;
     setGenerating(true);
     try {
-      const res = await generatePackFn();
+      const res = await retryTransient(() => generatePackFn());
       if (res.errors.length) {
         toast.warning(
           `Generated ${res.generated.length}/${res.total}. Errors: ${res.errors.join("; ")}`,
@@ -492,7 +665,7 @@ function EventsPanel({
       }
       await onChange();
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(friendlyBakeError(err));
     } finally {
       setGenerating(false);
     }
@@ -511,15 +684,23 @@ function EventsPanel({
         </div>
         <div className="flex flex-wrap gap-2">
           <button
+            onClick={() => void handleSafeBakeEverything()}
+            disabled={anyBakeRunning}
+            className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-emerald-400/30 transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+            title="Runs the high-value bakes one at a time in small retryable batches"
+          >
+            {safeBakeRunning ? safeBakeProgress ?? "Safe Mode baking…" : "✅ Bake Everything (Safe Mode)"}
+          </button>
+          <button
             onClick={() => void handleGenerateMusicPack()}
-            disabled={generatingMusic}
+            disabled={anyBakeRunning}
             className="rounded-full bg-cyan-600 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-cyan-400/30 transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {generatingMusic ? "🎵 Generating music pack… (4-6 min)" : "🎵 Generate AI music pack (8 tracks)"}
           </button>
           <button
             onClick={() => void handleGeneratePersona()}
-            disabled={generatingPersona}
+            disabled={anyBakeRunning}
             className="rounded-full bg-amber-600 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-amber-400/30 transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {generatingPersona
@@ -532,7 +713,7 @@ function EventsPanel({
           </button>
           <button
             onClick={() => void handleGeneratePersonaAdult()}
-            disabled={generatingPersonaAdult}
+            disabled={anyBakeRunning}
             className="rounded-full bg-purple-700 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-purple-400/30 transition hover:bg-purple-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {generatingPersonaAdult
@@ -545,6 +726,7 @@ function EventsPanel({
           </button>
           <button
             onClick={() => void handleResetPersonaAdult()}
+            disabled={anyBakeRunning}
             className="rounded-full bg-red-800 px-4 py-2 text-xs font-bold text-white shadow-md ring-1 ring-red-400/30 transition hover:bg-red-700"
             title="Delete all old adult clips (baked in wrong voice) so you can re-bake in the main host voice"
           >
@@ -552,7 +734,7 @@ function EventsPanel({
           </button>
           <button
             onClick={() => void handlePrebakeAllElf()}
-            disabled={generatingPersona || generatingPersonaAdult}
+            disabled={anyBakeRunning}
             className="rounded-full bg-gradient-to-r from-orange-600 to-red-600 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-orange-400/40 transition hover:from-orange-500 hover:to-red-500 disabled:cursor-not-allowed disabled:opacity-60"
             title="Wipe old adult voice + bake every missing standard & adult Elf line"
           >
@@ -560,7 +742,7 @@ function EventsPanel({
           </button>
           <button
             onClick={() => void handleGeneratePersonaAdultFemale()}
-            disabled={generatingPersonaAdultFemale}
+            disabled={anyBakeRunning}
             className="rounded-full bg-rose-700 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-rose-400/30 transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {generatingPersonaAdultFemale
@@ -573,7 +755,7 @@ function EventsPanel({
           </button>
           <button
             onClick={() => void handleGenerate()}
-            disabled={generating}
+            disabled={anyBakeRunning}
             className="rounded-full bg-pink-600 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-pink-400/30 transition hover:bg-pink-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {generating ? "Generating… (1-2 min)" : "🎙️ Generate AI announcer pack"}
