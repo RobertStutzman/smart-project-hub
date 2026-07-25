@@ -26,7 +26,9 @@ import {
   generateAnnouncerPack,
   generateMusicPack,
   generatePersonaPack,
+  generatePersonaPackAdult,
   getExplanationTTSStats,
+  getPersonaPackAdultStats,
   getPersonaPackStats,
   getQuestionTTSStats,
   getTTSCacheStats,
@@ -154,11 +156,16 @@ function EventsPanel({
   const generateMusicPackFn = useServerFn(generateMusicPack);
   const generatePersonaFn = useServerFn(generatePersonaPack);
   const personaStatsFn = useServerFn(getPersonaPackStats);
+  const generatePersonaAdultFn = useServerFn(generatePersonaPackAdult);
+  const personaStatsAdultFn = useServerFn(getPersonaPackAdultStats);
   const [generating, setGenerating] = useState(false);
   const [generatingMusic, setGeneratingMusic] = useState(false);
   const [generatingPersona, setGeneratingPersona] = useState(false);
   const [personaProgress, setPersonaProgress] = useState<string | null>(null);
   const [personaStats, setPersonaStats] = useState<{ total: number; baked: number } | null>(null);
+  const [generatingPersonaAdult, setGeneratingPersonaAdult] = useState(false);
+  const [personaAdultProgress, setPersonaAdultProgress] = useState<string | null>(null);
+  const [personaAdultStats, setPersonaAdultStats] = useState<{ total: number; baked: number } | null>(null);
 
   async function loadPersonaStats() {
     try {
@@ -169,8 +176,18 @@ function EventsPanel({
     }
   }
 
+  async function loadPersonaAdultStats() {
+    try {
+      const s = await personaStatsAdultFn();
+      setPersonaAdultStats({ total: s.total, baked: s.baked });
+    } catch {
+      // non-fatal
+    }
+  }
+
   useEffect(() => {
     void loadPersonaStats();
+    void loadPersonaAdultStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -223,6 +240,58 @@ function EventsPanel({
       setGeneratingPersona(false);
     }
   }
+
+  async function handleGeneratePersonaAdult() {
+    const missing = personaAdultStats ? personaAdultStats.total - personaAdultStats.baked : null;
+    const msg = missing != null
+      ? `Bake ${missing} missing ADULT Vox catchphrase${missing === 1 ? "" : "s"}? These use a distinct ElevenLabs voice (Bill — gravelly, older) for adult/party mode. Already-baked lines are skipped. Calls ElevenLabs — takes several minutes.`
+      : `Pre-bake the ADULT Vox catchphrases (party-mode host voice). Already-baked are skipped. Calls ElevenLabs once per missing line.`;
+    if (!window.confirm(msg)) return;
+    setGeneratingPersonaAdult(true);
+    const remaining = missing ?? 0;
+    const toastId = toast.loading(`Baking ADULT catchphrases… 0 / ${remaining}`);
+    setPersonaAdultProgress(`Baking ADULT catchphrases… 0 / ${remaining}`);
+    try {
+      let totalGenerated = 0;
+      let totalErrors = 0;
+      let latestErrors: string[] = [];
+      const failedSlots = new Set<string>();
+      let safety = 0;
+
+      while (safety++ < 200) {
+        const res = await generatePersonaAdultFn({
+          data: { limit: 20, excludeSlots: Array.from(failedSlots) },
+        });
+        totalGenerated += res.generated;
+        totalErrors += res.errors.length;
+        latestErrors = res.errors.slice(0, 3);
+        for (const slot of res.failedSlots) failedSlots.add(slot);
+
+        const done = Math.min(remaining, totalGenerated + failedSlots.size);
+        const progress = `Baking ADULT catchphrases… ${done} / ${remaining}${totalErrors ? ` · ${totalErrors} errors` : ""}`;
+        setPersonaAdultProgress(progress);
+        toast.loading(progress, { id: toastId });
+
+        if (res.processed === 0 || res.remaining === 0) break;
+      }
+
+      const errorSuffix = totalErrors
+        ? ` · ${totalErrors} errors${latestErrors.length ? `: ${latestErrors.join("; ")}` : ""}`
+        : "";
+      const doneMessage = `Done! Baked ${totalGenerated} ADULT Vox catchphrases${errorSuffix}.`;
+      if (totalErrors) toast.warning(doneMessage, { id: toastId });
+      else toast.success(doneMessage, { id: toastId });
+      await loadPersonaAdultStats();
+      await onChange();
+    } catch (err) {
+      toast.error((err as Error).message, { id: toastId });
+    } finally {
+      setPersonaAdultProgress(null);
+      setGeneratingPersonaAdult(false);
+    }
+  }
+
+
 
   async function handleAssign(event: SoundEvent, clipId: string | null) {
     try {
@@ -315,6 +384,19 @@ function EventsPanel({
                   ? `🎭 Vox catchphrases fully baked (${personaStats.baked}/${personaStats.total}) — re-bake?`
                   : `🎭 Bake ${personaStats.total - personaStats.baked} missing Vox catchphrase${personaStats.total - personaStats.baked === 1 ? "" : "s"} (${personaStats.baked}/${personaStats.total} done)`
                 : "🎭 Bake Vox catchphrases"}
+          </button>
+          <button
+            onClick={() => void handleGeneratePersonaAdult()}
+            disabled={generatingPersonaAdult}
+            className="rounded-full bg-purple-700 px-5 py-2 text-sm font-bold text-white shadow-md ring-1 ring-purple-400/30 transition hover:bg-purple-600 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {generatingPersonaAdult
+              ? personaAdultProgress ?? "🥃 Baking ADULT catchphrases…"
+              : personaAdultStats
+                ? personaAdultStats.baked >= personaAdultStats.total
+                  ? `🥃 ADULT Vox fully baked (${personaAdultStats.baked}/${personaAdultStats.total}) — re-bake?`
+                  : `🥃 Bake ${personaAdultStats.total - personaAdultStats.baked} missing ADULT Vox line${personaAdultStats.total - personaAdultStats.baked === 1 ? "" : "s"} (${personaAdultStats.baked}/${personaAdultStats.total} done)`
+                : "🥃 Bake ADULT Vox catchphrases"}
           </button>
           <button
             onClick={() => void handleGenerate()}

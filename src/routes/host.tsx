@@ -477,15 +477,21 @@ function HostPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const [{ getPersonaCacheMap }, { initPersonaCache, setActiveRoomId }] =
-          await Promise.all([
-            import("@/lib/announcer.functions"),
-            import("@/lib/elf-voice"),
-          ]);
+        const [
+          { getPersonaCacheMap, getPersonaCacheMapAdult },
+          { initPersonaCache, initPersonaCacheAdult, setActiveRoomId },
+        ] = await Promise.all([
+          import("@/lib/announcer.functions"),
+          import("@/lib/elf-voice"),
+        ]);
         setActiveRoomId(room.id);
-        const res = await getPersonaCacheMap();
+        const [res, resAdult] = await Promise.all([
+          getPersonaCacheMap().catch(() => null),
+          getPersonaCacheMapAdult().catch(() => null),
+        ]);
         if (cancelled) return;
         if (res?.map) initPersonaCache(res.map);
+        if (resAdult?.map) initPersonaCacheAdult(resAdult.map);
       } catch {
         /* silent — falls back to live TTS */
       }

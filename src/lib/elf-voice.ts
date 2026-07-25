@@ -8,6 +8,8 @@ type Preset = "hype" | "calm";
 
 // text → signed storage URL (pre-baked persona pack). Seeded once per session.
 const urlCache = new Map<string, string>();
+// Same, but for the adult/party-mode persona pack (different voice).
+const urlCacheAdult = new Map<string, string>();
 
 // Active game room (set by HostGameStage). Threaded to the server so the
 // per-game ElevenLabs call cap can charge the right room.
@@ -19,6 +21,22 @@ export function setActiveRoomId(roomId: string | null) {
 export function initPersonaCache(map: Record<string, string>) {
   for (const [text, url] of Object.entries(map)) {
     urlCache.set(text, url);
+  }
+}
+
+export function initPersonaCacheAdult(map: Record<string, string>) {
+  for (const [text, url] of Object.entries(map)) {
+    urlCacheAdult.set(text, url);
+  }
+}
+
+/** Read the current adult-mode flag from sessionStorage. Client-only. */
+function isAdultMode(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.sessionStorage.getItem("btd-adult-mode") === "1";
+  } catch {
+    return false;
   }
 }
 
@@ -115,8 +133,12 @@ type FetchResult =
   | { kind: "skipped" }
   | null;
 
-async function fetchAudio(text: string, preset: Preset): Promise<FetchResult> {
-  const key = `${preset}::${text}`;
+async function fetchAudio(
+  text: string,
+  preset: Preset,
+  voice: "standard" | "adult" = "standard",
+): Promise<FetchResult> {
+  const key = voice === "adult" ? `adult::${preset}::${text}` : `${preset}::${text}`;
   const hit = cacheGet(key);
   if (hit) {
     return hit.startsWith(URL_PREFIX)
@@ -125,7 +147,7 @@ async function fetchAudio(text: string, preset: Preset): Promise<FetchResult> {
   }
   try {
     const res = await speakPersonaLine({
-      data: { text, preset, roomId: activeRoomId ?? undefined },
+      data: { text, preset, voice, roomId: activeRoomId ?? undefined },
     });
     if (res && "skipped" in res && res.skipped) return { kind: "skipped" };
     if (res && "audioUrl" in res && res.audioUrl) {
@@ -313,6 +335,8 @@ function playUrl(
 }
 
 export interface SpeakOptions {
+  /** Override the voice pool. Defaults to the adult-mode sessionStorage flag. */
+  voice?: "standard" | "adult";
   preset?: Preset;
   volume?: number;
   /** If true, interrupt anything currently playing. Default: queue behind. */
@@ -420,6 +444,7 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
   const volume = opts.volume ?? 1.0;
   const priority = opts.priority ?? 1;
   const deadline = opts.deadline;
+  const voice: "standard" | "adult" = opts.voice ?? (isAdultMode() ? "adult" : "standard");
 
   // Debug-bus emit (no-op unless QA harness is listening)
   void import("@/lib/debug-bus").then(({ emitDebug }) =>
@@ -433,14 +458,14 @@ export function speakAsElf(text: string, opts: SpeakOptions = {}): Promise<void>
     const isAlive = () => generation === myGen;
     if (!isAlive()) return;
     if (deadline !== undefined && Date.now() > deadline) return;
-    // 1. Pre-baked URL (free, instant)
-    const baked = urlCache.get(text);
+    // 1. Pre-baked URL (free, instant) — voice-specific
+    const baked = voice === "adult" ? urlCacheAdult.get(text) : urlCache.get(text);
     if (baked) {
       await playUrl(baked, volume);
       return;
     }
     // 2. URL/base64 from cache or live ElevenLabs
-    const res = await fetchAudio(text, preset);
+    const res = await fetchAudio(text, preset, voice);
     if (!isAlive()) return;
     if (deadline !== undefined && Date.now() > deadline) return;
     if (!res || res.kind === "skipped") return;
