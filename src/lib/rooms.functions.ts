@@ -537,3 +537,24 @@ export const setDifficultyMode = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// Persist the host's chosen content rating onto the room so the server
+// question fetcher can hard-gate the pool. Defaults to PG-13 on the row.
+export const setRoomContentRating = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      roomCode: z.string().length(4),
+      hostSessionId: z.string().min(8).max(128),
+      rating: z.enum(["pg", "pg13", "ma"]),
+    }).parse,
+  )
+  .handler(async ({ data }) => {
+    const { error } = await supabaseAdmin
+      .from("rooms")
+      .update({ content_rating: data.rating })
+      .eq("room_code", data.roomCode)
+      .eq("host_session_id", data.hostSessionId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+
