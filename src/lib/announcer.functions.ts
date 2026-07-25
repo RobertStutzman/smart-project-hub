@@ -669,7 +669,7 @@ export const speakPersonaLine = createServerFn({ method: "POST" })
     let audio: ArrayBuffer;
     try {
       const settings = PERSONA_PRESETS[preset];
-      audio = await generateTTS(text, settings);
+      audio = await generateTTS(text, settings, voice === "adult" ? ADULT_VOICE_ID : VOICE_ID);
     } catch (err) {
       void logTtsCall({ room_id: roomId, preset, text_hash: hash, char_count: charCount, outcome: "error" });
       throw err;
