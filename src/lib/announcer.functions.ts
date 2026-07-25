@@ -15,8 +15,10 @@ const ADULT_FEMALE_VOICE_ID = "cgSgspJ2msm6clMCkdW9";
 const FOLDER = "Announcer";
 const PERSONA_FOLDER = "Persona";
 const PERSONA_CATEGORY = "Persona";
-const PERSONA_FOLDER_ADULT = "Persona Adult";
-const PERSONA_CATEGORY_ADULT = "Persona Adult";
+const PERSONA_FOLDER_ADULT = "Persona Adult Elf";
+const PERSONA_CATEGORY_ADULT = "Persona Adult Elf";
+const PERSONA_FOLDER_ADULT_LEGACY = "Persona Adult";
+const PERSONA_CATEGORY_ADULT_LEGACY = "Persona Adult";
 const PERSONA_FOLDER_ADULT_FEMALE = "Persona Adult Female";
 const PERSONA_CATEGORY_ADULT_FEMALE = "Persona Adult Female";
 
@@ -587,11 +589,13 @@ function hashTtsKey(
   voice: "standard" | "adult" | "adult_female" = "standard",
 ): string {
   // Keep the standard-voice hash byte-identical so existing cache entries still resolve.
+  // Adult male moved to a fresh Elf-only namespace so stale wrong-voice clips
+  // generated under the old adult:: key are never reused.
   const seed =
     voice === "adult_female"
       ? `adult_female::${preset}::${text}`
       : voice === "adult"
-        ? `adult::${preset}::${text}`
+        ? `adult_elf_v2::${preset}::${text}`
         : `${preset}::${text}`;
   return createHash("sha256").update(seed).digest("hex");
 }
@@ -1190,7 +1194,7 @@ export const generatePersonaPackAdult = createServerFn({ method: "POST" })
           },
           VOICE_ID,
         );
-        const path = `persona-adult/${item.slot}.mp3`;
+        const path = `persona-adult-elf/${item.slot}.mp3`;
         const { error: upErr } = await supabaseAdmin.storage
           .from("question-media")
           .upload(path, new Uint8Array(audio), {
@@ -1292,30 +1296,33 @@ export const resetPersonaPackAdult = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
-    // Delete all sound_clips rows for the adult male persona pack.
+    // Delete all sound_clips rows for both the current Elf adult pack and the
+    // legacy wrong-voice adult pack so Bill cannot be selected anywhere.
     const { error: delRowsErr } = await supabaseAdmin
       .from("sound_clips")
       .delete()
-      .eq("category", PERSONA_CATEGORY_ADULT);
+      .in("category", [PERSONA_CATEGORY_ADULT, PERSONA_CATEGORY_ADULT_LEGACY]);
     if (delRowsErr) throw new Error(delRowsErr.message);
-    // Wipe storage folder persona-adult/*.
+    // Wipe both storage folders: current Elf namespace and legacy wrong-voice namespace.
     let removed = 0;
-    let offset = 0;
-    // Supabase list is paginated; walk it.
-    while (true) {
-      const { data: files, error: listErr } = await supabaseAdmin.storage
-        .from("question-media")
-        .list("persona-adult", { limit: 1000, offset });
-      if (listErr) throw new Error(listErr.message);
-      if (!files || files.length === 0) break;
-      const paths = files.map((f) => `persona-adult/${f.name}`);
-      const { error: rmErr } = await supabaseAdmin.storage
-        .from("question-media")
-        .remove(paths);
-      if (rmErr) throw new Error(rmErr.message);
-      removed += paths.length;
-      if (files.length < 1000) break;
-      offset += files.length;
+    for (const folder of ["persona-adult", "persona-adult-elf"]) {
+      let offset = 0;
+      // Supabase list is paginated; walk it.
+      while (true) {
+        const { data: files, error: listErr } = await supabaseAdmin.storage
+          .from("question-media")
+          .list(folder, { limit: 1000, offset });
+        if (listErr) throw new Error(listErr.message);
+        if (!files || files.length === 0) break;
+        const paths = files.map((f) => `${folder}/${f.name}`);
+        const { error: rmErr } = await supabaseAdmin.storage
+          .from("question-media")
+          .remove(paths);
+        if (rmErr) throw new Error(rmErr.message);
+        removed += paths.length;
+        if (files.length < 1000) break;
+        offset += files.length;
+      }
     }
     return { removed };
   });
