@@ -329,6 +329,63 @@ function EventsPanel({
     }
   }
 
+  async function handlePrebakeAllElf() {
+    if (
+      !window.confirm(
+        "🔥 Pre-bake ALL Elf content?\n\nThis will:\n 1. Wipe any old (wrong-voice) ADULT clips\n 2. Bake every missing STANDARD Vox line in Elf's voice\n 3. Bake every missing ADULT Vox line in Elf's voice\n\nBurns credits. Takes several minutes. Sasha (female co-host) is NOT included — bake her separately.",
+      )
+    )
+      return;
+    const toastId = toast.loading("🔥 Wiping old adult clips…");
+    try {
+      const res = await resetPersonaAdultFn();
+      toast.loading(`Wiped ${res.removed} old clips. Baking standard Vox…`, { id: toastId });
+
+      // Standard Vox — loop until drained
+      setGeneratingPersona(true);
+      let stdGen = 0;
+      let stdSafety = 0;
+      const stdFailed = new Set<string>();
+      while (stdSafety++ < 400) {
+        const r = await generatePersonaFn({ data: { limit: 20, excludeSlots: Array.from(stdFailed) } });
+        stdGen += r.generated;
+        for (const s of r.failedSlots) stdFailed.add(s);
+        setPersonaProgress(`Standard Vox baked: ${stdGen}`);
+        toast.loading(`Standard Vox baked: ${stdGen}. Adult next…`, { id: toastId });
+        if (r.processed === 0 || r.remaining === 0) break;
+      }
+      setGeneratingPersona(false);
+      setPersonaProgress(null);
+      await loadPersonaStats();
+
+      // Adult Vox — loop until drained
+      setGeneratingPersonaAdult(true);
+      let adGen = 0;
+      let adSafety = 0;
+      const adFailed = new Set<string>();
+      while (adSafety++ < 400) {
+        const r = await generatePersonaAdultFn({ data: { limit: 20, excludeSlots: Array.from(adFailed) } });
+        adGen += r.generated;
+        for (const s of r.failedSlots) adFailed.add(s);
+        setPersonaAdultProgress(`Adult Vox baked: ${adGen}`);
+        toast.loading(`Standard: ${stdGen} · Adult: ${adGen}`, { id: toastId });
+        if (r.processed === 0 || r.remaining === 0) break;
+      }
+      setGeneratingPersonaAdult(false);
+      setPersonaAdultProgress(null);
+      await loadPersonaAdultStats();
+
+      toast.success(`🔥 Done! Baked ${stdGen} standard + ${adGen} adult Elf lines.`, { id: toastId });
+      await onChange();
+    } catch (err) {
+      toast.error((err as Error).message, { id: toastId });
+      setGeneratingPersona(false);
+      setGeneratingPersonaAdult(false);
+      setPersonaProgress(null);
+      setPersonaAdultProgress(null);
+    }
+  }
+
   async function handleGeneratePersonaAdultFemale() {
     const totalF = personaAdultStats?.totalFemale ?? 0;
     const bakedF = personaAdultStats?.bakedFemale ?? 0;
