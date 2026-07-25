@@ -441,6 +441,7 @@ export type Database = {
           asym_source_session_id: string | null
           asym_submissions: Json | null
           asym_votes: Json | null
+          content_rating: string
           created_at: string
           current_answers: string[] | null
           current_category: string | null
@@ -487,6 +488,7 @@ export type Database = {
           asym_source_session_id?: string | null
           asym_submissions?: Json | null
           asym_votes?: Json | null
+          content_rating?: string
           created_at?: string
           current_answers?: string[] | null
           current_category?: string | null
@@ -533,6 +535,7 @@ export type Database = {
           asym_source_session_id?: string | null
           asym_submissions?: Json | null
           asym_votes?: Json | null
+          content_rating?: string
           created_at?: string
           current_answers?: string[] | null
           current_category?: string | null
