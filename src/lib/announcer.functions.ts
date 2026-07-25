@@ -4,16 +4,21 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { LINES as PERSONA_LINES } from "@/lib/host-persona";
 import { LINES_ADULT as PERSONA_LINES_ADULT, ADULT_FLIRT_NAMES } from "@/lib/host-persona.adult";
+import { LINES_SASHA_ADULT, ADULT_FLIRT_GUY_NAMES } from "@/lib/host-persona.sasha.adult";
 
 // The Elf — deep, energetic hype-man (Jackbox-style host)
 const VOICE_ID = "e79twtVS2278lVZZQiAD";
 // Bill — gravelly older-man voice for the adult/party mode announcer
 const ADULT_VOICE_ID = "pqHfZKP75CvOlQylNhV4";
+// Jessica — sultry, confident female voice for the adult co-host Sasha
+const ADULT_FEMALE_VOICE_ID = "cgSgspJ2msm6clMCkdW9";
 const FOLDER = "Announcer";
 const PERSONA_FOLDER = "Persona";
 const PERSONA_CATEGORY = "Persona";
 const PERSONA_FOLDER_ADULT = "Persona Adult";
 const PERSONA_CATEGORY_ADULT = "Persona Adult";
+const PERSONA_FOLDER_ADULT_FEMALE = "Persona Adult Female";
+const PERSONA_CATEGORY_ADULT_FEMALE = "Persona Adult Female";
 
 type ScriptLine = {
   slot: string;
@@ -576,9 +581,18 @@ function getTtsCap(): number {
   return Number.isFinite(n) && n > 0 ? n : TTS_DEFAULT_CAP;
 }
 
-function hashTtsKey(preset: string, text: string, voice: "standard" | "adult" = "standard"): string {
+function hashTtsKey(
+  preset: string,
+  text: string,
+  voice: "standard" | "adult" | "adult_female" = "standard",
+): string {
   // Keep the standard-voice hash byte-identical so existing cache entries still resolve.
-  const seed = voice === "adult" ? `adult::${preset}::${text}` : `${preset}::${text}`;
+  const seed =
+    voice === "adult_female"
+      ? `adult_female::${preset}::${text}`
+      : voice === "adult"
+        ? `adult::${preset}::${text}`
+        : `${preset}::${text}`;
   return createHash("sha256").update(seed).digest("hex");
 }
 
@@ -607,7 +621,7 @@ export const speakPersonaLine = createServerFn({ method: "POST" })
     z.object({
       text: z.string().min(1).max(600),
       preset: z.enum(["hype", "calm"]).optional(),
-      voice: z.enum(["standard", "adult"]).optional(),
+      voice: z.enum(["standard", "adult", "adult_female"]).optional(),
       roomId: z.string().uuid().optional(),
     }).parse,
   )
