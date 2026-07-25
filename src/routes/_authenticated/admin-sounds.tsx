@@ -123,7 +123,7 @@ function SoundsPage() {
       setEvents(e.assignments);
       setActiveFolder((cur) => cur ?? f.folders[0]?.name ?? null);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(friendlyBakeError(err));
     } finally {
       setLoading(false);
     }
@@ -391,7 +391,7 @@ function EventsPanel({
       return;
     const toastId = toast.loading("🔥 Wiping old adult clips…");
     try {
-      const res = await resetPersonaAdultFn();
+      const res = await retryTransient(() => resetPersonaAdultFn());
       toast.loading(`Wiped ${res.removed} old clips. Baking standard Vox…`, { id: toastId });
 
       // Standard Vox — loop until drained
@@ -1307,7 +1307,7 @@ function QuestionVoiceoversPanel() {
     let safety = 0;
     try {
       while (safety++ < 200) {
-        const r = await bakeAllFn({ data: { force, limit: 25 } });
+        const r = await retryTransient(() => bakeAllFn({ data: { force, limit: 10 } }));
         totalBaked += r.baked;
         totalErrors += r.errors.length;
         const msg = `Narrating questions… ${totalBaked} / ${remaining}${totalErrors ? ` · ${totalErrors} errors` : ""}`;
@@ -1321,7 +1321,7 @@ function QuestionVoiceoversPanel() {
       );
       setProgress(null);
     } catch (err) {
-      toast.error((err as Error).message, { id: toastId });
+      toast.error(friendlyBakeError(err), { id: toastId });
       setProgress(null);
     } finally {
       setRunning(false);
@@ -1408,7 +1408,7 @@ function ExplanationVoiceoversPanel() {
     let safety = 0;
     try {
       while (safety++ < 100) {
-        const r = await bakeFn({ data: { limit: 25 } });
+        const r = await retryTransient(() => bakeFn({ data: { limit: 10 } }));
         totalBaked += r.baked;
         totalErrors += r.errors.length;
         const msg = `Narrating "Did you know?"… ${totalBaked} / ${remaining}${totalErrors ? ` · ${totalErrors} errors` : ""}`;
@@ -1422,7 +1422,7 @@ function ExplanationVoiceoversPanel() {
       );
       setProgress(null);
     } catch (e) {
-      toast.error((e as Error).message, { id: toastId });
+      toast.error(friendlyBakeError(e), { id: toastId });
       setProgress(null);
     } finally {
       setRunning(false);
