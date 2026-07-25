@@ -3,12 +3,17 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { LINES as PERSONA_LINES } from "@/lib/host-persona";
+import { LINES_ADULT as PERSONA_LINES_ADULT } from "@/lib/host-persona.adult";
 
-// Brian — deep, energetic hype-man (Jackbox-style host)
+// The Elf — deep, energetic hype-man (Jackbox-style host)
 const VOICE_ID = "e79twtVS2278lVZZQiAD";
+// Bill — gravelly older-man voice for the adult/party mode announcer
+const ADULT_VOICE_ID = "pqHfZKP75CvOlQylNhV4";
 const FOLDER = "Announcer";
 const PERSONA_FOLDER = "Persona";
 const PERSONA_CATEGORY = "Persona";
+const PERSONA_FOLDER_ADULT = "Persona Adult";
+const PERSONA_CATEGORY_ADULT = "Persona Adult";
 
 type ScriptLine = {
   slot: string;
