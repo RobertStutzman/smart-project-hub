@@ -148,6 +148,16 @@ function HostPage() {
     const unsub = subscribeContentRating((r) => setRatingState(r));
     return () => { unsub(); };
   }, []);
+
+  // Push the chosen rating to the room so the server question fetcher can
+  // hard-gate the pool (PG → PG only, PG-13 → PG+PG-13, MA → all).
+  useEffect(() => {
+    if (!room || !rating) return;
+    setRoomContentRatingFn({
+      data: { roomCode: room.roomCode, hostSessionId: room.hostSessionId, rating },
+    }).catch(() => {});
+  }, [room, rating, setRoomContentRatingFn]);
+
   
   
   
